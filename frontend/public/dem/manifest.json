@@ -1,0 +1,24 @@
+{
+  "source": "User-provided VWorld Korea DEM",
+  "native_resolution_m": 90,
+  "vertical_unit_confirmed": false,
+  "display_assumption": "source elevation values treated as metres for preview only",
+  "vertical_datum": null,
+  "encoding": "mapbox",
+  "minzoom": 14,
+  "maxzoom": 14,
+  "tile_size": 256,
+  "bounds": [
+    127.1337890625,
+    37.31775185163688,
+    127.19970703125,
+    37.37015718405751
+  ],
+  "tiles": [
+    "/dem/{z}/{x}/{y}.png"
+  ],
+  "tile_count": 9,
+  "bytes": 259241,
+  "exaggeration": 1,
+  "resampling": "bilinear display interpolation (native analysis remains 90m)"
+}

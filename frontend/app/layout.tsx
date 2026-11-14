@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-export const metadata: Metadata = {title:'우리 집 작은 숲 · Feng Shui Lab',description:'집과 동네를 천천히 알아가는 작은 탐험. 풍수·GIS 서비스 디자인 시안.'};
+import './brand-theme.css';
+export const metadata: Metadata = {title:'Find My Shelter · 실제 GIS 데이터 샘플',description:'사용자 제공 광주시 건물 도형을 이용한 데이터 연결 샘플.'};
 export default function Layout({children}:{children:React.ReactNode}) {return <html lang="ko"><body>{children}</body></html>}

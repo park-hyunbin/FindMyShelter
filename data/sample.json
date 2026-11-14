@@ -1,0 +1,8 @@
+{
+  "name": "오포 롯데캐슬 포레스트 101동",
+  "working_source": "data/working/opo_300m/buildings.shp",
+  "baseline": "data/raw/sample-snapshot/buildings.geojson",
+  "target_id": "2009214475574276550000000000",
+  "source_note": "Existing web sample snapshot derived from AL_D198_41610_20260715; original Gwangju SHP no longer present at reorganization. Not original A-column source.",
+  "radius_m": 300
+}

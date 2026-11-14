@@ -13,3 +13,8 @@
 *.sqlite3
 *.db
 data/raw/
+data/processed/
+public/경기도/
+
+data/archive/
+data/working/

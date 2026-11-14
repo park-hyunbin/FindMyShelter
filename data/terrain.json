@@ -1,0 +1,18 @@
+{
+  "source_file": "data/raw/dem/korea_90m_grs80.img",
+  "original_filename": "한반도90m_GRS80.img",
+  "source_provider": "VWorld (user reported)",
+  "source_url": null,
+  "license_status": "not_verified",
+  "vertical_unit": null,
+  "vertical_datum": null,
+  "acquisition_date": null,
+  "crs_wkt": "PROJCS[\"Transverse Mercator\",GEOGCS[\"GRS80 ELLIPSOID\",DATUM[\"GRS80 ELLIPSOID\",SPHEROID[\"GRS 1980\",6378137,298.257222101004],TOWGS84[0,0,0,0,0,0,0]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",38.0000000000001],PARAMETER[\"central_meridian\",127],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",200000],PARAMETER[\"false_northing\",600000],UNIT[\"meters\",1],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+  "resolution": [
+    90.0,
+    90.0
+  ],
+  "nodata": -9999.0,
+  "width": 8013,
+  "height": 12720
+}
