@@ -2,12 +2,31 @@ import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { regions, type RegionId } from './data/regions';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
+import register from '../public/opo-building-register.json';
 
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
 export type Shape = Point[][];
-export type Building = { id: string; label: string; dong: string | null; height: number | null; shapes: Shape[] };
-type BuildingProperties = { id: string; name: string | null; dong: string | null; height_m: number | null };
+export type Building = {
+  id: string; label: string; dong: string | null; height: number | null;
+  levels: number | null; category: string; roof: string | null; shapes: Shape[];
+};
+type BuildingProperties = {
+  id: string; name: string | null; dong: string | null; height_m: number | null;
+  levels?: number | null; floors?: number | null; building?: string; use?: string; roof?: string | null; area_m2?: number;
+};
+type StreetProperties = {
+  id: number; category: string; nodeIds: number[]; name: string | null; motor: boolean;
+  width: number | null; lanes: number | null; surface: string | null; bridge: boolean; unpaved: boolean;
+  sidewalks: boolean[]; markings: boolean; oneWay: -1 | 0 | 1;
+};
+type StreetPointProperties = { id: string; kind: 'bus' | 'crossing' | 'lamp' | 'signal' | 'tree' | 'bench' | 'place'; name: string | null };
+type StreetFile = {
+  metadata: { source: string }; roads: (StreetProperties & { coordinates: Position[] })[];
+  points: (StreetPointProperties & { coordinates: Position })[]; parking: { id: number; coordinates: Position[] }[];
+};
+export type Street = StreetProperties & { points: Point[] };
+export type StreetPoint = StreetPointProperties & { position: Point };
 type BuildingFile = FeatureCollection<Polygon | MultiPolygon, BuildingProperties> & {
   metadata: { center_lnglat: [number, number]; local_origin_xy: [number, number]; radius_m: number };
 };
@@ -20,7 +39,7 @@ type EnvironmentFile = FeatureCollection<LineString | MultiLineString | Polygon 
 type TerrainFile = {
   source: string; catalog: string; verticalDatum: string; nativeResolutionM: number; sourceEpoch: string;
   originEPSG5186: [number, number]; extentM: number; spacingM: number; size: number;
-  elevation: number[]; spread: number[]; meanRelativeDifferenceFrom90M: number;
+  elevation: number[]; spread: number[]; meanRelativeDifferenceFrom90M?: number;
 };
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
 
@@ -48,16 +67,50 @@ export function terrainSample(grid: TerrainFile, values: number[], x: number, z:
     + (values[index + size] * (1 - a) + values[index + size + 1] * a) * b;
 }
 
+function outlineArea(shapes: Shape[]) {
+  return shapes.reduce((total, shape) => total + shape.reduce((area, ring, index) => {
+    const twiceArea = ring.reduce((sum, point, i) => {
+      const next = ring[(i + 1) % ring.length];
+      return sum + point.x * next.z - next.x * point.z;
+    }, 0);
+    return area + Math.abs(twiceArea) / 2 * (index === 0 ? 1 : -1);
+  }, 0), 0);
+}
+
+function regionalStreets(features: Environment[]): Street[] {
+  const nodes = new Map<string, number>();
+  const roads = features.filter(road => road.kind === 'road' && road.brunnel !== 'tunnel');
+  return roads.flatMap(road => road.lines.filter(points => points.length > 1).map(points => {
+    const bridge = road.brunnel === 'bridge';
+    // Shared vertices join adjacent tile lines. Keep overpasses apart from surface roads.
+    const nodeIds = points.map(point => {
+      const key = `${Math.round(point.x * 100)},${Math.round(point.z * 100)},${bridge}`;
+      const existing = nodes.get(key);
+      if (existing !== undefined) return existing;
+      const id = nodes.size;
+      nodes.set(key, id);
+      return id;
+    });
+    const category = road.category === 'minor' ? 'residential'
+      : road.category === 'path' ? road.subclass ?? 'footway' : road.category;
+    return { category, nodeIds, points, name: road.name ?? null,
+      motor: road.category !== 'path' && road.category !== 'track',
+      width: null, lanes: null, surface: null, bridge, unpaved: road.category === 'track',
+      sidewalks: [], markings: false, oneWay: 0 as const };
+  })).map((road, id) => ({ ...road, id }));
+}
+
 export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo') {
   const area = regions.find(r => r.id === region)!;
   const empty = {type: 'FeatureCollection' as const, features: []};
-  const [source, environment, dem, site, surrounding, poi] = await Promise.all([
+  const [source, environment, dem, site, surrounding, poi, neighborhood] = await Promise.all([
     loadBuildingDataset(region, signal),
     json<EnvironmentFile>(area.environment, signal),
     json<TerrainFile>(area.terrain, signal),
     area.site ? json<SiteFile>(area.site, signal) : Promise.resolve(empty as SiteFile),
     area.surrounding ? json<OsmBuildingFile>(area.surrounding, signal) : Promise.resolve(empty as OsmBuildingFile),
     json<FeatureCollection<import('geojson').Point, Omit<Place, 'point'>>>(area.places, signal),
+    area.streets ? json<StreetFile>(area.streets, signal) : Promise.resolve(null),
   ]);
   const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
@@ -78,13 +131,25 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const ground = (x: number, z: number) => elevationAt(x, z) - base;
   const toShape = (rings: Position[][]) => rings.map(ring => ring.slice(0, -1).map(project));
 
-  const toBuilding = ({ geometry, properties }: BuildingFile['features'][number]): Building => ({
-    id: properties.id,
-    label: [properties.name ?? '주변 건물', properties.dong === properties.name ? null : properties.dong].filter(Boolean).join(' '),
-    dong: properties.name === '오포 롯데캐슬 포레스트' ? properties.dong : null,
-    height: properties.height_m,
-    shapes: (geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates).map(toShape),
-  });
+  const officialHeights = new Map(register.towers.map(row => [row.outlineId, row]));
+  const registerRows: (typeof register.towers[number] & { outlineAreaM2: number })[] = [];
+  const toBuilding = ({ geometry, properties }: BuildingFile['features'][number]): Building => {
+    const dong = region === 'opo' && properties.name === '오포 롯데캐슬 포레스트' ? properties.dong : null;
+    const row = officialHeights.get(properties.id);
+    const recorded = row && row.dong === dong ? row : undefined;
+    const shapes = (geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates).map(toShape);
+    if (recorded) registerRows.push({ ...recorded, outlineAreaM2: properties.area_m2 ?? outlineArea(shapes) });
+    return {
+      id: properties.id,
+      label: [properties.name ?? '주변 건물', properties.dong === properties.name ? null : properties.dong].filter(Boolean).join(' '),
+      dong,
+      height: recorded?.heightM ?? properties.height_m,
+      levels: recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors ?? null,
+      category: properties.building ?? properties.use ?? '',
+      roof: properties.roof ?? null,
+      shapes,
+    };
+  };
   const buildings = source.features.map(toBuilding);
   const outlineCenter = (ring: Point[]) => ring.reduce((sum, point) => ({
     x: sum.x + point.x / ring.length, z: sum.z + point.z / ring.length,
@@ -92,11 +157,12 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const existing = buildings.flatMap(building => building.shapes.map(shape => ({ shape, center: outlineCenter(shape[0]) })));
   const additional = surrounding.features.map(toBuilding).filter(building => {
     const shape = building.shapes[0], center = outlineCenter(shape[0]);
-    return !existing.some(original => inShape(center, original.shape) || inShape(original.center, shape));
+    return Math.abs(center.x) < extent && Math.abs(center.z) < extent
+      && !existing.some(original => inShape(center, original.shape) || inShape(original.center, shape));
   });
   // Preserve the QGIS measurements when a building is present in both sources.
   const heightGaps = [...buildings, ...additional].filter(building => !building.height).flatMap(building => building.shapes);
-  buildings.push(...additional.filter(building => building.height));
+  buildings.push(...additional);
   const features: Environment[] = environment.features.map(({ geometry, properties }) => ({
     ...properties,
     lines: geometry.type === 'LineString' ? [geometry.coordinates.map(project)]
@@ -106,18 +172,24 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   }));
   const siteRoads = site.features.flatMap(({ geometry, properties }) => geometry.type === 'LineString'
     ? [{ points: geometry.coordinates.map(project), bridge: properties.bridge, id: properties.id }] : []);
-  if (region !== 'opo') features.filter(f => f.kind === 'road').forEach((road, id) => {
-    road.lines.forEach(points => siteRoads.push({points, bridge: false, id}));
-  });
   const siteOutline = site.features.flatMap(({ geometry }) => geometry.type === 'Polygon'
     ? geometry.coordinates[0].map(project) : []);
+  const streets: Street[] = neighborhood
+    ? neighborhood.roads.map(({ coordinates, ...tags }) => ({ ...tags, points: coordinates.map(project) }))
+    : regionalStreets(features);
+  const streetPoints: StreetPoint[] = (neighborhood?.points ?? []).map(({ coordinates, ...tags }) => ({ ...tags, position: project(coordinates) }))
+    .filter(({ position }) => Math.abs(position.x) < extent && Math.abs(position.z) < extent);
+  const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));
   const date = environment.metadata.tile_source.match(/\/(\d{4})(\d{2})(\d{2})_/);
   const referenceHeight = Math.max(...buildings.map(building => building.height ?? 0));
   const places: Place[] = poi.features.map(f => {
     const point = project(f.geometry.coordinates);
     return { ...f.properties, point, distance_m: Math.round(Math.hypot(point.x,point.z)) };
   }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent);
-  return { region, area, places, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight, features, siteRoads, siteOutline, project, northOffset, buildingRadius,
+  return { region, area, places, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
+    features, siteRoads, siteOutline, project, northOffset, buildingRadius, streets, streetPoints, parking,
+    streetSource: neighborhood?.metadata.source ?? environment.metadata.tile_source,
+    buildingRegister: region === 'opo' ? { ...register, towers: registerRows.sort((a, b) => a.dong.localeCompare(b.dong)) } : null,
     terrainSource: { name: dem.source, catalog: dem.catalog, datum: dem.verticalDatum, resolution: dem.nativeResolutionM,
       epoch: dem.sourceEpoch, relativeDifference: dem.meanRelativeDifferenceFrom90M },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
@@ -133,6 +205,28 @@ export function inShape(point: Point, rings: Shape): boolean {
     return hit;
   };
   return inside(rings[0]) && !rings.slice(1).some(inside);
+}
+
+export function buildingCollision(buildings: Building[]) {
+  const cellSize = 40;
+  const cells = new Map<string, Shape[]>();
+  for (const building of buildings) for (const shape of building.shapes) {
+    const outline = shape[0];
+    const left = Math.floor(Math.min(...outline.map(p => p.x)) / cellSize);
+    const right = Math.floor(Math.max(...outline.map(p => p.x)) / cellSize);
+    const top = Math.floor(Math.min(...outline.map(p => p.z)) / cellSize);
+    const bottom = Math.floor(Math.max(...outline.map(p => p.z)) / cellSize);
+    for (let x = left; x <= right; x++) for (let z = top; z <= bottom; z++) {
+      const key = `${x},${z}`;
+      const cell = cells.get(key);
+      if (cell) cell.push(shape);
+      else cells.set(key, [shape]);
+    }
+  }
+  return (point: Point) => {
+    const key = `${Math.floor(point.x / cellSize)},${Math.floor(point.z / cellSize)}`;
+    return cells.get(key)?.some(shape => inShape(point, shape)) ?? false;
+  };
 }
 
 export function nearestOnLine(point: Point, lines: Point[][]) {

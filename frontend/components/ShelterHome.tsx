@@ -16,7 +16,7 @@ export default function ShelterHome() {
   const needle = query.trim().replace(/\s/g, '').toLowerCase();
   const matches = regions.filter(r => `${r.name}${r.area}${r.keywords}`.replace(/\s/g, '').toLowerCase().includes(needle));
   return <main className="shelter-home">
-    <header className="shelter-nav"><a href="/">⌂ Find My Shelter</a><span>나의 작은 세계를 발견하는 지도</span><a href="/polygons">데이터 검증 ↗</a></header>
+    <header className="shelter-nav"><a href="/">⌂ Find My Shelter</a><span>나의 작은 세계를 발견하는 지도</span><a href="/polygons/">데이터 검증 ↗</a></header>
     <section className="shelter-hero">
       <div className="shelter-orbit" aria-hidden="true"><span>⌂</span><i/><i/><i/></div>
       <p className="shelter-eyebrow">A SMALL WORLD, YOUR SHELTER</p>

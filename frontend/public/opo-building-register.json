@@ -1,0 +1,23 @@
+{
+  "source": {
+    "provider": "국토교통부 건축HUB",
+    "table": "건축물대장(표제부)",
+    "dataMonth": "2026-10",
+    "parcel": "경기도 광주시 능평동 917번지",
+    "url": "https://www.hub.go.kr/portal/opn/tyb/idx-bdrg-ttlldr.do"
+  },
+  "towers": [
+    { "dong": "101동", "outlineId": "2009214475574276550000000000", "ledgerId": "11251100179281", "heightM": 46.78, "aboveGroundFloors": 15, "registeredFootprintM2": 619.01 },
+    { "dong": "102동", "outlineId": "2009214544474276489100000000", "ledgerId": "11251100179429", "heightM": 46.78, "aboveGroundFloors": 15, "registeredFootprintM2": 500.83 },
+    { "dong": "103동", "outlineId": "2009214599494276091800000000", "ledgerId": "11251100179342", "heightM": 46.78, "aboveGroundFloors": 14, "registeredFootprintM2": 926.47 },
+    { "dong": "104동", "outlineId": "2009214508274276228200000000", "ledgerId": "11251100179399", "heightM": 46.78, "aboveGroundFloors": 15, "registeredFootprintM2": 326.18 }
+  ],
+  "facilities": [
+    { "name": "경비실", "aboveGroundFloors": 1, "belowGroundFloors": 0, "heightM": 3.7 },
+    { "name": "관리실·경로당", "aboveGroundFloors": 3, "belowGroundFloors": 0, "heightM": 9.27 },
+    { "name": "주민공동시설", "aboveGroundFloors": 0, "belowGroundFloors": 1, "heightM": 3.85 },
+    { "name": "지하주차장", "aboveGroundFloors": 0, "belowGroundFloors": 1, "heightM": 3.85 },
+    { "name": "전기실·발전기실", "aboveGroundFloors": 0, "belowGroundFloors": 1, "heightM": 5.55 },
+    { "name": "펌프실", "aboveGroundFloors": 0, "belowGroundFloors": 1, "heightM": 6.75 }
+  ]
+}

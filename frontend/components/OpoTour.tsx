@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { courtyard, courtyardGarden } from './opo-courtyard';
 import { loadOpoData, type Point } from './opo-data';
 import { horizonRange, type DirectionProfile } from './opo-horizon';
 import { observationHeight, type LightReport, type LightSample } from './opo-sunlight';
@@ -83,7 +84,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
   const [points, setPoints] = useState<Points>({});
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [status, setStatus] = useState('');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(region !== 'opo');
   const [placeCategory, setPlaceCategory] = useState('all');
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [tab, setTab] = useState<AnalysisTab>('sun');
@@ -94,9 +95,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
 
-  useEffect(() => {
-    if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
-  }, []);
+  const [street, setStreet] = useState({ name: '수레실길', speed: 0, touring: false });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -115,7 +114,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
         setStatus('');
       });
       const options = active.presets;
-      setPoints({ A: options[0], B: options[options.length - 1] });
+      setPoints({ A: options[0], B: options.find(point => point.id === '104동') ?? options.at(-1) });
       active.setMode(region === 'opo' ? 'walk' : 'orbit');
       setWorld(active);
     }).catch(() => {
@@ -134,6 +133,15 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
 
   useEffect(() => {
     if (!world) return;
+    const clock = window.setInterval(() => {
+      const next = world.streetStatus();
+      setStreet(old => old.name === next.name && old.speed === next.speed && old.touring === next.touring ? old : next);
+    }, 210);
+    return () => window.clearInterval(clock);
+  }, [world]);
+
+  useEffect(() => {
+    if (!world) return;
     for (const slot of slots) {
       const point = points[slot];
       if (point) world.place(slot, point);
@@ -146,17 +154,21 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
   }, [world, selectedSlot]);
 
   useEffect(() => {
+    if (open) world?.walkStick(0, 0);
+  }, [world, open]);
+
+  useEffect(() => {
     world?.showSiteDetails(open && tab === 'site');
     world?.showPlaces(open && tab === 'places' ? (placeCategory === 'all' ? ['beauty','convenience','school'] : [placeCategory]) : []);
   }, [world, open, tab, placeCategory]);
 
   const reports = useMemo(() => {
     const result: Partial<Record<Slot, LightReport>> = {};
-    if (world && date) for (const slot of slots) {
+    if (world && date && open && tab === 'sun') for (const slot of slots) {
       if (points[slot]) result[slot] = world.report(points[slot], date);
     }
     return result;
-  }, [world, points, date]);
+  }, [world, points, date, open, tab]);
 
   const moment = useMemo(() => {
     const result: Partial<Record<Slot, LightSample>> = {};
@@ -228,7 +240,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     if (!world || !selectedSlot) return;
     const position = world.position();
     if (!world.canAnalyze(position)) {
-      setStatus('단지에 가까운 실외 지점으로 이동해 주세요.');
+      setStatus('분석 범위 안의 실외 지점으로 이동해 주세요.');
       return;
     }
     choosePoint(selectedSlot, { ...position, id: 'custom', label: '현재 위치에서 선택' });
@@ -246,7 +258,29 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     }
   }
 
-  return <main className="tour" data-satellite={satellite} onKeyDown={event => {
+  function walkStick(element: HTMLDivElement, x: number, y: number) {
+    element.style.setProperty('--stick-x', `${x * 26}px`);
+    element.style.setProperty('--stick-y', `${y * 26}px`);
+    world?.walkStick(x, y);
+  }
+
+  function visit(id: string) {
+    if (!world) return;
+    const next = world.goTo(id);
+    if (!next) return;
+    setMode(next);
+    setSelectedSlot(null);
+    setAccessId(null);
+    setStatus('');
+    world.showGreenAccess(null);
+    if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
+  const buildingRegister = world?.sources.register;
+  const selectedPlace = world?.places.find(place => place.id === selectedPlaceId);
+  const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
+
+  return <main className="tour" data-mode={mode} data-satellite={satellite} onKeyDown={event => {
     if (event.key === 'Escape') { setSelectedSlot(null); setStatus(''); }
   }}>
     <div className="world" ref={host} />
@@ -254,12 +288,29 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     <header className="tour-title">
       <div className="brand"><span aria-hidden="true" className="brand-icon">⌂</span> Find My Shelter</div>
       <div className="place"><h1>{area.name}</h1><p>{area.area}</p></div>
+      {(region === 'opo' || mode !== 'orbit') && <div className="street-controls">
+        {region === 'opo' && <select aria-label="동네에서 장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
+          <option value="" disabled>동네에서 장소로 이동</option>
+          {world?.destinations.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
+        </select>}
+        {mode !== 'orbit' && <span className="street-position">{street.name}{mode === 'drive' && <b>{street.speed} km/h</b>}</span>}
+      </div>}
     </header>
 
     <nav className="view-controls" aria-label="3D 탐색 모드">
       {(Object.keys(modeLabels) as ViewMode[]).map(key => <button key={key} disabled={!world} aria-pressed={mode === key} onClick={() => chooseMode(key)}>{modeLabels[key]}</button>)}
       <button className="recenter" aria-label="시작 위치로 돌아가기" title="시작 위치로 돌아가기" disabled={!world} onClick={() => world?.locate()}>⌖</button>
     </nav>
+    {Boolean(world?.tripLength) && <button className="street-trip" aria-pressed={street.touring}
+      title={`단지 입구에서 수레실 정류장을 거쳐 능평도서관까지 약 ${world?.tripLength}m`} onClick={() => {
+        if (!world) return;
+        setSelectedSlot(null);
+        setAccessId(null);
+        world.showGreenAccess(null);
+        const touring = world.toggleTrip();
+        setMode('drive');
+        setStreet(current => ({ ...current, touring }));
+      }}>{street.touring ? '드라이브 정지' : '동네 드라이브'}</button>}
 
     <button className="analysis-toggle" aria-expanded={open} aria-controls="analysis-panel" onClick={() => setOpen(value => !value)}>{open ? '분석 접기' : '주거환경 분석'}</button>
     {open && <aside id="analysis-panel" className="analysis" aria-label="주거환경 분석">
@@ -327,10 +378,12 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
         <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>자료 한계</span></div>
         <details className="basis"><summary>계산 기준과 자료</summary>
           <p>맑은 하늘을 가정하고 지면에서 1.5m 높이의 지점을 10분 간격으로 계산합니다. 건물과 지형이 태양을 가리는지 검사합니다.</p>
-          <p>건물 높이는 QGIS 편집본 후보값과 OSM에 기록된 높이를 사용합니다. 지형은 {world?.sources.terrain.name ?? 'GEDTM30'}의 약 {world?.sources.terrain.resolution ?? 30}m 표고 모델을 사용합니다. 실제 날씨와 수목은 계산에 반영하지 않습니다.</p>
+          {buildingRegister && <p>대상 주동은 건축HUB 표제부({buildingRegister.source.dataMonth})의 등록 높이로 건물 체적을 단순화해 계산합니다. 주변 건물은 QGIS 편집본 후보값과 OSM 높이를 사용합니다.</p>}
+          <p>지형은 {world?.sources.terrain.name ?? 'GEDTM30'}의 약 {world?.sources.terrain.resolution ?? 30}m 표고 모델입니다. 수목의 그늘은 현장에서 따로 확인해야 합니다.</p>
           <p>모델 내 최대 건물 높이({world?.sources.referenceHeight.toLocaleString('ko-KR') ?? '—'}m)까지의 차폐를 검토합니다. 햇빛 방향에 높이 미확인 건물이 있거나 건물 표본 밖에서 차폐 가능성이 있으면 해당 시간을 미판정으로 남깁니다.</p>
           <p>막대는 00~24시입니다. 누적 시간은 10분 구간의 중앙 시점으로 계산하고, 시각을 옮길 때의 판정은 화면에 표시된 시각을 사용합니다.</p>
           <a href="https://github.com/hypnos3/suncalc3" target="_blank" rel="noreferrer">태양 위치 계산 · SunCalc3 ↗</a>
+          {buildingRegister && <a href={buildingRegister.source.url} target="_blank" rel="noreferrer">주동 등록 높이 · 국토교통부 건축HUB ↗</a>}
         </details>
       </> : tab === 'nature' && <>
         <div className="terrain-heading"><h3>방향별 시야와 지형 단면</h3>
@@ -374,7 +427,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
           {world?.sources.terrain.relativeDifference != null && <p>기존 90m 자료와 중앙 기준점에 맞춰 비교한 상대 높이의 평균 절대 차이는 {world.sources.terrain.relativeDifference.toFixed(1)}m입니다.</p>}
           <a href={world?.sources.terrain.catalog ?? 'https://zenodo.org/records/15689805'} target="_blank" rel="noreferrer">지형 출처 · Ho &amp; Hengl / CC BY 4.0 ↗</a>
           <p>녹지와 수계 수치는 OpenStreetMap 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'})에 표시된 가장 가까운 경계·선까지의 직선거리입니다. 접근 가능 여부와 실제 보행 거리는 현장 확인이 필요합니다.</p>
-          <p>공원 인근 경로는 OpenStreetMap에서 같은 노드로 이어진 도로의 길이입니다. 보도가 지도에 표시된 구간은 실선으로 그립니다. 공원 출입구와 전체 보행 경로는 확인 중입니다.</p>
+          {region === 'opo' && <p>공원 인근 경로는 OpenStreetMap에서 같은 노드로 이어진 도로의 길이입니다. 보도가 지도에 표시된 구간은 실선으로 그립니다. 공원 출입구와 전체 보행 경로는 확인 중입니다.</p>}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap 데이터 ↗</a>
         </details>
       </>}
@@ -383,23 +436,66 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
         <div className="place-explorer-heading"><span>동네 탐색</span><p>아래 장소를 선택해 지도에서 위치를 확인하세요.</p></div>
         <div className="place-filters" aria-label="장소 종류">{[['all','전체'],['beauty','올리브영'],['convenience','편의점'],['school','학교']].map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => { setPlaceCategory(id); setSelectedPlaceId(null); }}>{label}</button>)}</div>
         <div className="place-list" aria-label="주변 장소 목록">{world?.places.filter(p => placeCategory === 'all' || p.category === placeCategory).map(p => <button className="place-row" aria-pressed={selectedPlaceId === p.id} key={p.id} onClick={() => selectPlace(p.id)}><span className={`place-kind place-kind-${p.category}`} aria-hidden="true">{p.category === 'school' ? '학' : p.category === 'beauty' ? '영' : '편'}</span><strong>{p.name}</strong><small>직선 {p.distance_m.toLocaleString()}m</small></button>)}</div>
-        {selectedPlaceId && world?.places.find(p => p.id === selectedPlaceId) && (() => { const p = world.places.find(place => place.id === selectedPlaceId)!; return <section className="place-detail"><span>{p.category === 'school' ? '학교' : p.category === 'beauty' ? '생활용품' : '편의점'}</span><h3>{p.name}</h3><p>단지 기준 직선 약 {p.distance_m.toLocaleString()}m 지점입니다. 3D 지도가 이 위치를 중심으로 이동했어요.</p></section>; })()}
+        {selectedPlace && <section className="place-detail">
+          <span>{selectedPlace.category === 'school' ? '학교' : selectedPlace.category === 'beauty' ? '생활용품' : '편의점'}</span>
+          <h3>{selectedPlace.name}</h3>
+          <p>{placeOrigin}에서 직선 약 {selectedPlace.distance_m.toLocaleString()}m 지점입니다.</p>
+        </section>}
         <div className="place-note"><strong>학교 위치와 통학구역은 달라요</strong><p>현재는 학교 위치만 표시합니다. 배정 학교와 학군 경계는 공식 자료를 연결한 뒤 별도 레이어로 제공합니다.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>
-        <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 2026-11-15 지도 스냅샷. 현재 영업 여부·상호 변경은 확인이 필요하며, 모든 시설을 포함하지는 않습니다. 거리는 EPSG:5186 기준 단지 원점에서의 직선거리이며 도보거리가 아닙니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
+        <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 2026-11-15 지도 스냅샷. 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
       </div>}
 
-      {tab === 'site' && <div className="site-features">
+      {region === 'opo' && tab === 'site' && <div className="site-features">
         <div className="site-key"><span><i className="site-outline-key"/>OSM 단지 영역</span><span><i className="site-road-key"/>진입로와 단지 도로</span></div>
-        <div className="site-card"><strong>수레실길에서 단지로</strong><p>운전 모드에서 수레실길 진입부와 교량을 지나 단지 도로로 들어갈 수 있어요.</p>
+        {buildingRegister && <div className="site-card">
+          <strong>주동 높이와 층수</strong>
+          <p>건축물대장 표제부 · {buildingRegister.source.dataMonth} 기준</p>
+          <table className="tower-register">
+            <thead><tr><th scope="col">주동</th><th scope="col">등록 높이</th><th scope="col">지상층</th></tr></thead>
+            <tbody>{buildingRegister.towers.map(row => <tr key={row.dong}>
+              <th scope="row">{row.dong}</th><td>{row.heightM.toFixed(2)}m</td><td>{row.aboveGroundFloors}층</td>
+            </tr>)}</tbody>
+          </table>
+          <details className="basis"><summary>도형과 부속시설 자료</summary>
+            <p>대장의 건축면적과 3D에 쓰는 평면 윤곽 면적은 동별로 다릅니다. 정확한 외벽 윤곽과 지면 단차는 현장 대조가 필요합니다.</p>
+            <table className="tower-register">
+              <thead><tr><th scope="col">주동</th><th scope="col">대장 면적</th><th scope="col">3D 도형 면적</th></tr></thead>
+              <tbody>{buildingRegister.towers.map(row => <tr key={row.dong}>
+                <th scope="row">{row.dong}</th><td>{row.registeredFootprintM2.toFixed(2)}㎡</td><td>{row.outlineAreaM2.toFixed(2)}㎡</td>
+              </tr>)}</tbody>
+            </table>
+            <p>같은 필지의 등록 부속시설</p>
+            <ul>{buildingRegister.facilities.map(row => <li key={row.name}>
+              {row.name} · {row.aboveGroundFloors ? `지상 ${row.aboveGroundFloors}층` : `지하 ${row.belowGroundFloors}층`}
+            </li>)}</ul>
+          </details>
+          <a href={buildingRegister.source.url} target="_blank" rel="noreferrer">건축HUB 표제부 · 능평동 917번지 ↗</a>
+        </div>}
+        <div className="site-card"><strong>수레실길에서 단지로</strong><p>수레실길과 능평동 골목을 이어 달리고, 단지 진입 교량과 주변 정류장·도서관을 찾아볼 수 있어요.</p>
           <a href="https://www.openstreetmap.org/way/835665646" target="_blank" rel="noreferrer">교량 좌표 출처 ↗</a>
+        </div>
+        <div className="site-card">
+          <strong>{courtyard.name}</strong>
+          <p>101동 남쪽의 원형 광장과 파란 포장, 남쪽 경사면의 석축과 목재 계단을 항공영상과 단지 사진에 맞춰 표현했어요. 세부 치수와 단차는 추정입니다.</p>
+          <div className="site-actions">
+            <button disabled={!world} onClick={() => visit(courtyard.id)}>중정 둘러보기</button>
+            <button disabled={!world} onClick={() => visit(courtyardGarden.id)}>남쪽 정원 보기</button>
+            <button disabled={!world?.presets.some(point => point.id === courtyard.id)} onClick={() => {
+              const point = world?.presets.find(point => point.id === courtyard.id);
+              if (!point) return;
+              choosePoint('A', point);
+              chooseTab('sun');
+            }}>중정 일조 보기</button>
+          </div>
+          <ul>{courtyard.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a></li>)}</ul>
         </div>
         <div className="site-card"><strong>등록된 놀이시설</strong><ul>
           <li><a href="https://www.yugacrew.com/gyeonggi/gwangju/playground/29639" target="_blank" rel="noreferrer">놀이광장 ↗</a></li>
           <li><a href="https://www.yugacrew.com/gyeonggi/gwangju/playground/28626" target="_blank" rel="noreferrer">놀이의 테라스 ↗</a></li>
-        </ul><p>두 시설의 공개 좌표가 같아 등록 위치를 하나로 표시했어요. 시설별 상세 위치는 확인 중입니다.</p></div>
+        </ul><p>두 시설은 단지의 같은 등록 주소를 사용합니다. 사진에서 보이는 포장 공간과 개별 시설명은 추가 대조가 필요합니다.</p></div>
         <details className="basis"><summary>단지 자료 기준</summary>
-          <p>영역과 도로선은 OpenStreetMap 원본입니다. 교량 높이와 도로 폭은 화면용 추정입니다.</p>
-          <a href="https://www.openstreetmap.org/way/835658915" target="_blank" rel="noreferrer">OSM 단지 영역 원본 ↗</a>
+          <p>건물 윤곽·도로·보행로·정류장 위치에는 OpenStreetMap 원본을 사용합니다. 높이 미확인 건물은 층수나 용도에 맞춘 입체 형상으로 표현합니다. 외벽·차선 모양과 기록이 없는 도로 폭·교량 높이는 화면용 추정입니다.</p>
+          <a href={world?.sources.streets ?? 'https://www.openstreetmap.org/#map=16/37.3508/127.1642'} target="_blank" rel="noreferrer">OSM 동네 원본 ↗</a>
         </details>
       </div>}
     </aside>}
@@ -419,14 +515,31 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
         onKeyUp={() => world?.movement(key, false)}
         onBlur={() => world?.movement(key, false)}>{glyph}</button>)}
     </div>}
+    {mode === 'walk' && !open && !selectedSlot && <div className="walk-stick" role="group" aria-label="걷기 조이스틱"
+      onPointerDown={event => {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={event => {
+        const element = event.currentTarget;
+        if (!element.hasPointerCapture(event.pointerId)) return;
+        const bounds = element.getBoundingClientRect();
+        const x = event.clientX - bounds.left - bounds.width / 2;
+        const y = event.clientY - bounds.top - bounds.height / 2;
+        const distance = Math.max(27, Math.hypot(x, y));
+        walkStick(element, Math.abs(x) < 3 ? 0 : x / distance, Math.abs(y) < 3 ? 0 : y / distance);
+      }}
+      onPointerUp={event => walkStick(event.currentTarget, 0, 0)}
+      onPointerCancel={event => walkStick(event.currentTarget, 0, 0)}
+      onLostPointerCapture={event => walkStick(event.currentTarget, 0, 0)}><span aria-hidden="true" /></div>}
 
-    <div className="scene-instructions">{mode === 'orbit' ? '드래그로 회전 · 스크롤로 확대' : 'WASD로 이동 · 드래그로 둘러보기'}</div>
+    <div className="scene-instructions">{mode === 'orbit' ? '드래그로 회전 · 스크롤로 확대'
+      : mode === 'drive' ? 'W/S 가속·후진 · A/D 조향' : '바닥을 눌러 이동 · WASD로 걷기 · 드래그로 둘러보기'}</div>
 
     {!world && <div className="loading" role="status">{error ? <><p>{error}</p><button onClick={() => { setError(''); setRetry(value => value + 1); }}>다시 열기</button></> : `${area.name}의 지형과 건물을 불러오는 중…`}</div>}
 
     <footer className="credits">
       <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap / OpenMapTiles</a> · <a href="https://zenodo.org/records/15689805" target="_blank" rel="noreferrer">GEDTM30 · Ho &amp; Hengl (CC BY 4.0)</a> · 실외 모델 추정
-      {satellite && <> · <a href="https://registry.opendata.aws/sentinel-2-l2a-cogs/" target="_blank" rel="noreferrer">{satelliteMetadata.attribution}</a></>}
+      {region === 'opo' && <> · <a href="https://registry.opendata.aws/sentinel-2-l2a-cogs/" target="_blank" rel="noreferrer">{satelliteMetadata.attribution}</a></>}
     </footer>
   </main>;
 }
