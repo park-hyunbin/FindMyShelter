@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fromUrl } from 'geotiff';
 import { PNG } from 'pngjs';
 import proj4 from 'proj4';
@@ -10,7 +10,10 @@ const sources = Object.fromEntries(['m', 'std'].map(key => [key,
 ]));
 const root = new URL('../public/', import.meta.url);
 const load = async file => JSON.parse(await readFile(new URL(file, root), 'utf8'));
-const buildings = await load('sample-buildings.geojson');
+const regional = process.argv.includes('--region');
+const region = regional ? process.argv[process.argv.indexOf('--region') + 1] : 'opo';
+if (!/^[a-z0-9_-]+$/.test(region)) throw new Error('Invalid region');
+const buildings = await load(regional ? `datasets/buildings/${region}/manifest.json` : 'sample-buildings.geojson');
 const [easting, northing] = buildings.metadata.local_origin_xy;
 const local = '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs';
 const projection = proj4(local, 'WGS84');
@@ -53,6 +56,8 @@ async function crop(url, divisor, limits) {
 const [elevation, spread] = await Promise.all([crop(sources.m, 10, [-20, 700]), crop(sources.std, 100, [0, 100])]);
 
 // Compare relative heights because the earlier VWorld crop has an unconfirmed vertical datum.
+let meanDifference = null;
+if (!regional) {
 const legacy = await load('dem/manifest.json');
 const tileSize = legacy.tile_size;
 const zoom = legacy.maxzoom;
@@ -79,15 +84,19 @@ const oldElevations = await Promise.all(coordinates.map(async point => {
 }));
 const center = Math.floor(elevation.length / 2);
 const differences = elevation.map((height, i) => Math.abs(height - elevation[center] - oldElevations[i] + oldElevations[center]));
-const meanDifference = differences.reduce((total, value) => total + value, 0) / differences.length;
+meanDifference = differences.reduce((total, value) => total + value, 0) / differences.length;
+}
+const center = Math.floor(elevation.length / 2);
 const output = {
   source: 'GEDTM30 v1.1 · Ho & Hengl', catalog, license: 'https://creativecommons.org/licenses/by/4.0/',
   sources, nativeResolutionM: 30, verticalDatum: 'EGM2008 (EPSG:3855)',
   originEPSG5186: [easting, northing], extentM: span, spacingM: step, size,
   sourceEpoch: '2006–2015', processing: 'Subset and bilinear interpolation onto an EPSG:5186 grid; no new native detail.',
-  meanRelativeDifferenceFrom90M: Number(meanDifference.toFixed(1)),
+  meanRelativeDifferenceFrom90M: meanDifference === null ? null : Number(meanDifference.toFixed(1)),
   elevation, spread,
 };
-await writeFile(new URL('opo-terrain.json', root), JSON.stringify(output) + '\n');
+const outputRoot = regional ? new URL(`datasets/regions/${region}/`, root) : root;
+await mkdir(outputRoot, {recursive:true});
+await writeFile(new URL(regional ? 'terrain.json' : 'opo-terrain.json', outputRoot), JSON.stringify(output) + '\n');
 console.log(JSON.stringify({ samples: elevation.length, min: Math.min(...elevation), max: Math.max(...elevation),
   centerHeight: elevation[center], centerSpread: spread[center], meanRelativeDifferenceFrom90M: output.meanRelativeDifferenceFrom90M }));

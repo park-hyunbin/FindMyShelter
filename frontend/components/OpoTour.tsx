@@ -7,13 +7,14 @@ import { observationHeight, type LightReport, type LightSample } from './opo-sun
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import greenAccess from '../public/opo-green-access.json';
+import { regions, type RegionId } from './data/regions';
 
 const slots: Slot[] = ['A', 'B'];
 const initialDate = '2026-12-21';
 const capture = new Date(Date.parse(satelliteMetadata.acquired_at) + 9 * 3600000);
 const captureMinute = capture.getUTCHours() * 60 + capture.getUTCMinutes();
 type Points = Partial<Record<Slot, SitePoint>>;
-type AnalysisTab = 'sun' | 'nature' | 'site';
+type AnalysisTab = 'sun' | 'nature' | 'site' | 'places';
 const modeLabels: Record<ViewMode, string> = { orbit: '조감', walk: '걷기', drive: '운전' };
 const directions = [ ['up', '↑', '전진'], ['left', '←', '왼쪽'], ['down', '↓', '후진'], ['right', '→', '오른쪽'] ];
 const bearings = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
@@ -71,17 +72,20 @@ function TerrainSection({ profiles, onLook }: {
   </div>;
 }
 
-export default function OpoTour() {
+export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
+  const area = regions.find(r => r.id === region)!;
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
   const [world, setWorld] = useState<OpoWorld | null>(null);
-  const [mode, setMode] = useState<ViewMode>('walk');
+  const [mode, setMode] = useState<ViewMode>(region === 'opo' ? 'walk' : 'orbit');
   const [date, setDate] = useState(initialDate);
   const [minute, setMinute] = useState(840);
   const [points, setPoints] = useState<Points>({});
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [status, setStatus] = useState('');
   const [open, setOpen] = useState(true);
+  const [placeCategory, setPlaceCategory] = useState('all');
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [tab, setTab] = useState<AnalysisTab>('sun');
   const [accessId, setAccessId] = useState<string | null>(null);
   const [bearing, setBearing] = useState(0);
@@ -97,7 +101,7 @@ export default function OpoTour() {
   useEffect(() => {
     const controller = new AbortController();
     let active: OpoWorld | undefined;
-    loadOpoData(controller.signal).then(data => {
+    loadOpoData(controller.signal, region).then(data => {
       if (controller.signal.aborted || !host.current) return;
       active = openOpoWorld(host.current, data, location => {
         const slot = pickSlot.current;
@@ -112,6 +116,7 @@ export default function OpoTour() {
       });
       const options = active.presets;
       setPoints({ A: options[0], B: options[options.length - 1] });
+      active.setMode(region === 'opo' ? 'walk' : 'orbit');
       setWorld(active);
     }).catch(() => {
       if (!controller.signal.aborted) setError('3D 공간을 열지 못했어요. 브라우저의 그래픽 가속과 자료 연결을 확인해 주세요.');
@@ -120,7 +125,7 @@ export default function OpoTour() {
       controller.abort();
       active?.dispose();
     };
-  }, [retry]);
+  }, [retry, region]);
 
   useEffect(() => {
     if (!world || !date) return;
@@ -142,7 +147,8 @@ export default function OpoTour() {
 
   useEffect(() => {
     world?.showSiteDetails(open && tab === 'site');
-  }, [world, open, tab]);
+    world?.showPlaces(open && tab === 'places' ? (placeCategory === 'all' ? ['beauty','convenience','school'] : [placeCategory]) : []);
+  }, [world, open, tab, placeCategory]);
 
   const reports = useMemo(() => {
     const result: Partial<Record<Slot, LightReport>> = {};
@@ -193,6 +199,12 @@ export default function OpoTour() {
     setTab(next);
   }
 
+  function selectPlace(id: string) {
+    setSelectedPlaceId(id);
+    world?.focusPlace(id);
+    setMode('orbit');
+  }
+
   function toggleGreenAccess(id: string) {
     if (!world) return;
     const next = accessId === id ? null : id;
@@ -241,7 +253,7 @@ export default function OpoTour() {
 
     <header className="tour-title">
       <div className="brand"><span aria-hidden="true" className="brand-icon">⌂</span> Find My Shelter</div>
-      <div className="place"><h1>오포 롯데캐슬 포레스트</h1><p>경기 광주시 수레실길 7</p></div>
+      <div className="place"><h1>{area.name}</h1><p>{area.area}</p></div>
     </header>
 
     <nav className="view-controls" aria-label="3D 탐색 모드">
@@ -255,7 +267,8 @@ export default function OpoTour() {
       <div className="analysis-tabs" aria-label="분석 항목">
         <button aria-pressed={tab === 'sun'} onClick={() => chooseTab('sun')}>일조 비교</button>
         <button aria-pressed={tab === 'nature'} onClick={() => chooseTab('nature')}>주변 자연환경</button>
-        <button aria-pressed={tab === 'site'} onClick={() => chooseTab('site')}>단지 시설</button>
+        <button aria-pressed={tab === 'places'} onClick={() => chooseTab('places')}>생활·학교</button>
+        {region === 'opo' && <button aria-pressed={tab === 'site'} onClick={() => chooseTab('site')}>단지 시설</button>}
       </div>
 
       {tab === 'sun' && <>
@@ -273,7 +286,7 @@ export default function OpoTour() {
         </div>
       </>}
 
-      {tab !== 'site' && <div className={tab === 'nature' ? 'locations nature-locations' : 'locations'}>
+      {(tab === 'sun' || tab === 'nature') && <div className={tab === 'nature' ? 'locations nature-locations' : 'locations'}>
         {slots.map(slot => {
           const point = points[slot], report = reports[slot];
           const sample = moment[slot];
@@ -334,7 +347,7 @@ export default function OpoTour() {
           world?.showGreenAccess(null);
           world?.lookFrom(point, bearing, angle);
         }} />
-        <div className="imagery-row">
+        {region === 'opo' && <><div className="imagery-row">
           <button aria-pressed={satellite} disabled={!world || imageStatus === 'loading'} onClick={toggleSatellite}>위성영상 {satellite ? '켜짐' : '꺼짐'}</button>
           <span role="status">{imageStatus === 'error' ? '영상을 열지 못했어요.' : imageStatus === 'loading' ? '불러오는 중…' : `${satelliteMetadata.acquired} · ${satelliteMetadata.resolution_m}m`}</span>
         </div>
@@ -353,18 +366,27 @@ export default function OpoTour() {
             <button disabled={!world} aria-pressed={accessId === route.id} onClick={() => toggleGreenAccess(route.id)}>{accessId === route.id ? '경로 숨기기' : '경로 보기'}</button>
             <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
           </div>)}
-        </div>
+        </div></>}
         <details className="basis"><summary>자료와 계산 기준</summary>
           <p>지형 단면은 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 표시합니다. {world?.sources.terrain.name ?? 'GEDTM30'}을 사용하며 표고 기준은 {world?.sources.terrain.datum ?? 'EGM2008'}입니다. 자료 기준 기간은 {world?.sources.terrain.epoch ?? '2006–2015'}입니다.</p>
           <p>차폐각은 선택한 한 방향으로 {horizonRange}m 안의 지형 표본과 모델에 높이가 있는 건물 지붕 중 가장 위에 보이는 각도입니다. 높이 미확인 건물은 별도로 표시합니다. 주변 건물 높이 자료의 범위가 제한되며 수목과 {horizonRange}m 밖의 지형은 별도 확인이 필요합니다.</p>
           <p>예측 산포는 지형 모델의 예측 변동입니다. 보도·옹벽·계단과 현장 표고 오차는 별도 확인이 필요합니다.</p>
-          {world && <p>기존 90m 자료와 중앙 기준점에 맞춰 비교한 상대 높이의 평균 절대 차이는 {world.sources.terrain.relativeDifference.toFixed(1)}m입니다.</p>}
+          {world?.sources.terrain.relativeDifference != null && <p>기존 90m 자료와 중앙 기준점에 맞춰 비교한 상대 높이의 평균 절대 차이는 {world.sources.terrain.relativeDifference.toFixed(1)}m입니다.</p>}
           <a href={world?.sources.terrain.catalog ?? 'https://zenodo.org/records/15689805'} target="_blank" rel="noreferrer">지형 출처 · Ho &amp; Hengl / CC BY 4.0 ↗</a>
           <p>녹지와 수계 수치는 OpenStreetMap 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'})에 표시된 가장 가까운 경계·선까지의 직선거리입니다. 접근 가능 여부와 실제 보행 거리는 현장 확인이 필요합니다.</p>
           <p>공원 인근 경로는 OpenStreetMap에서 같은 노드로 이어진 도로의 길이입니다. 보도가 지도에 표시된 구간은 실선으로 그립니다. 공원 출입구와 전체 보행 경로는 확인 중입니다.</p>
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap 데이터 ↗</a>
         </details>
       </>}
+
+      {tab === 'places' && <div className="place-explorer">
+        <div className="place-explorer-heading"><span>동네 탐색</span><p>아래 장소를 선택해 지도에서 위치를 확인하세요.</p></div>
+        <div className="place-filters" aria-label="장소 종류">{[['all','전체'],['beauty','올리브영'],['convenience','편의점'],['school','학교']].map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => { setPlaceCategory(id); setSelectedPlaceId(null); }}>{label}</button>)}</div>
+        <div className="place-list" aria-label="주변 장소 목록">{world?.places.filter(p => placeCategory === 'all' || p.category === placeCategory).map(p => <button className="place-row" aria-pressed={selectedPlaceId === p.id} key={p.id} onClick={() => selectPlace(p.id)}><span className={`place-kind place-kind-${p.category}`} aria-hidden="true">{p.category === 'school' ? '학' : p.category === 'beauty' ? '영' : '편'}</span><strong>{p.name}</strong><small>직선 {p.distance_m.toLocaleString()}m</small></button>)}</div>
+        {selectedPlaceId && world?.places.find(p => p.id === selectedPlaceId) && (() => { const p = world.places.find(place => place.id === selectedPlaceId)!; return <section className="place-detail"><span>{p.category === 'school' ? '학교' : p.category === 'beauty' ? '생활용품' : '편의점'}</span><h3>{p.name}</h3><p>단지 기준 직선 약 {p.distance_m.toLocaleString()}m 지점입니다. 3D 지도가 이 위치를 중심으로 이동했어요.</p></section>; })()}
+        <div className="place-note"><strong>학교 위치와 통학구역은 달라요</strong><p>현재는 학교 위치만 표시합니다. 배정 학교와 학군 경계는 공식 자료를 연결한 뒤 별도 레이어로 제공합니다.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>
+        <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 2026-11-15 지도 스냅샷. 현재 영업 여부·상호 변경은 확인이 필요하며, 모든 시설을 포함하지는 않습니다. 거리는 EPSG:5186 기준 단지 원점에서의 직선거리이며 도보거리가 아닙니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
+      </div>}
 
       {tab === 'site' && <div className="site-features">
         <div className="site-key"><span><i className="site-outline-key"/>OSM 단지 영역</span><span><i className="site-road-key"/>진입로와 단지 도로</span></div>
@@ -400,7 +422,7 @@ export default function OpoTour() {
 
     <div className="scene-instructions">{mode === 'orbit' ? '드래그로 회전 · 스크롤로 확대' : 'WASD로 이동 · 드래그로 둘러보기'}</div>
 
-    {!world && <div className="loading" role="status">{error ? <><p>{error}</p><button onClick={() => { setError(''); setRetry(value => value + 1); }}>다시 열기</button></> : '오포의 지형과 단지를 불러오는 중…'}</div>}
+    {!world && <div className="loading" role="status">{error ? <><p>{error}</p><button onClick={() => { setError(''); setRetry(value => value + 1); }}>다시 열기</button></> : `${area.name}의 지형과 건물을 불러오는 중…`}</div>}
 
     <footer className="credits">
       <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap / OpenMapTiles</a> · <a href="https://zenodo.org/records/15689805" target="_blank" rel="noreferrer">GEDTM30 · Ho &amp; Hengl (CC BY 4.0)</a> · 실외 모델 추정

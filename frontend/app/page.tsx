@@ -1,5 +1,5 @@
-import OpoTour from '../components/OpoTour';
+import ShelterHome from '../components/ShelterHome';
 
 export default function Home() {
-  return <OpoTour />;
+  return <ShelterHome />;
 }

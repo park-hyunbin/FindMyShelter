@@ -1,0 +1,13 @@
+{
+  "region": "songpa",
+  "source": "data/raw/incoming/경기도/AL_D198_11710_20260715/AL_D198_11710_20260715.shp",
+  "encoding": "CP949",
+  "center_lnglat": [127.115, 37.50],
+  "radius_m": 600,
+  "simplify_m": 0.1,
+  "max_chunk_bytes": 180000,
+  "require_verified": false,
+  "mapping_status": "candidate_columns_require_qgis_confirmation",
+  "provenance": {"description":"Songpa original, incorrectly filed under Gyeonggi; 600m technical pilot, not a selected apartment", "license":"unconfirmed", "source_dataset":"AL_D198_11710_20260715", "identity":"A1 is duplicated in this source; A0 identifies individual source records within this snapshot. Reconcile IDs manually before replacing with another dated source."},
+  "fields": {"bldg_id":"A0", "name":"A13", "dong":"A14", "height_m":"A30", "floors":"A31", "use":"A27"}
+}

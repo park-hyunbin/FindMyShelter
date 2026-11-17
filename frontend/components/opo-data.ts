@@ -1,6 +1,9 @@
 import proj4 from 'proj4';
+import { loadBuildingDataset } from './data/building-dataset';
+import { regions, type RegionId } from './data/regions';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 
+export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
 export type Shape = Point[][];
 export type Building = { id: string; label: string; dong: string | null; height: number | null; shapes: Shape[] };
@@ -45,15 +48,20 @@ export function terrainSample(grid: TerrainFile, values: number[], x: number, z:
     + (values[index + size] * (1 - a) + values[index + size + 1] * a) * b;
 }
 
-export async function loadOpoData(signal: AbortSignal) {
-  const [source, environment, dem, site, surrounding] = await Promise.all([
-    json<BuildingFile>('/sample-buildings.geojson', signal),
-    json<EnvironmentFile>('/opo-environment.geojson', signal),
-    json<TerrainFile>('/opo-terrain.json', signal),
-    json<SiteFile>('/opo-site.geojson', signal),
-    json<OsmBuildingFile>('/opo-osm-buildings.geojson', signal),
+export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo') {
+  const area = regions.find(r => r.id === region)!;
+  const empty = {type: 'FeatureCollection' as const, features: []};
+  const [source, environment, dem, site, surrounding, poi] = await Promise.all([
+    loadBuildingDataset(region, signal),
+    json<EnvironmentFile>(area.environment, signal),
+    json<TerrainFile>(area.terrain, signal),
+    area.site ? json<SiteFile>(area.site, signal) : Promise.resolve(empty as SiteFile),
+    area.surrounding ? json<OsmBuildingFile>(area.surrounding, signal) : Promise.resolve(empty as OsmBuildingFile),
+    json<FeatureCollection<import('geojson').Point, Omit<Place, 'point'>>>(area.places, signal),
   ]);
-  const { center_lnglat: center, local_origin_xy: origin, radius_m: buildingRadius } = source.metadata;
+  const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
+  // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
+  const buildingRadius = region === 'opo' ? Math.min(300, importedBuildingRadius) : importedBuildingRadius;
   const projection = proj4('WGS84', epsg5186);
   const project = ([lng, lat]: Position): Point => {
     const [east, north] = projection.forward([lng, lat]);
@@ -98,11 +106,18 @@ export async function loadOpoData(signal: AbortSignal) {
   }));
   const siteRoads = site.features.flatMap(({ geometry, properties }) => geometry.type === 'LineString'
     ? [{ points: geometry.coordinates.map(project), bridge: properties.bridge, id: properties.id }] : []);
+  if (region !== 'opo') features.filter(f => f.kind === 'road').forEach((road, id) => {
+    road.lines.forEach(points => siteRoads.push({points, bridge: false, id}));
+  });
   const siteOutline = site.features.flatMap(({ geometry }) => geometry.type === 'Polygon'
     ? geometry.coordinates[0].map(project) : []);
   const date = environment.metadata.tile_source.match(/\/(\d{4})(\d{2})(\d{2})_/);
   const referenceHeight = Math.max(...buildings.map(building => building.height ?? 0));
-  return { center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight, features, siteRoads, siteOutline, project, northOffset, buildingRadius,
+  const places: Place[] = poi.features.map(f => {
+    const point = project(f.geometry.coordinates);
+    return { ...f.properties, point, distance_m: Math.round(Math.hypot(point.x,point.z)) };
+  }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent);
+  return { region, area, places, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight, features, siteRoads, siteOutline, project, northOffset, buildingRadius,
     terrainSource: { name: dem.source, catalog: dem.catalog, datum: dem.verticalDatum, resolution: dem.nativeResolutionM,
       epoch: dem.sourceEpoch, relativeDifference: dem.meanRelativeDifferenceFrom90M },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };

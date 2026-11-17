@@ -69,7 +69,7 @@ export function addSiteDetails(data: OpoData, scene: T.Scene) {
 export function addGreenAccess(data: OpoData, scene: T.Scene) {
   const recorded = new LineMaterial({ color: '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
-  const layers = greenAccess.routes.map(route => {
+  const layers = (data.region === 'opo' ? greenAccess.routes : []).map(route => {
     const group = new T.Group();
     const bounds = new T.Box3();
     const routePoints: T.Vector3[] = [];

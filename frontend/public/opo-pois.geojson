@@ -1,0 +1,174 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "source": "OpenStreetMap via OpenFreeMap",
+    "tile_source": "https://tiles.openfreemap.org/planet/20261115_080022_pt/{z}/{x}/{y}.pbf",
+    "snapshot": "2026-11-15",
+    "license": "ODbL",
+    "attribution": "© OpenStreetMap contributors",
+    "school_boundaries": "not included",
+    "distance_method": "EPSG:5186 straight-line distance from sample origin"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.16097593307495,
+          37.35965175480797
+        ]
+      },
+      "properties": {
+        "id": "50787680251",
+        "name": "광명초등학교",
+        "category": "school",
+        "distance_m": 1019
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.15908765792847,
+          37.359417241837676
+        ]
+      },
+      "properties": {
+        "id": "141440947821",
+        "name": "올리브영",
+        "category": "beauty",
+        "distance_m": 1054
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.16187715530396,
+          37.36047467634262
+        ]
+      },
+      "properties": {
+        "id": "136191511741",
+        "name": "GS25",
+        "category": "convenience",
+        "distance_m": 1090
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.17616260051727,
+          37.3453067405423
+        ]
+      },
+      "properties": {
+        "id": "78687078801",
+        "name": "미니스톱",
+        "category": "convenience",
+        "distance_m": 1227
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.17430114746094,
+          37.34287156855228
+        ]
+      },
+      "properties": {
+        "id": "161537643",
+        "name": "능원초등학교",
+        "category": "school",
+        "distance_m": 1259
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.1766722202301,
+          37.3454133574764
+        ]
+      },
+      "properties": {
+        "id": "46349035731",
+        "name": "CU",
+        "category": "convenience",
+        "distance_m": 1260
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.1510249376297,
+          37.35775857463693
+        ]
+      },
+      "properties": {
+        "id": "8356728172",
+        "name": "신현중학교",
+        "category": "school",
+        "distance_m": 1396
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.17451572418213,
+          37.34127224451103
+        ]
+      },
+      "properties": {
+        "id": "46351260941",
+        "name": "365플러스",
+        "category": "convenience",
+        "distance_m": 1402
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.17301905155182,
+          37.34013350503487
+        ]
+      },
+      "properties": {
+        "id": "46351260951",
+        "name": "CU",
+        "category": "convenience",
+        "distance_m": 1422
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.17592656612396,
+          37.34058985588696
+        ]
+      },
+      "properties": {
+        "id": "46365296581",
+        "name": "CU",
+        "category": "convenience",
+        "distance_m": 1542
+      }
+    }
+  ]
+}

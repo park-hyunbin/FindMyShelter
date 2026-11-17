@@ -2,11 +2,11 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "데이터: QGIS 편집본 → 웹 GeoJSON",
+      "label": "건물: 오포 QGIS 검증본 → 웹 조각 생성",
       "type": "process",
       "command": "${workspaceFolder}/.venv/bin/python",
       "args": [
-        "${workspaceFolder}/backend/scripts/prepare_sample.py"
+        "-m", "backend.pipeline", "build", "--config", "data/config/buildings/opo.json"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -16,14 +16,14 @@
     {
       "label": "화면: 로컬 미리보기",
       "type": "process",
-      "command": "${workspaceFolder}/.venv/bin/python",
+      "command": "npm",
       "args": [
-        "${workspaceFolder}/backend/scripts/preview_map.py"
+        "run",
+        "dev"
       ],
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}/frontend"
       },
-      "dependsOn": "화면: 로컬 빌드",
       "problemMatcher": []
     },
     {
@@ -61,7 +61,6 @@
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
-      "dependsOn": "데이터: QGIS 편집본 → 웹 GeoJSON",
       "problemMatcher": []
     },
     {

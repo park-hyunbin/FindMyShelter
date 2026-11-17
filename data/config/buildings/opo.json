@@ -1,0 +1,14 @@
+{
+  "region": "opo",
+  "source": "data/working/opo_300m/buildings.shp",
+  "encoding": "UTF-8",
+  "center_lnglat": [127.16416784034332, 37.35082637772431],
+  "local_origin_xy": [214545.44875994313, 527960.6371530648],
+  "radius_m": 350,
+  "simplify_m": 0.1,
+  "max_chunk_bytes": 180000,
+  "require_verified": false,
+  "mapping_status": "candidate_pending_qgis_review",
+  "provenance": {"description": "214-building working snapshot; not city-wide original", "license": "unconfirmed", "source_dataset": "AL_D198_41610_20260715 derived sample"},
+  "fields": {"bldg_id":"bldg_id", "name":"name", "dong":"dong", "address":"address", "height_m":"height_m", "floors":"floors", "use":"use", "rev_status":"rev_status", "rev_note":"rev_note", "rev_date":"rev_date"}
+}

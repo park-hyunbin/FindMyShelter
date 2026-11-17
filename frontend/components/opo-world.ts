@@ -60,8 +60,8 @@ function makeCar() {
 
 export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (position: Point) => void) {
   const scene = new T.Scene();
-  scene.background = new T.Color('#bcd5d8');
-  scene.fog = new T.FogExp2('#bfd5d8', 0.00112);
+  scene.background = new T.Color('#354D65');
+  scene.fog = new T.FogExp2('#354D65', data.region === 'opo' ? 0.00112 : 0.00025);
   const camera = new T.PerspectiveCamera(49, 1, 0.25, 4300);
   const renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65));
@@ -71,18 +71,18 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   renderer.outputColorSpace = T.SRGBColorSpace;
   renderer.toneMapping = T.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.22;
-  renderer.domElement.setAttribute('aria-label', '오포 롯데캐슬 포레스트 3D 공간');
+  renderer.domElement.setAttribute('aria-label', `${data.area.name} 3D 공간`);
   renderer.domElement.tabIndex = 0;
-  renderer.domElement.dataset.world = 'opo';
+  renderer.domElement.dataset.world = data.region;
   host.appendChild(renderer.domElement);
 
-  const sun = new T.DirectionalLight('#fff0d2', 2.35);
+  const sun = new T.DirectionalLight('#F8E9C6', 2.35);
   sun.castShadow = true;
   sun.shadow.mapSize.set(window.innerWidth < 720 ? 1024 : 2048, window.innerWidth < 720 ? 1024 : 2048);
   Object.assign(sun.shadow.camera, { left: -250, right: 250, top: 250, bottom: -250, near: 1, far: 1200 });
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.16;
-  const ambient = new T.HemisphereLight('#e2f5ff', '#92805e', 1.8);
+  const ambient = new T.HemisphereLight('#D8D5F0', '#17243A', 1.8);
   scene.add(sun, sun.target, ambient);
   const terrain = makeGround(data);
   terrain.castShadow = true;
@@ -96,7 +96,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const occupied = (p: Point) => data.buildings.some(b => b.shapes.some(shape => inShape(p, shape)));
-  const spawn = data.project(roadEntry);
+  const spawn = data.region === 'opo' ? data.project(roadEntry) : nearestOnLine({x:0,z:0}, data.siteRoads.map(r => r.points)).point;
   let position = spawn;
   let speed = 0;
   let heading = -2.04;
@@ -107,7 +107,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let selecting = false;
   let active = true;
   let satelliteTexture: T.Texture | null = null;
-  const carEntry = data.project(approach);
+  const carEntry = data.region === 'opo' ? data.project(approach) : spawn;
   let drivePosition = carEntry;
   const { player, legs } = makePlayer();
   const car = makeCar();
@@ -123,6 +123,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   controls.maxDistance = 2600;
   controls.zoomToCursor = true;
   function overview() {
+    if (data.region !== 'opo') {
+      controls.target.set(0, 8, 0);
+      camera.position.set(430, 640, 830);
+      controls.update();
+      return;
+    }
     controls.target.set(45, 6, 0);
     const narrow = host.clientWidth < 700;
     camera.position.set(narrow ? 155 : 175, narrow ? 215 : 180, narrow ? 318 : 275);
@@ -161,6 +167,25 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     return { point, element, enabled: () => true };
   });
+  const placeGroup = new T.Group();
+  scene.add(placeGroup);
+  let placeCategories: string[] = [];
+  for (const place of data.places) {
+    const { x, z } = place.point;
+    const color = place.category === 'school' ? '#D8D5F0' : place.category === 'beauty' ? '#F8E9C6' : '#76C9BC';
+    const pin = new T.Mesh(new T.SphereGeometry(7, 10, 8), new T.MeshBasicMaterial({ color }));
+    pin.position.set(x, data.ground(x,z) + 25, z);
+    pin.userData.category = place.category;
+    pin.visible = false;
+    placeGroup.add(pin);
+    const element = document.createElement('span');
+    element.className = `building-label place-label place-${place.category}`;
+    element.textContent = place.name;
+    element.hidden = true;
+    host.appendChild(element);
+    labels.push({point: pin.position.clone().add(new T.Vector3(0, 12, 0)), element,
+      enabled: () => placeCategories.includes(place.category)});
+  }
   const pinLabels = (['A', 'B'] as const).map(slot => {
     const element = document.createElement('span');
     element.className = `building-label point-label point-${slot}`;
@@ -178,7 +203,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   facilityLabel.hidden = true;
   host.appendChild(facilityLabel);
   labels.push({ point: new T.Vector3(playground.x, data.ground(playground.x, playground.z) + 3.6, playground.z),
-    element: facilityLabel, enabled: () => site.overlay.visible });
+    element: facilityLabel, enabled: () => data.region === 'opo' && site.overlay.visible });
   for (const layer of greenAccess.layers) {
     const element = document.createElement('span');
     element.className = 'building-label access-label';
@@ -200,6 +225,16 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const sample = candidates.find(p => !occupied(p));
     return sample ? { ...sample, id: building.dong, label: `${building.dong} 인근` } : null;
   }).filter((point): point is SitePoint => point !== null).sort((a, b) => a.id.localeCompare(b.id));
+  if (data.region !== 'opo') {
+    const candidates = data.siteRoads.flatMap(road => road.points)
+      .filter(p => Math.hypot(p.x, p.z) < 280 && !occupied(p))
+      .sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+    const first = candidates[0];
+    const second = first && candidates.find(p => Math.hypot(p.x-first.x, p.z-first.z) > 60);
+    for (const [index, point] of [first, second].entries()) if (point) {
+      presets.push({...point, id:`road-${index}`, label:`구역 도로 인근 ${index + 1}`});
+    }
+  }
 
   function setMode(next: ViewMode) {
     if (mode === next && !eyeLevel) return;
@@ -362,6 +397,20 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       pitch = 0.17 - obstructionAngle / 180;
       speed = 0;
     },
+    places: data.places,
+    showPlaces(categories: string[]) {
+      placeCategories = categories;
+      placeGroup.children.forEach(pin => { pin.visible = categories.includes(pin.userData.category); });
+    },
+    focusPlace(id: string) {
+      const place = data.places.find(p => p.id === id);
+      if (!place) return;
+      setMode('orbit');
+      const {x,z} = place.point;
+      controls.target.set(x, data.ground(x,z), z);
+      camera.position.copy(controls.target).add(new T.Vector3(100, 350, 450));
+      controls.update();
+    },
     showSiteDetails(enabled: boolean) { site.overlay.visible = enabled; },
     showGreenAccess(id: string | null) {
       const layer = greenAccess.show(id);
@@ -412,7 +461,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       sun.target.position.set(45, 0, 0);
       sun.intensity = daylight ? 2.7 : 0.4;
       ambient.intensity = daylight ? 1.8 : 0.85;
-      (scene.background as T.Color).set(daylight ? '#bcd5d8' : '#7e95aa');
+      (scene.background as T.Color).set(daylight ? '#354D65' : '#17243A');
       (scene.fog as T.FogExp2).color.copy(scene.background as T.Color);
       renderer.shadowMap.needsUpdate = true;
     },

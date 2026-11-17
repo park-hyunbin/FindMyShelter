@@ -1,5 +1,8 @@
 # 데이터 작업 순서
 
+현재 건물 데이터 작업은 [지역 공통 파이프라인 안내](../docs/building-pipeline.md)를 사용합니다.
+QGIS 기준 파일은 `data/working/buildings/opo/buildings.gpkg`이며, 아래 SHP 흐름은 이전 방식입니다.
+
 1. QGIS에서 `data/working/opo_300m/buildings.shp`를 엽니다.
 2. 속성 편집으로 필요한 값을 입력하고 레이어 편집 내용을 저장합니다.
 3. VS Code에서 `터미널 → 작업 실행 → 데이터: QGIS 편집본 → 웹 GeoJSON`을 실행합니다.

@@ -1,0 +1,76 @@
+# 지역별 건물 폴리곤 파이프라인
+
+브라우저 접속 때 GIS를 계산하지 않습니다. 원본을 한 번 가져와 QGIS에서 검증하고, 변경했을 때만 오프라인으로 웹 파일을 생성합니다. 건물 데이터만 지역화했으며 DEM·도로·POI·현재 3D 화면은 아직 오포 기준입니다. 송파 데이터를 만들었다고 송파 임장 화면까지 완성된 것은 아닙니다.
+
+```text
+data/raw/                         원본 SHP/GeoJSON/GPKG 보존
+data/config/buildings/{지역}.json 원본 경로·컬럼 매핑·범위·출처
+data/working/buildings/{지역}/
+  buildings.gpkg                 QGIS 수기검증의 기준 파일 (buildings 레이어)
+  import.json                    최초 ID 목록·가져오기 설정
+data/processed/buildings/{지역}/
+  inventory.json                 inspect로 생성하는 원본 컬럼 정보
+  quality.json                   누락·검증 오류 보고서
+frontend/public/datasets/buildings/{지역}/
+  manifest.json                  현재 버전·품질·조각 목록
+  chunks/{SHA256}.geojson         변경되지 않으면 이름과 내용 유지
+backend/pipeline/                지역 공통 Python 전처리
+frontend/components/data/        브라우저 데이터 로더
+```
+
+기존 원본 및 옛 스크립트는 삭제하지 않았습니다. 기존 `prepare_sample.py`는 이전 단일 GeoJSON 출력 도구입니다. 현재 브라우저의 건물 입력은 새 오포 manifest입니다. 새 QGIS 편집은 반드시 `data/working/buildings/opo/buildings.gpkg`에서 진행하세요. 옛 `data/working/opo_300m/buildings.shp` 수정은 새 파이프라인에 자동 반영되지 않습니다.
+
+## 실행 (프로젝트 루트)
+
+```sh
+# 가상환경 GIS 의존성이 없을 때만 설치
+.venv/bin/python -m pip install -r backend/requirements-gis.txt
+
+# 컬럼·NULL·샘플 확인
+.venv/bin/python -m backend.pipeline inspect --config data/config/buildings/opo.json
+
+# 처음 한 번만. 기존 QGIS 작업 파일이 있으면 덮어쓰지 않고 중단
+.venv/bin/python -m backend.pipeline init --config data/config/buildings/opo.json
+
+# QGIS 편집·저장 후 검사 및 웹 출력
+.venv/bin/python -m backend.pipeline check --config data/config/buildings/opo.json
+.venv/bin/python -m backend.pipeline build --config data/config/buildings/opo.json
+
+# 같은 파이프라인, 다른 지역 설정
+.venv/bin/python -m backend.pipeline inspect --config data/config/buildings/songpa.json
+.venv/bin/python -m backend.pipeline init --config data/config/buildings/songpa.json
+.venv/bin/python -m backend.pipeline build --config data/config/buildings/songpa.json
+```
+
+이미 생성된 두 지역에 `init`을 다시 실행할 필요가 없습니다. 새 지역은 설정을 복사하고 `region`, `source`, `encoding`, `center_lnglat`, `radius_m`, `fields`, `provenance`를 바꿔 시작하세요. 원본 날짜가 바뀌거나 범위를 확대한다면 새 지역 버전 이름으로 가져온 뒤 기존 편집값을 ID로 대조해야 합니다. 자동 덮어쓰기·자동 ID 재발급은 하지 않습니다. GPKG 원본은 `source_layer`도 지정합니다. SHP는 .shp/.shx/.dbf/.prj/.cpg 전체가 필요합니다.
+
+## QGIS 검증
+
+1. `buildings.gpkg`의 `buildings` 레이어를 열고 편집합니다. CRS는 EPSG:5186입니다.
+2. `bldg_id`는 수정하지 않습니다. 높이(`height_m`, m), 층수(`floors`), 이름·동·주소·용도를 채웁니다. 알 수 없는 값은 NULL입니다.
+3. `rev_status`는 pending / edited / verified 중 하나입니다. verified에는 `rev_note` 근거와 `rev_date` 확인일(YYYY-MM-DD)이 필요합니다. 이 상태는 사용자의 수기 확인을 의미합니다.
+4. 편집 내용을 저장한 뒤 check/build를 실행합니다. 잘못된 도형은 QGIS 도형 검사·수정 후 다시 실행합니다. 자동 복구로 도형을 몰래 바꾸지 않습니다.
+
+음수·소수 층수·잘못된 높이·중복/삭제/변경 ID·빈 도형이 있으면 중단합니다. 실패하면 기존 manifest가 유지됩니다. 높이·층수 0은 웹에서 NULL이며 층수로 높이를 추정하지 않습니다. 개발 샘플은 미검증 건물도 포함하고 상태를 기록합니다. 전체 수기검증을 강제하려면 `require_verified: true`를 사용합니다.
+
+## 로딩과 재사용
+
+- 범위를 정한 뒤 원본의 공간 필터로 읽습니다. 건물 전체를 지역별로 한꺼번에 브라우저에 보내지 않습니다.
+- 250m 격자별로 묶고 파일 크기를 기본 180KB 이하로 나눕니다. 경계 건물은 자르거나 중복 복제하지 않습니다. 하나의 건물만으로 예산을 초과하면 출력 중단 후 확인합니다.
+- 웹 도형만 기본 0.1m 단순화합니다. 면적 변화 1% 초과 시 원래 도형을 사용합니다. QGIS 원본은 그대로이며 4326 이중 좌표·미터 로컬 좌표를 중복 저장하지 않습니다.
+- 현재 로더는 선택한 샘플의 모든 조각을 동시 최대 4개씩 읽습니다. 파일 이름은 내용 해시로 고정되므로 HTTP 캐시를 재사용합니다. manifest는 재검증합니다. 같은 데이터를 build하면 파일 수정 시각도 유지합니다.
+- 전국 지도에서 카메라 범위만 읽는 타일 스트리밍·LOD는 아직 구현하지 않았습니다. 이 파이프라인은 아파트 주변의 제한된 범위를 위한 MVP입니다. 전국 전체를 하나의 설정으로 생성하지 마세요.
+- 배포 시 해시 파일은 `Cache-Control: public,max-age=31536000,immutable`, manifest는 `no-cache`를 호스팅에 설정할 수 있습니다. 실제 적용은 호스팅 설정에 따릅니다. 오래된 조각은 기존 사용자의 요청을 보호하기 위해 자동 삭제하지 않습니다.
+
+## 현재 확보와 부족
+
+| 지역 | 자료 | 부족 |
+|---|---|---|
+| 오포 | 기존 편집본 214개 | 높이 9, 층수 1, 이름 84, 동 93개 NULL, 전체 pending |
+| 송파 | 원본 전체 18,105개 중 기술검증 중심점 600m 표본 752개 | 높이 309, 이름 538, 동 648개 NULL, 전체 pending |
+
+광주시 전체 건물 원본은 현재 없습니다. 필요한 추가 자료는 **지역별 건물 SHP/GeoJSON/GPKG와 컬럼 정의서**입니다. 최소 안정적인 건물 ID·CRS·Polygon이 필요하고, 실제 높이·지상층수·건물명·동·주소·용도가 있으면 활용합니다. 송파의 A30 높이/A31 층수 등은 값 형태로 연결한 후보이므로 제공기관 컬럼 정의서와 QGIS 확인이 필요합니다. A1은 중복이 있어 현재 스냅샷 내 A0를 개별 ID로 사용합니다. 원본 교체 시 동일 ID 유지 여부를 별도 대조해야 합니다. CP949로 한글을 정상 읽었습니다.
+
+상가 입점 정보와 건물 폴리곤, 공식 학군 경계는 서로 다른 데이터입니다. 이 파이프라인은 건물 도형만 처리합니다. 상점·학교 POI를 특정 건물 ID에 연결하거나 학군 면을 함께 처리하는 기능은 아직 추가하지 않았습니다. 원본 상업 이용·재배포 조건은 설정의 provenance에 기록하고 실제 배포 전에 확보한 자료의 조건을 확인해야 합니다.
+
+검증 명령: `.venv/bin/python -m unittest discover -s backend/pipeline/tests -v`

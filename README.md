@@ -25,3 +25,7 @@ npm --prefix frontend run build
 - **방향별 시야** · 주변 자연환경 탭에서 8방향을 선택해 두 지점의 지형 단면과 차폐각을 비교합니다. 차폐각은 눈높이 1.5m에서 선택 방향 800m 안의 지형과 높이가 있는 건물 지붕이 수평선 위를 가리는 각도입니다. 건물이 더 높게 보이면 지형만 적용한 각도를 함께 표시합니다. 3D에서 그 방향을 눈높이로 볼 수 있습니다. 주변 건물의 높이 자료 범위가 제한되며, 선택 방향에서 높이 미확인 윤곽을 만나면 가장 가까운 위치까지의 거리를 표시합니다. [GRASS GIS 지평선 각도 계산 원리](https://grass.osgeo.org/grass-stable/manuals/r.horizon.html)
 
 데이터 생성 스크립트는 `frontend/scripts`에 있습니다. `node frontend/scripts/prepare-opo-terrain.mjs`는 공개 지형을 잘라 90m 기준과 대조합니다. 건물·DEM의 전처리와 자료 상태는 [데이터 안내](data/README.md), 전체 구현 범위와 검증 항목은 [기획서](docs/planning/2026-11-17-complex-online-tour-spec.md)에 있습니다.
+## 건물 데이터 작업
+
+지역 추가·QGIS 수기검증·경량 웹 출력은 [폴리곤 파이프라인 안내](docs/building-pipeline.md)를 사용합니다.
+현재 건물 입력은 `data/working/buildings/opo/buildings.gpkg`에서 생성한 지역별 manifest입니다.
