@@ -397,10 +397,14 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
     const paint = (points: Point[]) => {
       if (points.length < 2) return;
-      if (!finish || isPath || road.bridge) {
-        strip(points, width + (isPath ? 0.14 : 0.42), 0.38, isPath ? '#a29477' : '#a29f91');
+      // An OSM crossing is still part of the walking network, but its pavement is the roadway.
+      const surfaces = isPath && !road.bridge ? leaveCrosswalkGaps(points, paintCrossings, 0.04) : [points];
+      for (const line of surfaces) {
+        if (!finish || isPath || road.bridge) {
+          strip(line, width + (isPath ? 0.14 : 0.42), 0.38, isPath ? '#a29477' : '#a29f91');
+        }
+        strip(line, width, 0.47, tint, texture);
       }
-      strip(points, width, 0.47, tint, texture);
       if (!isPath) {
         for (const point of (songpa && width > 12 ? [points[0], points[points.length - 1]] : points)) {
           const cap = new T.CircleGeometry(width / 2, 10);
