@@ -12,6 +12,7 @@ import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
 import { surveyedRoute } from './data/songpa-route-elevation';
+import { addSongpaEntrance } from './opo-songpa-entrance';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
@@ -104,6 +105,7 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
 
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   if (data.region === 'songpa') {
+    addSongpaEntrance(data, scene, grade, finish);
     addSingaCrosswalk(data, scene, grade, finish);
     addSongiPark(data, scene, grade, finish);
     const pavement = new T.MeshStandardMaterial({ color: '#b3aea4', roughness: 0.96, side: T.DoubleSide });

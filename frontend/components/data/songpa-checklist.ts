@@ -1,5 +1,6 @@
 import { songpaComplex } from './regions';
 import { songpaFacilities, songpaGrounds } from './songpa-grounds';
+import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
 import { floodSource } from './songpa-flood';
 import { songpaSchool } from './songpa-school';
@@ -10,7 +11,7 @@ import { songpaArchitecture } from './songpa-architecture';
 import { songpaRouteElevation } from './songpa-route-elevation';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'sun' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'ambient' | 'flood';
+export type ChecklistView = 'complex' | 'sun' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'entrance' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -56,10 +57,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'model',
-        finding: '항공영상에서 확인한 단지 안 포장 구간을 눈높이로 둘러볼 수 있어요. 어린이놀이터는 등록 자료에서 확인했어요.',
-        followUp: '놀이터의 단지 내 위치, 출입구와 포장 구간의 연결, 지하주차장으로 내려가는 길은 현장에서 확인해 보세요.',
-        views: [{ target: 'paving', label: '단지 안과 공용시설 보기' }],
-        sources: [{ label: '항공영상', url: songpaGrounds.source }, { label: '행정안전부 놀이시설 현황', url: songpaFacilities.playground }],
+        finding: '정문에서 보행자가 차량 길을 건너는 지점과 단지 안 포장 구간을 눈높이에서 볼 수 있어요. 어린이놀이터는 등록 자료에서 확인했어요.',
+        followUp: '놀이터의 단지 내 위치와 정문에서 단지 안으로 이어지는 보행로의 단차를 현장에서 확인해 보세요.',
+        views: [{ target: 'entrance', label: '정문과 주차장 입구 보기' }, { target: 'paving', label: '단지 안과 공용시설 보기' }],
+        sources: [{ label: '정문 로드뷰', url: songpaEntrance.main.roadview }, { label: '항공영상', url: songpaGrounds.source },
+          { label: '행정안전부 놀이시설 현황', url: songpaFacilities.playground }],
       },
     ],
   },
@@ -115,10 +117,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'parking', title: '주차와 관리', evidence: 'document',
-        finding: 'K-apt 관리시설 공시의 주차·승강기 수와 지상·지하 주차 구성을 확인할 수 있어요. 관리비를 비교할 때는 기준월과 면적을 맞춰 보세요.',
-        followUp: '저녁 빈자리, 방문차량 이용, 청소와 조경 상태를 살펴보세요.',
-        views: [{ target: 'parking', label: '주차·승강기 공시 보기' }],
-        sources: [seoulComplex, { label: 'K-apt 관리시설정보', url: songpaFacilities.management }],
+        finding: 'K-apt의 지상·지하 주차면과 승강기 수를 확인하고, 102동 옆 주차장 덮개를 길에서 볼 수 있어요.',
+        followUp: '저녁 빈자리, 방문차량 이용, 청소와 조경 상태를 살펴보세요. 관리비를 비교할 때는 기준월과 면적을 맞춰 보세요.',
+        views: [{ target: 'parking', label: '주차·승강기 공시 보기' }, { target: 'entrance', label: '주차장 입구 보기' }],
+        sources: [seoulComplex, { label: 'K-apt 관리시설정보', url: songpaFacilities.management },
+          { label: '송파구 지하주차장 입구 위치 기록', url: songpaEntrance.record }],
       },
       {
         id: 'noise', title: '소음·야간 환경', evidence: 'document',

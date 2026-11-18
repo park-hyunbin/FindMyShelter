@@ -15,6 +15,7 @@ import { songpaHospital, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
+import { songpaEntrance } from './data/songpa-entrance';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
@@ -253,7 +254,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const pickSlot = useRef<Slot | null>(null);
   const analysisPanel = useRef<HTMLElement>(null);
   const activeAccessCard = useRef<HTMLDivElement>(null);
-  const pendingSiteCard = useRef<'paving' | 'parking' | null>(null);
+  const pendingSiteCard = useRef<'paving' | 'parking' | 'entrance' | null>(null);
   const winterDetails = useRef<HTMLDetailsElement>(null);
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
   const [world, setWorld] = useState<OpoWorld | null>(null);
@@ -613,6 +614,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'paving':
       case 'parking':
+      case 'entrance':
         pendingSiteCard.current = target;
         chooseTab('site');
         break;
@@ -991,7 +993,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <article className="site-card" data-site-card="paving">
           <h3>단지 안 포장 공간</h3>
           <p>영상에 보이는 포장 구간, 줄무늬, 수목을 3D로 표현했어요. 수목 높이와 지면 단차는 추정이며 일조는 건물과 지형을 기준으로 계산해요.</p>
-          <p>출입구까지 이어지는 길과 실제 통행 조건은 현장 확인이 필요해요.</p>
+          <p>포장 구간에서 정문까지 보행로가 어떻게 이어지는지는 현장에서 확인해 보세요.</p>
           <div className="site-actions">
             {songpaGrounds.points.map((stop, index) => <button key={stop.id} disabled={!pavingPresets[index]} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
             <button disabled={pavingPresets.some(point => !point)} onClick={() => {
@@ -1007,6 +1009,20 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <div className="basis">
             <a href={songpaGrounds.source} target="_blank" rel="noreferrer">World Imagery 항공영상 ↗</a>
             <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">{songpaGrounds.captureDate} 촬영 · 영상 메타데이터 ↗</a>
+          </div>
+        </article>
+        <article className="site-card" data-site-card="entrance" aria-label="정문과 지하주차장 입구">
+          <h3>정문과 지하주차장 입구</h3>
+          <p>송파대로32길 정문에서 보행자 횡단 표시가 차량 길과 만나는 모습을 볼 수 있어요. 양재대로60길 쪽에선 102동 옆 주차장 덮개를 볼 수 있어요.</p>
+          <p>{songpaEntrance.capturedIn} 로드뷰와 항공영상을 참고했어요. 위치와 치수는 근사예요. 지하 경사로와 차수시설, 방문차량 입차 조건은 현장에서 확인해 보세요.</p>
+          <div className="site-actions">
+            {[songpaEntrance.main, songpaEntrance.garage].map(stop => <button key={stop.id}
+              disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
+          </div>
+          <div className="basis">
+            <a href={songpaEntrance.main.roadview} target="_blank" rel="noreferrer">카카오맵 정문 로드뷰 ↗</a>
+            <a href={songpaEntrance.garage.roadview} target="_blank" rel="noreferrer">카카오맵 주차장 덮개 로드뷰 ↗</a>
+            <a href={songpaEntrance.record} target="_blank" rel="noreferrer">송파구 102동 지하주차장 입구 위치 기록 ↗</a>
           </div>
         </article>
         <article className="site-card" data-site-card="parking" aria-label="주차와 공용시설 공시">
