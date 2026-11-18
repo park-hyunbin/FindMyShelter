@@ -629,6 +629,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (!world || !stop) return;
     setAmbientStopId(stop.id);
     lookFromPoint(stop.position, stop.bearing);
+    setStreet(world.streetStatus());
     world.focus();
   }
 
