@@ -9,6 +9,7 @@ type RoadHit = { segment: CrossingSection; point: Point; distance: number };
 export type Crosswalk = {
   section: CrossingSection; center: Point; direction: Point; depth: number; confirmed: boolean;
 };
+export type CrosswalkArea = Pick<Crosswalk, 'center' | 'direction' | 'depth'> & { section: Pick<CrossingSection, 'width'> };
 
 const dot = (a: Point, b: Point) => a.x * b.x + a.z * b.z;
 const relative = (a: Point, b: Point) => ({ x: a.x - b.x, z: a.z - b.z });
@@ -80,7 +81,7 @@ export function crossingOutline(a: Point, b: Point) {
   return [a, b].flatMap(point => [{ x: point.x + dx, z: point.z + dz }, { x: point.x - dx, z: point.z - dz }]);
 }
 
-export function leaveCrosswalkGaps(line: Point[], crossings: Crosswalk[], shoulder = 0) {
+export function leaveCrosswalkGaps(line: Point[], crossings: CrosswalkArea[], shoulder = 0) {
   if (!crossings.length) return [line];
   const runs: Point[][] = [];
   let current: Point[] = [];

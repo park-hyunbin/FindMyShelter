@@ -56,7 +56,7 @@ type TerrainFile = {
 type TerrainGrid = Pick<TerrainFile, 'extentM' | 'spacingM' | 'size'>;
 type NeighborhoodTerrain = TerrainGrid & {
   source: string; archivePublished: string; scale: number; originEPSG5186: [number, number];
-  center: [number, number]; elevation: number[];
+  center: [number, number]; elevation: number[]; edgeFeatherM?: number;
 };
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
 
@@ -65,6 +65,7 @@ export type OpoData = Awaited<ReturnType<typeof loadOpoData>>;
 export const extent = 1250;
 export const precinct = 330;
 const epsg5186 = '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs';
+const positiveDimension = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
 
 async function json<T>(path: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal });
@@ -150,12 +151,20 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   if (localTerrain && (localTerrain.spacingM * (localTerrain.size - 1) !== localTerrain.extentM * 2
     || localTerrain.elevation.length !== localTerrain.size ** 2
     || origin.some((value, i) => value !== localTerrain.originEPSG5186[i]))) throw new Error('송파 상세 지형의 범위가 일치하지 않아요.');
+  const coarseElevation = (x: number, z: number) => terrainSample(dem, dem.elevation, x, z);
+  // Interpolate the local correction separately so the two grids meet at the same coarse elevation.
+  const localCorrection = localTerrain?.elevation.map((value, index) => {
+    const { center, spacingM, extentM, size } = localTerrain;
+    const column = index % size, row = Math.floor(index / size);
+    if (column === 0 || row === 0 || column === size - 1 || row === size - 1) return 0;
+    return value - coarseElevation(center[0] + column * spacingM - extentM, center[1] + row * spacingM - extentM);
+  });
   const elevationAt = (x: number, z: number) => {
-    if (localTerrain) {
-      const dx = x - localTerrain.center[0], dz = z - localTerrain.center[1];
-      if (Math.max(Math.abs(dx), Math.abs(dz)) < localTerrain.extentM) return terrainSample(localTerrain, localTerrain.elevation, dx, dz);
-    }
-    return terrainSample(dem, dem.elevation, x, z);
+    const coarse = coarseElevation(x, z);
+    if (!localTerrain || !localCorrection) return coarse;
+    const dx = x - localTerrain.center[0], dz = z - localTerrain.center[1];
+    return Math.max(Math.abs(dx), Math.abs(dz)) >= localTerrain.extentM
+      ? coarse : coarse + terrainSample(localTerrain, localCorrection, dx, dz);
   };
   const spreadAt = (x: number, z: number) => terrainSample(dem, dem.spread, x, z);
   const base = elevationAt(0, 0);
@@ -176,9 +185,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
       label: [properties.name ?? (region === 'songpa' && properties.id === '55781807' ? '예일아파트' : '주변 건물'),
         properties.dong === properties.name ? null : dong ?? properties.dong].filter(Boolean).join(' '),
       dong,
-      height: recorded?.heightM ?? properties.height_m,
-      levels: recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors ?? null,
-      category: properties.building ?? properties.use ?? '',
+      height: positiveDimension(recorded?.heightM ?? properties.height_m),
+      levels: positiveDimension(recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors),
+      category: properties.use || properties.building || '',
       roof: properties.roof ?? null,
       shapes,
     };
@@ -238,7 +247,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     buildingRegister: region === 'opo' ? { ...register, towers: registerRows.sort((a, b) => a.dong.localeCompare(b.dong)) } : null,
     terrainSource: { name: dem.source, catalog: dem.catalog, datum: dem.verticalDatum, resolution: dem.nativeResolutionM,
       epoch: dem.sourceEpoch, relativeDifference: dem.meanRelativeDifferenceFrom90M },
-    localTerrain: localTerrain && { source: localTerrain.source, spacing: localTerrain.spacingM, scale: localTerrain.scale },
+    localTerrain: localTerrain && { source: localTerrain.source, spacing: localTerrain.spacingM, scale: localTerrain.scale,
+      edgeFeatherM: localTerrain.edgeFeatherM },
     roadMarkings, crossingWays: neighborhood?.crossingWays?.map(([a, b]) => [project(a), project(b)] as const) ?? [],
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }

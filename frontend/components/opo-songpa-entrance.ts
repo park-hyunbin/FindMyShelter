@@ -1,57 +1,24 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { songpaEntrance } from './data/songpa-entrance';
-import type { OpoData, Point } from './opo-data';
+import { songpaEntrance, songpaGateLayout } from './data/songpa-entrance';
+import type { OpoData } from './opo-data';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { ribbon } from './opo-meshes';
-import { zebraOffsets } from './opo-crosswalks';
-
-function axisBetween(start: Point, end: Point) {
-  const length = Math.hypot(end.x - start.x, end.z - start.z);
-  const dx = (end.x - start.x) / length;
-  const dz = (end.z - start.z) / length;
-  return {
-    length,
-    heading: Math.atan2(dx, dz),
-    at: (across: number, along: number) => ({ x: start.x + dz * across + dx * along, z: start.z - dx * across + dz * along }),
-  };
-}
+import { axisBetween } from './opo-site-surfaces';
 
 function surfaceMaterial(color: string, roughness = 0.9) {
   return new T.MeshStandardMaterial({ color, roughness, side: T.DoubleSide });
 }
 
-function addMainCrossing(data: OpoData, group: T.Group, grade: OpoData['ground'], finish: TourMaterials) {
-  const [start, end] = songpaEntrance.main.axis.map(data.project);
-  const { at, heading, length } = axisBetween(start, end);
-  const asphalt = finish(surfaceMaterial('#e2ecf8'), 'asphalt');
-  asphalt.color.multiplyScalar(1.42);
-  const pavers = finish(surfaceMaterial('#898986'), 'cobble');
+function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground']) {
+  const [start, end] = songpaGateLayout.axis.map(data.project);
+  const { at, heading } = axisBetween(start, end);
   const paint = surfaceMaterial('#eeeae0');
   const gray = surfaceMaterial('#747d7b');
   const yellow = surfaceMaterial('#ebbf4c');
   const black = surfaceMaterial('#343936');
   const red = surfaceMaterial('#bd413b');
   const grate = surfaceMaterial('#d9ded6');
-
-  const strip = (points: Point[], width: number, lift: number) => ribbon(points, width, (x, z) => grade(x, z) + lift);
-  const apron = strip([at(0, -2.4), at(0, length + 2.2)], 9.4, 0.49);
-  surfaceUV(apron, 'asphalt');
-  const crossing = mergeGeometries(zebraOffsets(9.4).map(across => strip([at(across, 0.15), at(across, 2.05)], 0.44, 0.52)));
-  const sidewalks = [
-    [at(-7.2, 0.9), at(-4.7, 0.9)],
-    [at(4.7, 0.9), at(7.2, 0.9)],
-    [at(-13, -7), at(12, -7)],
-  ];
-  const walkway = mergeGeometries(sidewalks.map(points => {
-    const geometry = strip(points, 1.65, 0.56);
-    surfaceUV(geometry, 'cobble');
-    return geometry;
-  }));
-  for (const mesh of [new T.Mesh(apron, asphalt), new T.Mesh(crossing, paint), new T.Mesh(walkway, pavers)]) {
-    mesh.receiveShadow = true;
-    group.add(mesh);
-  }
 
   function box(across: number, along: number, bottom: number, size: [number, number, number], material: T.Material) {
     const { x, z } = at(across, along);
@@ -134,7 +101,7 @@ function addParkingCanopy(data: OpoData, group: T.Group, grade: OpoData['ground'
 
 export function addSongpaEntrance(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   const group = new T.Group();
-  addMainCrossing(data, group, grade, finish);
+  addGateFixtures(data, group, grade);
   addParkingCanopy(data, group, grade, finish);
   scene.add(group);
 }

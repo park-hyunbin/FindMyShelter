@@ -34,7 +34,8 @@ def main():
     distance = support.query(np.stack((x, y), axis=-1))[0]
 
     # Feather the seam and sparse areas into the surrounding model.
-    boundary = smoothstep((extent - np.maximum(abs(dx), abs(dy))) / 150)
+    feather = 150
+    boundary = smoothstep((extent - np.maximum(abs(dx), abs(dy))) / feather)
     density = smoothstep((105 - distance) / 50)
     weight = boundary * density * np.isfinite(measured)
     grid = np.asarray(dem["elevation"]).reshape(dem["size"], dem["size"])
@@ -48,7 +49,7 @@ def main():
     result = {
         "source": SOURCE, "archivePublished": "2025-03-20", "scale": 5000,
         "originEPSG5186": dem["originEPSG5186"], "center": [center_x - west, north - center_y],
-        "extentM": extent, "spacingM": step, "size": len(offsets),
+        "extentM": extent, "spacingM": step, "size": len(offsets), "edgeFeatherM": feather,
         "elevation": np.round(elevation.ravel(), 2).tolist(),
     }
     (REGION / "neighborhood-terrain.json").write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")

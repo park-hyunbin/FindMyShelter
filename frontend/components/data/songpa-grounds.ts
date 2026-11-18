@@ -1,3 +1,5 @@
+import type { SiteSurfaceLayout } from '../opo-site-surfaces';
+
 export const songpaFacilities = {
   checkedOn: '2026-11-18',
   complexCode: 'A13816002',
@@ -123,3 +125,11 @@ export const songpaGrounds = {
     { id: 'inner-paving', name: '동 사이 포장 공간', coordinate: [127.1166846, 37.4976632], lookAt: [127.1166176, 37.4975248] },
   ] satisfies { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate }[],
 };
+// Geometry stays in the site data. The photos inform visual details separately.
+export const songpaSurfaceLayout = {
+  drive: { points: songpaCourtyard.apron, width: 3.8 },
+  paths: songpaCourtyard.paths,
+  playground: songpaCourtyard.playground,
+  plaza: songpaGrounds.paving,
+  crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),
+} satisfies SiteSurfaceLayout;

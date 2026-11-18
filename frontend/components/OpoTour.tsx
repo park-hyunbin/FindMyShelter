@@ -1135,7 +1135,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <li><a href="https://www.yugacrew.com/gyeonggi/gwangju/playground/28626" target="_blank" rel="noreferrer">놀이의 테라스 ↗</a></li>
         </ul><p>두 시설은 단지의 같은 등록 주소를 사용합니다. 사진에서 보이는 포장 공간과 개별 시설명은 추가 대조가 필요합니다.</p></div>
         <details className="basis"><summary>단지 자료 기준</summary>
-          <p>건물 윤곽·도로·보행로·정류장 위치에는 OpenStreetMap 원본을 사용합니다. 높이 미확인 건물은 층수나 용도에 맞춘 입체 형상으로 표현합니다. 포장 재질, 난간 형태, 수변 식생과 기록이 없는 도로 폭·교량 높이는 화면용 추정입니다.</p>
+          <p>지도와 건축물 자료로 건물 윤곽·높이와 도로·보행로·정류장을 표현합니다. 높이 미확인 건물은 층수나 용도로 높이를 추정하고 둘 다 없으면 윤곽을 표시합니다. 포장 재질, 난간 형태, 수변 식생과 기록이 없는 도로 폭·교량 높이는 화면용 추정입니다.</p>
           <a href={world?.sources.streets ?? 'https://www.openstreetmap.org/#map=16/37.3508/127.1642'} target="_blank" rel="noreferrer">OSM 동네 원본 ↗</a>
           <a href="/tour-materials/CREDITS.txt" target="_blank" rel="noreferrer">3D 재질 및 오픈소스 출처 ↗</a>
         </details>

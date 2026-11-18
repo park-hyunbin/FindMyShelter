@@ -3,20 +3,11 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { songpaCourtyard } from './data/songpa-grounds';
 import type { OpoData, Point } from './opo-data';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
-import { groundPolygon, ribbon } from './opo-meshes';
-
-function curve(points: Point[]) {
-  const line = new T.CatmullRomCurve3(points.map(point => new T.Vector3(point.x, 0, point.z)));
-  return line.getSpacedPoints(Math.ceil(line.getLength() / 1.2));
-}
+import { groundPolygon } from './opo-meshes';
 
 export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   const group = new T.Group();
-  const paving = material('#bdb0a1', 'cobble');
-  const asphalt = material('#d5d2ca', 'asphalt');
-  const edging = material('#a6a093', 'granite');
   const mulch = material('#aa9877', 'forest');
-  const playSurface = material('#7e766b');
   const seat = material('#765244', 'planks');
 
   function material(color: string, texture?: TourSurface) {
@@ -30,18 +21,6 @@ export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData
     mesh.receiveShadow = true;
     group.add(mesh);
   }
-
-  const approach = curve(songpaCourtyard.apron.map(data.project));
-  surface(ribbon(approach, 3.8, (x, z) => grade(x, z) + 0.19), asphalt, 'asphalt');
-  const paths = songpaCourtyard.paths.map(({ width, points }) => ({ width, line: curve(points.map(data.project)) }));
-  for (const { width, line } of paths) {
-    surface(ribbon(line, width + 0.26, (x, z) => grade(x, z) + 0.20), edging, 'granite');
-    surface(ribbon(line, width, (x, z) => grade(x, z) + 0.24), paving, 'cobble');
-  }
-
-  const playground = songpaCourtyard.playground.map(data.project);
-  surface(groundPolygon([playground], grade, 3, 0.25), playSurface);
-  surface(ribbon([...playground, playground[0]], 0.2, (x, z) => grade(x, z) + 0.27), edging, 'granite');
 
   const beds = songpaCourtyard.beds.map(ring => ring.map(data.project));
   const curbs: T.BufferGeometry[] = [];

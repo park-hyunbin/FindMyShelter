@@ -5,6 +5,8 @@ import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from '.
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, terrainSurface } from './opo-meshes';
 import { crossingOutline, crosswalkFrame, fitCrosswalk, leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type Crosswalk } from './opo-crosswalks';
+import { siteSurfaces } from './data/site-surfaces';
+import { gateCrosswalkArea } from './opo-site-surfaces';
 
 const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 const paths = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
@@ -281,6 +283,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   for (const item of data.streetPoints) if (item.kind === 'crossing') addCrossing([], item.position, true);
   surveyedCrossings(false);
+  const gate = siteSurfaces[data.region]?.gate;
+  const paintCrossings = gate ? [...crossings, gateCrosswalkArea(data.project, gate)] : crossings;
   const joined = new Map<number, number>();
   if (songpa) for (const road of roads) {
     if (road.motor) road.nodeIds.forEach((id, i) => {
@@ -288,7 +292,6 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       joined.set(id, (joined.get(id) ?? 0) + edges);
     });
   }
-  const grade = (x: number, z: number) => data.ground(x, z) + network.raiseBridge({ x, z });
   const surface = (x: number, z: number) => terrainSurface(data.ground, x, z) + network.raiseBridge({ x, z });
   const layers = new Map<string, { color: string; texture?: TourSurface; geometry: T.BufferGeometry[]; castsShadow: boolean }>();
   function add(color: string, geometry: T.BufferGeometry, texture?: TourSurface, castsShadow = false) {
@@ -336,7 +339,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const double = style === 'yellow-double' || style === 'yellow-combined';
     const paint = (line: Point[], dashed: boolean) => {
       const segments = dashed ? lineChunks(line, style === 'yellow-dash' ? 2.7 : 4, 4.5) : [line];
-      for (const segment of segments) for (const piece of leaveCrosswalkGaps(segment, crossings)) {
+      for (const segment of segments) for (const piece of leaveCrosswalkGaps(segment, paintCrossings)) {
         strip(piece, style === 'stop' ? 0.31 : 0.14, 0.55, color);
       }
     };
@@ -507,5 +510,5 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   markers(new T.BoxGeometry(0.4, 0.6, 0.14), '#307a75', busStops, 2.57);
   markers(new T.BoxGeometry(1.45, 0.16, 0.48), '#88725a', benches, 0.62);
   markers(new T.BoxGeometry(1.15, 0.48, 0.12), '#53615b', benches, 0.31);
-  return { ...network, grade, surface };
+  return { ...network, surface };
 }

@@ -2,19 +2,13 @@ import * as T from 'three';
 import type { Building, OpoData, Point } from './opo-data';
 import { inShape } from './opo-data';
 
-// Exterior cues from the Yangjae-daero 60-gil roadview. IDs are the QGIS building footprints.
-const exteriors = new Map([
-  ['55757101', { wall: '#a39184', roof: '#6e8e80', edge: '#d0c6b8', glass: '#546d73', lower: '#6d6760',
-    front: [127.116994, 37.498151], balconies: true, storefront: true }],
-  ['55781807', { wall: '#a39188', roof: '#858880', edge: '#c5beb5', glass: '#586f73', lower: '#817974',
-    front: [127.117202, 37.497954], balconies: true, storefront: false }],
-  ['69803784', { wall: '#c7c1b7', roof: '#92938e', edge: '#b3ada3', glass: '#50676b', lower: '#7b7771',
-    front: [127.116839, 37.498395], balconies: false, storefront: true }],
-]);
+export type StreetFacade = {
+  wall: string; roof: string; edge: string; glass: string; lower: string;
+  front: [longitude: number, latitude: number]; balconies: boolean; storefront: boolean;
+};
 
-export function songpaStreetExterior(building: Building, data: OpoData, points: Point[], base: number, height: number, scene: T.Scene) {
-  const style = exteriors.get(building.id);
-  if (!style || !building.levels) return null;
+export function addStreetExterior(style: StreetFacade, building: Building, data: OpoData, points: Point[], base: number, height: number, scene: T.Scene) {
+  if (!building.levels || height <= (style.storefront ? 3.6 : 3.2)) return null;
   const material = (color: string, roughness = 0.88) => new T.MeshStandardMaterial({ color, roughness });
   const wall = material(style.wall), roof = material(style.roof), glass = material(style.glass, 0.38);
   const trim = material(style.edge), baseCladding = material(style.lower);

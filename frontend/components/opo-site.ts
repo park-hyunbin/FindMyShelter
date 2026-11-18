@@ -7,13 +7,14 @@ import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
 import { songpaHospital, visitRoutes } from './data/visit-routes';
-import { songpaGrounds } from './data/songpa-grounds';
+import { siteSurfaces } from './data/site-surfaces';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
 import { surveyedRoute } from './data/songpa-route-elevation';
 import { addSongpaEntrance } from './opo-songpa-entrance';
 import { addSongpaCourtyard } from './opo-songpa-courtyard';
+import { addSiteSurfaces } from './opo-site-surfaces';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
@@ -78,35 +79,12 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
 }
 
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
+  const surfaces = siteSurfaces[data.region];
+  if (surfaces) addSiteSurfaces(data, scene, grade, finish, surfaces.layout, surfaces.gate);
   if (data.region === 'songpa') {
     addSongpaEntrance(data, scene, grade, finish);
     addSongpaCourtyard(data, scene, grade, finish);
     addSongiPark(data, scene, grade, finish);
-    const pavement = new T.MeshStandardMaterial({ color: '#b3aea4', roughness: 0.96, side: T.DoubleSide });
-    const paint = new T.MeshStandardMaterial({ color: '#dedbd0', roughness: 0.92, side: T.DoubleSide });
-    const paving = groundPolygon([songpaGrounds.paving.map(data.project)], grade, 3, 0.12);
-    surfaceUV(paving, 'cobble');
-    const road = new T.Mesh(paving, finish(pavement, 'cobble'));
-    road.receiveShadow = true;
-    scene.add(road);
-    for (const { start, end } of songpaGrounds.markings) {
-      const a = data.project(start);
-      const b = data.project(end);
-      const markingLength = Math.hypot(b.x - a.x, b.z - a.z);
-      const normal = { x: (b.z - a.z) / markingLength, z: (a.x - b.x) / markingLength };
-      const stripes = Math.ceil(markingLength / 0.9);
-      for (let index = 0; index < stripes; index++) {
-        const fraction = (index + 0.5) / stripes;
-        const x = a.x + (b.x - a.x) * fraction;
-        const z = a.z + (b.z - a.z) * fraction;
-        const stripe = new T.Mesh(ribbon([
-          { x: x - normal.x * 1.1, z: z - normal.z * 1.1 },
-          { x: x + normal.x * 1.1, z: z + normal.z * 1.1 },
-        ], 0.37, (x, z) => grade(x, z) + 0.15), paint);
-        stripe.receiveShadow = true;
-        scene.add(stripe);
-      }
-    }
   }
 
   const overlay = new T.Group();

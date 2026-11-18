@@ -1,3 +1,5 @@
+import type { StreetFacade } from '../opo-street-exterior';
+
 export const songpaStreets = {
   roadview: 'https://map.kakao.com/link/roadview/37.4979588,127.1171789',
   views: [
@@ -5,3 +7,13 @@ export const songpaStreets = {
     { id: 'yangjae-arterial', name: '양재대로 차로', position: [127.1168590, 37.4991910], lookAt: [127.1162742, 37.4988761] },
   ],
 };
+
+// Exterior cues referenced by songpaStreets.roadview, keyed by GIS footprints.
+export const songpaStreetFacades = new Map<string, StreetFacade>([
+  ['55757101', { wall: '#a39184', roof: '#6e8e80', edge: '#d0c6b8', glass: '#546d73', lower: '#6d6760',
+    front: [127.116994, 37.498151], balconies: true, storefront: true }],
+  ['55781807', { wall: '#a39188', roof: '#858880', edge: '#c5beb5', glass: '#586f73', lower: '#817974',
+    front: [127.117202, 37.497954], balconies: true, storefront: false }],
+  ['69803784', { wall: '#c7c1b7', roof: '#92938e', edge: '#b3ada3', glass: '#50676b', lower: '#7b7771',
+    front: [127.116839, 37.498395], balconies: false, storefront: true }],
+]);

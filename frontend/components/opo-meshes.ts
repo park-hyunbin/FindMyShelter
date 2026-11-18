@@ -4,8 +4,9 @@ import { extent, inShape, nearestOnLine, type Building, type OpoData, type Point
 import { riverNormals, surfaceUV, type TourMaterials } from './opo-materials';
 import type { TreeCover } from './opo-tree-cover';
 import { addSongpaTowerExterior, songpaExteriorMaterials } from './opo-songpa-exterior';
-import { songpaStreetExterior } from './opo-songpa-street-exterior';
-import architecture from '../public/opo-architecture.json';
+import { addStreetExterior } from './opo-street-exterior';
+import { buildingAppearance } from './data/building-appearance';
+import { buildingProfile, buildingProfiles, type BuildingUse } from './data/building-profile';
 
 export function shapeFrom(rings: Shape) {
   const path = (ring: Point[]) => ring.map(({ x, z }) => new T.Vector2(x, -z));
@@ -162,12 +163,6 @@ function neighborhoodFacade(wall: string, glass: string, trim: string) {
   return new T.MeshStandardMaterial({ map: texture, roughness: 0.87 });
 }
 
-function buildingStyle(building: Building) {
-  if (/industrial|warehouse|commercial|retail|공장|창고|근린생활|업무시설|사무소/.test(building.category)) return 2;
-  if (/apartments|school|church|hospital|아파트|공동주택|학교|다세대|교회/.test(building.category)) return 1;
-  return [...building.id].reduce((hash, c) => (hash * 31 + c.charCodeAt(0)) >>> 0, 0) % 3 === 0 ? 3 : 0;
-}
-
 function splitMaterialGroup(geometry: T.BufferGeometry, index: number) {
   const result = new T.BufferGeometry();
   const group = geometry.groups.find(item => item.materialIndex === index);
@@ -181,14 +176,14 @@ function splitMaterialGroup(geometry: T.BufferGeometry, index: number) {
 }
 
 function apartmentRoofScene(rings: Shape, coreFaces: Point[][],
-    dimensions: { base: number; eave: number; top: number; levels: number },
+    dimensions: { base: number; eave: number; top: number; levels: number; mainRoofRiseM: number },
     finishes: { roof: T.MeshStandardMaterial; wall: T.MeshStandardMaterial }, scene: T.Scene) {
-  const { base, eave, top, levels } = dimensions;
+  const { base, eave, top, levels, mainRoofRiseM } = dimensions;
   const { roof: material, wall: pavilionWall } = finishes;
   const outlines = rings.map(ring => [...ring, ring[0]]);
   const edgeDistance = (point: Point) => nearestOnLine(point, outlines).distance;
   const roofRise = top - eave;
-  const roofGeometry = groundPolygon(rings, (x, z) => eave + Math.min(architecture.mainRoofRiseM, edgeDistance({ x, z }) * 0.39), 2.1, 0);
+  const roofGeometry = groundPolygon(rings, (x, z) => eave + Math.min(mainRoofRiseM, edgeDistance({ x, z }) * 0.39), 2.1, 0);
   const roof = new T.Mesh(roofGeometry, material);
   roof.castShadow = roof.receiveShadow = true;
   scene.add(roof);
@@ -250,71 +245,72 @@ function apartmentRoofScene(rings: Shape, coreFaces: Point[][],
 
 export function buildMeshes(data: OpoData, scene: T.Scene) {
   const facade = new T.MeshStandardMaterial({ map: facadeTexture(), roughness: 0.88 });
-  const songpaExterior = data.region === 'songpa' ? songpaExteriorMaterials() : null;
+  const appearance = buildingAppearance[data.region];
+  const claddingMaterials = appearance?.towerCladding ? songpaExteriorMaterials() : null;
   const apartmentRoof = new T.MeshStandardMaterial({ color: '#665a53', roughness: 0.95 });
   const pavilionWall = new T.MeshStandardMaterial({ color: '#e4e2d8', roughness: 0.91 });
-  const roofColors = ['#70645a', '#777875', '#596d71', '#845a48'];
-  const roofMaterials = roofColors.map(color => new T.MeshStandardMaterial({ color, roughness: 0.96 }));
-  const facadeMaterials = [
-    neighborhoodFacade('#d8d1ba', '#63777a', '#a9a18e'),
-    neighborhoodFacade('#d5c4ac', '#65757b', '#a19a8d'),
-    neighborhoodFacade('#bdc4bf', '#667f86', '#94a09f'),
-    neighborhoodFacade('#b89480', '#6a7d80', '#977968'),
-  ];
-  const displayRoofs = roofColors.map(() => [] as T.BufferGeometry[]);
-  const displayWalls = roofColors.map(() => [] as T.BufferGeometry[]);
+  const defaultMaterials = new Map(Object.entries(buildingProfiles).map(([use, style]) => [use as BuildingUse, {
+    roof: new T.MeshStandardMaterial({ color: style.roof, roughness: 0.96 }),
+    wall: neighborhoodFacade(style.wall, style.glass, style.trim),
+  }]));
+  const pitchedRoofMaterial = new T.MeshStandardMaterial({ color: '#845a48', roughness: 0.96 });
+  const estimatedGeometry = new Map<T.Material, T.BufferGeometry[]>();
   const footprints = new T.MeshBasicMaterial({ color: '#a89d86' });
   const occluders: T.Mesh[] = [];
   const roofs: RoofOutline[] = [];
   const anchors: { point: T.Vector3; building: Building }[] = [];
+  const ground = (x: number, z: number) => terrainSurface(data.ground, x, z);
 
   for (const building of data.buildings) {
+    const { use, profile, sourceHeight, displayHeight, pitchedRoof } = buildingProfile(building);
+    const pavilion = appearance?.roofPavilions?.get(building.id);
+    const roofRise = sourceHeight && pavilion ? pavilion.roofRiseM : 0;
+    const wallHeight = (displayHeight ?? 0) - roofRise;
+    const floorHeight = building.levels ? wallHeight / building.levels : profile.floorM;
+    const materials = defaultMaterials.get(use)!;
+    const roof = pitchedRoof ? pitchedRoofMaterial : materials.roof;
     for (const [index, rings] of building.shapes.entries()) {
-      if (!building.height && !building.levels && data.region === 'songpa') {
-        scene.add(new T.Mesh(groundPolygon(rings, data.ground), footprints));
+      if (displayHeight === null) {
+        scene.add(new T.Mesh(groundPolygon(rings, ground), footprints));
         continue;
       }
       const position = rings[0].reduce((p, item) => ({ x: p.x + item.x / rings[0].length, z: p.z + item.z / rings[0].length }), { x: 0, z: 0 });
-      const verticalBase = data.ground(position.x, position.z);
-      const skirt = Math.max(1.15, ...rings[0].map(p => verticalBase - data.ground(p.x, p.z) + 0.75));
-      const style = buildingStyle(building);
-      const displayHeight = building.height || (building.levels ? Math.min(65, building.levels * 3.05)
-        : /garage|shed|greenhouse|hut/.test(building.category) ? 3.1 : style === 2 ? 6.4 : style === 1 ? 10 : 5.9);
+      const verticalBase = ground(position.x, position.z);
+      const skirt = Math.max(1.15, ...rings[0].map(p => verticalBase - ground(p.x, p.z) + 0.75));
       const shape = shapeFrom(rings);
       const geometry = new T.ExtrudeGeometry(shape, { depth: displayHeight + skirt, bevelEnabled: false });
-      const roofRise = data.region === 'opo' && building.dong && building.height ? architecture.roofRiseM : 0;
-      const wallHeight = displayHeight - roofRise;
-      const floorHeight = (building.dong || data.region === 'songpa') && building.levels && building.levels > 0
-        ? wallHeight / building.levels : 3.1;
       if (!roofRise) {
         const uv = geometry.getAttribute('uv');
-        for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3.25, (uv.getY(i) - skirt) / floorHeight);
+        for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / profile.bayM, (uv.getY(i) - skirt) / floorHeight);
       }
       geometry.rotateX(-Math.PI / 2);
       geometry.translate(0, verticalBase - skirt, 0);
-      const roofStyle = ['gabled', 'hipped', 'half-hipped'].includes(building.roof ?? '') ? 3 : style;
-      if (!building.height) {
-        displayRoofs[roofStyle].push(splitMaterialGroup(geometry, 0));
-        displayWalls[style].push(splitMaterialGroup(geometry, 1));
+      if (!sourceHeight) {
+        [roof, materials.wall].forEach((material, group) => {
+          const bucket = estimatedGeometry.get(material) ?? [];
+          bucket.push(splitMaterialGroup(geometry, group));
+          estimatedGeometry.set(material, bucket);
+        });
         geometry.dispose();
         continue;
       }
-      const streetExterior = data.region === 'songpa' && index === 0 && !building.dong
-        ? songpaStreetExterior(building, data, rings[0], verticalBase, displayHeight, scene) : null;
-      const mesh = new T.Mesh(geometry, streetExterior ?? (building.dong ? [apartmentRoof, facade] : [roofMaterials[roofStyle], facadeMaterials[style]]));
+      const streetFacade = index === 0 ? appearance?.streetFacades?.get(building.id) : null;
+      const streetExterior = streetFacade ? addStreetExterior(streetFacade, building, data, rings[0], verticalBase, sourceHeight, scene) : null;
+      const mesh = new T.Mesh(geometry, streetExterior ?? (building.dong ? [apartmentRoof, facade] : [roof, materials.wall]));
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.name = data.region === 'opo' && building.dong ? `오포 포레스트 ${building.dong}` : building.label;
       scene.add(mesh);
       occluders.push(mesh);
-      if (songpaExterior && building.dong && index === 0) {
+      const towerCladding = index === 0 ? appearance?.towerCladding?.get(building.id) : null;
+      if (claddingMaterials && towerCladding && building.dong) {
         // Keep the analysis mesh while the photo-based exterior renders at the same maximum height.
-        const added = addSongpaTowerExterior(scene, {
-          id: building.id, label: mesh.name, number: building.dong.replace('동', ''), levels: building.levels ?? 20,
+        addSongpaTowerExterior(scene, {
+          label: mesh.name, number: building.dong.replace('동', ''), levels: building.levels ?? 20,
           points: rings[0], shape, center: position, grade: verticalBase, skirt, top: verticalBase + displayHeight,
-        }, songpaExterior);
-        if (added) mesh.visible = false;
+        }, towerCladding, claddingMaterials);
+        mesh.visible = false;
       }
-      if (roofRise) {
+      if (pavilion && roofRise) {
         // Site shadow/ray analyses retain the registered-height envelope.
         mesh.visible = false;
         const exterior = new T.ExtrudeGeometry(shape, { depth: wallHeight + skirt, bevelEnabled: false });
@@ -327,28 +323,26 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
         facadeMesh.name = `${mesh.name} 외관`;
         facadeMesh.castShadow = facadeMesh.receiveShadow = true;
         scene.add(facadeMesh);
-        const coreFaces = architecture.towers.find(tower => tower.outlineId === building.id)?.coreFaces ?? [];
-        apartmentRoofScene(rings, coreFaces.map(face => face.map(data.project)),
-          { base: verticalBase, eave: verticalBase + wallHeight, top: verticalBase + displayHeight, levels: building.levels ?? 15 },
+        apartmentRoofScene(rings, pavilion.coreFaces.map(face => face.map(data.project)),
+          { base: verticalBase, eave: verticalBase + wallHeight, top: verticalBase + displayHeight,
+            levels: building.levels ?? 15, mainRoofRiseM: pavilion.mainRoofRiseM },
           { roof: apartmentRoof, wall: pavilionWall }, scene);
       }
-      roofs.push({ rings, elevation: verticalBase + building.height, label: mesh.name });
+      roofs.push({ rings, elevation: verticalBase + sourceHeight, label: mesh.name });
       if (building.dong && index === 0) {
-        anchors.push({ building, point: new T.Vector3(position.x, verticalBase + building.height + 7, position.z) });
+        anchors.push({ building, point: new T.Vector3(position.x, verticalBase + sourceHeight + 7, position.z) });
       }
     }
   }
-  for (const [sets, materials] of [[displayRoofs, roofMaterials], [displayWalls, facadeMaterials]] as const) {
-    sets.forEach((batch, style) => {
-      const visible = batch.filter(geometry => geometry.hasAttribute('position'));
-      if (!visible.length) return;
-      const geometry = mergeGeometries(visible);
-      batch.forEach(item => item.dispose());
-      if (!geometry) return;
-      const mesh = new T.Mesh(geometry, materials[style]);
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-    });
+  for (const [material, batch] of estimatedGeometry) {
+    const visible = batch.filter(geometry => geometry.hasAttribute('position'));
+    if (!visible.length) continue;
+    const geometry = mergeGeometries(visible);
+    batch.forEach(item => item.dispose());
+    if (!geometry) continue;
+    const mesh = new T.Mesh(geometry, material);
+    mesh.receiveShadow = true;
+    scene.add(mesh);
   }
   return { occluders, anchors, roofs };
 }
@@ -441,6 +435,11 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
   const trees: Point[] = [];
   const greens = [];
   const waters: Point[][] = [];
+  const waterAreas = data.features.filter(feature => feature.kind === 'water').flatMap(feature => feature.shapes);
+  const waterways = data.features.filter(feature => feature.kind === 'stream' && feature.brunnel !== 'tunnel')
+    .flatMap(feature => feature.lines.map(points => ({ points, width: feature.category === 'river' ? 8 : 1.8 })));
+  const canPlant = (point: Point) => !paved?.(point) && !waterAreas.some(shape => inShape(point, shape))
+    && !waterways.some(({ points, width }) => nearestOnLine(point, [points]).distance <= width / 2);
   const riverbanks: Point[] = [];
   const surfaceOverlays = new T.Group();
   const landCoverOverlays = new T.Group();
@@ -468,7 +467,7 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
       const density = Math.min(2200, Math.ceil(size.x * size.y / 260));
       for (let i = 0; i < density; i++) {
         const point = { x: bounds.min.x + size.x * random(), z: bounds.min.y + size.y * random() };
-        if (Math.abs(point.x) < extent && Math.abs(point.z) < extent && inShape(point, shape)) trees.push(point);
+        if (Math.abs(point.x) < extent && Math.abs(point.z) < extent && inShape(point, shape) && canPlant(point)) trees.push(point);
       }
     }
     for (const points of feature.lines) {
@@ -504,9 +503,9 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
   }
   if (forest) {
     const inComplex = data.siteOutline.length ? [data.siteOutline] : null;
-    trees.push(...forest.placements(random, point => Boolean(paved?.(point) || (inComplex && inShape(point, inComplex)))));
+    trees.push(...forest.placements(random, point => !canPlant(point) || Boolean(inComplex && inShape(point, inComplex))));
   }
-  for (const point of data.streetPoints) if (point.kind === 'tree' && !paved?.(point.position)) trees.push(point.position);
+  for (const point of data.streetPoints) if (point.kind === 'tree' && canPlant(point.position)) trees.push(point.position);
   const transform = new T.Object3D();
   const treeMaterial = new T.MeshStandardMaterial({ color: '#93a776', roughness: 1 });
   const trunkMaterial = new T.MeshStandardMaterial({ color: '#746250', roughness: 1 });

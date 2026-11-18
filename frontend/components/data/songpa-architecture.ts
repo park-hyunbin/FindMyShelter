@@ -1,4 +1,4 @@
-type TowerExterior = { endFaces: number[]; numberFace: number; roofRadiusM: number };
+export type TowerExterior = { endFaces: number[]; numberFace: number; roofRadiusM: number };
 
 export const songpaArchitecture = {
   photos: 'https://hogangnono.com/apt/1Zfb4',

@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Point } from './opo-data';
-import { songpaArchitecture } from './data/songpa-architecture';
+import type { TowerExterior } from './data/songpa-architecture';
 
 function materialForCanvas(canvas: HTMLCanvasElement, repeat: boolean) {
   const texture = new T.CanvasTexture(canvas);
@@ -56,11 +56,9 @@ function endWallMaterial(number: string, levels: number) {
 }
 
 export function addSongpaTowerExterior(scene: T.Scene, building: {
-  id: string; label: string; number: string; levels: number; points: Point[]; shape: T.Shape;
+  label: string; number: string; levels: number; points: Point[]; shape: T.Shape;
   center: Point; grade: number; skirt: number; top: number;
-}, materials: ReturnType<typeof songpaExteriorMaterials>) {
-  const record = songpaArchitecture.towers.get(building.id);
-  if (!record) return false;
+}, record: TowerExterior, materials: ReturnType<typeof songpaExteriorMaterials>) {
   const { points, shape, center, grade, skirt, top, levels } = building;
   const crownHeight = record.roofRadiusM > 4 ? 2.55 : 1.9;
   const eave = top - crownHeight;
@@ -107,5 +105,4 @@ export function addSongpaTowerExterior(scene: T.Scene, building: {
     .translate(center.x, eave + crownHeight * 0.39, center.z), materials.crown);
   add(new T.CylinderGeometry(radius * 0.86, radius * 0.98, crownHeight * 0.22, 24)
     .translate(center.x, top - crownHeight * 0.11, center.z), materials.trim);
-  return true;
 }
