@@ -1,17 +1,18 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { songpaEntrance, songpaGateLayout } from './data/songpa-entrance';
-import type { OpoData } from './opo-data';
+import type { OpoData, Point } from './opo-data';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { ribbon } from './opo-meshes';
-import { axisBetween } from './opo-site-surfaces';
+import { axisBetween, gateGuardRuns } from './opo-site-surfaces';
 
 function surfaceMaterial(color: string, roughness = 0.9) {
   return new T.MeshStandardMaterial({ color, roughness, side: T.DoubleSide });
 }
 
-function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground']) {
-  const [start, end] = songpaGateLayout.axis.map(data.project);
+function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground'], elevation: (point: Point) => number | undefined) {
+  const gate = songpaGateLayout;
+  const [start, end] = gate.axis.map(data.project);
   const { at, heading } = axisBetween(start, end);
   const paint = surfaceMaterial('#eeeae0');
   const gray = surfaceMaterial('#747d7b');
@@ -20,20 +21,25 @@ function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground']
   const red = surfaceMaterial('#bd413b');
   const grate = surfaceMaterial('#d9ded6');
 
-  function box(across: number, along: number, bottom: number, size: [number, number, number], material: T.Material) {
+  function box(across: number, along: number, bottom: number, size: [number, number, number], material: T.Material, onWalk = false) {
     const { x, z } = at(across, along);
     const mesh = new T.Mesh(new T.BoxGeometry(...size), material);
     mesh.rotation.y = heading;
-    mesh.position.set(x, grade(x, z) + bottom + size[1] / 2, z);
+    const base = (onWalk ? elevation({ x, z }) : undefined) ?? grade(x, z);
+    mesh.position.set(x, base + bottom + size[1] / 2, z);
     mesh.castShadow = mesh.receiveShadow = true;
     group.add(mesh);
   }
 
   for (const side of [-1, 1]) {
-    box(side * 5.3, 1.05, 0.08, [0.54, 0.026, 0.85], yellow);
+    const crossingCenter = (gate.crossing[0] + gate.crossing[1]) / 2;
+    box(side * (gate.width / 2 + 0.66), crossingCenter, 0.015, [0.54, 0.026, 0.85], yellow, true);
     box(side * 4.25, 4.5, 0, [0.49, 0.99, 0.46], gray);
-    for (const along of [0.0, 1.8, 3.6]) box(side * 5.02, along, 0, [0.08, 0.87, 0.08], grate);
-    for (const height of [0.32, 0.79]) box(side * 5.02, 1.8, height, [0.07, 0.055, 3.6], grate);
+    const guard = side * (gate.width / 2 + gate.guards.inset);
+    for (const [from, to] of gateGuardRuns(gate)) {
+      for (const along of [from, to]) box(guard, along, 0, [0.08, 0.87, 0.08], grate, true);
+      for (const height of [0.32, 0.79]) box(guard, (from + to) / 2, height, [0.07, 0.055, to - from], grate, true);
+    }
   }
   for (let index = 0; index < 8; index++) {
     box(0, 3.1 + index * 0.49, 0, [0.82, 0.17, 0.49], index % 2 === 0 ? yellow : black);
@@ -100,9 +106,9 @@ function addParkingCanopy(data: OpoData, group: T.Group, grade: OpoData['ground'
 }
 
 export function addSongpaEntrance(data: OpoData, scene: T.Scene, grade: OpoData['ground'],
-  gateGrade: OpoData['ground'], finish: TourMaterials) {
+  gateGrade: OpoData['ground'], elevation: (point: Point) => number | undefined, finish: TourMaterials) {
   const group = new T.Group();
-  addGateFixtures(data, group, gateGrade);
+  addGateFixtures(data, group, gateGrade, elevation);
   addParkingCanopy(data, group, grade, finish);
   scene.add(group);
 }

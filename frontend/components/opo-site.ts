@@ -2,7 +2,7 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { nearestOnLine, type OpoData, type Point } from './opo-data';
+import { nearestOnLine, splitLineAt, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
@@ -86,7 +86,7 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const surfaces = siteSurfaces[data.region];
   const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, surfaces.gate);
   if (data.region === 'songpa') {
-    addSongpaEntrance(data, scene, grade, paving?.drivewayGrade ?? grade, finish);
+    addSongpaEntrance(data, scene, grade, paving?.drivewayGrade ?? grade, paving?.elevation ?? (() => undefined), finish);
     addSongpaCourtyard(data, scene, grade, finish);
     addPlayground(data, scene, (x, z) => paving?.elevation({ x, z }) ?? grade(x, z), songpaPlayground.layout);
     addSongiPark(data, scene, grade, finish);
@@ -181,6 +181,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const shortConnection = data.region === 'songpa'
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
   const routes = visitRoutes[data.region].routes;
+  const surveyedWalk = siteSurfaces[data.region]?.layout.surveyedWalks?.[0]?.centerline.map(data.project);
   const bearingTo = (from: Point, to: Point) =>
     T.MathUtils.radToDeg(Math.atan2(to.x - from.x, from.z - to.z) - data.northOffset);
   function viewPose(view?: { position: number[]; toward: number[] }) {
@@ -193,6 +194,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const crossingMaterial = crossingGeometry ? new T.MeshBasicMaterial({ color: '#f6dc94', side: T.DoubleSide }) : null;
   const layers = routes.map(route => {
     const projected = route.segments.map(segment => segment.coordinates.map(data.project));
+    const stationRoute = route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId;
     const endpoint = data.project(route.end);
     const surveyedEntrance = route.id === songpaHospital.routeId ? data.project(songpaHospital.coordinate) : null;
     const survey = data.region === 'songpa' ? surveyedRoute(route.id, route.segments.flatMap(segment => segment.coordinates)) : undefined;
@@ -205,6 +207,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     group.visible = false;
     group.add(lines, pavingGuides);
     function addLine(points: Point[], style: LineMaterial, surface?: (point: Point) => number) {
+      if (points.length < 2) return;
       const vertices: number[] = [];
       function vertex(x: number, z: number) {
         const y = surface ? surface({ x, z }) : grade(x, z) + 0.76;
@@ -225,11 +228,26 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       (surface ? pavingGuides : lines).add(line);
       return line;
     }
-    route.segments.forEach((segment, index) => addLine(projected[index], segment.mappedWalkway ? recorded : unconfirmed));
+    const traceLift = 0.10;
+    const surfaceGuide = ({ x, z }: Point) => (paving?.elevation({ x, z }) ?? grade(x, z)) + traceLift;
+    route.segments.forEach((segment, index) => {
+      const line = projected[index];
+      const style = segment.mappedWalkway ? recorded : unconfirmed;
+      if (index !== 0 || !stationRoute || !shortConnection || !surveyedWalk?.length) {
+        addLine(line, style);
+        return;
+      }
+      const start = splitLineAt(line, surveyedWalk[0]);
+      const end = splitLineAt(start.after, surveyedWalk[surveyedWalk.length - 1]);
+      addLine([...start.before, surveyedWalk[0]], shortConnection);
+      addLine(surveyedWalk, recorded, surfaceGuide);
+      addLine([surveyedWalk[surveyedWalk.length - 1], end.point], shortConnection);
+      addLine(end.after, style);
+    });
     if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection);
     const driveway = paving?.drivewayCenterline;
     const homeWalk = aerialTrace && shortConnection && paving && driveway && driveway.length >= 2
-      && (route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId) ? (() => {
+      && stationRoute ? (() => {
       const nearStation = songpaHomeLinks.stationExit.coordinates.map(data.project);
       const nearGate = songpaHomeLinks.gateApproach.coordinates.map(data.project);
       const inner = songpaGrounds.points.find(point => point.id === 'inner-paving');
@@ -242,8 +260,6 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       }, { index: 0, point: driveway[0], distance: Infinity });
       const gate = nearGate.at(-1)!;
       const inside = [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
-      const traceLift = 0.10;
-      const surfaceGuide = ({ x, z }: Point) => (paving.elevation({ x, z }) ?? grade(x, z)) + traceLift;
       const gateLift = surfaceGuide(gate) - grade(gate.x, gate.z);
       addLine(nearStation, shortConnection);
       addLine(nearGate, shortConnection, ({ x, z }) => {
@@ -290,7 +306,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         color: '#ba9aeb', linewidth: 3.2, dashed: true, dashSize: 2.1, gapSize: 1.7,
         depthTest: false, depthWrite: false,
       }));
-      entranceDistance.renderOrder = 8;
+      if (entranceDistance) entranceDistance.renderOrder = 8;
       const material = new T.MeshBasicMaterial({ color: '#d8bcff', depthTest: false });
       const stem = new T.Mesh(new T.CylinderGeometry(0.5, 0.5, 12, 8), material);
       const tip = new T.Mesh(new T.SphereGeometry(2.8, 12, 8), material);

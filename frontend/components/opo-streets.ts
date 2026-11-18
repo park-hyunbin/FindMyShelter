@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { extent, inShape, type OpoData, type Point, type Street, type StreetPaint } from './opo-data';
+import { extent, inShape, splitLineAt, type OpoData, type Point, type Street, type StreetPaint } from './opo-data';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface } from './opo-meshes';
@@ -257,6 +257,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   });
   const network = edgeOffsets.size ? createStreetNetwork(roads) : centerlines;
   const site = siteSurfaces[data.region];
+  const surveyedWalks = site?.layout.surveyedWalks?.map(({ roadId, side, centerline }) => ({
+    roadId, side, ends: [data.project(centerline[0]), data.project(centerline[centerline.length - 1])],
+  })) ?? [];
   const tracedDrive = site?.layout.pavedDrive?.map(data.project);
   const siteCrossings = site?.layout.crossings.map(crossing => siteCrosswalkArea(data.project, crossing)) ?? [];
   if (site?.gate) siteCrossings.push(gateCrosswalkArea(data.project, site.gate));
@@ -403,8 +406,21 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const edge = width / 2 * sign;
         if (arterial && approximatePaint) interruptedStrip(offsetLine(laneLine, edge - sign * 0.32), 0.15, 0.519, '#eeeae2');
         if (road.sidewalks[index]) {
-          interruptedStrip(offsetLine(laneLine, edge + sign * 0.89), 1.78, 0.61, '#d4cec2', 'pavers', 1.9);
-          interruptedStrip(offsetLine(laneLine, edge + sign * 0.12), 0.19, 0.635, '#a5a4a0', undefined, 0.30);
+          const survey = surveyedWalks.find(walk => walk.roadId === road.id && walk.side === sign);
+          let fallback = [laneLine];
+          if (survey) {
+            const [a, b] = survey.ends;
+            const from = laneLine[0], to = laneLine[laneLine.length - 1];
+            const forward = (to.x - from.x) * (b.x - a.x) + (to.z - from.z) * (b.z - a.z) >= 0;
+            const start = splitLineAt(laneLine, forward ? a : b);
+            const finish = splitLineAt(laneLine, forward ? b : a);
+            fallback = [start.before, finish.after];
+          }
+          for (const run of fallback) {
+            if (run.length < 2) continue;
+            interruptedStrip(offsetLine(run, edge + sign * 0.89), 1.78, 0.61, '#d4cec2', 'pavers', 1.9);
+            interruptedStrip(offsetLine(run, edge + sign * 0.12), 0.19, 0.635, '#a5a4a0', undefined, 0.30);
+          }
         }
       }
     }

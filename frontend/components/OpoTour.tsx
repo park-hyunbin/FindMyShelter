@@ -1255,11 +1255,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={songpaStationAccess.guide} target="_blank" rel="noreferrer">서울교통공사 송파역 안내도 ({songpaStationAccess.guideDate}) ↗</a>
                 <a href={songpaStationAccess.elevatorSource} target="_blank" rel="noreferrer">국가철도공단 설치 목록 ({songpaStationAccess.elevatorDate}) ↗</a>
                 <ul className="walk-legend">
-                  <li><i className="walk-mapped" aria-hidden="true" />지도에 보도가 표시된 경로 {route.walkwayM}m</li>
-                  <li><i className="walk-gap" aria-hidden="true" />출구 약 {songpaHomeLinks.stationExit.lengthM}m, 정문 쪽 약 {songpaHomeLinks.gateApproach.lengthM}m 연결 미확인</li>
+                  <li><i className="walk-mapped" aria-hidden="true" />지도상 보도 경로 {route.walkwayM}m · 양재대로60길 일부는 서울시 보도면을 따라 표시</li>
+                  <li><i className="walk-gap" aria-hidden="true" />출구, 정문 앞 약 {songpaHomeLinks.gateApproach.lengthM}m, 보도면 양끝의 연결 미확인</li>
                   <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>
                 </ul>
                 <div className="site-actions"><button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button></div>
+                <a href={songpaEntrance.sidewalkGeometry} target="_blank" rel="noreferrer">서울시 보도면 원본 ↗</a>
                 <a href={songpaHomeLinks.gateApproach.source} target="_blank" rel="noreferrer">정문 앞 도로 원본 ↗</a>
                 <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">단지 항공영상 촬영 정보 ↗</a>
               </section>}

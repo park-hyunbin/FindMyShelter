@@ -308,3 +308,18 @@ export function nearestOnLine(point: Point, lines: Point[][]) {
   }
   return best;
 }
+
+export function splitLineAt(points: Point[], target: Point) {
+  let best = { distance: Infinity, point: points[0], index: 0 };
+  for (let i = 1; i < points.length; i++) {
+    const candidate = nearestOnLine(target, [[points[i - 1], points[i]]]);
+    if (candidate.distance < best.distance) best = { ...candidate, index: i };
+  }
+  const { index, point } = best;
+  const before = points.slice(0, index);
+  const after = points.slice(index);
+  const distinct = (other?: Point) => other && Math.hypot(point.x - other.x, point.z - other.z) > 0.01;
+  if (distinct(before.at(-1))) before.push(point);
+  if (distinct(after[0])) after.unshift(point);
+  return { before, after, point };
+}

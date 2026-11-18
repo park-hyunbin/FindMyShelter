@@ -6,6 +6,7 @@ export const songpaEntrance = {
   capturedIn: '2026년 6월',
   record: 'https://www.data.go.kr/data/15038206/fileData.do',
   roadGeometry: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1L_A0010000.zip',
+  sidewalkGeometry: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0033320.zip',
   roadGeometryLabel: '서울특별시 에스맵-오픈랩 데이터',
   main: {
     id: 'main-crossing', name: '정문 횡단부',
@@ -27,10 +28,8 @@ export const songpaGateLayout = {
   axis: [[127.1168670, 37.4977227], [127.1168053, 37.4977823]],
   width: 9.4,
   crossing: [0.15, 2.05],
-  sidewalks: { width: 1.65, points: [
-    [[-7.2, 0.9], [-4.7, 0.9]],
-    [[4.7, 0.9], [7.2, 0.9]],
-  ] },
+  sidewalks: { extension: 2.5, rampWidth: 0.85 },
+  guards: { inset: 0.32, span: [0, 3.6] },
 } satisfies GateLayout;
 
 // East boundary from Seoul OpenLab N1L_A0010000, UFID 1000377090304A00110000000000000216.

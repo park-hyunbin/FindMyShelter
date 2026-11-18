@@ -10,7 +10,6 @@ import { makeCar } from './opo-vehicle';
 import { buildingEntry, type BuildingEntryLayout } from './opo-building-entry';
 
 type Coordinate = [longitude: number, latitude: number];
-type GateOffset = [across: number, along: number];
 type SiteCrossing = { start: Coordinate; end: Coordinate; depth: number };
 type ParkingRow = {
   aisle: [Coordinate, Coordinate];
@@ -25,7 +24,15 @@ export type GateLayout = {
   axis: [Coordinate, Coordinate];
   width: number;
   crossing: [start: number, end: number];
-  sidewalks: { width: number; points: [GateOffset, GateOffset][] };
+  sidewalks: { extension: number; rampWidth: number };
+  guards?: { inset: number; span: [start: number, end: number] };
+};
+
+export type SurveyedWalk = {
+  roadId: number;
+  side: -1 | 1;
+  outline: Coordinate[];
+  centerline: Coordinate[];
 };
 
 export type SiteSurfaceLayout = {
@@ -34,6 +41,7 @@ export type SiteSurfaceLayout = {
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
+  surveyedWalks?: SurveyedWalk[];
   crossings: SiteCrossing[];
   parkingRows?: ParkingRow[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
@@ -55,6 +63,14 @@ export function gateCrosswalkArea(project: OpoData['project'], gate: GateLayout)
   const { at, direction } = axisBetween(project(gate.axis[0]), project(gate.axis[1]));
   const [start, end] = gate.crossing;
   return { center: at(0, (start + end) / 2), depth: end - start, direction, section: { width: gate.width } };
+}
+
+export function gateGuardRuns(gate: GateLayout) {
+  if (!gate.guards) return [];
+  const [start, end] = gate.guards.span;
+  const [openingStart, openingEnd] = gate.crossing;
+  const approaches: [number, number][] = [[start, Math.min(end, openingStart - 0.1)], [Math.max(start, openingEnd + 0.1), end]];
+  return approaches.filter(([a, b]) => b - a >= 0.3);
 }
 
 export function siteCrosswalkArea(project: OpoData['project'], { start, end, depth }: SiteCrossing): CrosswalkArea {
@@ -191,6 +207,9 @@ export function addSiteSurfaces(
     scene.add(facade.exterior);
   }
   const streetGrade = (x: number, z: number) => grade(x, z) + streetDeckLift;
+  for (const { outline } of layout.surveyedWalks ?? []) {
+    add(groundPolygon([outline.map(data.project)], streetGrade, 0.8, 0.13), paving, 'pavers');
+  }
   for (const { curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
     const edge = curb.map(data.project);
     const { top, curb: curbGeometry, skirt } = curbWalk(edge, width, outward, grade,
@@ -211,9 +230,17 @@ export function addSiteSurfaces(
   if (gate && frame && gateCrossing) {
     const { at } = frame;
     const sidewalk = material('#c7c6be', 'pavers');
-    for (const line of gate.sidewalks.points) {
-      add(ribbon(line.map(([across, along]) => at(across, along)), gate.sidewalks.width,
-        (x, z) => grade(x, z) + streetDeckLift + 0.09, 0.8, 1), sidewalk, 'pavers');
+    const { extension, rampWidth } = gate.sidewalks;
+    const along = (gate.crossing[0] + gate.crossing[1]) / 2;
+    const { center, direction, depth } = gateCrossing;
+    const edge = gate.width / 2;
+    for (const side of [-1, 1]) {
+      const points = [edge, edge + rampWidth, edge + extension].map(across => at(side * across, along));
+      add(ribbon(points, depth, (x, z) => {
+        const across = (x - center.x) * direction.z - (z - center.z) * direction.x;
+        const lift = T.MathUtils.lerp(0.015, 0.12, T.MathUtils.smoothstep(Math.abs(across) - edge, 0, rampWidth));
+        return drivewayGrade(x, z) + lift;
+      }, 0.25), sidewalk, 'pavers');
     }
   }
   if (crossings.length || layout.parkingRows?.length) {
