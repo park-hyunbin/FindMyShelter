@@ -47,7 +47,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         finding: '공개 지도와 대조한 101~105동의 위치를 조감으로 보고, 지상 사진을 참고한 외벽과 원형 지붕을 동 사이에서 살펴볼 수 있어요.',
         followUp: '동별 출입구와 집 앞에서 보이는 실제 방향을 확인해 보세요.',
         views: [{ target: 'complex', label: '단지 전체 조감으로 보기' }],
-        sources: [seoulComplex, { label: '주동 배치 참고 지도', url: songpaArchitecture.layout }],
+        sources: [seoulComplex, siteBoundary, { label: '주동 배치 참고 지도', url: songpaArchitecture.layout }],
       },
       {
         id: 'sunlight', title: '실외 일조와 시야', evidence: 'model',

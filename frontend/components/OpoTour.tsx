@@ -27,7 +27,7 @@ import { songpaRouteElevation } from './data/songpa-route-elevation';
 import TourLive from './TourLive';
 import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
-import SongpaChecklist from './SongpaChecklist';
+import SongpaChecklist, { useChecklistRecords } from './SongpaChecklist';
 import type { ChecklistView } from './data/songpa-checklist';
 import { useFieldVisits, type FieldScene } from './opo-field-visits';
 
@@ -312,6 +312,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const area = regions.find(r => r.id === region)!;
   const access = visitRoutes[region];
   const field = useFieldVisits(region === 'songpa');
+  const checklist = useChecklistRecords(region === 'songpa');
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
   const analysisPanel = useRef<HTMLElement>(null);
@@ -991,7 +992,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       </div>
 
       {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)}
-        field={field} onOpenField={openFieldVisit} onShowField={openVisitPlan} />}
+        checklist={checklist} field={field} onOpenField={openFieldVisit} onShowField={openVisitPlan} />}
       {region === 'songpa' && tab === 'ambient' && <SongpaAmbient moment={ambientMoment} onTime={setAmbientMoment} scene={world?.ambientScene}
         activeStopId={ambientStopId} onVisit={visitAmbientStop} onMap={() => {
           chooseMode('orbit');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { evidenceLabels, songpaChecklist, type ChecklistView } from './data/songpa-checklist';
 import { songpaComplex } from './data/regions';
 import { fieldSceneId, fieldVisitNoteLimit, type FieldScene, type FieldVisits } from './opo-field-visits';
@@ -10,13 +10,16 @@ const statusLabels = { pending: '아직 안 봄', reviewed: '살펴봄', visit: 
 type Status = keyof typeof statusLabels;
 type RecordEntry = { status: Status; note: string };
 type VisitRecords = Partial<Record<string, RecordEntry>>;
+type RecordChanges = Record<string, Partial<RecordEntry>>;
 const emptyEntry: RecordEntry = { status: 'pending', note: '' };
 const checks = songpaChecklist.flatMap(group => group.checks);
 const noteLimit = 700;
 
-function readRecords(): VisitRecords {
+function readRecords(): VisitRecords | null {
+  let raw;
+  try { raw = window.localStorage.getItem(storageKey); } catch { return null; }
   try {
-    const records: unknown = JSON.parse(window.localStorage.getItem(storageKey) ?? '{}');
+    const records: unknown = JSON.parse(raw ?? '{}');
     if (!records || typeof records !== 'object' || Array.isArray(records)) return {};
 
     const saved: VisitRecords = {};
@@ -34,6 +37,45 @@ function readRecords(): VisitRecords {
   }
 }
 
+function applyChanges(records: VisitRecords, changes: RecordChanges) {
+  const updated = { ...records };
+  for (const [id, change] of Object.entries(changes)) updated[id] = { ...emptyEntry, ...updated[id], ...change };
+  return updated;
+}
+
+export function useChecklistRecords(enabled: boolean) {
+  const [records, setRecords] = useState<VisitRecords>(() => enabled ? readRecords() ?? {} : {});
+  const [storageUnavailable, setStorageUnavailable] = useState(false);
+  const pending = useRef<RecordChanges>({});
+
+  useEffect(() => {
+    if (!enabled) return;
+    function sync(event: StorageEvent) {
+      if (event.key !== storageKey && event.key !== null) return;
+      const latest = readRecords();
+      if (latest) setRecords(applyChanges(latest, pending.current));
+    }
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, [enabled]);
+
+  function update(id: string, change: Partial<RecordEntry>) {
+    const changes = { ...pending.current, [id]: { ...pending.current[id], ...change } };
+    const updated = applyChanges(readRecords() ?? records, changes);
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(updated));
+      pending.current = {};
+      setStorageUnavailable(false);
+    } catch {
+      pending.current = changes;
+      setStorageUnavailable(true);
+    }
+    setRecords(updated);
+  }
+
+  return { records, storageUnavailable, update };
+}
+
 function hasRecord(entry: RecordEntry | undefined) {
   return Boolean(entry && (entry.status !== 'pending' || entry.note.trim()));
 }
@@ -44,36 +86,16 @@ function modelTime(scene: FieldScene) {
   return `모델 시각 ${scene.date} ${localTime} KST`;
 }
 
-export default function SongpaChecklist({ onView, sceneReady, field, onOpenField, onShowField }: {
+export default function SongpaChecklist({ onView, sceneReady, checklist, field, onOpenField, onShowField }: {
   onView: (view: ChecklistView, checkId: string) => void;
   sceneReady: boolean;
+  checklist: ReturnType<typeof useChecklistRecords>;
   field: FieldVisits;
   onOpenField: (scene: FieldScene) => boolean;
   onShowField: () => void;
 }) {
-  const [records, setRecords] = useState(readRecords);
-  const [storageUnavailable, setStorageUnavailable] = useState(false);
+  const { records, storageUnavailable, update } = checklist;
   const [missingScene, setMissingScene] = useState('');
-
-  useEffect(() => {
-    function sync(event: StorageEvent) {
-      if (event.key === storageKey || event.key === null) setRecords(readRecords());
-    }
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, []);
-
-  function update(id: string, change: Partial<RecordEntry>) {
-    const recent = storageUnavailable ? records : readRecords();
-    const updated = { ...recent, [id]: { ...emptyEntry, ...recent[id], ...change } };
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(updated));
-      setStorageUnavailable(false);
-    } catch {
-      setStorageUnavailable(true);
-    }
-    setRecords(updated);
-  }
 
   function download() {
     const lines = [`${songpaComplex.name} 임장 체크리스트`, songpaComplex.address];
@@ -81,8 +103,9 @@ export default function SongpaChecklist({ onView, sceneReady, field, onOpenField
       lines.push('', group.title);
       for (const check of group.checks) {
         const entry = records[check.id] ?? emptyEntry;
-        lines.push(`[${statusLabels[entry.status]}] ${check.title}`, check.finding);
+        lines.push(`[${statusLabels[entry.status]}] ${check.title}`, `근거 · ${evidenceLabels[check.evidence]}`, check.finding);
         if (check.followUp) lines.push(`현장에서 확인 · ${check.followUp}`);
+        for (const source of check.sources ?? []) lines.push(`출처 · ${source.label} · ${source.url}`);
         if (entry.note.trim()) lines.push(`내 메모 · ${entry.note.trim()}`);
         if (check.id === 'visit-plan') for (const visit of field.visits) {
           lines.push('', `현장에서 볼 장소 · ${visit.place}`, visit.finding);
@@ -110,7 +133,7 @@ export default function SongpaChecklist({ onView, sceneReady, field, onOpenField
       {field.visits.length > 0 && <button type="button" onClick={onShowField}>저장한 장소 {field.visits.length}개</button>}
       <button type="button" onClick={download}>체크리스트 받기</button>
     </div>
-    {saveFailed && <p role="status">이 브라우저에서 저장할 수 없어요. 화면을 떠나기 전에 파일을 받아 주세요.</p>}
+    {saveFailed && <p role="status">이 브라우저에서 저장할 수 없어요. 페이지를 닫거나 지역을 바꾸기 전에 파일을 받아 주세요.</p>}
     {!saveFailed && <p className="checklist-save-note">기록은 이 브라우저에 저장돼요.</p>}
     {songpaChecklist.map(group => <section key={group.title} className="checklist-group">
       <h3>{group.title}</h3>
