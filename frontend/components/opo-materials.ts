@@ -6,6 +6,7 @@ const surfaces = {
   forest: { tile: 3.8, relief: 0.58 },
   grass: { tile: 4.2, relief: 0.55 },
   stonewall: { tile: 2.8, relief: 0.65 },
+  planks: { tile: 2.2, relief: 0.46 },
   water: { tile: 5.2, relief: 0.32 },
 };
 
@@ -55,17 +56,24 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
 
 export type TourMaterials = ReturnType<typeof createTourMaterials>;
 
-export function detailGround(material: T.MeshStandardMaterial, texture: T.Texture) {
+export function detailGround(material: T.MeshStandardMaterial, texture: T.Texture,
+    opening?: { x: number; z: number; rx: number; rz: number }) {
   const strength = { value: 1 };
   material.onBeforeCompile = shader => {
     shader.uniforms.groundTexture = { value: texture };
     shader.uniforms.groundStrength = strength;
+    shader.uniforms.groundOpening = { value: opening
+      ? new T.Vector4(opening.x, opening.z, opening.rx, opening.rz) : new T.Vector4(50000, 50000, 1, 1) };
     shader.vertexShader = 'varying vec2 groundUV;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>', '#include <begin_vertex>\n groundUV = vec2(position.x, -position.z) / 3.8;',
     );
-    shader.fragmentShader = 'varying vec2 groundUV;\n uniform sampler2D groundTexture;\n uniform float groundStrength;\n'
+    shader.fragmentShader = 'varying vec2 groundUV;\n uniform sampler2D groundTexture;\n uniform float groundStrength;\n uniform vec4 groundOpening;\n'
       + shader.fragmentShader.replace('#include <map_fragment>', `
         #include <map_fragment>
+        if (groundStrength > 0.0) {
+          vec2 openingOffset = (vec2(groundUV.x, -groundUV.y) * 3.8 - groundOpening.xy) / groundOpening.zw;
+          if (dot(openingOffset, openingOffset) < 1.0) discard;
+        }
         if (groundStrength > 0.0 && vViewPosition.z < 230.0) {
           float closeUp = 1.0 - smoothstep(25.0, 230.0, vViewPosition.z);
           vec3 sampleColor = texture2D(groundTexture, groundUV).rgb;

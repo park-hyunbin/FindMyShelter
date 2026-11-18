@@ -12,6 +12,7 @@ https://github.com/freak419/walkable-city/blob/main/CREDITS.md
 cobble: cobblestone_floor_08
 forest: brown_mud_leaves_01
 grass: aerial_grass_rock
+planks: weathered_planks
 stonewall: stone_wall_04
 All photo textures are CC0 1.0.
 https://creativecommons.org/publicdomain/zero/1.0/

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { courtyard, courtyardGarden } from './opo-courtyard';
+import { courtyardStairs } from './opo-garden';
 import { loadOpoData, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonRange, type DirectionProfile } from './opo-horizon';
@@ -600,10 +601,11 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
         </div>
         <div className="site-card">
           <strong>{courtyard.name}</strong>
-          <p>101동 남쪽의 원형 광장과 파란 포장, 남쪽 경사면의 석축과 목재 계단을 항공영상과 단지 사진에 맞춰 표현했어요. 세부 치수와 단차는 추정입니다.</p>
+          <p>공개 사진을 참고해 원형으로 내려가는 계단, 파란 놀이터, 세 단의 석재 물길과 목재 계단을 모델링했어요. 시설물의 세부 치수와 단차는 추정입니다.</p>
           <div className="site-actions">
             <button disabled={!world} onClick={() => visit(courtyard.id)}>중정 둘러보기</button>
             <button disabled={!world} onClick={() => visit(courtyardGarden.id)}>남쪽 정원 보기</button>
+            <button disabled={!world} onClick={() => visit(courtyardStairs.id)}>계단 위에서 보기</button>
             <button disabled={!world?.presets.some(point => point.id === courtyard.id)} onClick={() => {
               const point = world?.presets.find(point => point.id === courtyard.id);
               if (!point) return;

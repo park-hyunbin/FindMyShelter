@@ -2,8 +2,9 @@ import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildingCollision, extent, inShape, nearestOnLine, precinct, type OpoData, type Point } from './opo-data';
-import { addCourtyard, courtyard, courtyardGarden, inCourtyardRing } from './opo-courtyard';
+import { addCourtyard, courtyard, courtyardGarden, courtyardOpening, inCourtyardRing } from './opo-courtyard';
 import { addOpoEntrance } from './opo-entrance';
+import { courtyardStairs } from './opo-garden';
 import { directionProfile } from './opo-horizon';
 import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
@@ -130,9 +131,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const road = streets.nearest(point, 14);
     return entrance?.paved(point) || insideBuilding(point) || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
   });
-  const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture);
+  const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, courtyardOpening);
   const site = addSiteDetails(data, scene, streets.surface);
-  if (finish) addCourtyard(scene, streets.surface, finish);
+  const garden = finish ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
+  const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   const greenAccess = addGreenAccess(data, scene);
   scene.updateMatrixWorld(true);
   const analysis = createLightAnalyzer(data, terrain, occluders, streets.grade);
@@ -140,7 +142,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point))
-    || Boolean(entrance?.occupied(point));
+    || Boolean(entrance?.occupied(point) || garden?.blocked(point));
   const roadSpawn = isOpo ? streets.nearest(data.project(roadEntry)) : streets.nearest({ x: 0, z: 0 }, data.buildingRadius);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
   const spawn = roadSpawn.point;
@@ -150,6 +152,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     { id: 'approach', name: '오포 롯데캐슬 정문·진입교', position: approachPoint },
     courtyard,
     courtyardGarden,
+    courtyardStairs,
     ...routePlaces.flatMap(name => {
       const place = data.streetPoints.find(item => item.name === name);
       return place ? [{ id: place.id, name, position: place.position }] : [];
@@ -591,7 +594,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         if (distance >= 0.5 && distance <= 85 && !endOfTile(goal) && !occupied(goal)) {
           walkingTo = goal;
           viewAngle = 0;
-          const floor = entrance?.elevation(goal) ?? streets.surface(goal.x, goal.z) + 0.50;
+          const floor = modeledElevation(goal) ?? streets.surface(goal.x, goal.z) + 0.50;
           stepMarker.position.set(goal.x, floor + 0.12, goal.z);
         }
       }
@@ -659,7 +662,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
       travelSpeed = T.MathUtils.damp(travelSpeed,
         Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
-      const modeledFloor = entrance?.elevation(position);
+      const modeledFloor = modeledElevation(position);
       const y = (eyeLevel ? undefined : modeledFloor) ?? streets.grade(position.x, position.z);
       const actor = driving ? car : player;
       actor.position.set(position.x, modeledFloor ?? streets.surface(position.x, position.z) + (driving ? 0.47 : 0.18), position.z);
@@ -694,7 +697,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const blend = Math.hypot(actor.position.x - pose.x, actor.position.z - pose.z) > 25 ? 1 : 1 - Math.exp(-elapsed * 13);
       const x = T.MathUtils.lerp(actor.position.x, pose.x, blend);
       const z = T.MathUtils.lerp(actor.position.z, pose.z, blend);
-      const y = entrance?.elevation({ x, z }) ?? streets.surface(x, z) + (pose.driving ? 0.47 : 0.18);
+      const y = modeledElevation({ x, z }) ?? streets.surface(x, z) + (pose.driving ? 0.47 : 0.18);
       actor.position.set(x, y, z);
       const turn = -pose.heading - actor.rotation.y;
       actor.rotation.y += Math.atan2(Math.sin(turn), Math.cos(turn)) * blend;
