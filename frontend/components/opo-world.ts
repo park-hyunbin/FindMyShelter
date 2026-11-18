@@ -370,6 +370,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   scene.add(comparisonMarkers);
   let ambientInspection = false;
   let guidedWalk = false;
+  let accessEntranceId: string | null = null;
   const analysisMapVisible = () => ambientMap?.group.visible || floodMap?.group.visible || schoolMap?.group.visible;
   const updateComparisonMarkers = () => { comparisonMarkers.visible = !ambientInspection && !guidedWalk && !analysisMapVisible(); };
   const markers = Object.fromEntries((['A', 'B'] as const).map((slot, index) => {
@@ -519,9 +520,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
   }
   for (const layer of greenAccess.layers) {
+    const entranceView = layer.entranceView;
     const element = document.createElement('span');
     element.className = `building-label access-label${layer.entranceLabel ? ' access-entrance-label' : ''}`;
-    element.textContent = layer.entranceLabel ? '병원 보조출입구 · 2022년 조사'
+    element.textContent = entranceView ? `병원 보조출입구 · ${entranceView.referenceYear}년 조사`
       : data.region === 'songpa' ? layer.name : `${layer.name} 인근`;
     element.hidden = true;
     host.appendChild(element);
@@ -529,6 +531,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     labels.push({ point: layer.entranceLabel ?? new T.Vector3(x, data.ground(x, z) + 5, z), element,
       enabled: () => layer.group.visible && mode === 'orbit' && (!greenAccess.marker.visible
         || Math.hypot(greenAccess.marker.position.x - x, greenAccess.marker.position.z - z) > 15), keepInFrame: true });
+    if (entranceView) {
+      const entrance = document.createElement('span');
+      entrance.className = 'building-label access-entrance-label access-entrance-street';
+      entrance.textContent = `보조출입구 조사 위치 · ${entranceView.referenceYear}년`;
+      entrance.hidden = true;
+      host.appendChild(entrance);
+      labels.push({ point: entranceView.target, element: entrance, limit: 75,
+        enabled: () => layer.group.visible && mode === 'walk' && accessEntranceId === layer.id });
+    }
     const arrival = layer.homeWalk?.stops.at(-1);
     if (arrival) {
       const mark = document.createElement('span');
@@ -596,6 +607,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   }
 
   function setMode(next: ViewMode) {
+    accessEntranceId = null;
     if (mode === next && !eyeLevel) return;
     const previous = mode;
     if (next === 'drive') {
@@ -1068,7 +1080,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const scale = Math.max(160, x, z);
       frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
     },
-    greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, homeWalk }) => ({ id, profile, crossingView, homeWalk })),
+    greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, entranceView, homeWalk }) => ({ id, profile, crossingView, entranceView, homeWalk })),
+    showAccessEntrance(id: string) { accessEntranceId = id; },
     showGuidedWalk(id: string | null) {
       guidedWalk = mode === 'walk' && id !== null;
       updateComparisonMarkers();

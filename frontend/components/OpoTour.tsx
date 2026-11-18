@@ -1147,6 +1147,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const accessDetails = world?.greenAccessProfiles.find(item => item.id === route.id);
             const profile = accessDetails?.profile;
             const crossing = accessDetails?.crossingView;
+            const entrance = accessDetails?.entranceView;
             const home = accessDetails?.homeWalk;
             const selected = accessId === route.id;
             const routeVisible = selected && mode === 'orbit';
@@ -1168,7 +1169,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               </table>}
               <p>{route.endLabel}{route.gapM !== null && ` · ${hospital ? '조사 출입구' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
               {route.crossings && <p>보행로·보도 표기 약 {route.walkwayM.toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
-              {route.variantOf && route.lengthM > route.walkwayM && <p className="route-missing-sidewalk">약 {route.lengthM - route.walkwayM}m는 지도에 보도 표시가 없어요. 3D에서 점선으로 표시하며 통행 조건은 현장에서 확인해 주세요.</p>}
+              {access.retrieved && route.lengthM > route.walkwayM && <p className="route-missing-sidewalk">약 {route.lengthM - route.walkwayM}m는 지도에 보도 표시가 없어요. 3D 지도에서 주황 점선으로 표시해요.</p>}
               {route.parkEntrance && <p>같은 출발점에서 남쪽 진입부까지 경로 약 {route.parkEntrance.routeM}m · 직선 약 {route.parkEntrance.directM}m</p>}
               {!hospital && route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
               <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : hospital ? '도로 연결과 출입구 보기' : '경로 보기'}</button>
@@ -1187,12 +1188,19 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               {selected && hospital && <div className="route-terrain">
                 <strong>보조출입구 조사 · {hospital.referenceDate}</strong>
                 <p>{hospital.address} · 경사로 설치, 조사 기준 5° 이하 경사, 문폭 1m 이상, 문 하부 단차 없음.</p>
-                <p>보라색 표식은 조사된 출입구예요. 도로 종점에서 출입구까지의 보도 연결과 현재 개방 여부는 현장에서 확인해 주세요.</p>
+                <p>보라색 점선은 도로 종점과 조사 출입구 사이의 직선거리예요. 보도 연결과 현재 개방 여부는 현장에서 확인해 주세요.</p>
+                {entrance && <div className="site-actions"><button type="button" onClick={() => {
+                  const point = { ...entrance.position, label: '송이로14길 도로 종점' };
+                  lookFromPoint(point, entrance.bearing);
+                  world?.showAccessEntrance(route.id);
+                  if (world) setStreet(world.streetStatus());
+                  world?.focus();
+                }}>도로 종점에서 출입구 방향 보기</button></div>}
                 <a href={hospital.source} target="_blank" rel="noreferrer">서울시 보행자 출입구 조사 ↗</a>
               </div>}
               {selected && crossing && <>
                 <div className="site-actions"><button onClick={() => lookAtRoutePoint(crossing)}>송이로 횡단보도 눈높이 보기</button></div>
-                <p>횡단보도 줄무늬 폭은 화면용 근사예요.</p>
+                <p>경로는 횡단보도 건너 학교 쪽 보행로까지 이어져요. 줄무늬 폭은 근사이며, 교문까지의 연결은 현장에서 확인해 주세요.</p>
               </>}
               {selected && route.parkEntrance && <div className="route-terrain">
                 <strong>송이공원 안에서 보기</strong>
