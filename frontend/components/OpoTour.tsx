@@ -119,7 +119,7 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
         <button type="button" onClick={() => onSave(selectedPoint, date, sample)}>현장 메모에 담기</button>
       </div>
     </div>}
-    <p className="season-caption">건물과 지형의 차폐를 계산했어요. 수목·구름과 겨울 오후의 실제 그늘 경계는 현장 확인이 필요해요.</p>
+    <p className="season-caption">일조표와 산책 장면은 같은 건물·지형 자료를 사용해요. 수목·구름의 영향과 실제 그늘 경계는 현장에서 확인해 주세요.</p>
   </details>;
 }
 
@@ -319,6 +319,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const winterWalkDetails = useRef<HTMLDetailsElement>(null);
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
   const [showWinterWalk, setShowWinterWalk] = useState(false);
+  const [winterViewing, setWinterViewing] = useState(false);
   const [showVisitPlan, setShowVisitPlan] = useState(false);
   const [winterWalkOpen, setWinterWalkOpen] = useState(false);
   const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
@@ -355,6 +356,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [floodView, setFloodView] = useState<FloodView>('closest');
   const sceneDate = ambientViewing ? ambientMoment.day : date;
   const sceneMinute = ambientViewing ? ambientMoment.hour * 60 + ambientArchive.minute : minute;
+  const winterStreet = winterViewing && tab === 'sun' && mode === 'walk';
 
   const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : songpaComplex.roadName, speed: 0, touring: false });
 
@@ -391,6 +393,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   useEffect(() => {
     if (world && sceneDate) world.light(sceneDate, sceneMinute);
   }, [world, sceneDate, sceneMinute]);
+
+  useEffect(() => {
+    world?.setStudyLighting(winterStreet);
+  }, [world, winterStreet]);
 
   useEffect(() => {
     if (!world) return;
@@ -511,6 +517,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, open, tab, points, bearing]);
 
   function chooseMode(next: ViewMode) {
+    setWinterViewing(false);
     setHomeStep(null);
     setShowSunMap(false);
     setLightSlot(null);
@@ -526,7 +533,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }
 
   function chooseTab(next: AnalysisTab) {
-    if (next !== 'sun') setShowSunMap(false);
+    if (next !== 'sun') {
+      setShowSunMap(false);
+      setWinterViewing(false);
+    }
     setLightSlot(null);
     setSelectedSlot(null);
     setStatus('');
@@ -628,6 +638,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }
 
   function showComplexSunMap() {
+    setWinterViewing(false);
     if (!world?.sunMap) return;
     if (!date) setDate(initialDate);
     setLightSlot(null);
@@ -695,9 +706,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setMinute(at);
     choosePoint('A', point);
     if (!trace) {
-      visit(point.id);
+      if (visit(point.id, true)) {
+        setWalkingAtEyeLevel(true);
+        world.setWalkingCamera(true);
+        world.focus();
+      }
       return;
     }
+    setWinterViewing(false);
     setShowSunMap(false);
     setAccessId(null);
     world.showGreenAccess(null);
@@ -734,10 +750,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world?.walkStick(x, y);
   }
 
-  function visit(id: string) {
+  function visit(id: string, withStudyLighting = false) {
     if (!world) return;
     const next = world.goTo(id);
     if (!next) return;
+    setWinterViewing(withStudyLighting);
     hideTreeCover();
     setShowSunMap(false);
     setLightSlot(null);
@@ -858,6 +875,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     {lightSlot && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
       <div><strong>{lightSlot} 지점 · {date} {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>
       <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
+    </section>}
+    {winterStreet && <section className="light-inspection" aria-label="겨울 일조 산책 시각">
+      <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자{walkingAtEyeLevel && ' · 눈높이 1.5m'}</p></div>
     </section>}
     {ambientViewing && <section className="light-inspection" aria-label="3D 장면 시각">
       <div><strong>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST</strong><p>하늘과 주변광을 시각에 맞춰 표현했어요.</p></div>

@@ -18,6 +18,7 @@ import { addStreets } from './opo-streets';
 import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
 import { createStreetOcclusion } from './opo-contact-shadows';
+import { createStudyShadows } from './opo-study-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
@@ -228,6 +229,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let stickX = 0, stickY = 0;
   let mode: ViewMode = 'orbit';
   let eyeLevel = false;
+  let studyingSunlight = false;
   let walkingAtEyeLevel = true;
   const firstPerson = () => eyeLevel || (mode === 'walk' && walkingAtEyeLevel);
   let selecting = false;
@@ -248,6 +250,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   scene.add(player, car);
   player.visible = false;
   car.visible = false;
+  const studyShadows = createStudyShadows(scene, terrain, occluders);
 
   function satelliteImage() {
     if (satelliteLoading) return satelliteLoading;
@@ -818,15 +821,18 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       travelSpeed = T.MathUtils.damp(travelSpeed,
         Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
       const modeledFloor = modeledElevation(position);
-      const y = (eyeLevel ? undefined : modeledFloor) ?? streets.surface(position.x, position.z);
+      const surfaceHeight = streets.surface(position.x, position.z);
+      const y = (eyeLevel ? undefined : modeledFloor) ?? surfaceHeight;
       const actor = driving ? car : player;
-      actor.position.set(position.x, modeledFloor ?? streets.surface(position.x, position.z) + (driving ? 0.47 : 0.18), position.z);
+      actor.position.set(position.x, modeledFloor ?? surfaceHeight + (driving ? 0.47 : 0.18), position.z);
       actor.rotation.y = -heading;
       if (!driving) legs.forEach((leg, index) => { leg.rotation.x = Math.sin(now / 78 + index * Math.PI) * Math.min(0.68, Math.abs(speed) * 0.25); });
 
       const angle = heading + viewAngle;
       if (firstPerson()) {
-        const eye = eyeLevel ? y + observationHeight : actor.position.y + 1.6;
+        const eye = eyeLevel || studyingSunlight
+          ? surfaceHeight + observationHeight
+          : actor.position.y + 1.6;
         camera.position.set(position.x, eye, position.z);
         const tilt = (0.17 - pitch) * Math.PI / 2;
         target.set(position.x + Math.sin(angle), camera.position.y + Math.tan(tilt), position.z - Math.cos(angle));
@@ -907,6 +913,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       treeCover: data.treeCover && { year: data.treeCover.year, resolution: data.treeCover.cellM,
         source: data.treeCover.source, catalog: data.treeCover.catalog, license: data.treeCover.license } },
     setMode,
+    setStudyLighting(enabled: boolean) {
+      studyingSunlight = enabled;
+      if (studyShadows(enabled)) renderer.shadowMap.needsUpdate = true;
+    },
     setWalkingCamera(enabled: boolean) {
       walkingAtEyeLevel = enabled;
       eyeLevel = false;
