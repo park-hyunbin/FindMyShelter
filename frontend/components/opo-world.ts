@@ -14,6 +14,7 @@ import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, approach, playgroundReference } from './opo-site';
 import { addStreets } from './opo-streets';
 import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
+import { readTreeCover } from './opo-tree-cover';
 import type { TourPeer, TourPose } from './tour-live-types';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
@@ -128,10 +129,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const streets = addStreets(data, scene, finish);
   const entrance = finish ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const insideBuilding = buildingCollision(data.buildings);
+  const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
+  const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
+  if (treeCoverOverlay) scene.add(treeCoverOverlay);
   const environment = addEnvironment(data, scene, finish, point => {
     const road = streets.nearest(point, 14);
     return entrance?.paved(point) || insideBuilding(point) || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
-  });
+  }, treeCover ?? undefined);
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, courtyardOpening);
   const site = addSiteDetails(data, scene, streets.surface);
   const garden = finish ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
@@ -794,7 +798,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       },
     },
     sources: { terrain: data.terrainSource, osmSnapshot: data.snapshot, referenceHeight: data.referenceHeight,
-      streets: data.streetSource, register: data.buildingRegister },
+      streets: data.streetSource, register: data.buildingRegister,
+      treeCover: data.treeCover && { year: data.treeCover.year, resolution: data.treeCover.cellM,
+        source: data.treeCover.source, catalog: data.treeCover.catalog, license: data.treeCover.license } },
     setMode,
     setWalkingCamera(enabled: boolean) {
       walkingAtEyeLevel = enabled;
@@ -963,6 +969,19 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       return { water, green, elevation: data.elevationAt(point.x, point.z), spread: data.spreadAt(point.x, point.z) };
     },
     directionProfile: (point: Point, bearing: number) => directionProfile(data, roofs, streets.grade, point, bearing),
+    showTreeCover(enabled: boolean) {
+      if (!treeCoverOverlay || treeCoverOverlay.visible === enabled) return;
+      treeCoverOverlay.visible = enabled;
+      environment.landCoverOverlays.visible = !enabled;
+      environment.vegetation.visible = !enabled;
+      renderer.shadowMap.needsUpdate = true;
+      if (!enabled) return;
+
+      setMode('orbit');
+      // Frame nearby hills while leaving the rest of the mapped grid available to pan across.
+      const points = [-365, 365].flatMap(x => [-365, 365].map(z => new T.Vector3(x, data.ground(x, z), z)));
+      frameSurface(points, new T.Vector3(0, data.ground(0, 0), 0), new T.Vector3(40, 820, 300), true);
+    },
     async showSatellite(enabled: boolean) {
       if (!isOpo) return;
       if (enabled) await satelliteImage();
@@ -1000,7 +1019,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         }
         material.dispose();
       }
-      for (const texture of [satelliteTexture, terrainPhoto, environment.waterNormal, environment.grassTexture]) if (texture) textures.add(texture);
+      for (const texture of [satelliteTexture, terrainPhoto, environment.waterNormal, environment.grassTexture,
+        treeCoverOverlay?.material.map]) if (texture) textures.add(texture);
       for (const texture of textures) texture.dispose();
       sun.shadow.dispose();
       renderer.dispose();

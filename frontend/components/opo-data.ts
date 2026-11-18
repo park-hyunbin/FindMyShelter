@@ -3,6 +3,7 @@ import { loadBuildingDataset } from './data/building-dataset';
 import { regions, type RegionId } from './data/regions';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
+import treeCover from '../public/opo-tree-cover.json';
 
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
@@ -125,6 +126,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   if (dem.extentM < extent || dem.spacingM * (dem.size - 1) !== dem.extentM * 2
       || dem.elevation.length !== dem.size ** 2 || dem.spread.length !== dem.size ** 2
       || origin.some((value, i) => value !== dem.originEPSG5186[i])) throw new Error('건물과 고도 자료의 범위가 일치하지 않아요.');
+  if (region === 'opo' && (treeCover.extentM !== extent || origin.some((value, i) => value !== treeCover.originEPSG5186[i]))) {
+    throw new Error('수목 피복과 지형 자료의 범위가 일치하지 않아요.');
+  }
   const elevationAt = (x: number, z: number) => terrainSample(dem, dem.elevation, x, z);
   const spreadAt = (x: number, z: number) => terrainSample(dem, dem.spread, x, z);
   const base = elevationAt(0, 0);
@@ -188,6 +192,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent);
   return { region, area, places, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
     features, siteRoads, siteOutline, project, northOffset, buildingRadius, streets, streetPoints, parking,
+    treeCover: region === 'opo' ? treeCover : null,
     streetSource: neighborhood?.metadata.source ?? environment.metadata.tile_source,
     buildingRegister: region === 'opo' ? { ...register, towers: registerRows.sort((a, b) => a.dong.localeCompare(b.dong)) } : null,
     terrainSource: { name: dem.source, catalog: dem.catalog, datum: dem.verticalDatum, resolution: dem.nativeResolutionM,

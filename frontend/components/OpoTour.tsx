@@ -153,6 +153,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [accessSample, setAccessSample] = useState(0);
   const [bearing, setBearing] = useState(0);
   const [satellite, setSatellite] = useState(false);
+  const [treeCoverVisible, setTreeCoverVisible] = useState(false);
   const [imageStatus, setImageStatus] = useState<'loading' | 'error' | 'idle'>('idle');
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -275,6 +276,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setMode(next);
     world?.setMode(next);
     if (next !== 'orbit') {
+      hideTreeCover();
       world?.focus();
       if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
     }
@@ -286,6 +288,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setSelectedSlot(null);
     setStatus('');
     if (next !== 'nature') {
+      hideTreeCover();
       setAccessId(null);
       world?.showGreenAccess(null);
     }
@@ -296,6 +299,21 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setSelectedPlaceId(id);
     world?.focusPlace(id);
     setMode('orbit');
+  }
+
+  function hideTreeCover() {
+    setTreeCoverVisible(false);
+    world?.showTreeCover(false);
+  }
+
+  function toggleTreeCover() {
+    if (!world?.sources.treeCover) return;
+    const enabled = !treeCoverVisible;
+    setTreeCoverVisible(enabled);
+    setSelectedSlot(null);
+    setStatus('');
+    if (enabled) setMode('orbit');
+    world.showTreeCover(enabled);
   }
 
   function toggleGreenAccess(id: string) {
@@ -376,6 +394,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (!world) return;
     const next = world.goTo(id);
     if (!next) return;
+    hideTreeCover();
     setShowSunMap(false);
     setLightSlot(null);
     setMode(next);
@@ -434,6 +453,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         setSelectedSlot(null);
         setAccessId(null);
         world.showGreenAccess(null);
+        hideTreeCover();
         const touring = world.toggleTrip();
         setMode('drive');
         setStreet(current => ({ ...current, touring }));
@@ -542,6 +562,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           setSelectedSlot(null);
           setStatus('');
           setMode('walk');
+          hideTreeCover();
           setAccessId(null);
           world?.showGreenAccess(null);
           world?.lookFrom(point, bearing, angle);
@@ -556,6 +577,15 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           if (!satellite) void toggleSatellite();
           chooseTab('sun');
         }}>위성 촬영 시각으로 일조 보기 · {timeLabel(captureMinute)} KST</button>
+        {world?.sources.treeCover && <>
+          <div className="imagery-row">
+            <button type="button" aria-pressed={treeCoverVisible} onClick={toggleTreeCover}>수목 피복</button>
+            <span>{world.sources.treeCover.year}년 · {world.sources.treeCover.resolution}m</span>
+          </div>
+          {treeCoverVisible && <p className="tree-cover-legend">
+            <i aria-hidden="true" /> 연두색은 위성 자료에서 나무가 덮인 곳으로 분류된 영역이에요.
+          </p>}
+        </>}
         <div className="green-access">
           <h3>공원 인근 도로 연결</h3>
           <p>단지 진입부 출발 · 점선은 보도 연결 미확인 구간이에요.</p>
@@ -571,6 +601,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                   if (!world) return;
                   setSelectedSlot(null);
                   setStatus('');
+                  hideTreeCover();
                   world.lookFrom(sample.position, sample.bearing, 0);
                   setMode('walk');
                   if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
@@ -587,6 +618,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <p>녹지와 수계 수치는 OpenStreetMap 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'})에 표시된 가장 가까운 경계·선까지의 직선거리입니다. 접근 가능 여부와 실제 보행 거리는 현장 확인이 필요합니다.</p>
           {region === 'opo' && <p>공원 인근 경로는 OpenStreetMap에서 같은 노드로 이어진 도로의 길이입니다. 보도가 지도에 표시된 구간은 실선으로 그립니다. 공원 출입구와 전체 보행 경로는 확인 중입니다.</p>}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap 데이터 ↗</a>
+          {world?.sources.treeCover && <>
+            <p>수목 피복은 {world.sources.treeCover.year}년 Sentinel‑2 기반 {world.sources.treeCover.resolution}m 토지피복의 나무 분류입니다. 3D 나무는 이 범위 안에 모형으로 배치했으며 개별 위치·수종·높이는 추정입니다. 일조와 시야 계산은 지형과 건물 자료를 사용합니다.</p>
+            <a href={world.sources.treeCover.catalog} target="_blank" rel="noreferrer">{world.sources.treeCover.source} · 토지피복 ↗</a>
+            <a href={world.sources.treeCover.license} target="_blank" rel="noreferrer">토지피복 이용 조건 · CC BY 4.0 ↗</a>
+          </>}
         </details>
       </>}
 

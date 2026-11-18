@@ -2,6 +2,7 @@ import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, inShape, nearestOnLine, type Building, type OpoData, type Point, type Shape } from './opo-data';
 import { riverNormals, surfaceUV, type TourMaterials } from './opo-materials';
+import type { TreeCover } from './opo-tree-cover';
 import architecture from '../public/opo-architecture.json';
 
 export function shapeFrom(rings: Shape) {
@@ -393,7 +394,8 @@ function addReeds(group: T.Group, locations: Point[], surface: OpoData['ground']
   group.add(reeds);
 }
 
-export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMaterials, paved?: (p: Point) => boolean) {
+export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMaterials, paved?: (p: Point) => boolean,
+    forest?: TreeCover) {
   const colors = {
     wood: '#6d845d', grass: '#a6b587', farmland: '#b7ad7c', water: '#719c9c',
     stream: '#729eab', facility: '#aca17e',
@@ -421,7 +423,9 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
   const waters: Point[][] = [];
   const riverbanks: Point[] = [];
   const surfaceOverlays = new T.Group();
+  const landCoverOverlays = new T.Group();
   const vegetation = new T.Group();
+  surfaceOverlays.add(landCoverOverlays);
   scene.add(surfaceOverlays, vegetation);
   const surface = (x: number, z: number) => terrainSurface(data.ground, x, z);
   let seed = 48961;
@@ -435,10 +439,10 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
       if (waterNormal && key === 'water') surfaceUV(geometry, 'water');
       const mesh = new T.Mesh(geometry, materials[key]);
       mesh.receiveShadow = true;
-      surfaceOverlays.add(mesh);
+      (feature.kind === 'green' ? landCoverOverlays : surfaceOverlays).add(mesh);
       if (feature.kind === 'water') waters.push([...shape[0], shape[0][0]]);
       if (feature.kind === 'green' && feature.category !== 'farmland') greens.push(shape);
-      if (key !== 'wood') continue;
+      if (key !== 'wood' || forest) continue;
       const bounds = new T.Box2().setFromPoints(shape[0].map(p => new T.Vector2(p.x, p.z)));
       const size = bounds.getSize(new T.Vector2());
       const density = Math.min(2200, Math.ceil(size.x * size.y / 260));
@@ -478,13 +482,17 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
       if (feature.kind === 'stream') waters.push(points);
     }
   }
-  for (const point of data.streetPoints) if (point.kind === 'tree') trees.push(point.position);
+  if (forest) {
+    const inComplex = data.siteOutline.length ? [data.siteOutline] : null;
+    trees.push(...forest.placements(random, point => Boolean(paved?.(point) || (inComplex && inShape(point, inComplex)))));
+  }
+  for (const point of data.streetPoints) if (point.kind === 'tree' && !paved?.(point.position)) trees.push(point.position);
   const transform = new T.Object3D();
   const treeMaterial = new T.MeshStandardMaterial({ color: '#93a776', roughness: 1 });
   const trunkMaterial = new T.MeshStandardMaterial({ color: '#746250', roughness: 1 });
   const canopies = { broadleaf: [] as Point[], conifer: [] as Point[], distant: [] as Point[] };
   trees.forEach((tree, i) => {
-    if (!finish || Math.hypot(tree.x, tree.z) > 490) canopies.distant.push(tree);
+    if (!finish || Math.hypot(tree.x, tree.z) > 430) canopies.distant.push(tree);
     else if (i % 4 === 0) canopies.conifer.push(tree);
     else canopies.broadleaf.push(tree);
   });
@@ -501,11 +509,11 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
       side: type === 'conifer' ? T.DoubleSide : T.FrontSide,
     }) : treeMaterial;
     const canopy = new T.InstancedMesh(geometry, foliageMaterial, points.length);
-    canopy.name = `OSM 산림 · ${type}`;
+    canopy.name = `주변 수목 · ${type}`;
     canopy.castShadow = detailed;
     canopy.receiveShadow = true;
     points.forEach(({ x, z }, i) => {
-      const height = detailed ? 4.4 + random() * 5.3 : 3.5 + random() * 4;
+      const height = forest ? 6.3 + random() * 6.5 : detailed ? 4.4 + random() * 5.3 : 3.5 + random() * 4;
       const y = surface(x, z);
       transform.position.set(x, detailed ? y : y + height * 0.66, z);
       if (detailed) transform.scale.setScalar(height);
@@ -526,5 +534,5 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
   else { trunk.geometry.dispose(); trunkMaterial.dispose(); }
   if (!canopies.distant.length) treeMaterial.dispose();
   addReeds(surfaceOverlays, riverbanks, surface, random);
-  return { greens, waters, surfaceOverlays, waterNormal, grassTexture: materials.grass.map };
+  return { greens, waters, surfaceOverlays, landCoverOverlays, vegetation, waterNormal, grassTexture: materials.grass.map };
 }

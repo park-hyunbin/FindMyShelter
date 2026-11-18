@@ -175,6 +175,8 @@ h1, h2, p { margin: 0; }
 .imagery-row button { min-height: 34px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; font-weight: 670; background: #faf9f1; }
 .imagery-row button[aria-pressed='true'] { border-color: #89ac9c; background: #e3eae1; }
 .imagery-row span { font-size: 10px; color: var(--muted); }
+.tree-cover-legend { display: flex; align-items: baseline; gap: 6px; margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.tree-cover-legend i { flex: 0 0 9px; height: 9px; border-radius: 2px; background: #a6e95c; }
 .capture-comparison { width: 100%; min-height: 36px; margin-top: 6px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; text-align: left; background: #faf9f1; font-weight: 650; }
 .terrain-heading { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin: 13px 0 8px; }
 .terrain-heading h3 { margin: 0; font-size: 12px; }
