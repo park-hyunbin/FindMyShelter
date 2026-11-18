@@ -11,6 +11,7 @@ import satelliteMetadata from '../public/opo-sentinel.json';
 import greenAccess from '../public/opo-green-access.json';
 import architecture from '../public/opo-architecture.json';
 import { regions, type RegionId } from './data/regions';
+import TourLive from './TourLive';
 
 const slots: Slot[] = ['A', 'B'];
 const initialDate = '2026-12-21';
@@ -377,6 +378,8 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
         {mode !== 'orbit' && <span className="street-position">{street.name}{mode === 'drive' && <b>{street.speed} km/h</b>}</span>}
       </div>}
     </header>
+
+    {world && <TourLive world={world} region={region} />}
 
     {lightSlot && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
       <div><strong>{lightSlot} 지점 · {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>

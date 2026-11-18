@@ -4,15 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
-    "build": "next build"
+    "build": "next build",
+    "serve:tour": "node scripts/serve-tours.mjs"
   },
   "dependencies": {
     "next": "^16.0.0",
     "proj4": "^2.23.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sirv": "^3.0.2",
     "suncalc3": "^2.0.5",
-    "three": "^0.187.0"
+    "three": "^0.187.0",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@mapbox/vector-tile": "^3.0.0",

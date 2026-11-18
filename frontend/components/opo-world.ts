@@ -9,6 +9,7 @@ import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
 import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, approach, playgroundReference } from './opo-site';
 import { addStreets } from './opo-streets';
+import type { TourPeer, TourPose } from './tour-live-types';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
@@ -281,6 +282,40 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     return { point, element, enabled: () => true };
   });
+  const peers = new Map<string, {
+    walker: T.Group; vehicle: T.Group; pose: TourPose;
+    label: typeof labels[number];
+  }>();
+  function removePeer(id: string) {
+    const peer = peers.get(id);
+    if (!peer) return;
+    peer.walker.removeFromParent();
+    peer.vehicle.removeFromParent();
+    peer.label.element.remove();
+    labels.splice(labels.indexOf(peer.label), 1);
+    peers.delete(id);
+  }
+  function showPeer({ id, name, pose }: TourPeer) {
+    if (!pose) return;
+    const existing = peers.get(id);
+    if (existing) { existing.pose = pose; return; }
+    // Clone the actors so touring visitors share the world geometry and materials.
+    const walker = player.clone(), vehicle = car.clone();
+    for (const actor of [walker, vehicle]) {
+      actor.position.set(pose.x, 0, pose.z);
+      actor.rotation.y = -pose.heading;
+      actor.traverse(object => { object.castShadow = false; });
+    }
+    scene.add(walker, vehicle);
+    const element = document.createElement('span');
+    element.className = 'building-label tour-live-name';
+    element.textContent = name;
+    element.hidden = true;
+    host.appendChild(element);
+    const label = { point: new T.Vector3(), element, enabled: () => true, limit: 500 };
+    labels.push(label);
+    peers.set(id, { walker, vehicle, pose, label });
+  }
   const lightPathLabel = document.createElement('span');
   lightPathLabel.className = 'building-label light-path-label';
   lightPathLabel.hidden = true;
@@ -596,6 +631,21 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
 
     stepMarker.visible = Boolean(walkingTo);
+    for (const { walker, vehicle, pose, label } of peers.values()) {
+      const actor = pose.driving ? vehicle : walker;
+      const previous = pose.driving ? walker : vehicle;
+      if (previous.visible) actor.position.copy(previous.position);
+      walker.visible = !pose.driving;
+      vehicle.visible = pose.driving;
+      const blend = Math.hypot(actor.position.x - pose.x, actor.position.z - pose.z) > 25 ? 1 : 1 - Math.exp(-elapsed * 13);
+      const x = T.MathUtils.lerp(actor.position.x, pose.x, blend);
+      const z = T.MathUtils.lerp(actor.position.z, pose.z, blend);
+      const y = streets.surface(x, z) + (pose.driving ? 0.47 : 0.18);
+      actor.position.set(x, y, z);
+      const turn = -pose.heading - actor.rotation.y;
+      actor.rotation.y += Math.atan2(Math.sin(turn), Math.cos(turn)) * blend;
+      label.point.set(x, y + (pose.driving ? 2.1 : 2.5), z);
+    }
     camera.updateMatrixWorld();
     for (const { point, element, enabled, keepInFrame, limit } of labels) {
       projected.copy(point).project(camera);
@@ -766,6 +816,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
     },
     position() { return position; },
+    tourPose(): TourPose {
+      return { x: position.x, z: position.z, heading: Math.atan2(Math.sin(heading), Math.cos(heading)), driving: mode === 'drive' };
+    },
+    showPeer,
+    removePeer,
+    clearPeers() { for (const id of peers.keys()) removePeer(id); },
     canAnalyze(p: Point) { return !occupied(p) && Math.hypot(p.x, p.z) <= Math.min(precinct, data.buildingRadius); },
     place(slot: Slot, location: Point) {
       const y = streets.grade(location.x, location.z);
