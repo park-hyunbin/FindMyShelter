@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { courtyard, courtyardGarden } from './opo-courtyard';
 import { loadOpoData, type Point } from './opo-data';
+import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonRange, type DirectionProfile } from './opo-horizon';
 import { routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
 import { observationHeight, type LightReport, type LightSample } from './opo-sunlight';
@@ -589,8 +590,13 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
           </details>
           <a href={buildingRegister.source.url} target="_blank" rel="noreferrer">건축HUB 표제부 · 능평동 917번지 ↗</a>
         </div>}
-        <div className="site-card"><strong>수레실길에서 단지로</strong><p>수레실길과 능평동 골목을 이어 달리고, 단지 진입 교량과 주변 정류장·도서관을 찾아볼 수 있어요.</p>
-          <a href="https://www.openstreetmap.org/way/835665646" target="_blank" rel="noreferrer">교량 좌표 출처 ↗</a>
+        <div className="site-card"><strong>정문과 진입교</strong>
+          <p>{entranceRoadViewDate} 로드뷰를 참고해 석재 아치와 경비실, 흰 난간, 보도와 횡단보도를 모델링했어요. 시설물의 세부 치수와 정확한 단차는 추정입니다.</p>
+          <div className="site-actions"><button disabled={!world} onClick={() => visit('approach')}>정문 앞으로 이동</button></div>
+          <ul>
+            <li><a href={entranceRoadView} target="_blank" rel="noreferrer">정문 현장 로드뷰 ↗</a></li>
+            <li><a href={`https://www.openstreetmap.org/way/${opoEntranceBridgeId}`} target="_blank" rel="noreferrer">진입교 좌표 출처 ↗</a></li>
+          </ul>
         </div>
         <div className="site-card">
           <strong>{courtyard.name}</strong>

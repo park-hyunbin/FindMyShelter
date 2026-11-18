@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildingCollision, extent, inShape, nearestOnLine, precinct, type OpoData, type Point } from './opo-data';
 import { addCourtyard, courtyard, courtyardGarden, inCourtyardRing } from './opo-courtyard';
+import { addOpoEntrance } from './opo-entrance';
 import { directionProfile } from './opo-horizon';
 import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
@@ -16,8 +17,7 @@ import type { TourPeer, TourPose } from './tour-live-types';
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
 export type SitePoint = Point & { id: string; label: string };
-const roadEntry = [127.164886, 37.351094];
-const approachBridgeId = 835665646;
+const roadEntry = [127.16554, 37.351224];
 const routePlaces = ['수레실.오포롯데캐슬', '능평도서관', '용상골현대아파트', '현동빌라'];
 const headingTo = (from: Point, to: Point) => Math.atan2(to.x - from.x, from.z - to.z);
 
@@ -124,10 +124,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   scene.add(terrain);
   const { occluders, anchors, roofs } = buildMeshes(data, scene);
   const streets = addStreets(data, scene, finish);
+  const entrance = finish ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const insideBuilding = buildingCollision(data.buildings);
   const environment = addEnvironment(data, scene, finish, point => {
     const road = streets.nearest(point, 14);
-    return insideBuilding(point) || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
+    return entrance?.paved(point) || insideBuilding(point) || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
   });
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture);
   const site = addSiteDetails(data, scene, streets.surface);
@@ -138,14 +139,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const lightPath = createLightPath(scene, [terrain, ...occluders]);
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
-  const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point));
+  const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point))
+    || Boolean(entrance?.occupied(point));
   const roadSpawn = isOpo ? streets.nearest(data.project(roadEntry)) : streets.nearest({ x: 0, z: 0 }, data.buildingRadius);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
   const spawn = roadSpawn.point;
-  const entrance = isOpo ? data.project(approach) : spawn;
-  const initialHeading = isOpo ? headingTo(spawn, entrance) : headingTo(roadSpawn.segment.a, roadSpawn.segment.b);
+  const approachPoint = isOpo ? data.project(approach) : spawn;
+  const initialHeading = isOpo ? headingTo(spawn, entrance?.gate ?? approachPoint) : headingTo(roadSpawn.segment.a, roadSpawn.segment.b);
   const destinations: { id: string; name: string; position: Point; lookAt?: Point }[] = isOpo ? [
-    { id: 'approach', name: '오포 롯데캐슬 진입교', position: entrance },
+    { id: 'approach', name: '오포 롯데캐슬 정문·진입교', position: approachPoint },
     courtyard,
     courtyardGarden,
     ...routePlaces.flatMap(name => {
@@ -589,7 +591,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         if (distance >= 0.5 && distance <= 85 && !endOfTile(goal) && !occupied(goal)) {
           walkingTo = goal;
           viewAngle = 0;
-          stepMarker.position.set(goal.x, streets.surface(goal.x, goal.z) + 0.62, goal.z);
+          const floor = entrance?.elevation(goal) ?? streets.surface(goal.x, goal.z) + 0.50;
+          stepMarker.position.set(goal.x, floor + 0.12, goal.z);
         }
       }
     }
@@ -656,9 +659,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
       travelSpeed = T.MathUtils.damp(travelSpeed,
         Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
-      const y = streets.grade(position.x, position.z);
+      const modeledFloor = entrance?.elevation(position);
+      const y = (eyeLevel ? undefined : modeledFloor) ?? streets.grade(position.x, position.z);
       const actor = driving ? car : player;
-      actor.position.set(position.x, streets.surface(position.x, position.z) + (driving ? 0.47 : 0.18), position.z);
+      actor.position.set(position.x, modeledFloor ?? streets.surface(position.x, position.z) + (driving ? 0.47 : 0.18), position.z);
       actor.rotation.y = -heading;
       if (!driving) legs.forEach((leg, index) => { leg.rotation.x = Math.sin(now / 78 + index * Math.PI) * Math.min(0.68, Math.abs(speed) * 0.25); });
 
@@ -690,7 +694,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const blend = Math.hypot(actor.position.x - pose.x, actor.position.z - pose.z) > 25 ? 1 : 1 - Math.exp(-elapsed * 13);
       const x = T.MathUtils.lerp(actor.position.x, pose.x, blend);
       const z = T.MathUtils.lerp(actor.position.z, pose.z, blend);
-      const y = streets.surface(x, z) + (pose.driving ? 0.47 : 0.18);
+      const y = entrance?.elevation({ x, z }) ?? streets.surface(x, z) + (pose.driving ? 0.47 : 0.18);
       actor.position.set(x, y, z);
       const turn = -pose.heading - actor.rotation.y;
       actor.rotation.y += Math.atan2(Math.sin(turn), Math.cos(turn)) * blend;
@@ -771,8 +775,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         if (mode === 'orbit') setMode('walk');
         position = entry.point;
         driveSegment = entry.segment;
-        const bridge = id === 'approach' && data.streets.find(road => road.id === approachBridgeId);
-        heading = bridge ? headingTo(position, bridge.points.at(-1)!)
+        heading = id === 'approach' && entrance ? headingTo(position, entrance.gate)
           : mode === 'drive' ? headingTo(entry.segment.a, entry.segment.b) : headingTo(position, target.position);
       }
       eyeLevel = false;

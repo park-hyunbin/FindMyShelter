@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, type OpoData, type Point, type Street } from './opo-data';
+import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, terrainSurface } from './opo-meshes';
 
@@ -219,6 +220,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     add(color, ribbon(points, width, (x, z) => surface(x, z) + height), texture);
   }
   for (const road of data.streets) {
+    if (finish && (road.id === opoEntranceBridgeId || road.id === opoEntranceTurnId)) continue;
     const width = streetWidth(road);
     const isPath = paths.has(road.category);
     const isMain = major.has(road.category.replace('_link', ''));
@@ -286,7 +288,13 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         beam.dispose();
       }
     };
-    for (const point of road.points) {
+    let roadPoints = road.points;
+    if (finish && road.id === opoEntranceDrivewayId && roadPoints.length > 2) {
+      const [start, end, ...rest] = roadPoints;
+      const fraction = Math.min(1, 9.8 / Math.hypot(end.x - start.x, end.z - start.z));
+      roadPoints = [{ x: T.MathUtils.lerp(start.x, end.x, fraction), z: T.MathUtils.lerp(start.z, end.z, fraction) }, end, ...rest];
+    }
+    for (const point of roadPoints) {
       if (within(point)) run.push(point);
       else { paint(run); run = []; }
     }
