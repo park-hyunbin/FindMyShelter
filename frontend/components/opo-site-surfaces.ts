@@ -1,9 +1,11 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { OpoData, Point } from './opo-data';
+import { curbWalk } from './opo-curb-walk';
 import { crosswalkFrame, zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
+import { createRoadPaintClipper } from './opo-road-paint';
 
 type Coordinate = [longitude: number, latitude: number];
 type GateOffset = [across: number, along: number];
@@ -20,7 +22,7 @@ export type SiteSurfaceLayout = {
   drive?: { width: number; points: Coordinate[] };
   paths: { width: number; points: Coordinate[] }[];
   pavedDrive?: Coordinate[];
-  roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number }[];
+  roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   crossings: SiteCrossing[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
 };
@@ -56,9 +58,12 @@ export function addSiteSurfaces(
   asphalt.color.multiplyScalar(1.42);
   const paving = material('#c8c1b8', 'pavers');
   const edging = material('#aaa59a');
+  const plantedEdge = material('#b4a685', 'forest');
   const paint = material('#eeeae0');
   const frame = gate && axisBetween(data.project(gate.axis[0]), data.project(gate.axis[1]));
   const gateCrossing = gate && gateCrosswalkArea(data.project, gate);
+  const crossings = layout.crossings.map(crossing => siteCrosswalkArea(data.project, crossing));
+  if (gateCrossing) crossings.push(gateCrossing);
   const roadBlendWidth = 2.5;
   const drivewayGrade = (x: number, z: number) => {
     const crossingClearance = gateCrossing
@@ -108,14 +113,17 @@ export function addSiteSurfaces(
     return line.getSpacedPoints(Math.ceil(line.getLength() / 1.2));
   }
 
-  function zebra(crossing: CrosswalkArea) {
+  function zebra(crossing: CrosswalkArea, clipper: ReturnType<typeof createRoadPaintClipper>) {
     const at = crosswalkFrame(crossing);
     const halfDepth = crossing.depth / 2;
-    const markingsGrade = (x: number, z: number) => (elevation({ x, z }) ?? grade(x, z)) + 0.028;
     const stripes = zebraOffsets(crossing.section.width).map(across =>
-      ribbon([at(-halfDepth, across), at(halfDepth, across)], 0.44, markingsGrade, 0.11, 0.11));
+      ribbon([at(-halfDepth, across), at(halfDepth, across)], 0.44, () => 0));
     if (!stripes.length) return;
-    add(mergeGeometries(stripes), paint, undefined, false);
+    const flat = mergeGeometries(stripes);
+    const fitted = clipper.clip(flat, 0.028);
+    flat.dispose();
+    if (fitted.getAttribute('position').count) add(fitted, paint, undefined, false);
+    else fitted.dispose();
     stripes.forEach(stripe => stripe.dispose());
   }
 
@@ -130,18 +138,15 @@ export function addSiteSurfaces(
     add(ribbon(line, width + 0.26, (x, z) => grade(x, z) + 0.20), edging);
     add(ribbon(line, width, (x, z) => grade(x, z) + 0.24), paving, 'pavers');
   }
-  for (const { curb, outward, width } of layout.roadsideWalks ?? []) {
+  const streetGrade = (x: number, z: number) => grade(x, z) + streetDeckLift;
+  for (const { curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
     const edge = curb.map(data.project);
-    const path = edge.map((point, index) => {
-      const before = edge[Math.max(0, index - 1)];
-      const after = edge[Math.min(edge.length - 1, index + 1)];
-      const { direction } = axisBetween(before, after);
-      const offset = outward * width / 2;
-      return { x: point.x + direction.z * offset, z: point.z - direction.x * offset };
-    });
-    const deck = (x: number, z: number) => grade(x, z) + streetDeckLift + 0.09;
-    add(ribbon(path, width, deck, 0.5, 1), paving, 'pavers');
-    add(ribbon(edge, 0.16, (x, z) => deck(x, z) + 0.018, 0.5, 1), edging);
+    const { top, curb: curbGeometry, skirt } = curbWalk(edge, width, outward, grade,
+      beside === 'driveway' ? drivewayGrade : streetGrade, crossings);
+    const planted = edgeFinish === 'planted';
+    add(top, planted ? plantedEdge : paving, planted ? 'forest' : 'pavers');
+    add(curbGeometry, edging);
+    add(skirt, plantedEdge, 'forest');
   }
 
   if (layout.playground) {
@@ -158,8 +163,12 @@ export function addSiteSurfaces(
       add(ribbon(line.map(([across, along]) => at(across, along)), gate.sidewalks.width,
         (x, z) => grade(x, z) + streetDeckLift + 0.09, 0.8, 1), sidewalk, 'pavers');
     }
-    zebra(gateCrossing);
   }
-  for (const crossing of layout.crossings) zebra(siteCrosswalkArea(data.project, crossing));
+  if (crossings.length) {
+    const clipper = createRoadPaintClipper();
+    asphaltDecks.forEach(clipper.addSurface);
+    for (const crossing of crossings) zebra(crossing, clipper);
+    clipper.clear();
+  }
   return { elevation, drivewayGrade, drivewayCenterline, asphaltDecks };
 }

@@ -97,8 +97,8 @@ export const songpaCourtyard = {
       [127.1159148, 37.4980313], [127.1159497, 37.4981015], [127.1160248, 37.4981781],
     ],
     [
-      [127.1165130, 37.4975823], [127.1165666, 37.4975993], [127.1165907, 37.4975248],
-      [127.1165478, 37.4974801], [127.1164727, 37.4974610], [127.1164513, 37.4975142],
+      [127.1165130, 37.4975823], [127.1165666, 37.4975993], [127.1165560, 37.4975248],
+      [127.1165173, 37.4974801], [127.1164727, 37.4974610], [127.1164513, 37.4975142],
     ],
     [
       [127.1162474, 37.4980994], [127.1163413, 37.4980845], [127.1163574, 37.4980015],
@@ -128,6 +128,17 @@ export const songpaCourtyard = {
   ] satisfies { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate }[],
 };
 
+// Use the same traced points for the asphalt edge and the adjoining curb.
+const songpaWestDriveEdge = [
+  [127.1166310, 37.4977227], [127.1166068, 37.4976568], [127.1166256, 37.4976206],
+  [127.1166041, 37.4975759], [127.1165559, 37.4974567], [127.1165451, 37.4973993],
+] satisfies Coordinate[];
+// Continue the surveyed east boundary south of the gate. The first point is
+// interpolated on the same UFID as songpaStreetEdge, at the end of the traced court.
+const songpaEastDriveEdge = [
+  [127.1167029, 37.4974014], [127.1167214, 37.4974577], [127.1167679, 37.4975725],
+] satisfies Coordinate[];
+
 export const songpaGrounds = {
   source: 'https://www.arcgis.com/apps/mapviewer/index.html?source=sd&url=https%3A%2F%2Fserver.arcgisonline.com%2Farcgis%2Frest%2Fservices%2FWorld_Imagery%2FMapServer&center=127.11665,37.49762&level=19',
   captureDate: '2025-10-28',
@@ -135,14 +146,11 @@ export const songpaGrounds = {
   // One continuous footprint from the street mouth to the inner court.
   // Use the OpenLab road edge at the curb and trace the remaining pavement in World Imagery.
   paving: [
-    [127.1167168, 37.4976036], [127.1167812, 37.4976014], ...songpaStreetEdge.slice(2).reverse(),
+    ...songpaStreetEdge.slice(2).reverse(),
     [127.1169502, 37.4977738], [127.1169233, 37.4977930], [127.1168751, 37.4977866],
     [127.1168375, 37.4977951], [127.1167892, 37.4978036], [127.1167463, 37.4977866],
-    [127.1166862, 37.4977504], [127.1166766, 37.4977504], [127.1166310, 37.4977227],
-    [127.1166068, 37.4976568], [127.1166256, 37.4976206], [127.1166041, 37.4975759],
-    [127.1165559, 37.4974567], [127.1165451, 37.4973993], [127.1166122, 37.4974014],
-    [127.1166283, 37.4974376], [127.1166873, 37.4975504], [127.1167034, 37.4975908],
-    [127.1167159, 37.4976151],
+    [127.1166862, 37.4977504], [127.1166766, 37.4977504],
+    ...songpaWestDriveEdge, ...songpaEastDriveEdge,
   ] satisfies Coordinate[],
   markings: [
     { start: [127.1166390, 37.4976291], end: [127.1166900, 37.4976100] },
@@ -162,7 +170,11 @@ export const songpaGrounds = {
 export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
   paths: songpaCourtyard.paths,
-  roadsideWalks: [{ curb: songpaStreetEdge, outward: 1, width: 1.55 }],
+  roadsideWalks: [
+    { curb: songpaStreetEdge, outward: 1, width: 1.55 },
+    { curb: songpaWestDriveEdge, outward: -1, width: 1.32, beside: 'driveway' },
+    { curb: songpaEastDriveEdge, outward: -1, width: 0.88, beside: 'driveway', finish: 'planted' },
+  ],
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
   crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),
