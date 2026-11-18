@@ -105,11 +105,11 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
   if (data.region === 'songpa') {
     addSingaCrosswalk(data, scene, grade, finish);
     addSongiPark(data, scene, grade, finish);
-    const pavement = new T.MeshStandardMaterial({ color: '#807771', roughness: 0.96, side: T.DoubleSide });
+    const pavement = new T.MeshStandardMaterial({ color: '#b3aea4', roughness: 0.96, side: T.DoubleSide });
     const paint = new T.MeshStandardMaterial({ color: '#dedbd0', roughness: 0.92, side: T.DoubleSide });
     const paving = groundPolygon([songpaGrounds.paving.map(data.project)], grade, 3, 0.12);
-    surfaceUV(paving, 'asphalt');
-    const road = new T.Mesh(paving, finish(pavement, 'asphalt'));
+    surfaceUV(paving, 'cobble');
+    const road = new T.Mesh(paving, finish(pavement, 'cobble'));
     road.receiveShadow = true;
     scene.add(road);
     for (const { start, end } of songpaGrounds.markings) {

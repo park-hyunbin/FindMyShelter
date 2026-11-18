@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, inShape, nearestOnLine, type Building, type OpoData, type Point, type Shape } from './opo-data';
 import { riverNormals, surfaceUV, type TourMaterials } from './opo-materials';
 import type { TreeCover } from './opo-tree-cover';
+import { addSongpaTowerExterior, songpaExteriorMaterials } from './opo-songpa-exterior';
 import architecture from '../public/opo-architecture.json';
 
 export function shapeFrom(rings: Shape) {
@@ -242,6 +243,7 @@ function apartmentRoofScene(rings: Shape, coreFaces: Point[][],
 
 export function buildMeshes(data: OpoData, scene: T.Scene) {
   const facade = new T.MeshStandardMaterial({ map: facadeTexture(), roughness: 0.88 });
+  const songpaExterior = data.region === 'songpa' ? songpaExteriorMaterials() : null;
   const apartmentRoof = new T.MeshStandardMaterial({ color: '#665a53', roughness: 0.95 });
   const pavilionWall = new T.MeshStandardMaterial({ color: '#e4e2d8', roughness: 0.91 });
   const roofColors = ['#70645a', '#777875', '#596d71', '#845a48'];
@@ -294,6 +296,14 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       mesh.name = data.region === 'opo' && building.dong ? `오포 포레스트 ${building.dong}` : building.label;
       scene.add(mesh);
       occluders.push(mesh);
+      if (songpaExterior && building.dong && index === 0) {
+        // Keep the analysis mesh while the photo-based exterior renders at the same maximum height.
+        const added = addSongpaTowerExterior(scene, {
+          id: building.id, label: mesh.name, number: building.dong.replace('동', ''), levels: building.levels ?? 20,
+          points: rings[0], shape, center: position, grade: verticalBase, skirt, top: verticalBase + displayHeight,
+        }, songpaExterior);
+        if (added) mesh.visible = false;
+      }
       if (roofRise) {
         // Site shadow/ray analyses retain the registered-height envelope.
         mesh.visible = false;

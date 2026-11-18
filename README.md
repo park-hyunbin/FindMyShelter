@@ -6,6 +6,8 @@
 
 송파의 **단지 정보**에서 2025-10-28 World Imagery를 참고해 그린 단지 안 포장 구간과 수목을 눈높이로 보고, 두 대표 지점을 겨울 오후 2시의 같은 조건으로 비교할 수 있습니다. 영상에서 읽은 위치와 형상은 근사입니다. 수목 높이와 노면 단차는 추정이며 출입구까지의 연결은 현장 확인이 필요합니다. 일조 계산은 건물과 지형을 기준으로 합니다. [항공영상 메타데이터](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/9/query?objectIds=480339&outFields=SRC_DATE,NICE_DESC,SRC_RES&returnGeometry=false&f=pjson)
 
+가락동부센트레빌 101~105동의 위치는 건물 표본과 공개 배치 자료를 대조했습니다. 103동은 세 갈래 주동, 104동은 그 서쪽 일자형 주동입니다. 지상 사진과 항공영상에서 읽은 흰 외벽, 청록색 창호, 원형 옥상 구조를 3D에 반영했습니다. 창호, 동 번호판, 옥상 구조의 세부 위치와 치수는 근사입니다. 일조 계산에는 GIS 윤곽과 높이 표본의 체적을 사용합니다. [공개 배치 참고 지도](https://m.richgo.ai/api/og/danji-map/a9phoJw) · [공개 단지 사진](https://hogangnono.com/apt/1Zfb4)
+
 송파의 **일조 비교 → 겨울 위성영상과 비교**에서 2025-12-22 11:27:11 KST에 촬영된 Sentinel-2 10m 영상과 같은 시각의 모델 판정을 볼 수 있습니다. 101동 남서쪽의 어두운 실외 표본은 모델에서 103동에 가려지고, 상대적으로 밝은 중앙 포장로 표본은 모델에서 직사광으로 판정됩니다. 픽셀 밝기에는 재질과 수목의 영향도 있으며 순간 영상과 비교한 두 예시입니다. 하루 직사광 시간과 겨울 오후의 경계는 추가 관찰이 필요합니다. `node frontend/scripts/prepare-songpa-winter-imagery.mjs`로 영상과 좌표를 다시 생성할 수 있습니다. [촬영 메타데이터와 원본](https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2B_52SCG_20251222_0_L2A)
 
 K-apt 단지코드 `A13816002`의 관리시설정보(2026-11-18 조회)는 264세대, 주차 536면(지상 19면·지하 517면), 승강기 8대를 기록합니다. 행정안전부 시설 현황에서 같은 주소의 단지 놀이터를 확인할 수 있습니다. 단지 내 개별 시설 좌표와 방문 주차 조건은 현장 확인이 필요합니다. [K-apt 관리시설정보](https://www.k-apt.go.kr/kaptinfo/openKaptMng.do) · [행정안전부 놀이시설 현황](https://www.cpf.go.kr/cpf/ko/nori/0006/index.jsp?sido=1100000000&sigungu=1171000000&rgnCd=1171000000&ronaDaddr=%EC%86%A1%ED%8C%8C%EB%8C%80%EB%A1%9C32%EA%B8%B8)

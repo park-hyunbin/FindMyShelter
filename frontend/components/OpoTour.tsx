@@ -20,6 +20,7 @@ import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
 import { songpaWinterCapture } from './data/songpa-winter-capture';
+import { songpaArchitecture } from './data/songpa-architecture';
 import TourLive from './TourLive';
 import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
@@ -955,11 +956,18 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <article className="site-card">
           <h3>{songpaComplex.name}</h3>
           <p>{songpaComplex.address} · 5개 동 · {songpaFacilities.households}세대</p>
-          <p>외관은 건물 윤곽과 높이 표본으로 표현했어요. 건물 자료와 OSM에서 103·104동 표기가 달라 3D 동 이름에는 건물 자료를 사용했어요.</p>
+          <p>공개 배치 자료에서 101~105동 위치를 대조했어요. 사진의 흰 외벽, 청록색 창호와 원형 옥상 구조를 3D에 반영했어요.</p>
+          <p>창호와 번호판의 위치, 지붕의 세부 치수는 근사예요. 일조는 지도 윤곽과 높이 표본의 단순화한 체적으로 계산해요.</p>
           <p>점선은 지도상 주거 영역이에요.</p>
-          <div className="site-actions"><button disabled={!world} onClick={() => visit('approach')}>단지 앞 도로 보기</button></div>
+          <div className="site-actions">
+            <button disabled={!world} onClick={() => { chooseMode('orbit'); world?.locate(); }}>5개 동 조감 보기</button>
+            <button disabled={!world} onClick={() => visit('inner-paving')}>동 사이에서 외관 보기</button>
+            <button disabled={!world} onClick={() => visit('approach')}>단지 앞 도로 보기</button>
+          </div>
           <div className="basis">
             <a href={songpaComplex.info} target="_blank" rel="noreferrer">서울시 공동주택 단지 정보 ↗</a>
+            <a href={songpaArchitecture.layout} target="_blank" rel="noreferrer">주동 배치 참고 지도 ↗</a>
+            <a href={songpaArchitecture.photos} target="_blank" rel="noreferrer">단지 지상 사진 ↗</a>
             <a href={songpaComplex.boundary} target="_blank" rel="noreferrer">OpenStreetMap 단지 경계 ↗</a>
           </div>
         </article>

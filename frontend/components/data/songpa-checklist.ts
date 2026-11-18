@@ -6,6 +6,7 @@ import { songpaSchool } from './songpa-school';
 import { songpaHospital } from './visit-routes';
 import { songiPark } from './songi-park';
 import { songpaWinterCapture } from './songpa-winter-capture';
+import { songpaArchitecture } from './songpa-architecture';
 
 type Source = { label: string; url: string };
 export type ChecklistView = 'complex' | 'sun' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'ambient' | 'flood';
@@ -39,9 +40,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'layout', title: '단지와 주변 배치', evidence: 'model',
-        finding: '101~105동과 송파대로32길을 눈높이와 조감으로 둘러볼 수 있어요. 건물의 위치·높이 표본과 지도상 주거 경계를 사용해요.',
-        followUp: '배치도와 실제 동 표지, 건물 외관을 대조해 보세요.',
-        views: [{ target: 'complex', label: '단지 전체 조감으로 보기' }], sources: [seoulComplex, siteBoundary],
+        finding: '공개 지도와 대조한 101~105동의 위치를 조감으로 보고, 지상 사진을 참고한 외벽과 원형 지붕을 동 사이에서 살펴볼 수 있어요.',
+        followUp: '동별 출입구와 집 앞에서 보이는 실제 방향을 확인해 보세요.',
+        views: [{ target: 'complex', label: '단지 전체 조감으로 보기' }],
+        sources: [seoulComplex, { label: '주동 배치 참고 지도', url: songpaArchitecture.layout }],
       },
       {
         id: 'sunlight', title: '실외 일조와 시야', evidence: 'model',
