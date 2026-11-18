@@ -4,7 +4,7 @@ import { songpaCourtyard } from './data/songpa-grounds';
 import type { OpoData, Point } from './opo-data';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon } from './opo-meshes';
-import { shrubModel } from './opo-vegetation';
+import { addShrubPlanting, type ShrubPlacement } from './opo-vegetation';
 
 export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   const group = new T.Group();
@@ -25,7 +25,7 @@ export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData
 
   const beds = songpaCourtyard.beds.map(ring => ring.map(data.project));
   const curbs: T.BufferGeometry[] = [];
-  const plants: { x: number; y: number; z: number; size: number }[] = [];
+  const plants: ShrubPlacement[] = [];
   for (const bed of beds) {
     surface(groundPolygon([bed], grade, 3, 0.19), mulch, 'forest');
     const center = bed.reduce((sum, point) => ({ x: sum.x + point.x / bed.length, z: sum.z + point.z / bed.length }), { x: 0, z: 0 });
@@ -40,7 +40,8 @@ export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData
           .rotateY(Math.atan2(b.x - a.x, b.z - a.z)).translate(x, grade(x, z) + 0.20, z));
         const px = T.MathUtils.lerp(x, center.x, 0.35);
         const pz = T.MathUtils.lerp(z, center.z, 0.35);
-        plants.push({ x: px, y: grade(px, pz) + 0.50, z: pz, size: 0.41 + (index + i) % 4 * 0.07 });
+        const size = 0.41 + (index + i) % 4 * 0.07;
+        plants.push({ x: px, y: grade(px, pz) + 0.50, z: pz, scale: [size * 1.35, size * 0.7, size] });
       }
     }
   }
@@ -49,20 +50,7 @@ export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData
   curbMesh.receiveShadow = true;
   group.add(curbMesh);
 
-  const shrub = shrubModel();
-  const shrubs = new T.InstancedMesh(shrub.leaves, shrub.material, plants.length);
-  const shrubColors = ['#63754a', '#71835b', '#849264', '#697b53'].map(color => new T.Color(color));
-  const transform = new T.Object3D();
-  plants.forEach(({ x, y, z, size }, i) => {
-    transform.position.set(x, y, z);
-    transform.scale.set(size * 1.35, size * 0.7, size);
-    transform.rotation.y = i * 1.9;
-    transform.updateMatrix();
-    shrubs.setMatrixAt(i, transform.matrix);
-    shrubs.setColorAt(i, shrubColors[i % shrubColors.length]);
-  });
-  shrubs.castShadow = shrubs.receiveShadow = true;
-  group.add(shrubs);
+  addShrubPlanting(group, plants, '단지 안 화단 관목');
 
   const { x, z } = data.project(songpaCourtyard.roundSeat);
   const circle = (radius: number) => Array.from({ length: 28 }, (_, i) => ({

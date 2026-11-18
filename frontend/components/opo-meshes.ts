@@ -473,7 +473,7 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
     trees.push(...forest.placements(random, point => !canPlant(point) || Boolean(inComplex && inShape(point, inComplex))));
   }
   for (const point of data.streetPoints) {
-    if (point.kind === 'tree' && canPlant(point.position)) trees.push({ ...point.position, mapped: true });
+    if (point.kind === 'tree' && canPlant(point.position)) trees.push({ ...point.position, mapped: true, form: point.treeForm });
   }
   addLandscapeTrees(vegetation, trees, surface, Boolean(finish), Boolean(forest));
   addReeds(surfaceOverlays, riverbanks, surface, random);

@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { OpoData, Point } from './opo-data';
+import { inShape, type OpoData, type Point } from './opo-data';
 import { curbWalk } from './opo-curb-walk';
 import { crosswalkFrame, zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
@@ -8,6 +8,7 @@ import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
 import { createRoadPaintClipper } from './opo-road-paint';
 import { makeCar } from './opo-vehicle';
 import { buildingEntry, type BuildingEntryLayout } from './opo-building-entry';
+import { addShrubPlanting, type ShrubPlacement } from './opo-vegetation';
 
 type Coordinate = [longitude: number, latitude: number];
 type SiteCrossing = { start: Coordinate; end: Coordinate; depth: number };
@@ -45,6 +46,7 @@ type SurveyedRoad = {
 export type SiteSurfaceLayout = {
   drive?: { width: number; points: Coordinate[] };
   paths: { width: number; points: Coordinate[] }[];
+  plantingBeds?: { outline: Coordinate[]; hedge: Coordinate[]; width: number; height: number }[];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
@@ -88,7 +90,7 @@ export function siteCrosswalkArea(project: OpoData['project'], { start, end, dep
 
 export function addSiteSurfaces(
   data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
-  layout: SiteSurfaceLayout, roadClearance: (point: Point) => number, gate?: GateLayout,
+  layout: SiteSurfaceLayout, roadClearance: (point: Point) => number, gate?: GateLayout, insideBuilding?: (point: Point) => boolean,
 ) {
   const asphalt = material('#e2ecf8', 'asphalt');
   asphalt.color.multiplyScalar(1.42);
@@ -145,9 +147,9 @@ export function addSiteSurfaces(
     return top;
   }
 
-  function curve(points: Coordinate[]) {
+  function curve(points: Coordinate[], spacing = 1.2) {
     const line = new T.CatmullRomCurve3(points.map(data.project).map(({ x, z }) => new T.Vector3(x, 0, z)));
-    return line.getSpacedPoints(Math.ceil(line.getLength() / 1.2));
+    return line.getSpacedPoints(Math.ceil(line.getLength() / spacing));
   }
 
   function paintOnDrive(lines: [Point, Point][], width: number, lift: number,
@@ -250,6 +252,22 @@ export function addSiteSurfaces(
         return drivewayGrade(x, z) + lift;
       }, 0.25), sidewalk, 'pavers');
     }
+  }
+  if (layout.plantingBeds?.length) {
+    const soil = material('#9b8f73', 'forest');
+    const bedLift = 0.25;
+    const shrubs: ShrubPlacement[] = [];
+    for (const { outline, hedge, width, height } of layout.plantingBeds) {
+      const ring = outline.map(data.project);
+      add(groundPolygon([ring], grade, 1.5, bedLift), soil, 'forest', false);
+      for (const { x, z } of curve(hedge, width * 0.54)) {
+        const point = { x, z };
+        if (!inShape(point, [ring]) || roadClearance(point) < width / 2
+          || elevation(point) !== undefined || insideBuilding?.(point)) continue;
+        shrubs.push({ x, z, y: grade(x, z) + bedLift + height * 0.40, scale: [width * 0.49, height * 0.8, width * 0.53] });
+      }
+    }
+    addShrubPlanting(scene, shrubs, '정문 주변 관목');
   }
   if (crossings.length || layout.parkingRows?.length) {
     const clipper = createRoadPaintClipper();

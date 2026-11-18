@@ -3,7 +3,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { OpoData, Point } from './opo-data';
 
 type XYZ = [number, number, number];
-export type LandscapePoint = Point & { mapped?: boolean };
+export type LandscapePoint = Point & { mapped?: boolean; form?: 'broadleaf' | 'pine' };
+export type ShrubPlacement = Point & { y: number; scale: XYZ };
 
 function sampler(seed: number) {
   return () => {
@@ -99,7 +100,7 @@ export function addLandscapeTrees(group: T.Group, trees: LandscapePoint[], surfa
   for (const tree of trees) {
     const random = sampler(Math.imul(Math.round(tree.x * 100), 73428767) ^ Math.round(tree.z * 100));
     const detailed = finished && (tree.mapped || Math.hypot(tree.x, tree.z) <= 430);
-    const type = detailed ? (random() < 0.28 ? 'pine' : 'broadleaf') : 'distant';
+    const type = detailed ? (tree.form ?? (random() < 0.28 ? 'pine' : 'broadleaf')) : 'distant';
     groups[type].push(tree);
   }
   const bark = new T.MeshStandardMaterial({ color: '#756453', roughness: 0.97 });
@@ -135,10 +136,29 @@ export function addLandscapeTrees(group: T.Group, trees: LandscapePoint[], surfa
   }
 }
 
-export function shrubModel() {
+function shrubModel() {
   const leaves = sprays([
     [[-0.19, 0.12, 0.1], 1.48, 0.8], [[0.25, 0.12, -0.18], 1.43, 0.83],
     [[0.22, -0.11, 0.16], 1.58, 0.72], [[-0.20, -0.15, -0.18], 1.44, 0.78], [[0, 0.34, 0], 1.35, 0.62],
   ]);
   return { leaves, material: leafMaterial() };
+}
+
+export function addShrubPlanting(group: T.Object3D, plants: ShrubPlacement[], name: string) {
+  if (!plants.length) return;
+  const shrub = shrubModel();
+  const shrubs = new T.InstancedMesh(shrub.leaves, shrub.material, plants.length);
+  const colors = ['#63754a', '#71835b', '#849264', '#697b53'].map(color => new T.Color(color));
+  const transform = new T.Object3D();
+  plants.forEach(({ x, y, z, scale }, i) => {
+    transform.position.set(x, y, z);
+    transform.scale.set(...scale);
+    transform.rotation.y = i * 1.9;
+    transform.updateMatrix();
+    shrubs.setMatrixAt(i, transform.matrix);
+    shrubs.setColorAt(i, colors[i % colors.length]);
+  });
+  shrubs.name = name;
+  shrubs.castShadow = shrubs.receiveShadow = true;
+  group.add(shrubs);
 }

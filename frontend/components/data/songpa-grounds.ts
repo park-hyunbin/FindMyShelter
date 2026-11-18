@@ -185,10 +185,48 @@ export const songpaGrounds = {
     { id: 'inner-paving', name: '동 사이 포장 공간', coordinate: [127.1166846, 37.4976632], lookAt: [127.1166176, 37.4975248] },
   ] satisfies SongpaGroundView[],
 };
+// The beds follow canopy edges visible in the 2025-10-28 orthophoto. Crown centers are
+// interpreted from the imagery; the shrubs and broadleaf tree models are representative.
+export const songpaFrontage = {
+  beds: [{
+    outline: [
+      [127.1169046, 37.4981036], [127.1169341, 37.4980973], [127.1169689, 37.4980717],
+      [127.1169931, 37.4980356], [127.1170253, 37.4979930], [127.1170253, 37.4979504],
+      [127.1170038, 37.4979079], [127.1169636, 37.4978674], [127.1169207, 37.4978398],
+      [127.1168616, 37.4978185], [127.1168268, 37.4978376], [127.1168402, 37.4978781],
+      [127.1168590, 37.4979377], [127.1168831, 37.4980164], [127.1168938, 37.4980632],
+    ],
+    hedge: [
+      [127.1169341, 37.4980760], [127.1169582, 37.4980462], [127.1169850, 37.4980058],
+      [127.1170011, 37.4979717], [127.1169904, 37.4979355], [127.1169689, 37.4979015],
+      [127.1169314, 37.4978674], [127.1168938, 37.4978483],
+    ],
+    width: 1.12, height: 0.82,
+  }, {
+    outline: [
+      [127.1169528, 37.4977121], [127.1169797, 37.4976993], [127.1169555, 37.4976568],
+      [127.1169555, 37.4976206], [127.1169153, 37.4975993], [127.1168590, 37.4975887],
+      [127.1168000, 37.4975674], [127.1167973, 37.4975802], [127.1168321, 37.4976036],
+      [127.1168616, 37.4976291], [127.1168938, 37.4976717],
+    ],
+    hedge: [
+      [127.1169555, 37.4976887], [127.1169448, 37.4976546], [127.1169126, 37.4976312],
+      [127.1168777, 37.4976248], [127.1168295, 37.4975993], [127.1168026, 37.4975802],
+    ],
+    width: 1.16, height: 0.87,
+  }] satisfies NonNullable<SiteSurfaceLayout['plantingBeds']>,
+  crowns: [
+    [127.1169126, 37.4980845], [127.1169341, 37.4980207], [127.1169636, 37.4979802],
+    [127.1169394, 37.4979249], [127.1169180, 37.4978823], [127.1168724, 37.4978525],
+    [127.1169421, 37.4976887], [127.1168938, 37.4976121],
+  ] satisfies Coordinate[],
+};
+
 // Geometry stays in the site data. The photos inform visual details separately.
 export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
   paths: songpaCourtyard.paths,
+  plantingBeds: songpaFrontage.beds,
   // The pavers and entrance style are photo references. The door placement and dimensions are illustrative.
   buildingEntries: [
     { buildingId: '55765541', wall: [127.1160945, 37.4976121], path: [127.1160462, 37.4976100], width: 3.10 },
