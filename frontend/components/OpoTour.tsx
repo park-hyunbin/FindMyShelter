@@ -65,6 +65,61 @@ function lightStatus(sample: LightSample) {
   return `${sample.status === 'shade' ? '모델상 그늘' : '미판정'} · ${sample.cause}`;
 }
 
+const winterWalkStops = [
+  { id: 'west-garden', shortName: '동 사이 산책로' },
+  { id: 'playground-edge', shortName: '놀이터 옆' },
+  { id: 'south-paving', shortName: '남쪽 포장로' },
+];
+const winterWalkHours = [13, 14, 15, 16, 17];
+const winterWalkStatus = { sun: '직사광', shade: '그늘', unknown: '미판정', night: '일몰 후' };
+type WinterWalkSelection = { id: string; hour: number };
+
+function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, onSelect, onView }: {
+  world: OpoWorld | null; date: string; detailsRef: React.RefObject<HTMLDetailsElement | null>;
+  expanded: boolean; selection: WinterWalkSelection;
+  onToggle: (expanded: boolean) => void; onSelect: (selection: WinterWalkSelection) => void;
+  onView: (point: SitePoint, date: string, minute: number, trace: boolean) => void;
+}) {
+  const data = useMemo(() => winterWalkStops.map(stop => {
+    const point = world?.presets.find(preset => preset.id === stop.id);
+    return { ...stop, point, samples: point && world ? winterWalkHours.map(hour => world.lightAt(point, date, hour * 60)) : [] };
+  }), [world, date]);
+  const stop = data.find(item => item.id === selection.id);
+  const sample = stop?.samples[winterWalkHours.indexOf(selection.hour)];
+  const selectedPoint = stop?.point;
+
+  return <details ref={detailsRef} className="season-compare winter-walk" open={expanded}
+    onToggle={event => onToggle(event.currentTarget.open)}>
+    <summary>겨울 오후 산책 비교</summary>
+    <p className="season-caption">{date} · 한국 시간 · 지면 위 {observationHeight}m · 맑은 날 모델</p>
+    <table aria-label="겨울 오후 세 지점 모델 일조">
+      <thead><tr><th scope="col">시각</th>{data.map(item => <th key={item.id} scope="col">{item.shortName}</th>)}</tr></thead>
+      <tbody>{winterWalkHours.map((hour, index) => <tr key={hour}>
+        <th scope="row"><time>{timeLabel(hour * 60)}</time></th>
+        {data.map(item => {
+          const result = item.samples[index];
+          const label = result ? winterWalkStatus[result.status] : '—';
+          return <td key={item.id}><button type="button" disabled={!result} data-status={result?.status}
+            aria-label={`${item.point?.label ?? item.shortName} ${timeLabel(hour * 60)} ${label}`}
+            aria-pressed={item.id === selection.id && hour === selection.hour}
+            onClick={() => onSelect({ id: item.id, hour })}>{label}</button></td>;
+        })}
+      </tr>)}</tbody>
+    </table>
+    {sample && selectedPoint && <div className="winter-walk-result">
+      <strong>{selectedPoint.label} · {timeLabel(sample.minute)}</strong>
+      <p>{lightStatus(sample)}</p>
+      <div className="site-actions">
+        <button type="button" onClick={() => onView(selectedPoint, date, sample.minute, false)}>같은 시각에 걸어 보기</button>
+        {sample.status !== 'night' && <button type="button" onClick={() => onView(selectedPoint, date, sample.minute, true)}>
+          {sample.status === 'shade' ? '차폐 경로 보기' : sample.status === 'unknown' ? '미판정 방향 보기' : '태양 방향 보기'}
+        </button>}
+      </div>
+    </div>}
+    <p className="season-caption">건물과 지형의 차폐를 계산했어요. 수목·구름과 겨울 오후의 실제 그늘 경계는 현장 확인이 필요해요.</p>
+  </details>;
+}
+
 function WinterCapture({ world, onCompare, detailsRef }: {
   world: OpoWorld | null; onCompare: () => void; detailsRef: React.RefObject<HTMLDetailsElement | null>;
 }) {
@@ -257,7 +312,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const activeAccessCard = useRef<HTMLDivElement>(null);
   const pendingSiteCard = useRef<'paving' | 'parking' | 'entrance' | null>(null);
   const winterDetails = useRef<HTMLDetailsElement>(null);
+  const winterWalkDetails = useRef<HTMLDetailsElement>(null);
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
+  const [showWinterWalk, setShowWinterWalk] = useState(false);
+  const [winterWalkOpen, setWinterWalkOpen] = useState(false);
+  const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
   const [world, setWorld] = useState<OpoWorld | null>(null);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
@@ -385,6 +444,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     winterDetails.current.scrollIntoView({ block: 'start' });
     setShowWinterEvidence(false);
   }, [showWinterEvidence, tab]);
+
+  useEffect(() => {
+    if (!showWinterWalk || tab !== 'sun' || !winterWalkDetails.current) return;
+    winterWalkDetails.current.scrollIntoView({ block: 'start' });
+    setShowWinterWalk(false);
+  }, [showWinterWalk, tab]);
 
   useEffect(() => {
     if (tab !== 'site' || !pendingSiteCard.current) return;
@@ -561,6 +626,29 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setPoints({ A: a, B: b });
   }
 
+  function openWinterWalk() {
+    chooseTab('sun');
+    setWinterWalkOpen(true);
+    setShowWinterWalk(true);
+  }
+
+  function viewWinterWalk(point: SitePoint, winterDate: string, at: number, trace: boolean) {
+    if (!world) return;
+    setDate(winterDate);
+    setMinute(at);
+    choosePoint('A', point);
+    if (!trace) {
+      visit(point.id);
+      return;
+    }
+    setShowSunMap(false);
+    setAccessId(null);
+    world.showGreenAccess(null);
+    setLightSlot('A');
+    setMode('orbit');
+    if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
   function useCurrentPosition() {
     if (!world || !selectedSlot) return;
     const position = world.position();
@@ -623,6 +711,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         chooseTab('sun');
         showComplexSunMap();
         break;
+      case 'winter-walk':
+        openWinterWalk();
+        break;
       case 'winter-capture':
         compareWinterCapture();
         setShowWinterEvidence(true);
@@ -661,7 +752,6 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const seasonPoint = points[seasonSlot];
   const buildingRegister = world?.sources.register;
   const selectedPlace = world?.places.find(place => place.id === selectedPlaceId);
-  const pavingPresets = songpaGrounds.points.map(stop => world?.presets.find(point => point.id === stop.id));
   const parkingSpaces = songpaFacilities.surfaceParking + songpaFacilities.undergroundParking;
   const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
   const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
@@ -719,7 +809,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         setStreet(current => ({ ...current, touring }));
       }}>{street.touring ? '드라이브 정지' : '동네 드라이브'}</button>}
 
-    <button className="analysis-toggle" aria-expanded={open} aria-controls="analysis-panel" onClick={() => setOpen(value => !value)}>{open ? '분석 접기' : '주거환경 분석'}</button>
+    <button className="analysis-toggle" aria-expanded={open} aria-controls="analysis-panel" onClick={() => {
+      if (!open && tab === 'sun' && winterWalkOpen) setShowWinterWalk(true);
+      setOpen(!open);
+    }}>{open ? '분석 접기' : '주거환경 분석'}</button>
     {open && <aside id="analysis-panel" ref={analysisPanel} className="analysis" aria-label="주거환경 분석">
       <div className="analysis-heading"><h2>주거환경 분석</h2><button aria-label="분석 접기" onClick={() => setOpen(false)}>−</button></div>
       <div className="analysis-tabs" aria-label="분석 항목">
@@ -756,7 +849,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <div className="time-scale"><span>00시</span><span>06시</span><span>12시</span><span>18시</span><span>24시</span></div>
         </div>
         <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>미판정</span><span><i className="strip-night"/>야간</span></div>
-        {region === 'songpa' && <WinterCapture world={world} onCompare={compareWinterCapture} detailsRef={winterDetails} />}
+        {region === 'songpa' && <>
+          <WinterWalk world={world} date={`${date.slice(0, 4) || initialDate.slice(0, 4)}-12-21`}
+            detailsRef={winterWalkDetails} expanded={winterWalkOpen} selection={winterWalkSelection}
+            onToggle={setWinterWalkOpen} onSelect={setWinterWalkSelection} onView={viewWinterWalk} />
+          <WinterCapture world={world} onCompare={compareWinterCapture} detailsRef={winterDetails} />
+        </>}
         <details className="season-compare" open={seasonOpen} onToggle={event => setSeasonOpen(event.currentTarget.open)}>
           <summary>같은 지점의 계절별 일조</summary>
           {seasonOpen && <>
@@ -1029,16 +1127,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <div className="site-actions">
             {songpaCourtyard.views.map(stop => <button key={stop.id}
               disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
-            {songpaGrounds.points.map((stop, index) => <button key={stop.id} disabled={!pavingPresets[index]} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
-            <button disabled={pavingPresets.some(point => !point)} onClick={() => {
-              const [south, inner] = pavingPresets;
-              if (!south || !inner) return;
-              setPoints({ A: south, B: inner });
-              setDate(`${date.slice(0, 4) || initialDate.slice(0, 4)}-12-21`);
-              setMinute(14 * 60);
-              chooseTab('sun');
-              chooseMode('orbit');
-            }}>두 지점의 겨울 오후 일조 비교</button>
+            {songpaGrounds.points.map(stop => <button key={stop.id}
+              disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
+            <button disabled={!world} onClick={openWinterWalk}>겨울 오후 산책 비교</button>
           </div>
           <div className="basis">
             <a href={songpaCourtyard.groundPhoto} target="_blank" rel="noreferrer">103·104동 사이 보행로 사진 ↗</a>
