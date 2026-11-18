@@ -125,19 +125,49 @@ export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoDat
       stationDistancesM: Object.fromEntries(stations.map(({ serial, position: sensor }) =>
         [serial, Math.hypot(sensor.x - position.x, sensor.z - position.z)])) };
   });
-  const stationMaterial = new T.MeshBasicMaterial({ color: '#77e2d4', depthTest: false });
+  const stationMaterial = new T.MeshBasicMaterial({ color: '#77e2d4', depthTest: false, depthWrite: false });
+  const referenceMaterial = new T.MeshBasicMaterial({ color: '#ffe1a0', depthTest: false, depthWrite: false });
+  const guideMaterial = new LineMaterial({ color: '#77e2d4', linewidth: 2.6, dashed: true,
+    dashSize: 9, gapSize: 6, depthTest: false, depthWrite: false });
   const stopGeometry = new T.SphereGeometry(4, 12, 9);
   const stationGeometry = new T.SphereGeometry(7, 12, 9);
-  const labels = [...stops, ...stations].map(({ name, position: { x, z } }, index) => {
-    const station = index >= stops.length;
+  function marker(name: string, { x, z }: Point, station: boolean) {
     const pin = new T.Mesh(station ? stationGeometry : stopGeometry, station ? stationMaterial : roadMaterial);
     pin.position.set(x, grade(x, z) + (station ? 30 : 8), z);
     pin.renderOrder = 7;
     group.add(pin);
-    return { name, station, point: pin.position.clone().add(new T.Vector3(0, station ? 16 : 9, 0)) };
+    return { pin, name, point: pin.position.clone().add(new T.Vector3(0, station ? 16 : 9, 0)) };
+  }
+  const stationLabels = stations.map(({ name, serial, position }) => ({
+    ...marker(name, position, true), kind: 'station' as const, serial,
+  }));
+  const stopLabels = stops.map(({ id, name, position }) => ({
+    ...marker(name, position, false), kind: 'stop' as const, id,
+  }));
+  const guides = stopLabels.map(stop => {
+    const lines = new T.Group();
+    lines.visible = false;
+    for (const station of stationLabels) {
+      const line = new Line2(new LineGeometry().setPositions([...stop.pin.position.toArray(), ...station.pin.position.toArray()]),
+        guideMaterial);
+      line.computeLineDistances();
+      line.renderOrder = 6;
+      lines.add(line);
+    }
+    group.add(lines);
+    return { stop, lines };
   });
+  function selectReference(id?: string) {
+    const reference = stops.find(stop => stop.id === id) ?? stops.at(-1);
+    for (const { stop, lines } of guides) {
+      lines.visible = stop.id === reference?.id;
+      stop.pin.material = lines.visible ? referenceMaterial : roadMaterial;
+    }
+    return reference;
+  }
+  const labels = [...stopLabels, ...stationLabels];
   const frames = [...labels.map(label => label.point), ...road.map(({ x, z }) => new T.Vector3(x, grade(x, z) + 2, z))];
-  return { group, stops, labels, frames };
+  return { group, stops, labels, frames, selectReference };
 }
 
 export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['ground'],

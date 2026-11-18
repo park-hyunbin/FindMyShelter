@@ -27,6 +27,7 @@ import { sampleWinterPixel, songpaWinterCapture } from './data/songpa-winter-cap
 import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
+import { ambientStationDistance } from './data/songpa-ambient';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
@@ -409,14 +410,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     return { point, element, enabled: () => !analysisMapVisible() };
   });
-  for (const label of ambientMap?.labels ?? []) {
+  const ambientLabels = (ambientMap?.labels ?? []).map(label => {
     const element = document.createElement('span');
-    element.className = `building-label ${label.station ? 'ambient-sensor-label' : 'ambient-stop-label'}`;
+    element.className = `building-label ${label.kind === 'station' ? 'ambient-sensor-label' : 'ambient-stop-label'}`;
     element.textContent = label.name;
     element.hidden = true;
     host.appendChild(element);
     labels.push({ point: label.point, element, enabled: () => Boolean(ambientMap?.group.visible), keepInFrame: true });
-  }
+    return { label, element };
+  });
   for (const label of floodMap?.labels ?? []) {
     const element = document.createElement('span');
     element.className = 'building-label flood-map-label';
@@ -1093,15 +1095,24 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         ...stop, bearing: T.MathUtils.radToDeg(headingTo(stop.position, stop.lookAt) - data.northOffset),
       })),
     },
-    showAmbient(active: boolean, map: boolean) {
+    showAmbient(active: boolean, map: boolean, referenceId?: string) {
       if (!ambientMap) return;
       ambientInspection = active;
       ambientMap.group.visible = map;
       updateComparisonMarkers();
       if (!map) return;
+      const reference = ambientMap.selectReference(referenceId);
+      for (const { label, element } of ambientLabels) {
+        if (label.kind === 'station') {
+          const distance = reference?.stationDistancesM[label.serial];
+          element.textContent = distance === undefined ? label.name : `${label.name} · ${ambientStationDistance(distance)}`;
+        } else {
+          element.dataset.reference = String(label.id === reference?.id);
+        }
+      }
       const bounds = new T.Box3().setFromPoints(ambientMap.frames);
       const scale = bounds.getSize(new T.Vector3()).length();
-      frameSurface(ambientMap.frames, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.10, scale * 1.1, scale * 0.22));
+      frameSurface(ambientMap.frames, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.10, scale * 1.1, scale * 0.22), true);
     },
     showFlood(year: string | null, view: FloodView) {
       if (!floodMap) return;

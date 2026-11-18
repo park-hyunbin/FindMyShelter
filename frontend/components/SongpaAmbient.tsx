@@ -1,8 +1,10 @@
 import { useId } from 'react';
-import { ambientArchive, ambientDays, ambientSources, ambientTime, type AmbientMoment } from './data/songpa-ambient';
+import { ambientArchive, ambientDays, ambientSources, ambientStationDistance, ambientTime, type AmbientMoment } from './data/songpa-ambient';
 import type { OpoWorld } from './opo-world';
 
 const localDay = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' });
+
+type AmbientScene = NonNullable<OpoWorld['ambientScene']>;
 
 type Props = {
   moment: AmbientMoment;
@@ -10,13 +12,14 @@ type Props = {
   onMap: () => void;
   onVisit: (id: string) => void;
   activeStopId: string | null;
-  scene?: OpoWorld['ambientScene'];
+  scene?: AmbientScene;
+  reference?: AmbientScene['stops'][number];
+  mapVisible: boolean;
 };
 
-export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene, activeStopId }: Props) {
+export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene, activeStopId, reference, mapVisible }: Props) {
   const slider = useId();
   const time = ambientTime(moment.hour);
-  const reference = scene?.stops.find(stop => stop.id === activeStopId) ?? scene?.stops.at(-1);
   return <section className="ambient-panel" aria-label="소음과 야간 환경">
     <article className="site-card">
       <h3>양재대로 쪽과 단지 안쪽</h3>
@@ -37,6 +40,7 @@ export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene, a
         </button>)}
         <button disabled={!scene} onClick={onMap}>도로와 센서 위치 지도</button>
       </div>
+      {mapVisible && reference && <p>청록색 점선은 {reference.name}에서 센서까지의 직선거리를 표시해요.</p>}
       <p>3D는 하늘과 주변광의 변화를 표현해요. 조명과 단지 안 소음은 현장에서 확인해요.</p>
     </article>
     <article className="site-card">
@@ -50,7 +54,7 @@ export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene, a
             const reading = station.days[moment.day]?.[moment.hour];
             const distance = reference?.stationDistancesM[station.serial];
             return <tr key={station.serial}>
-              <th scope="row">{station.address}{distance !== undefined && <small>약 {Math.round(distance / 10) * 10}m</small>}</th>
+              <th scope="row">{station.address}{distance !== undefined && <small>{ambientStationDistance(distance)}</small>}</th>
               <td>{reading?.[0] == null ? '미기록' : `${reading[0]} dB`}</td>
               <td>{reading?.[1] == null ? '미기록' : `${reading[1]} lx`}</td>
             </tr>;

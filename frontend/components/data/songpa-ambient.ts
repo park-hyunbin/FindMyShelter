@@ -37,3 +37,7 @@ export const ambientStops = [
 export function ambientTime(hour: number) {
   return `${String(hour).padStart(2, '0')}:${String(ambientArchive.minute).padStart(2, '0')}`;
 }
+
+export function ambientStationDistance(distanceM: number) {
+  return `약 ${Math.round(distanceM / 10) * 10}m`;
+}

@@ -373,6 +373,7 @@ h1, h2, p { margin: 0; }
 .analysis-tabs:has(.ambient-tab) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .building-label.ambient-sensor-label { border-color: #8adfd2; background: #183f41; color: #cbfff3; }
 .building-label.ambient-stop-label { border-color: #e8b861; background: #4c3b30; color: #fff0ca; }
+.building-label.ambient-stop-label[data-reference='true'] { background: #ffe1a0; color: #382a1c; }
 .ambient-panel { display: grid; gap: 8px; }
 .ambient-panel h3 { margin: 1px 0 6px; }
 .ambient-panel p { margin: 5px 0; color: var(--lilac); line-height: 1.5; }

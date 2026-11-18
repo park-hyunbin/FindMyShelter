@@ -367,9 +367,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [retry, setRetry] = useState(0);
   const [ambientMoment, setAmbientMoment] = useState<AmbientMoment>(defaultAmbientMoment);
   const [ambientStopId, setAmbientStopId] = useState<string | null>(null);
+  const [ambientReferenceId, setAmbientReferenceId] = useState<string | null>(null);
   const [floodYear, setFloodYear] = useState(latestLocalFloodYear);
   const [floodView, setFloodView] = useState<FloodView>('closest');
   const ambientStop = world?.ambientScene?.stops.find(stop => stop.id === ambientStopId);
+  const ambientReference = world?.ambientScene?.stops.find(stop => stop.id === ambientReferenceId)
+    ?? world?.ambientScene?.stops.at(-1);
   const otherAmbientStop = ambientStop && world?.ambientScene?.stops.find(stop => stop.id !== ambientStop.id);
   const sceneDate = ambientStop ? ambientMoment.day : date;
   const sceneMinute = ambientStop ? ambientMoment.hour * 60 + ambientArchive.minute : minute;
@@ -457,8 +460,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   useEffect(() => {
     const active = tab === 'ambient';
-    world?.showAmbient(active && (open || Boolean(ambientStop)), active && open && mode === 'orbit');
-  }, [world, open, tab, mode, ambientStop]);
+    world?.showAmbient(active && (open || Boolean(ambientStop)), active && open && mode === 'orbit', ambientReference?.id);
+  }, [world, open, tab, mode, ambientStop, ambientReference?.id]);
 
   useEffect(() => {
     world?.showFlood(open && tab === 'flood' && mode === 'orbit' ? floodYear : null, floodView);
@@ -645,6 +648,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     const stop = world?.ambientScene?.stops.find(stop => stop.id === id);
     if (!world || !stop) return;
     setAmbientStopId(stop.id);
+    setAmbientReferenceId(stop.id);
     lookFromPoint(stop.position, stop.bearing);
     setStreet(world.streetStatus());
     world.focus();
@@ -1006,9 +1010,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)}
         checklist={checklist} field={field} onOpenField={openFieldVisit} onShowField={openVisitPlan} />}
       {region === 'songpa' && tab === 'ambient' && <SongpaAmbient moment={ambientMoment} onTime={setAmbientMoment} scene={world?.ambientScene}
-        activeStopId={ambientStopId} onVisit={visitAmbientStop} onMap={() => {
+        activeStopId={ambientStopId} reference={ambientReference} mapVisible={mode === 'orbit'} onVisit={visitAmbientStop} onMap={() => {
           chooseMode('orbit');
-          world?.showAmbient(true, true);
+          if (mode === 'orbit') world?.showAmbient(true, true, ambientReference?.id);
         }} />}
       {region === 'songpa' && tab === 'flood' && <SongpaFlood year={floodYear} view={floodView} sceneReady={Boolean(world)} mapVisible={mode === 'orbit'}
         onView={openFloodLocation} onVisit={visitAtEyeLevel} />}
