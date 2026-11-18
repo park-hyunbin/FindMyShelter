@@ -13,6 +13,9 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
 
   const siteStroke = new LineMaterial({ color: '#70ead1', linewidth: 4, depthTest: false, depthWrite: false });
   const traceStroke = new LineMaterial({ color: '#f0af54', linewidth: 2.6, depthTest: false, depthWrite: false });
+  const distanceStroke = new LineMaterial({
+    color: '#fff3cf', linewidth: 2.3, dashed: true, dashSize: 6, gapSize: 4, depthTest: false, depthWrite: false,
+  });
   const traceFill = new T.MeshBasicMaterial({
     color: '#dc772e', opacity: 0.35, transparent: true, side: T.DoubleSide, depthTest: false, depthWrite: false,
   });
@@ -20,6 +23,7 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   function drawOutline(target: T.Group, points: Point[], material: LineMaterial, renderOrder: number) {
     const positions = points.map(p => pointAt(p));
     const line = new Line2(new LineGeometry().setPositions(positions.flatMap(p => p.toArray())), material);
+    if (material.dashed) line.computeLineDistances();
     line.renderOrder = renderOrder;
     target.add(line);
     return positions;
@@ -38,6 +42,9 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
       return rings.flatMap(ring => drawOutline(traces, [...ring, ring[0]], traceStroke, 12));
     });
     const nearest = record.nearest ? pointAt(data.project(record.nearest)) : null;
+    if (record.nearest && record.nearestSite && !record.overlap) {
+      drawOutline(traces, [data.project(record.nearestSite), data.project(record.nearest)], distanceStroke, 13);
+    }
     return [year, { traces, frames, nearest }];
   }));
 
@@ -48,17 +55,20 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   const labelPoint = new T.Vector3();
   const waterMaterial = new T.MeshBasicMaterial({ color: '#8fe4ff', depthTest: false, depthWrite: false });
   const water = Object.fromEntries(Object.entries(floodHistory.water).map(([key, record]) => {
+    const layer = new T.Group();
     const pin = new T.Mesh(pinGeometry, waterMaterial);
     pin.position.copy(pointAt(data.project(record.point), 4.7));
     pin.renderOrder = 14;
-    group.add(pin);
-    return [key, pin];
+    layer.add(pin);
+    drawOutline(layer, [data.project(record.sitePoint), data.project(record.point)], distanceStroke, 13);
+    group.add(layer);
+    return [key, { layer, pin }];
   }));
   const labels = [
     { text: '가장 가까운 침수 기록', point: labelPoint, kind: 'trace', enabled: () => nearestMarker.visible },
-    ...Object.entries(water).map(([key, pin]) => ({
+    ...Object.entries(water).map(([key, { layer, pin }]) => ({
       text: floodHistory.water[key as keyof typeof floodHistory.water].name,
-      point: pin.position.clone().add(new T.Vector3(0, 9, 0)), kind: 'water', enabled: () => pin.visible,
+      point: pin.position.clone().add(new T.Vector3(0, 9, 0)), kind: 'water', enabled: () => layer.visible,
     })),
   ];
   return {
@@ -68,7 +78,7 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
       group.visible = year !== null;
       const traceView = view === 'closest' || view === 'area';
       for (const [value, layer] of years) layer.traces.visible = traceView && year === value;
-      for (const [key, pin] of Object.entries(water)) pin.visible = year !== null && view === key;
+      for (const [key, { layer }] of Object.entries(water)) layer.visible = year !== null && view === key;
       const selected = year === null ? undefined : years.get(year);
       const nearest = selected?.nearest;
       nearestMarker.visible = traceView && Boolean(nearest);
@@ -79,7 +89,7 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
       }
       if (view === 'closest') return nearest ? [...site, labelPoint] : site;
       if (view === 'area') return [...site, ...selected.frames];
-      return [...site, water[view].position];
+      return [...site, water[view].pin.position];
     },
   };
 }

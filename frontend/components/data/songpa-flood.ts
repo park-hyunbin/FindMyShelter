@@ -3,6 +3,7 @@ import archive from '../../public/datasets/regions/songpa/flood.json';
 type SurveyYear = {
   polygons: number[][][][];
   nearest: number[] | null;
+  nearestSite: number[] | null;
   nearestM: number | null;
   nearestMonth: number | null;
   overlap: boolean;

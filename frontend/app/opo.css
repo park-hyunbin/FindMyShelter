@@ -406,6 +406,7 @@ h1, h2, p { margin: 0; }
 .flood-legend span::before { content: ''; display: inline-block; width: 10px; height: 7px; margin-right: 4px; border: 1px solid #f0af54; background: #a7693c; }
 .flood-legend span[data-kind='boundary']::before { border-color: #70ead1; background: transparent; }
 .flood-legend span[data-kind='water']::before { border-color: #8fe4ff; background: #385e70; }
+.flood-legend span[data-kind='distance']::before { border: 0; border-top: 2px dashed #fff3cf; height: 0; background: transparent; vertical-align: middle; }
 .flood-panel button[aria-pressed='true'] { background: var(--glow); border-color: var(--glow); }
 .visit-checklist { display: grid; gap: 12px; }
 .checklist-progress { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }

@@ -1,15 +1,24 @@
 import { floodHistory, floodSource, floodWaterSource, floodYears, type FloodView } from './data/songpa-flood';
 import { songpaComplex } from './data/regions';
+import { songpaEntrance } from './data/songpa-entrance';
+import { songpaGrounds } from './data/songpa-grounds';
+
+const drainageStops = [
+  { id: songpaEntrance.main.id, name: songpaEntrance.main.name, check: '보도 가장자리의 빗물받이와 물이 고인 흔적을 확인해요.' },
+  { id: songpaGrounds.points[1].id, name: songpaGrounds.points[1].name, check: '포장 경사가 향하는 쪽과 물이 모이는 곳을 확인해요.' },
+  { id: songpaEntrance.garage.id, name: '102동 지하주차장 입구', check: '덮개 아래 진입부의 배수로와 차수 시설을 확인해요.' },
+];
 
 type Props = {
   year: string;
   view: FloodView;
   sceneReady: boolean;
+  mapVisible: boolean;
   onView: (view: FloodView, year?: string) => void;
   onVisit: (id: string) => void;
 };
 
-export default function SongpaFlood({ year, view, sceneReady, onView, onVisit }: Props) {
+export default function SongpaFlood({ year, view, sceneReady, mapVisible, onView, onVisit }: Props) {
   const record = floodHistory.years[year];
   const nearest = record.nearestM == null ? null : Math.round(record.nearestM / 10) * 10;
   const showingWater = view === 'pond' || view === 'river';
@@ -26,10 +35,14 @@ export default function SongpaFlood({ year, view, sceneReady, onView, onVisit }:
           : <p>이 연도의 공개 파일에서 범위 안에 표시할 기록이 없어요.</p>}
         <p>과거에 조사된 영역이에요. 단지 배수나 향후 침수 가능성을 보려면 별도 자료가 필요해요.</p>
       </div>
-      <div className="flood-legend"><span data-kind={showingWater ? 'water' : 'trace'}>{showingWater ? '선택한 수계' : '침수 기록 영역'}</span><span data-kind="boundary">지도상 단지 경계</span></div>
+      {mapVisible && <div className="flood-legend">
+        {(showingWater || nearest != null) && <span data-kind={showingWater ? 'water' : 'trace'}>{showingWater ? '선택한 수계' : '침수 기록 영역'}</span>}
+        <span data-kind="boundary">지도상 단지 경계</span>
+        {(showingWater || (nearest != null && !record.overlap)) && <span data-kind="distance">가장 가까운 두 점의 직선거리</span>}
+      </div>}
       <div className="site-actions">
-        <button disabled={!sceneReady} aria-pressed={view === 'closest'} onClick={() => onView('closest')}>단지 주변 보기</button>
-        <button disabled={!sceneReady || nearest == null} aria-pressed={view === 'area'} onClick={() => onView('area')}>선택 연도 기록 전체</button>
+        <button disabled={!sceneReady} aria-pressed={mapVisible && view === 'closest'} onClick={() => onView('closest')}>단지 주변 보기</button>
+        <button disabled={!sceneReady || nearest == null} aria-pressed={mapVisible && view === 'area'} onClick={() => onView('area')}>선택 연도 기록 전체</button>
       </div>
       <details className="basis">
         <summary>자료 범위와 산정 기준</summary>
@@ -42,7 +55,7 @@ export default function SongpaFlood({ year, view, sceneReady, onView, onVisit }:
       <h3>주변 수계</h3>
       <p>지도상 단지 경계에서 연못 가장자리와 하천 중심선까지의 직선거리예요.</p>
       <div className="ambient-stops">
-        {(['pond', 'river'] as const).map(key => <button key={key} disabled={!sceneReady} aria-pressed={view === key} onClick={() => onView(key)}>
+        {(['pond', 'river'] as const).map(key => <button key={key} disabled={!sceneReady} aria-pressed={mapVisible && view === key} onClick={() => onView(key)}>
           <span>{floodHistory.water[key].name} 보기</span><b>약 {Math.round(floodHistory.water[key].distanceM / 10) * 10}m</b>
         </button>)}
       </div>
@@ -53,11 +66,10 @@ export default function SongpaFlood({ year, view, sceneReady, onView, onVisit }:
     </article>
     <article className="site-card">
       <h3>비가 그친 뒤 확인할 곳</h3>
-      <p>단지 앞 보도 가장자리와 안쪽 포장로에서 물고임, 빗물받이, 지하주차장 차수 시설을 확인해요.</p>
-      <div className="site-actions">
-        <button disabled={!sceneReady} onClick={() => onVisit('approach')}>단지 앞 도로 보기</button>
-        <button disabled={!sceneReady} onClick={() => onVisit('inner-paving')}>단지 안 포장 공간 보기</button>
-      </div>
+      {drainageStops.map(stop => <div key={stop.id}>
+        <div className="site-actions"><button disabled={!sceneReady} onClick={() => onVisit(stop.id)}>{stop.name} 눈높이 보기</button></div>
+        <p>{stop.check}</p>
+      </div>)}
     </article>
   </section>;
 }

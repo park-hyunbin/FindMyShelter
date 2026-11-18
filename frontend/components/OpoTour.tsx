@@ -982,8 +982,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           chooseMode('orbit');
           world?.showAmbient(true, true);
         }} />}
-      {region === 'songpa' && tab === 'flood' && <SongpaFlood year={floodYear} view={floodView} sceneReady={Boolean(world)}
-        onView={openFloodLocation} onVisit={visit} />}
+      {region === 'songpa' && tab === 'flood' && <SongpaFlood year={floodYear} view={floodView} sceneReady={Boolean(world)} mapVisible={mode === 'orbit'}
+        onView={openFloodLocation} onVisit={visitAtEyeLevel} />}
 
       {tab === 'sun' && <>
         <div className="date-row">

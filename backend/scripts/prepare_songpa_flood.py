@@ -53,7 +53,7 @@ def inspect_year(path, boundary, window):
                     if polygon.intersects(window):
                         records.append((polygon, item.oid))
             if not records:
-                return {"polygons": [], "nearest": None, "nearestM": None, "nearestMonth": None, "overlap": False}
+                return {"polygons": [], "nearest": None, "nearestSite": None, "nearestM": None, "nearestMonth": None, "overlap": False}
             nearest, row_index = min(records, key=lambda record: boundary.distance(record[0]))
             month = None
             if any(field[0] == "F_SAT_YMD" for field in reader.fields):
@@ -65,9 +65,11 @@ def inspect_year(path, boundary, window):
     overlap = any(polygon.intersects(boundary) for polygon in polygons)
     # Merge coincident records for display. Keep the distance and overlap from source geometry.
     display = union_all(polygons).intersection(window).simplify(0.35, preserve_topology=True)
+    on_site, on_trace = nearest_points(boundary, nearest)
     return {
         "polygons": [mapping(project(polygon, LOCAL_CRS, 4326))["coordinates"] for polygon in polygon_parts(display)],
-        "nearest": list(project(nearest.representative_point(), LOCAL_CRS, 4326).coords[0]),
+        "nearest": list(project(on_trace, LOCAL_CRS, 4326).coords[0]),
+        "nearestSite": list(project(on_site, LOCAL_CRS, 4326).coords[0]),
         "nearestM": round(boundary.distance(nearest), 1),
         "nearestMonth": month,
         "overlap": overlap,
@@ -83,10 +85,11 @@ def nearby_water(boundary):
     ]:
         features = [project(shape(f["geometry"]), 4326, LOCAL_CRS) for f in environment["features"] if matches(f["properties"])]
         nearest = min(features, key=boundary.distance)
-        _, on_water = nearest_points(boundary, nearest)
+        on_site, on_water = nearest_points(boundary, nearest)
         waters[key] = {
             "name": name,
             "point": list(project(on_water, LOCAL_CRS, 4326).coords[0]),
+            "sitePoint": list(project(on_site, LOCAL_CRS, 4326).coords[0]),
             "distanceM": round(boundary.distance(nearest), 1),
         }
     return waters
