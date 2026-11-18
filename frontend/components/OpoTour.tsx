@@ -15,6 +15,8 @@ import greenAccess from '../public/opo-green-access.json';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import TourLive from './TourLive';
+import SongpaChecklist from './SongpaChecklist';
+import type { ChecklistView } from './data/songpa-checklist';
 
 const slots: Slot[] = ['A', 'B'];
 const initialDate = '2026-12-21';
@@ -27,7 +29,7 @@ const seasonDates = [
 const capture = new Date(Date.parse(satelliteMetadata.acquired_at) + 9 * 3600000);
 const captureMinute = capture.getUTCHours() * 60 + capture.getUTCMinutes();
 type Points = Partial<Record<Slot, SitePoint>>;
-type AnalysisTab = 'sun' | 'nature' | 'site' | 'places';
+type AnalysisTab = 'sun' | 'nature' | 'site' | 'places' | 'checklist';
 const modeLabels: Record<ViewMode, string> = { orbit: '조감', walk: '걷기', drive: '운전' };
 const directions = [ ['up', '↑', '전진'], ['left', '←', '왼쪽'], ['down', '↓', '후진'], ['right', '→', '오른쪽'] ];
 const bearings = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
@@ -183,6 +185,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const area = regions.find(r => r.id === region)!;
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
+  const analysisPanel = useRef<HTMLElement>(null);
   const [world, setWorld] = useState<OpoWorld | null>(null);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
@@ -199,7 +202,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [open, setOpen] = useState(false);
   const [placeCategory, setPlaceCategory] = useState('all');
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
-  const [tab, setTab] = useState<AnalysisTab>('sun');
+  const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : 'sun');
   const [accessId, setAccessId] = useState<string | null>(null);
   const [accessSample, setAccessSample] = useState(0);
   const [bearing, setBearing] = useState(0);
@@ -343,6 +346,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       setAccessId(null);
       world?.showGreenAccess(null);
     }
+    if (next !== tab) analysisPanel.current?.scrollTo(0, 0);
     setTab(next);
   }
 
@@ -400,9 +404,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
   }
 
-  function toggleSunMap() {
-    if (!world?.sunMap || !date) return;
-    if (showSunMap) { setShowSunMap(false); return; }
+  function showComplexSunMap() {
+    if (!world?.sunMap) return;
+    if (!date) setDate(initialDate);
     setLightSlot(null);
     setSelectedSlot(null);
     setStatus('');
@@ -454,6 +458,33 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setStatus('');
     world.showGreenAccess(null);
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
+  function openChecklistView(target: ChecklistView) {
+    if (!world) return;
+    switch (target) {
+      case 'complex':
+        chooseTab('site');
+        chooseMode('orbit');
+        world.locate();
+        break;
+      case 'street':
+        visit('approach');
+        break;
+      case 'sun':
+        chooseTab('sun');
+        showComplexSunMap();
+        break;
+      case 'horizon':
+        chooseTab('nature');
+        break;
+      case 'school':
+      case 'places':
+        setPlaceCategory(target === 'school' ? 'school' : 'all');
+        setSelectedPlaceId(null);
+        chooseTab('places');
+        break;
+    }
   }
 
   const seasonYear = date.slice(0, 4) || initialDate.slice(0, 4);
@@ -513,14 +544,17 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       }}>{street.touring ? '드라이브 정지' : '동네 드라이브'}</button>}
 
     <button className="analysis-toggle" aria-expanded={open} aria-controls="analysis-panel" onClick={() => setOpen(value => !value)}>{open ? '분석 접기' : '주거환경 분석'}</button>
-    {open && <aside id="analysis-panel" className="analysis" aria-label="주거환경 분석">
+    {open && <aside id="analysis-panel" ref={analysisPanel} className="analysis" aria-label="주거환경 분석">
       <div className="analysis-heading"><h2>주거환경 분석</h2><button aria-label="분석 접기" onClick={() => setOpen(false)}>−</button></div>
       <div className="analysis-tabs" aria-label="분석 항목">
+        {region === 'songpa' && <button className="checklist-tab" aria-pressed={tab === 'checklist'} onClick={() => chooseTab('checklist')}>임장 체크리스트</button>}
         <button aria-pressed={tab === 'sun'} onClick={() => chooseTab('sun')}>일조 비교</button>
         <button aria-pressed={tab === 'nature'} onClick={() => chooseTab('nature')}>주변 자연환경</button>
         <button aria-pressed={tab === 'places'} onClick={() => chooseTab('places')}>생활·학교</button>
         <button aria-pressed={tab === 'site'} onClick={() => chooseTab('site')}>{region === 'opo' ? '단지 시설' : '단지 정보'}</button>
       </div>
+
+      {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)} />}
 
       {tab === 'sun' && <>
         <div className="date-row">
@@ -553,7 +587,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           </>}
         </details>
         {world?.sunMap && <section className="sun-map-control" aria-label="단지 일조 분포">
-          <button aria-pressed={showSunMap} disabled={!date} onClick={toggleSunMap}>단지 일조 분포</button>
+          <button aria-pressed={showSunMap} disabled={!date} onClick={() => showSunMap ? setShowSunMap(false) : showComplexSunMap()}>단지 일조 분포</button>
           {showSunMap && (date ? mapCounts ? <>
             <p role="status">{timeLabel(minute)} · {Object.values(mapCounts).reduce((sum, count) => sum + count, 0)}개 실외 표본</p>
             <ul className="sun-map-key">
