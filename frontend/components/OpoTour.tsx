@@ -20,7 +20,7 @@ import { songpaStreets } from './data/songpa-streets';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
-import { songiPark } from './data/songi-park';
+import { songiPark, songiParkSurvey } from './data/songi-park';
 import { songpaWinterCaptures, winterPixelSampleCount, type SongpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaArchitecture } from './data/songpa-architecture';
 import { songpaRouteElevation } from './data/songpa-route-elevation';
@@ -1311,13 +1311,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <p>경로는 횡단보도 건너 학교 쪽 보행로까지 이어져요. 줄무늬 폭은 근사이며, 교문까지의 연결은 현장에서 확인해 주세요.</p>
               </>}
               {selected && route.parkEntrance && <div className="route-terrain">
-                <strong>송이공원 안에서 보기</strong>
+                <strong>송이공원 진입부와 산책로</strong>
                 <div className="site-actions">
                   {world?.parkViews.map(view => <button key={view.name} onClick={() => lookAtRoutePoint(view)}>{view.name} 눈높이 보기</button>)}
                 </div>
                 <p>{songiPark.aerialDate} 항공영상과 지상 사진을 참고해 진입부 포장, 산책로 일부와 수목을 표현했어요. 길의 폭과 수목 높이는 근사예요. 현재 개방 여부와 계단·노면 경사는 현장에서 확인해 주세요.</p>
+                <p>공원 앞 두 횡단보도와 보도는 서울시 도형을 따라 그렸어요. 짧은 점선은 도색 끝과 보도 사이의 연결을 확인할 수 없는 곳이에요. 거리와 지형 단면은 지도 경로 기준이에요.</p>
                 <a href={songiPark.aerialMetadata} target="_blank" rel="noreferrer">항공영상 촬영 정보 ↗</a>
                 <a href={songiPark.groundPhotos} target="_blank" rel="noreferrer">공원 지상 사진 ↗</a>
+                <a href={songiParkSurvey.sidewalkSource} target="_blank" rel="noreferrer">서울시 공원 앞 보도면 ↗</a>
+                <a href={songiParkSurvey.crosswalkSource} target="_blank" rel="noreferrer">서울시 송이로·양재대로 횡단보도 도형 ↗</a>
               </div>}
               {selected && profile && <RouteTerrain profile={profile} selected={accessSample} startLabel={access.startLabel} onSelect={setAccessSample}
                 onLook={lookAtRoutePoint} />}

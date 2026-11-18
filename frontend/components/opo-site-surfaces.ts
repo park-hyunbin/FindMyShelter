@@ -49,9 +49,12 @@ export type SiteSurfaceLayout = {
   plantingBeds?: { outline: Coordinate[]; hedge: Coordinate[]; width: number; height: number }[];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
+  drivewayRoad?: Omit<SurveyedRoad, 'outline'>;
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   surveyedWalks?: SurveyedWalk[];
   surveyedRoads?: SurveyedRoad[];
+  surveyedJunctions?: Coordinate[][];
+  surveyedCrossings?: { start: Coordinate; end: Coordinate; outline: Coordinate[] }[];
   crossings: SiteCrossing[];
   parkingRows?: ParkingRow[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
@@ -113,7 +116,7 @@ export function addSiteSurfaces(
     return grade(x, z) + T.MathUtils.lerp(streetDeckLift + 0.02, 0.15, blend);
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
-  const asphaltDecks: T.BufferGeometry[] = [];
+  const drivewayDecks: typeof decks = [];
   const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
   const hits: T.Intersection[] = [];
   const parkedCars: { center: Point; direction: Point }[] = [];
@@ -129,15 +132,18 @@ export function addSiteSurfaces(
     mesh.receiveShadow = true;
     scene.add(mesh);
     if (walkable) {
-      if (texture === 'asphalt') asphaltDecks.push(geometry);
       geometry.computeBoundingBox();
-      if (geometry.boundingBox && !geometry.boundingBox.isEmpty()) decks.push({ mesh, bounds: geometry.boundingBox });
+      if (geometry.boundingBox && !geometry.boundingBox.isEmpty()) {
+        const deck = { mesh, bounds: geometry.boundingBox };
+        decks.push(deck);
+        if (texture === 'asphalt') drivewayDecks.push(deck);
+      }
     }
   }
 
-  function elevation({ x, z }: Point) {
+  function surfaceHeight({ x, z }: Point, surfaces: typeof decks) {
     let top: number | undefined;
-    for (const { mesh, bounds } of decks) {
+    for (const { mesh, bounds } of surfaces) {
       if (x < bounds.min.x || x > bounds.max.x || z < bounds.min.z || z > bounds.max.z) continue;
       ray.ray.origin.set(x, bounds.max.y + 1, z);
       mesh.raycast(ray, hits);
@@ -146,6 +152,8 @@ export function addSiteSurfaces(
     }
     return top;
   }
+  const elevation = (point: Point) => surfaceHeight(point, decks);
+  const drivewayElevation = (point: Point) => surfaceHeight(point, drivewayDecks);
 
   function curve(points: Coordinate[], spacing = 1.2) {
     const line = new T.CatmullRomCurve3(points.map(data.project).map(({ x, z }) => new T.Vector3(x, 0, z)));
@@ -269,6 +277,7 @@ export function addSiteSurfaces(
     }
     addShrubPlanting(scene, shrubs, '정문 주변 관목');
   }
+  const asphaltDecks = drivewayDecks.map(({ mesh }) => mesh.geometry);
   if (crossings.length || layout.parkingRows?.length) {
     const clipper = createRoadPaintClipper();
     asphaltDecks.forEach(clipper.addSurface);
@@ -280,6 +289,6 @@ export function addSiteSurfaces(
     const dx = point.x - center.x, dz = point.z - center.z;
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
-  return { elevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked };
+  return { elevation, drivewayElevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked };
 }
   const pathLift = 0.24;

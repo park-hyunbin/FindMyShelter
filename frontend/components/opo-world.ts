@@ -110,7 +110,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
   const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
   if (treeCoverOverlay) scene.add(treeCoverOverlay);
-  const site = addSiteDetails(data, scene, streets.surface, finish, streets.roadClearance, insideBuilding);
+  const site = addSiteDetails(data, scene, streets.surface, finish, streets.streetClearance, insideBuilding);
   streets.addSurveyedPaint(site.paving?.asphaltDecks);
   const environment = addEnvironment(data, scene, finish, point => {
     const road = streets.nearest(point, 14);
@@ -125,7 +125,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   function walkDeck(point: Point, ground: number) {
     const paved = site.paving?.elevation(point);
-    if (streets.roadClearance(point) <= 0) {
+    if (streets.streetClearance(point) <= 0) {
       return Math.max(paved ?? ground, ground + streetDeckLift);
     }
     return paved;
@@ -137,9 +137,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const ground = streets.surface(x, z);
     return isOpo ? ground : walkFloor({ x, z }, ground) ?? ground;
   }
-  const greenAccess = addGreenAccess(data, scene, streets.surface, site.paving);
+  const greenAccess = addGreenAccess(data, scene, streets.surface, site.paving, observationSurface);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
-  const parkViews = isOpo ? [] : songiPark.views.map(({ name, coordinate, toward }) => {
+  const parkViews = isOpo ? [] : [songiPark.crossingView, ...songiPark.views].map(({ name, coordinate, toward }) => {
     const position = data.project(coordinate);
     const bearing = T.MathUtils.radToDeg(headingTo(position, data.project(toward)) - data.northOffset);
     return { name, position, bearing };
@@ -833,10 +833,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
       const surfaceHeight = streets.surface(position.x, position.z);
       const modeledFloor = driving && !isOpo ? undefined : walkFloor(position, surfaceHeight);
-      const y = (eyeLevel ? undefined : modeledFloor) ?? surfaceHeight;
+      const drivingFloor = driving && !isOpo ? site.paving?.drivewayElevation(position) : undefined;
+      const y = drivingFloor ?? (eyeLevel ? undefined : modeledFloor) ?? surfaceHeight;
       const actor = driving ? car : player;
       const actorHeight = modeledFloor === undefined
-        ? surfaceHeight + (driving ? streetDeckLift : 0.18)
+        ? drivingFloor ?? surfaceHeight + (driving ? streetDeckLift : 0.18)
         : modeledFloor - (isOpo ? 0 : playerFootHeight);
       actor.position.set(position.x, actorHeight, position.z);
       actor.rotation.y = -heading;

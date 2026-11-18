@@ -1,6 +1,7 @@
 import type { SiteSurfaceLayout } from '../opo-site-surfaces';
 import type { PlaygroundLayout } from '../opo-playground';
 import { songpaStreetEdge } from './songpa-entrance';
+import { songiParkSurvey } from './songi-park';
 
 export const songpaFacilities = {
   checkedOn: '2026-11-18',
@@ -140,6 +141,17 @@ const songpaWestDriveEdge = [
 const songpaEastDriveEdge = [
   [127.1167029, 37.4974014], [127.1167214, 37.4974577], [127.1167679, 37.4975725],
 ] satisfies Coordinate[];
+// N1L_A0010000, UFID ending in 216, continuing the east edge to Yangjae-daero 60-gil.
+const songpaApproachEast = [
+  [127.1172015, 37.4979216], [127.1171764, 37.4979217], [127.1171387, 37.4979134],
+  [127.1171237, 37.4979037], [127.1171040, 37.4978893], ...songpaStreetEdge.slice(0, 2),
+] satisfies Coordinate[];
+// The opposite edge uses the orthophoto where visible and is approximate under the trees.
+// Its first point is on the published Yangjae-daero 60-gil pavement boundary.
+const songpaApproachWest = [
+  [127.1171640, 37.4979538], [127.1171090, 37.4979170], [127.1170470, 37.4978800],
+  [127.1169980, 37.4978510], [127.1169270, 37.4978150], [127.1168751, 37.4977866],
+] satisfies Coordinate[];
 
 // Approach under the 102 canopy. Use N1L road edges ending in 151 and 142
 // where they flank the drive, and the orthophoto to close the ends.
@@ -160,7 +172,7 @@ export const songpaGrounds = {
   // Use the OpenLab road edge at the curb and trace the remaining pavement in World Imagery.
   paving: [
     ...songpaStreetEdge.slice(2).reverse(),
-    [127.1169502, 37.4977738], [127.1169233, 37.4977930], [127.1168751, 37.4977866],
+    ...songpaApproachEast.slice().reverse(), ...songpaApproachWest,
     [127.1168375, 37.4977951], ...songpaCoveredApproach, [127.1167463, 37.4977866],
     [127.1166862, 37.4977504], [127.1166766, 37.4977504],
     ...songpaWestDriveEdge, ...songpaEastDriveEdge,
@@ -225,6 +237,14 @@ export const songpaFrontage = {
 // Geometry stays in the site data. The photos inform visual details separately.
 export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
+  drivewayRoad: {
+    roadId: 169916279,
+    nodes: [1810741885, 1810741892],
+    axis: [
+      { nodeId: 1810741895, coordinate: [127.1168628, 37.4977471] },
+      { nodeId: 1810741912, coordinate: [127.1166735, 37.4975590] },
+    ],
+  },
   paths: songpaCourtyard.paths,
   plantingBeds: songpaFrontage.beds,
   // The pavers and entrance style are photo references. The door placement and dimensions are illustrative.
@@ -232,7 +252,7 @@ export const songpaSurfaceLayout = {
     { buildingId: '55765541', wall: [127.1160945, 37.4976121], path: [127.1160462, 37.4976100], width: 3.10 },
   ],
   roadsideWalks: [
-    { curb: songpaStreetEdge, outward: 1, width: 1.55 },
+    { curb: songpaStreetEdge, outward: 1, width: 1.55, beside: 'driveway' },
     { curb: songpaWestDriveEdge, outward: -1, width: 1.32, beside: 'driveway' },
     { curb: songpaEastDriveEdge, outward: -1, width: 0.88, beside: 'driveway', finish: 'planted' },
   ],
@@ -262,7 +282,9 @@ export const songpaSurfaceLayout = {
       { nodeId: 1810741876, coordinate: [127.1178640, 37.4972110] },
     ],
   }],
-  surveyedWalks: [{
+  surveyedJunctions: songiParkSurvey.pavement,
+  surveyedCrossings: songiParkSurvey.crosswalks,
+  surveyedWalks: [...songiParkSurvey.sidewalks, {
     roadId: 169916276,
     side: -1,
     // Seoul OpenLab N1A_A0033320, UFID 1000377090304A00310000000000000001.

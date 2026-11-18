@@ -12,7 +12,7 @@ import { songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
-import { songiPark } from './data/songi-park';
+import { songiPark, songiParkApproach, songiParkSurvey } from './data/songi-park';
 import { surveyedRoute } from './data/songpa-route-elevation';
 import { addSongpaEntrance } from './opo-songpa-entrance';
 import { addSongpaCourtyard } from './opo-songpa-courtyard';
@@ -174,7 +174,7 @@ export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoDat
 }
 
 export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['ground'],
-  paving?: ReturnType<typeof addSiteSurfaces>) {
+  paving?: ReturnType<typeof addSiteSurfaces>, standingSurface?: OpoData['ground']) {
   const recorded = new LineMaterial({ color: data.region === 'songpa' ? '#148b80' : '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
   const aerialTrace = data.region === 'songpa' ? new LineMaterial({ color: '#8e69d5', linewidth: 4.3 }) : null;
@@ -231,9 +231,22 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     }
     const traceLift = 0.10;
     const surfaceGuide = ({ x, z }: Point) => (paving?.elevation({ x, z }) ?? grade(x, z)) + traceLift;
+    const parkGuide = route.parkEntrance && shortConnection;
     route.segments.forEach((segment, index) => {
       const line = projected[index];
       const style = segment.mappedWalkway ? recorded : unconfirmed;
+      if (parkGuide && index === projected.length - 1) {
+        const parkSurface = ({ x, z }: Point) => (standingSurface?.(x, z) ?? grade(x, z)) + traceLift;
+        const confirmedLegs = route.variantOf ? songiParkApproach.slice(4) : songiParkApproach;
+        const first = data.project(confirmedLegs[0].coordinates[0]);
+        if (route.variantOf) addLine([line[0], first], parkGuide);
+        else addLine(splitLineAt(line, first).before, style);
+        for (const leg of confirmedLegs) {
+          addLine(leg.coordinates.map(data.project), leg.confirmed ? recorded : parkGuide, parkSurface);
+        }
+        addLine([data.project(confirmedLegs.at(-1)!.coordinates.at(-1)!), endpoint], recorded);
+        return;
+      }
       if (index !== 0 || !stationRoute || !shortConnection || !surveyedWalk?.length) {
         addLine(line, style);
         return;
@@ -293,7 +306,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       };
     })() : null;
     for (const crossing of route.crossings ?? []) {
-      const { x, z } = data.project(crossing.coordinate);
+      const parkCrossing = parkGuide && (crossing.wayId === 544143915 ? songiParkSurvey.crosswalks[0]
+        : crossing.wayId === 544143913 ? songiParkSurvey.crosswalks[1] : undefined);
+      const a = data.project(parkCrossing ? parkCrossing.start : crossing.coordinate);
+      const b = parkCrossing ? data.project(parkCrossing.end) : a;
+      const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
       const ring = new T.Mesh(crossingGeometry!, crossingMaterial!);
       ring.position.set(x, data.ground(x, z) + 2, z);
       group.add(ring);
