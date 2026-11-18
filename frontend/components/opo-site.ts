@@ -181,7 +181,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const shortConnection = data.region === 'songpa'
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
   const routes = visitRoutes[data.region].routes;
-  const surveyedWalk = siteSurfaces[data.region]?.layout.surveyedWalks?.[0]?.centerline.map(data.project);
+  const surveyedWalk = siteSurfaces[data.region]?.layout.surveyedWalks
+    ?.find(walk => walk.centerline)?.centerline?.map(data.project);
   const bearingTo = (from: Point, to: Point) =>
     T.MathUtils.radToDeg(Math.atan2(to.x - from.x, from.z - to.z) - data.northOffset);
   function viewPose(view?: { position: number[]; toward: number[] }) {

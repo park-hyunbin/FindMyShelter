@@ -115,7 +115,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const environment = addEnvironment(data, scene, finish, point => {
     const road = streets.nearest(point, 14);
     return entrance?.paved(point) || site.paving?.elevation(point) !== undefined || insideBuilding(point)
-      || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
+      || (isOpo ? road !== undefined && road.distance <= road.segment.width / 2 + 0.4 : streets.roadClearance(point) <= 0.4);
   }, treeCover ?? undefined);
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
   const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);
@@ -125,8 +125,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   function walkDeck(point: Point, ground: number) {
     const paved = site.paving?.elevation(point);
-    const roadway = streets.nearest(point, 22);
-    if (roadway && roadway.distance <= roadway.segment.width / 2) {
+    if (streets.roadClearance(point) <= 0) {
       return Math.max(paved ?? ground, ground + streetDeckLift);
     }
     return paved;

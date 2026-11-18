@@ -32,7 +32,14 @@ export type SurveyedWalk = {
   roadId: number;
   side: -1 | 1;
   outline: Coordinate[];
-  centerline: Coordinate[];
+  centerline?: Coordinate[];
+};
+
+type SurveyedRoad = {
+  roadId: number;
+  nodes: [from: number, to: number];
+  outline: Coordinate[];
+  axis: { nodeId: number; coordinate: Coordinate }[];
 };
 
 export type SiteSurfaceLayout = {
@@ -42,6 +49,7 @@ export type SiteSurfaceLayout = {
   pavedDrive?: Coordinate[];
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   surveyedWalks?: SurveyedWalk[];
+  surveyedRoads?: SurveyedRoad[];
   crossings: SiteCrossing[];
   parkingRows?: ParkingRow[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
