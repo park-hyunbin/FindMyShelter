@@ -51,10 +51,10 @@ h1, h2, p { margin: 0; }
 .street-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 11px; max-width: min(520px, calc(100vw - 52px)); }
 .street-controls select, .street-position { padding: 6px 8px; border: 1px solid #c9d2c6; border-radius: 7px; color: var(--night); background: #f5f3e8f4; font-size: 11px; font-weight: 720; }
 .street-controls select { pointer-events: auto; max-width: 185px; min-height: 36px; }
-.tour-live-toggle { position: absolute; left: 28px; top: 181px; z-index: 2; min-height: 38px; padding: 6px 11px;
+.tour-live-toggle { pointer-events: auto; z-index: 2; min-height: 36px; padding: 6px 11px;
   color: var(--moon); background: #17243aee; border: 1px solid var(--glow); border-radius: 8px; font-size: 12px; font-weight: 740; }
-.tour-live-panel { position: absolute; left: 28px; top: 227px; z-index: 3; width: min(330px, calc(100% - 56px));
-  max-height: calc(100% - 320px); overflow: auto; padding: 13px; display: grid; gap: 10px; color: var(--lilac);
+.tour-live-panel { position: absolute; left: 0; top: calc(100% + 8px); z-index: 3; width: min(330px, calc(100vw - 56px));
+  max-height: calc(100dvh - 320px); overflow: auto; padding: 13px; display: grid; gap: 10px; color: var(--lilac); pointer-events: auto;
   background: #17243af5; border: 1px solid #70829a; border-radius: 12px; font-size: 12px; }
 .tour-live-panel header, .tour-live-roster { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tour-live-panel h2 { color: var(--moon); font-size: 16px; }
@@ -71,8 +71,7 @@ h1, h2, p { margin: 0; }
 .tour-live-name { background: #143a40eb; color: #c5efe5; border-color: #76c9bc; }
 .tour:has(.tour-live-toggle) .light-inspection { top: 228px; }
 @media (max-width: 780px) {
-  .tour-live-toggle { left: 15px; top: 150px; }
-  .tour-live-panel { left: 15px; top: 195px; width: min(330px, calc(100% - 30px)); max-height: calc(100% - 270px); }
+  .tour-live-panel { width: min(330px, calc(100vw - 30px)); max-height: calc(100dvh - 270px); }
   .tour:has(.tour-live-toggle) .light-inspection { top: 195px; }
   .tour:has(.tour-live-panel) .analysis { display: none; }
 }

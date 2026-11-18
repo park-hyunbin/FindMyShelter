@@ -873,17 +873,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     <header className="tour-title">
       <div className="brand"><span aria-hidden="true" className="brand-icon">⌂</span> Find My Shelter</div>
       <div className="place"><h1>{area.name}</h1><p>{area.area}</p></div>
-      {(onChangeRegion || region === 'opo' || mode !== 'orbit') && <div className="street-controls">
+      {(onChangeRegion || region === 'opo' || mode !== 'orbit' || world) && <div className="street-controls">
         {onChangeRegion && <button className="region-return" type="button" aria-haspopup="dialog" aria-controls="region-picker" onClick={onChangeRegion}>지역 바꾸기</button>}
         {(region === 'opo' || world?.destinations.length) ? <select aria-label="동네에서 장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
           <option value="" disabled>동네에서 장소로 이동</option>
           {world?.destinations.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
         </select> : null}
         {mode !== 'orbit' && <span className="street-position">{street.name}{mode === 'drive' && <b>{street.speed} km/h</b>}</span>}
+        {world && <TourLive world={world} region={region} />}
       </div>}
     </header>
-
-    {world && <TourLive world={world} region={region} />}
 
     {homeWalk && currentHomeStop && accessId && homeStep !== null && <section className="light-inspection home-walk-control" aria-label="귀갓길 체험">
       <div aria-live="polite"><strong>{homeStep + 1}/{homeWalk.stops.length} · {currentHomeStop.name}</strong>

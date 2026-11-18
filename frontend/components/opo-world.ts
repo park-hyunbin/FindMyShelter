@@ -325,10 +325,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const availableWidth = panel && width > 780 ? panel.offsetLeft : width;
     const bottom = panel && width <= 780 ? panel.offsetTop : height;
     const title = clearTitle && width <= 780 && host.parentElement?.querySelector<HTMLElement>('.tour-title');
-    const live = title && host.parentElement?.querySelector<HTMLElement>('.tour-live-toggle');
-    const top = Math.min(Math.max(0, bottom - 130), Math.max(
-      title ? title.offsetTop + title.offsetHeight : 0, live ? live.offsetTop + live.offsetHeight : 0,
-    ) + (title ? 6 : 0));
+    const top = Math.min(Math.max(0, bottom - 130), title ? title.offsetTop + title.offsetHeight + 6 : 0);
     const availableHeight = bottom - top;
     const horizontalFrame = 0.84 * Math.max(1, availableWidth) / width;
     const verticalFrame = 0.82 * Math.max(1, availableHeight) / height;
