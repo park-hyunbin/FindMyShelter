@@ -1068,6 +1068,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
     },
     greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, homeWalk }) => ({ id, profile, crossingView, homeWalk })),
+    showGuidedWalk(id: string | null) {
+      for (const layer of greenAccess.layers) layer.lines.visible = mode === 'orbit' || layer.id === id;
+    },
     parkViews,
     markGreenAccess(id: string | null, index: number) {
       greenAccess.mark(id, index);

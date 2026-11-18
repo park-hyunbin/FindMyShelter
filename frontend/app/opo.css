@@ -248,11 +248,12 @@ h1, h2, p { margin: 0; }
 .access-card button[aria-pressed='true'] { background: #eaceaa; }
 .access-card a { margin-left: 8px; color: var(--muted); font-size: 10px; }
 .access-card > button { color: var(--night); }
-.return-walk ul { display: grid; gap: 4px; margin: 6px 0 8px; padding: 0; list-style: none; }
-.return-walk li { display: flex; align-items: baseline; gap: 6px; font-size: 11px; line-height: 1.45; }
-.return-walk li i { flex: 0 0 12px; align-self: center; border-block-start: 3px solid #148b80; }
-.return-walk li .walk-gap { border-block-start: 3px dashed #d89753; }
-.return-walk li .walk-aerial { border-color: #a58ae4; }
+.walk-legend { display: grid; gap: 4px; margin: 6px 0 8px; padding: 0; list-style: none; }
+.walk-legend li { display: flex; align-items: baseline; gap: 6px; font-size: 11px; line-height: 1.45; }
+.walk-legend i { flex: 0 0 12px; align-self: center; border-block-start: 3px solid #148b80; }
+.walk-legend .walk-gap { border-block-start: 3px dashed #d89753; }
+.walk-legend .walk-aerial { border-color: #a58ae4; }
+.walk-preview .walk-legend { display: flex; flex-wrap: wrap; gap: 3px 9px; margin: 0; color: var(--lilac); }
 .return-walk a { display: inline-block; margin: 6px 8px 0 0; }
 .route-comparison { width: 100%; margin: 8px 0; border-collapse: collapse; text-align: left; font-size: 11px; }
 .route-comparison caption { margin-bottom: 5px; color: var(--muted); text-align: left; }

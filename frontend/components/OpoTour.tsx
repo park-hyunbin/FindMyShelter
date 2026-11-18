@@ -362,6 +362,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const sceneDate = ambientStop ? ambientMoment.day : date;
   const sceneMinute = ambientStop ? ambientMoment.hour * 60 + ambientArchive.minute : minute;
   const winterStreet = winterViewing && tab === 'sun' && mode === 'walk';
+  const guidedAccessId = tab === 'nature' && mode === 'walk' && homeStep !== null ? accessId : null;
 
   const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : songpaComplex.roadName, speed: 0, touring: false });
 
@@ -454,6 +455,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   useEffect(() => {
     world?.markGreenAccess(accessId, accessSample);
   }, [world, accessId, accessSample, mode]);
+
+  useEffect(() => {
+    world?.showGuidedWalk(guidedAccessId);
+  }, [world, guidedAccessId]);
 
   useEffect(() => {
     if (open && tab === 'nature' && accessId) activeAccessCard.current?.scrollIntoView({ block: 'nearest' });
@@ -635,10 +640,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function viewHomeStop(routeId: string, index: number) {
     const stop = world?.greenAccessProfiles.find(route => route.id === routeId)?.homeWalk?.stops[index];
-    if (!stop) return;
+    if (!world || !stop) return;
     if (routeId !== accessId || homeStep === null || mode !== 'walk') showAccessRoute(routeId);
     setHomeStep(index);
-    lookAtRoutePoint(stop);
+    const point = { ...stop.position, label: stop.name };
+    lookFromPoint(point, stop.bearing);
+    setStreet(world.streetStatus());
   }
 
   function openAccessRoute(id: string) {
@@ -874,8 +881,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const parkingSpaces = songpaFacilities.surfaceParking + songpaFacilities.undergroundParking;
   const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
   const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
-  const homeWalk = tab === 'nature' && mode === 'walk' && homeStep !== null && accessId
-    ? world?.greenAccessProfiles.find(route => route.id === accessId)?.homeWalk : null;
+  const homeWalk = guidedAccessId ? world?.greenAccessProfiles.find(route => route.id === guidedAccessId)?.homeWalk : null;
   const currentHomeStop = homeStep === null ? null : homeWalk?.stops[homeStep];
 
   return <main className="tour" data-mode={mode} data-satellite={satellite} onKeyDown={event => {
@@ -900,6 +906,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     {homeWalk && currentHomeStop && accessId && homeStep !== null && <section className="light-inspection walk-preview" aria-label="귀갓길 체험">
       <div aria-live="polite"><strong>{homeStep + 1}/{homeWalk.stops.length} · {currentHomeStop.name}</strong>
         <p>{currentHomeStop.evidence}</p></div>
+      <ul className="walk-legend" aria-label="귀갓길 선 표시">
+        <li><i aria-hidden="true" />보도 표기</li>
+        <li><i className="walk-gap" aria-hidden="true" />연결 미확인</li>
+        <li><i className="walk-aerial" aria-hidden="true" />항공영상 추정</li>
+      </ul>
       <div className="walk-preview-actions">
         <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
         <button type="button" disabled={homeStep === homeWalk.stops.length - 1} onClick={() => viewHomeStop(accessId, homeStep + 1)}>다음</button>
@@ -942,6 +953,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       }}>눈높이</button>}
       <button className="recenter" aria-label="시작 위치로 돌아가기" title="시작 위치로 돌아가기" disabled={!world} onClick={() => {
         setAmbientStopId(null);
+        setHomeStep(null);
         world?.locate();
       }}>⌖</button>
     </nav>
@@ -1163,7 +1175,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
               {home && <section className="route-terrain return-walk" aria-label="송파역에서 단지로 돌아오는 길">
                 <strong>송파역에서 정문과 단지 안까지</strong>
-                <ul>
+                <ul className="walk-legend">
                   <li><i className="walk-mapped" aria-hidden="true" />지도에 보도가 표시된 경로 {route.walkwayM}m</li>
                   <li><i className="walk-gap" aria-hidden="true" />출구 약 {songpaHomeLinks.stationExit.lengthM}m, 정문 쪽 약 {songpaHomeLinks.gateApproach.lengthM}m 연결 미확인</li>
                   <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>

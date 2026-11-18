@@ -156,9 +156,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     const survey = data.region === 'songpa' ? surveyedRoute(route.id, route.segments.flatMap(segment => segment.coordinates)) : undefined;
     const profile = surveyedEntrance ? undefined : routeTerrainProfile(data, projected, survey);
     const group = new T.Group();
+    const lines = new T.Group();
     const bounds = new T.Box3();
     const routePoints: T.Vector3[] = [];
     group.visible = false;
+    group.add(lines);
     function addLine(points: Point[], style: LineMaterial) {
       const vertices: number[] = [];
       function vertex(x: number, z: number) {
@@ -176,7 +178,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       }
       const line = new Line2(new LineGeometry().setPositions(vertices), style);
       line.computeLineDistances();
-      group.add(line);
+      lines.add(line);
     }
     route.segments.forEach((segment, index) => addLine(projected[index], segment.mappedWalkway ? recorded : unconfirmed));
     const homeWalk = aerialTrace && shortConnection && (route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId) ? (() => {
@@ -246,7 +248,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       bearing: T.MathUtils.radToDeg(Math.atan2(crossing.toward.x - crossing.position.x,
         crossing.position.z - crossing.toward.z) - data.northOffset),
     };
-    return { id: route.id, name: route.name, group, bounds, endpoint, entranceLabel, routePoints, profile, crossingView, homeWalk };
+    return { id: route.id, name: route.name, group, lines, bounds, endpoint, entranceLabel, routePoints, profile, crossingView, homeWalk };
   });
   const marker = new T.Group();
   marker.visible = false;
