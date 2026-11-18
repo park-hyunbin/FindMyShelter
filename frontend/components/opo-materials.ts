@@ -7,6 +7,7 @@ const surfaces = {
   cobble: { tile: 2.6, relief: 0.5 },
   pavers: { tile: 1.6, relief: 0.013 },
   granular: { tile: 1.25, relief: 0.005 },
+  rubber: { tile: 2.4, relief: 0.006 },
   forest: { tile: 3.8, relief: 0.58 },
   grass: { tile: 4.2, relief: 0.55 },
   stonewall: { tile: 2.8, relief: 0.65 },
@@ -99,6 +100,27 @@ function granularGround(anisotropy: number) {
   return texture;
 }
 
+function rubberTiles() {
+  const canvas = document.createElement('canvas');
+  const tile = 64, size = tile * 4;
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext('2d')!;
+  const pixels = context.createImageData(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const row = Math.floor(y / tile), col = Math.floor(x / tile);
+    const grain = ((x * 31 ^ y * 43 ^ x * y) % 13) - 6;
+    const seams = x % tile === 0 || y % tile === 0;
+    const value = (seams ? 47 : 78 + (row * 19 + col * 37) % 16) + grain;
+    const i = (y * size + x) * 4;
+    pixels.data[i] = value;
+    pixels.data[i + 1] = value + 3;
+    pixels.data[i + 2] = value + 6;
+    pixels.data[i + 3] = 255;
+  }
+  context.putImageData(pixels, 0, 0);
+  return new T.CanvasTexture(canvas);
+}
+
 // Adapted from the PBR texture loader in Walkable City. See tour-materials/CREDITS.txt.
 export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
   const loader = new T.TextureLoader();
@@ -107,7 +129,8 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
     const cached = textures.get(file);
     if (cached) return cached;
     const map = file === 'granular_diff' ? granularGround(anisotropy)
-      : file.startsWith('pavers_') ? concretePavers(anisotropy, !color) : loader.load(`/tour-materials/${file}.webp`);
+      : file === 'rubber_diff' ? rubberTiles()
+        : file.startsWith('pavers_') ? concretePavers(anisotropy, !color) : loader.load(`/tour-materials/${file}.webp`);
     if (color) map.colorSpace = T.SRGBColorSpace;
     map.wrapS = map.wrapT = T.RepeatWrapping;
     map.anisotropy = anisotropy;
@@ -116,10 +139,10 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
   }
   return function apply(material: T.MeshStandardMaterial, surface: TourSurface) {
     material.map = texture(`${surface}_diff`, true);
-    if (surface === 'granular') {
+    if (surface === 'granular' || surface === 'rubber') {
       if (fullDetail) {
         material.bumpMap = material.map;
-        material.bumpScale = surfaces.granular.relief;
+        material.bumpScale = surfaces[surface].relief;
       }
       return material;
     }

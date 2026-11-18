@@ -1,4 +1,5 @@
 import type { SiteSurfaceLayout } from '../opo-site-surfaces';
+import type { PlaygroundLayout } from '../opo-playground';
 
 export const songpaFacilities = {
   checkedOn: '2026-11-18',
@@ -9,10 +10,26 @@ export const songpaFacilities = {
   lifts: 8,
   sharedFacilities: ['관리사무소', '경로당', '어린이놀이터', '자전거보관소'],
   management: 'https://www.k-apt.go.kr/kaptinfo/openKaptMng.do',
-  playground: 'https://www.cpf.go.kr/cpf/ko/nori/0006/index.jsp?sido=1100000000&sigungu=1171000000&rgnCd=1171000000&ronaDaddr=%EC%86%A1%ED%8C%8C%EB%8C%80%EB%A1%9C32%EA%B8%B8',
 };
 
 type Coordinate = [longitude: number, latitude: number];
+
+export const songpaPlayground = {
+  facilityNo: '503928',
+  source: 'https://www.cpf.go.kr/cpf/ko/nori/0006/index.jsp?qr=Y&pfctSn=503928',
+  registered: '그네 1개 · 흔들놀이기구 3개 · 조합놀이대 1개 · 고무 바닥재',
+  // Place the photographed forms within the interpreted aerial clearing.
+  layout: {
+    origin: [127.1159551, 37.4979057],
+    equipment: [
+      { kind: 'tower', offset: [0, 0], rotation: 6 },
+      { kind: 'swing', offset: [-6.3, -1.6], rotation: 10 },
+      { kind: 'seesaw', offset: [6.1, -0.7], rotation: 24 },
+      { kind: 'animal-rocker', offset: [-2.2, 5.5], rotation: -28 },
+      { kind: 'car-rocker', offset: [4.4, 2.7], rotation: -24 },
+    ],
+  } satisfies PlaygroundLayout,
+};
 
 // Clearings and route traces are interpreted against the apartment boundary and orthophoto.
 // The ground photo corroborates the curved pavers and raised beds between 103 and 104.
@@ -129,7 +146,7 @@ export const songpaGrounds = {
 export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
   paths: songpaCourtyard.paths,
-  playground: songpaCourtyard.playground,
+  playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   plaza: songpaGrounds.paving,
   crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),
 } satisfies SiteSurfaceLayout;

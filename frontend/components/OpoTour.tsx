@@ -14,7 +14,7 @@ import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
-import { songpaCourtyard, songpaFacilities, songpaGrounds } from './data/songpa-grounds';
+import { songpaCourtyard, songpaFacilities, songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
@@ -1336,16 +1336,18 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </article>
         <article className="site-card" data-site-card="paving">
           <h3>단지 안 산책로와 놀이터</h3>
-          <p>103·104동 사이를 따라 굽는 보행로, 화단, 원형 앉음벽과 놀이터 공간을 둘러볼 수 있어요.</p>
-          <p>나무에 가려진 보행로와 놀이터 경계, 앉음벽의 정확한 위치·크기는 근사예요. 놀이터 바닥은 모형 재질을 사용했어요. 실제 포장재와 놀이기구, 노면 단차는 현장에서 확인해 보세요.</p>
+          <p>103·104동 사이 보행로와 화단, 원형 앉음벽을 지나 조합놀이대와 그네를 볼 수 있어요.</p>
+          <p>시설번호 {songpaPlayground.facilityNo} · {songpaPlayground.registered}</p>
+          <p>항공영상과 공식 시설 사진을 참고했어요. 놀이기구와 보행로의 배치·치수는 근사예요. 현재 기구 상태와 단차는 현장에서 확인해 보세요.</p>
           <div className="site-actions">
             {songpaCourtyard.views.map(stop => <button key={stop.id}
-              disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
+              disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visitAtEyeLevel(stop.id)}>{stop.name} 보기</button>)}
             {songpaGrounds.points.map(stop => <button key={stop.id}
               disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
             <button disabled={!world} onClick={openWinterWalk}>겨울 오후 산책 비교</button>
           </div>
           <div className="basis">
+            <a href={songpaPlayground.source} target="_blank" rel="noreferrer">행정안전부 놀이시설 등록과 사진 ↗</a>
             <a href={songpaCourtyard.groundPhoto} target="_blank" rel="noreferrer">103·104동 사이 보행로 사진 ↗</a>
             <a href={songpaCourtyard.aerialReference} target="_blank" rel="noreferrer">놀이터 표기가 보이는 단지 항공사진 ↗</a>
             <a href={songpaCourtyard.seatRecord} target="_blank" rel="noreferrer">104동 조경시설 공고 ↗</a>
@@ -1372,11 +1374,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <p>{parkingSpaces}면 · 세대당 {(parkingSpaces / songpaFacilities.households).toFixed(2)}면</p>
           <p>지상 {songpaFacilities.surfaceParking}면 · 지하 {songpaFacilities.undergroundParking}면 · 승강기 {songpaFacilities.lifts}대</p>
           <p>{songpaFacilities.sharedFacilities.join(' · ')}</p>
-          <p>공용시설의 단지 내 위치와 방문 주차 조건은 현장 확인이 필요해요.</p>
+          <p>관리사무소·경로당·자전거보관소 위치와 방문 주차 조건은 현장 확인이 필요해요.</p>
           <div className="basis">
             <p>{songpaFacilities.checkedOn} 조회 · 단지코드 {songpaFacilities.complexCode}</p>
             <a href={songpaFacilities.management} target="_blank" rel="noreferrer">K-apt 관리시설정보 ↗</a>
-            <a href={songpaFacilities.playground} target="_blank" rel="noreferrer">행정안전부 놀이시설 현황 ↗</a>
+            <a href={songpaPlayground.source} target="_blank" rel="noreferrer">행정안전부 놀이시설 등록 ↗</a>
           </div>
         </article>
       </div>}

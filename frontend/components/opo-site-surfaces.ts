@@ -21,7 +21,7 @@ export type SiteSurfaceLayout = {
   paths: { width: number; points: Coordinate[] }[];
   plaza?: Coordinate[];
   crossings: { start: Coordinate; end: Coordinate; depth: number }[];
-  playground?: Coordinate[];
+  playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
 };
 
 export function axisBetween(start: Point, end: Point) {
@@ -117,9 +117,10 @@ export function addSiteSurfaces(
   }
 
   if (layout.playground) {
-    const playRing = layout.playground.map(data.project);
-    const playFloor = material('#a69984', 'granular');
-    add(groundPolygon([playRing], grade, 3, 0.25), playFloor, 'granular');
+    const { outline, surface } = layout.playground;
+    const playRing = outline.map(data.project);
+    const playFloor = material(surface === 'rubber' ? '#d7dfe2' : '#a69984', surface);
+    add(groundPolygon([playRing], grade, 3, 0.25), playFloor, surface);
     add(ribbon([...playRing, playRing[0]], 0.23, (x, z) => grade(x, z) + 0.28), edging);
   }
   if (layout.plaza) add(groundPolygon([layout.plaza.map(data.project)], drivewayGrade, 1.2, 0), plaza, 'pavers');
