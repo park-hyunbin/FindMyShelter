@@ -5,6 +5,7 @@ export const graniteTileM = 1.8;
 const surfaces = {
   asphalt: { tile: 2, relief: 0.32 },
   cobble: { tile: 2.6, relief: 0.5 },
+  pavers: { tile: 1.6, relief: 0.013 },
   forest: { tile: 3.8, relief: 0.58 },
   grass: { tile: 4.2, relief: 0.55 },
   stonewall: { tile: 2.8, relief: 0.65 },
@@ -24,10 +25,43 @@ export function surfaceUV(geometry: T.BufferGeometry, surface: keyof typeof surf
     if (wall && i > 0 && i % 2 === 0) {
       distance += Math.hypot(position.getX(i) - position.getX(i - 2), position.getZ(i) - position.getZ(i - 2));
     }
-    uv[i * 2] = (wall ? distance : position.getX(i)) / tile;
-    uv[i * 2 + 1] = (wall ? position.getY(i) : -position.getZ(i)) / tile;
+    const x = position.getX(i), z = position.getZ(i);
+    uv[i * 2] = (wall ? distance : surface === 'pavers' ? (x + z) * Math.SQRT1_2 : x) / tile;
+    uv[i * 2 + 1] = (wall ? position.getY(i) : surface === 'pavers' ? (x - z) * Math.SQRT1_2 : -z) / tile;
   }
   geometry.setAttribute('uv', new T.BufferAttribute(uv, 2));
+}
+
+function concretePavers(anisotropy: number, depth: boolean) {
+  const canvas = document.createElement('canvas');
+  const size = 256, wide = 32, tall = 16;
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const pixels = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    const row = Math.floor(y / tall);
+    for (let x = 0; x < size; x++) {
+      const shifted = (x + (row % 2) * wide / 2) % size;
+      const column = Math.floor(shifted / wide);
+      const dx = shifted % wide, dy = y % tall;
+      const edge = Math.min(dx, wide - 1 - dx, dy, tall - 1 - dy);
+      const shade = 151 + ((column * 17 + row * 37 + column * row * 3) % 26) - 13;
+      const grain = ((x * 13 ^ y * 7 ^ x * y) % 11) - 5;
+      const value = depth ? (edge === 0 ? 44 : edge === 1 ? 158 : 205) + grain
+        : (edge === 0 ? 104 : edge === 1 ? shade + (dy === 1 || dx === 1 ? 9 : -9) : shade) + grain;
+      const pixel = (y * size + x) * 4;
+      pixels.data[pixel] = value;
+      pixels.data[pixel + 1] = value - (depth ? 0 : 3);
+      pixels.data[pixel + 2] = value - (depth ? 0 : 8);
+      pixels.data[pixel + 3] = 255;
+    }
+  }
+  ctx.putImageData(pixels, 0, 0);
+  const texture = new T.CanvasTexture(canvas);
+  if (!depth) texture.colorSpace = T.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = T.RepeatWrapping;
+  texture.anisotropy = anisotropy;
+  return texture;
 }
 
 // Adapted from the PBR texture loader in Walkable City. See tour-materials/CREDITS.txt.
@@ -37,7 +71,7 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
   function texture(file: string, color: boolean) {
     const cached = textures.get(file);
     if (cached) return cached;
-    const map = loader.load(`/tour-materials/${file}.webp`);
+    const map = file.startsWith('pavers_') ? concretePavers(anisotropy, !color) : loader.load(`/tour-materials/${file}.webp`);
     if (color) map.colorSpace = T.SRGBColorSpace;
     map.wrapS = map.wrapT = T.RepeatWrapping;
     map.anisotropy = anisotropy;
@@ -46,6 +80,13 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
   }
   return function apply(material: T.MeshStandardMaterial, surface: TourSurface) {
     material.map = texture(`${surface}_diff`, true);
+    if (surface === 'pavers') {
+      if (fullDetail) {
+        material.bumpMap = texture('pavers_height', false);
+        material.bumpScale = surfaces.pavers.relief;
+      }
+      return material;
+    }
     // The source is fresh racing tarmac. Raise the albedo for weathered local roads.
     if (surface === 'asphalt') material.color.multiplyScalar(6);
     // Keep the pale gate tint when multiplying by the dark photographic granite albedo.

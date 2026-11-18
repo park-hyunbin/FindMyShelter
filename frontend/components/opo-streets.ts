@@ -330,8 +330,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const lift = T.MathUtils.lerp(0.48, sidewalkLift, T.MathUtils.clamp((lateral * side - width / 2) / 0.85, 0, 1));
         return surface(x, z) + lift;
       }, 0.7);
-      add('#c6c2b5', ramp, 'cobble');
-      strip([position(-rampDepth, at(1.34)), position(rampDepth, at(1.34))], 0.88, sidewalkLift + 0.004, '#d4cec2', 'cobble');
+      const paving = songpa ? 'pavers' : 'cobble';
+      add('#c6c2b5', ramp, paving);
+      strip([position(-rampDepth, at(1.34)), position(rampDepth, at(1.34))], 0.88, sidewalkLift + 0.004, '#d4cec2', paving);
     });
   }
   function surveyedPaint(points: Point[], style: StreetPaint) {
@@ -359,7 +360,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const unpaved = road.unpaved || road.category === 'track';
     const color = unpaved ? '#aa9981'
       : isPath ? '#bba994' : isMain ? '#626970' : road.category === 'residential' ? '#737878' : '#858780';
-    const texture = unpaved ? 'forest' : isPath ? 'cobble' : 'asphalt';
+    const texture = unpaved ? 'forest' : isPath ? (songpa ? 'pavers' : 'cobble') : 'asphalt';
     const tint = finish ? (songpa && texture === 'asphalt' ? '#e2ecf8' : isMain ? '#dfdedd' : '#fffaf3') : color;
     function interruptedStrip(points: Point[], widthM: number, lift: number, color: string, texture?: TourSurface, shoulder = 0) {
       for (const run of leaveCrosswalkGaps(points, roadCrossings, shoulder)) strip(run, widthM, lift, color, texture);
@@ -390,7 +391,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const edge = width / 2 * sign;
         if (arterial && approximatePaint) interruptedStrip(offsetLine(laneLine, edge - sign * 0.32), 0.15, 0.519, '#eeeae2');
         if (road.sidewalks[index]) {
-          interruptedStrip(offsetLine(laneLine, edge + sign * 0.89), 1.78, 0.61, '#d4cec2', 'cobble', 1.9);
+          interruptedStrip(offsetLine(laneLine, edge + sign * 0.89), 1.78, 0.61, '#d4cec2', 'pavers', 1.9);
           interruptedStrip(offsetLine(laneLine, edge + sign * 0.12), 0.19, 0.635, '#a5a4a0', undefined, 0.30);
         }
       }

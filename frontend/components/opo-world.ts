@@ -1155,7 +1155,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const textures = new Set<T.Texture>();
       for (const material of materials) {
         if (material instanceof T.MeshStandardMaterial) {
-          for (const map of [material.map, material.normalMap, material.roughnessMap]) if (map) textures.add(map);
+          for (const map of [material.map, material.normalMap, material.roughnessMap, material.bumpMap]) if (map) textures.add(map);
         }
         material.dispose();
       }

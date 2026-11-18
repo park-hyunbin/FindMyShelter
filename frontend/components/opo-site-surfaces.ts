@@ -63,10 +63,10 @@ export function addSiteSurfaces(
   layout: SiteSurfaceLayout, gate?: GateLayout,
 ) {
   const asphalt = material('#d5d2ca', 'asphalt');
-  const paving = material('#bdb0a1', 'cobble');
-  const edging = material('#a6a093', 'granite');
+  const paving = material('#c8c1b8', 'pavers');
+  const edging = material('#aaa59a');
   const paint = material('#eeeae0');
-  const plaza = material('#b3aea4', 'cobble');
+  const plaza = material('#c2bcaf', 'pavers');
   const playground = material('#7e766b');
 
   function material(color: string, texture?: TourSurface) {
@@ -100,16 +100,16 @@ export function addSiteSurfaces(
   if (layout.drive) add(strip(curve(layout.drive.points), layout.drive.width, 0.19), asphalt, 'asphalt');
   for (const { width, points } of layout.paths) {
     const line = curve(points);
-    add(strip(line, width + 0.26, 0.20), edging, 'granite');
-    add(strip(line, width, 0.24), paving, 'cobble');
+    add(strip(line, width + 0.26, 0.20), edging);
+    add(strip(line, width, 0.24), paving, 'pavers');
   }
 
   if (layout.playground) {
     const playRing = layout.playground.map(data.project);
     add(groundPolygon([playRing], grade, 3, 0.25), playground);
-    add(strip([...playRing, playRing[0]], 0.2, 0.27), edging, 'granite');
+    add(strip([...playRing, playRing[0]], 0.2, 0.27), edging);
   }
-  if (layout.plaza) add(groundPolygon([layout.plaza.map(data.project)], grade, 3, 0.12), plaza, 'cobble');
+  if (layout.plaza) add(groundPolygon([layout.plaza.map(data.project)], grade, 3, 0.12), plaza, 'pavers');
   for (const { start, end, depth } of layout.crossings) {
     const { at, length } = axisBetween(data.project(start), data.project(end));
     zebra((across, along) => at(along, across + length / 2), length, -depth / 2, depth / 2, 0.15);
@@ -122,9 +122,9 @@ export function addSiteSurfaces(
     const [before, after] = gate.roadOverhang;
     add(strip([at(0, -before), at(0, length + after)], gate.width, 0.49), gateAsphalt, 'asphalt');
     zebra(at, gate.width, ...gate.crossing, 0.52);
-    const sidewalk = material('#898986', 'cobble');
+    const sidewalk = material('#c7c6be', 'pavers');
     for (const line of gate.sidewalks.points) {
-      add(strip(line.map(([across, along]) => at(across, along)), gate.sidewalks.width, 0.56), sidewalk, 'cobble');
+      add(strip(line.map(([across, along]) => at(across, along)), gate.sidewalks.width, 0.56), sidewalk, 'pavers');
     }
   }
 }
