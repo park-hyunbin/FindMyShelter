@@ -11,7 +11,7 @@ import { songpaArchitecture } from './songpa-architecture';
 import { songpaRouteElevation } from './songpa-route-elevation';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'sun' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'entrance' | 'ambient' | 'flood';
+export type ChecklistView = 'complex' | 'sun' | 'winter-walk' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'entrance' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -51,7 +51,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'sunlight', title: '실외 일조와 시야', evidence: 'model',
         finding: '단지 안 실외 점의 직사광·그늘을 날짜와 시간별로 비교해요. 차폐 건물과 지형을 찾고 원하는 방향의 눈높이에서 시야를 살펴볼 수 있어요.',
         followUp: '겨울 촬영 영상으로 두 지점의 밝기 차이를 비교할 수 있어요. 겨울 오후의 그늘 경계와 수목 영향을 확인하려면 같은 장소와 시각의 지상 관찰이 필요해요.',
-        views: [{ target: 'sun', label: '일조 지도 열기' }, { target: 'winter-capture', label: '겨울 위성영상과 비교' },
+        views: [{ target: 'winter-walk', label: '겨울 오후 산책 비교' }, { target: 'sun', label: '일조 지도 열기' }, { target: 'winter-capture', label: '겨울 위성영상과 비교' },
           { target: 'horizon', label: '방향별 시야 보기' }],
         sources: [{ label: 'Sentinel-2 겨울 촬영 원본', url: songpaWinterCapture.source }],
       },

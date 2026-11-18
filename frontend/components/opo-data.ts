@@ -179,11 +179,12 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     const row = officialHeights.get(properties.id);
     const recorded = row && row.dong === dong ? row : undefined;
     const shapes = (geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates).map(toShape);
+    const name = properties.name ?? (region === 'songpa' && properties.id === '55781807' ? '예일아파트' : '주변 건물');
+    const unit = dong ?? properties.dong;
     if (recorded) registerRows.push({ ...recorded, outlineAreaM2: properties.area_m2 ?? outlineArea(shapes) });
     return {
       id: properties.id,
-      label: [properties.name ?? (region === 'songpa' && properties.id === '55781807' ? '예일아파트' : '주변 건물'),
-        properties.dong === properties.name ? null : dong ?? properties.dong].filter(Boolean).join(' '),
+      label: unit && !name.endsWith(unit) ? `${name} ${unit}` : name,
       dong,
       height: positiveDimension(recorded?.heightM ?? properties.height_m),
       levels: positiveDimension(recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors),
