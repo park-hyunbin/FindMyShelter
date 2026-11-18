@@ -85,8 +85,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const isOpo = data.region === 'opo';
   const scene = new T.Scene();
   scene.background = new T.Color('#354D65');
-  scene.fog = new T.FogExp2('#354D65', isOpo ? 0.00112 : 0.00025);
-  const camera = new T.PerspectiveCamera(49, 1, 0.25, 4300);
+  const fogDensity = isOpo ? 0.00112 : 0.00025;
+  scene.fog = new T.FogExp2('#354D65', fogDensity);
+  const camera = new T.PerspectiveCamera(49, 1, 0.25, 8000);
   const renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65));
   renderer.shadowMap.enabled = true;
@@ -215,7 +216,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   controls.dampingFactor = 0.12;
   controls.maxPolarAngle = Math.PI * 0.48;
   controls.minDistance = 52;
-  controls.maxDistance = 2600;
+  controls.maxDistance = 4800;
   controls.zoomToCursor = true;
   function overview() {
     if (!isOpo) {
@@ -325,6 +326,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const { x, z } = layer.endpoint;
     labels.push({ point: new T.Vector3(x, data.ground(x, z) + 5, z), element, enabled: () => layer.group.visible, keepInFrame: true });
   }
+  const routeTerrainLabel = document.createElement('span');
+  routeTerrainLabel.className = 'building-label route-terrain-label';
+  routeTerrainLabel.hidden = true;
+  host.appendChild(routeTerrainLabel);
+  labels.push({ point: greenAccess.markerLabelPoint, element: routeTerrainLabel,
+    enabled: () => mode === 'orbit' && greenAccess.marker.visible, keepInFrame: true });
 
   const labeledPlaces = data.streetPoints.filter(item => item.name
     && (item.kind === 'bus' || routePlaces.includes(item.name) || Math.hypot(item.position.x - spawn.x, item.position.z - spawn.z) < 720));
@@ -389,6 +396,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     stickX = stickY = 0;
     player.visible = next === 'walk';
     car.visible = next === 'drive';
+    greenAccess.marker.children.forEach(part => { part.visible = next === 'orbit'; });
+    for (const layer of greenAccess.layers) {
+      layer.group.children.forEach(part => { part.visible = next === 'orbit'; });
+    }
     controls.enabled = next === 'orbit' && !selecting;
     if (next === 'orbit') overview();
   }
@@ -588,6 +599,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         element.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
       }
     }
+    (scene.fog as T.FogExp2).density = mode === 'orbit'
+      ? Math.min(fogDensity, 0.62 / Math.max(1, controls.getDistance())) : fogDensity;
     renderer.render(scene, camera);
   });
 
@@ -690,6 +703,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       controls.update();
     },
     showSiteDetails(enabled: boolean) { site.overlay.visible = enabled; },
+    greenAccessProfiles: greenAccess.layers.map(layer => ({ id: layer.id, profile: layer.profile })),
+    markGreenAccess(id: string | null, index: number) {
+      greenAccess.mark(id, index);
+      const sample = greenAccess.layers.find(layer => layer.id === id)?.profile.samples[index];
+      if (sample) routeTerrainLabel.textContent = `${Math.round(sample.distance)}m · 모델 표고 ${Math.round(sample.elevation)}m`;
+    },
     showGreenAccess(id: string | null) {
       const layer = greenAccess.show(id);
       if (!layer) return;
@@ -697,7 +716,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const center = layer.bounds.getCenter(new T.Vector3());
       const size = layer.bounds.getSize(new T.Vector3());
       const scale = Math.max(340, size.x, size.z);
-      const horizontalFrame = host.clientWidth < 600 ? 0.52 : 0.76;
+      const width = host.clientWidth, height = host.clientHeight;
+      const panel = host.parentElement?.querySelector<HTMLElement>('.analysis');
+      const availableWidth = panel && width > 780 ? panel.offsetLeft : width;
+      const availableHeight = panel && width <= 780 ? panel.offsetTop : height;
+      const horizontalFrame = 0.84 * availableWidth / width;
+      const verticalFrame = 0.82 * availableHeight / height;
       controls.target.copy(center);
       camera.position.copy(center).add(new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34));
       const projection = new T.Vector3();
@@ -707,14 +731,19 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         let frame = 1;
         for (const point of layer.routePoints) {
           projection.copy(point).project(camera);
-          frame = Math.max(frame, Math.abs(projection.x) / horizontalFrame, Math.abs(projection.y) / 0.76);
+          frame = Math.max(frame, Math.abs(projection.x) / horizontalFrame, Math.abs(projection.y) / verticalFrame);
         }
         if (frame <= 1.01) break;
         camera.position.sub(center).multiplyScalar(Math.min(2.1, frame * 1.04)).add(center);
       }
-      const width = host.clientWidth;
-      const panel = width > 780 ? host.parentElement?.querySelector<HTMLElement>('.analysis') : null;
-      if (panel) {
+      if (panel && width <= 780) {
+        const inset = (host.clientHeight - panel.offsetTop) / host.clientHeight;
+        const halfHeight = camera.position.distanceTo(center) * Math.tan(T.MathUtils.degToRad(camera.fov / 2));
+        const viewUp = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+        controls.target.addScaledVector(viewUp, -halfHeight * inset);
+        camera.position.addScaledVector(viewUp, -halfHeight * inset);
+        controls.update();
+      } else if (panel) {
         const inset = (width - panel.offsetLeft) / width;
         const halfWidth = camera.position.distanceTo(center) * Math.tan(T.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
         const viewRight = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);

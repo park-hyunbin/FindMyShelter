@@ -4,6 +4,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import type { OpoData } from './opo-data';
 import { ribbon } from './opo-meshes';
+import { routeTerrainProfile } from './opo-route-profile';
 import greenAccess from '../public/opo-green-access.json';
 
 export const approach = [127.165458, 37.351201];
@@ -33,12 +34,14 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
   const recorded = new LineMaterial({ color: '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
   const layers = (data.region === 'opo' ? greenAccess.routes : []).map(route => {
+    const projected = route.segments.map(segment => segment.coordinates.map(data.project));
+    const profile = routeTerrainProfile(data, projected);
     const group = new T.Group();
     const bounds = new T.Box3();
     const routePoints: T.Vector3[] = [];
     group.visible = false;
-    for (const segment of route.segments) {
-      const points = segment.coordinates.map(data.project);
+    for (const [index, segment] of route.segments.entries()) {
+      const points = projected[index];
       const vertices: number[] = [];
       function vertex(x: number, z: number) {
         const y = data.ground(x, z) + 1.6;
@@ -59,12 +62,35 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
     }
     scene.add(group);
     const endpoint = data.project(route.end);
-    return { id: route.id, name: route.name, group, bounds, endpoint, routePoints };
+    return { id: route.id, name: route.name, group, bounds, endpoint, routePoints, profile };
   });
+  const marker = new T.Group();
+  marker.visible = false;
+  scene.add(marker);
+  const markerMaterial = new T.MeshBasicMaterial({ color: '#f8d78b', depthTest: false, transparent: true, opacity: 0.9 });
+  const stem = new T.Mesh(new T.CylinderGeometry(0.35, 0.35, 18, 8), markerMaterial);
+  stem.position.y = 9;
+  const tip = new T.Mesh(new T.SphereGeometry(2.4, 12, 8), markerMaterial);
+  tip.position.y = 18;
+  stem.renderOrder = tip.renderOrder = 9;
+  marker.add(stem, tip);
+  const markerLabelPoint = new T.Vector3();
   return {
     layers,
+    marker,
+    markerLabelPoint,
+    mark(id: string | null, index: number) {
+      const layer = layers.find(layer => layer.id === id);
+      const sample = layer?.profile.samples[index];
+      marker.visible = Boolean(layer?.group.visible && sample);
+      if (!sample || !marker.visible) return;
+      const { x, z } = sample.position;
+      marker.position.set(x, data.ground(x, z) + 1.6, z);
+      markerLabelPoint.copy(marker.position).add(new T.Vector3(0, 24, 0));
+    },
     show(id: string | null) {
       for (const layer of layers) layer.group.visible = layer.id === id;
+      marker.visible = false;
       return layers.find(layer => layer.id === id);
     },
   };

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { courtyard, courtyardGarden } from './opo-courtyard';
 import { loadOpoData, type Point } from './opo-data';
 import { horizonRange, type DirectionProfile } from './opo-horizon';
+import { routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
 import { observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
@@ -83,6 +84,47 @@ function TerrainSection({ profiles, onLook }: {
   </div>;
 }
 
+function RouteTerrain({ profile, selected, onSelect, onLook }: {
+  profile: RouteTerrainProfile; selected: number; onSelect: (index: number) => void;
+  onLook: (sample: RouteTerrainSample) => void;
+}) {
+  const sample = profile.samples[selected];
+  if (!sample) return null;
+  const elevations = profile.samples.map(point => point.elevation);
+  const minimum = Math.min(...elevations), maximum = Math.max(...elevations);
+  const span = Math.max(10, maximum - minimum);
+  const x = (distance: number) => 8 + distance / profile.length * 284;
+  const y = (height: number) => 67 - (height - minimum) / span * 52;
+  const line = profile.samples.map(point => `${x(point.distance)},${y(point.elevation)}`).join(' ');
+  const difference = profile.samples.at(-1)!.elevation - profile.samples[0].elevation;
+  return <div className="route-terrain">
+    <strong>경로 주변 지형 단면</strong>
+    <div className="route-terrain-scale"><span>표고 약 {Math.round(maximum)}m</span><span>{routeTerrainStep}m 간격 표본</span></div>
+    <svg viewBox="0 0 300 80" aria-hidden="true">
+      <polygon className="route-terrain-fill" points={`8,75 ${line} 292,75`} />
+      <polyline points={line} />
+      <line x1={x(sample.distance)} x2={x(sample.distance)} y1="5" y2="75" />
+      <circle cx={x(sample.distance)} cy={y(sample.elevation)} r="3.3" />
+    </svg>
+    <div className="route-terrain-scale"><span>단지 진입부 · 0m</span><span>종점 · {Math.round(profile.length).toLocaleString()}m</span></div>
+    <label>단면에서 위치 선택
+      <input aria-label="공원 인근 경로의 지형 표본 선택" type="range" min={0} max={profile.samples.length - 1} step={1}
+        value={selected} aria-valuetext={`출발에서 ${Math.round(sample.distance)}m, 모델 표고 약 ${Math.round(sample.elevation)}m`}
+        onChange={event => onSelect(Number(event.target.value))} />
+    </label>
+    <dl>
+      <div><dt>출발점부터</dt><dd>{Math.round(sample.distance)}m</dd></div>
+      <div><dt>선택 지형의 표고</dt><dd>약 {Math.round(sample.elevation)}m</dd></div>
+      {sample.gradient !== null && <div><dt>약 {Math.round(sample.gradientDistance)}m 구간 지형 변화율</dt>
+        <dd>{sample.gradient > 0 ? '+' : ''}{sample.gradient.toFixed(1)}%</dd></div>}
+      <div><dt>지형 예측 산포</dt><dd>{sample.spread.toFixed(1)}m</dd></div>
+    </dl>
+    <p>종점 지형은 출발 지형보다 약 {Math.round(Math.abs(difference))}m {difference >= 0 ? '높아요' : '낮아요'}.</p>
+    <button className="route-look" onClick={() => onLook(sample)}>선택 위치 눈높이로 보기 ↗</button>
+    <p>약 30m 지형 모델의 표고와 변화율입니다. 실제 보도 경사, 계단·옹벽·교량 단차는 현장 대조가 필요합니다.</p>
+  </div>;
+}
+
 export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; onExit?: () => void}) {
   const area = regions.find(r => r.id === region)!;
   const host = useRef<HTMLDivElement>(null);
@@ -100,6 +142,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [tab, setTab] = useState<AnalysisTab>('sun');
   const [accessId, setAccessId] = useState<string | null>(null);
+  const [accessSample, setAccessSample] = useState(0);
   const [bearing, setBearing] = useState(0);
   const [satellite, setSatellite] = useState(false);
   const [imageStatus, setImageStatus] = useState<'loading' | 'error' | 'idle'>('idle');
@@ -173,6 +216,10 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     world?.showPlaces(open && tab === 'places' ? (placeCategory === 'all' ? ['beauty','convenience','school'] : [placeCategory]) : []);
   }, [world, open, tab, placeCategory]);
 
+  useEffect(() => {
+    world?.markGreenAccess(accessId, accessSample);
+  }, [world, accessId, accessSample]);
+
   const lightPoint = lightSlot ? points[lightSlot] : undefined;
   useEffect(() => {
     world?.showLightPath(lightPoint && date && tab === 'sun' && !selectedSlot ? lightPoint : null, date, minute, lightSlot ?? 'A', true);
@@ -239,11 +286,11 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     if (!world) return;
     const next = accessId === id ? null : id;
     setAccessId(next);
+    setAccessSample(0);
     setSelectedSlot(null);
     setStatus('');
     if (next) {
       setMode('orbit');
-      if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
     }
     world.showGreenAccess(next);
   }
@@ -457,12 +504,24 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
         <div className="green-access">
           <h3>공원 인근 도로 연결</h3>
           <p>단지 진입부 출발 · 점선은 보도 연결 미확인 구간이에요.</p>
-          {greenAccess.routes.map(route => <div key={route.id} className="site-card access-card">
-            <div className="access-heading"><strong>{route.name}</strong><span>{meters(route.lengthM)}</span></div>
-            <p>{route.endLabel}{route.gapM !== null && ` · 등록 위치까지 직선 약 ${route.gapM}m`}</p>
-            <button disabled={!world} aria-pressed={accessId === route.id} onClick={() => toggleGreenAccess(route.id)}>{accessId === route.id ? '경로 숨기기' : '경로 보기'}</button>
-            <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
-          </div>)}
+          {greenAccess.routes.map(route => {
+            const profile = world?.greenAccessProfiles.find(item => item.id === route.id)?.profile;
+            return <div key={route.id} className="site-card access-card">
+              <div className="access-heading"><strong>{route.name}</strong><span>{meters(route.lengthM)}</span></div>
+              <p>{route.endLabel}{route.gapM !== null && ` · 등록 위치까지 직선 약 ${route.gapM}m`}</p>
+              <button disabled={!world} aria-pressed={accessId === route.id} onClick={() => toggleGreenAccess(route.id)}>{accessId === route.id ? '경로 숨기기' : '경로 보기'}</button>
+              <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
+              {accessId === route.id && profile && <RouteTerrain profile={profile} selected={accessSample} onSelect={setAccessSample}
+                onLook={sample => {
+                  if (!world) return;
+                  setSelectedSlot(null);
+                  setStatus('');
+                  world.lookFrom(sample.position, sample.bearing, 0);
+                  setMode('walk');
+                  if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+                }} />}
+            </div>;
+          })}
         </div></>}
         <details className="basis"><summary>자료와 계산 기준</summary>
           <p>지형 단면은 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 표시합니다. {world?.sources.terrain.name ?? 'GEDTM30'}을 사용하며 표고 기준은 {world?.sources.terrain.datum ?? 'EGM2008'}입니다. 자료 기준 기간은 {world?.sources.terrain.epoch ?? '2006–2015'}입니다.</p>
