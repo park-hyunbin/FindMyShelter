@@ -579,6 +579,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     ['KeyA', 'left'], ['ArrowLeft', 'left'], ['KeyD', 'right'], ['ArrowRight', 'right'],
   ]);
   function onKey(event: KeyboardEvent, press: boolean) {
+    if (press && event.target instanceof HTMLElement && event.target.closest('dialog[open]')) return;
     if (event.key === 'Shift') sprinting = press;
     const command = commands.get(event.code);
     if (!command) return;

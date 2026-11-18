@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './opo.css';
 
 export const metadata: Metadata = {
-  title: 'Find My Shelter · 나의 작은 세계를 발견하는 지도',
-  description: '임장구역을 검색하고 실제 건물·DEM·도로 위에서 나의 보금자리를 탐험합니다.',
+  title: 'Find My Shelter · 3D 온라인 임장',
+  description: '실제 지형을 따라 동네를 걷고, 단지와 주변 자연환경의 일조·시야를 살펴보세요.',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

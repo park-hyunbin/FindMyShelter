@@ -130,7 +130,7 @@ function RouteTerrain({ profile, selected, onSelect, onLook }: {
   </div>;
 }
 
-export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; onExit?: () => void}) {
+export default function OpoTour({region = 'opo', onChangeRegion}: {region?: RegionId; onChangeRegion?: () => void}) {
   const area = regions.find(r => r.id === region)!;
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
@@ -399,8 +399,8 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     <header className="tour-title">
       <div className="brand"><span aria-hidden="true" className="brand-icon">⌂</span> Find My Shelter</div>
       <div className="place"><h1>{area.name}</h1><p>{area.area}</p></div>
-      {(onExit || region === 'opo' || mode !== 'orbit') && <div className="street-controls">
-        {onExit && <button className="region-return" onClick={onExit}>← 지역 다시 찾기</button>}
+      {(onChangeRegion || region === 'opo' || mode !== 'orbit') && <div className="street-controls">
+        {onChangeRegion && <button className="region-return" type="button" aria-haspopup="dialog" aria-controls="region-picker" onClick={onChangeRegion}>지역 바꾸기</button>}
         {region === 'opo' && <select aria-label="동네에서 장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
           <option value="" disabled>동네에서 장소로 이동</option>
           {world?.destinations.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
