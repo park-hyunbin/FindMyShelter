@@ -140,6 +140,13 @@ h1, h2, p { margin: 0; }
 .winter-walk td button[aria-pressed='true'] { border-color: var(--glow); box-shadow: inset 0 0 0 1px var(--glow); }
 .winter-walk-result { padding: 8px; margin-top: 6px; border-radius: 5px; background: #17243a; }
 .winter-walk-result p { margin: 5px 0; color: var(--muted); line-height: 1.4; }
+.winter-sample-ranges { margin: 4px 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; list-style: none; }
+.winter-sample-ranges li { display: flex; gap: 5px; padding: 3px 5px; border-radius: 4px; background: #26334a; font-size: 10px; }
+.winter-sample-ranges li[data-status='sun'] { color: #ffe0a3; background: #51402d; }
+.winter-sample-ranges li[data-status='shade'] { color: #d9e6ff; background: #303f64; }
+.winter-sample-ranges li[data-status='unknown'], .light-inspection .walking-light[data-status='unknown'] { color: #e7d8f4; }
+.light-inspection .walking-light[data-status='sun'] { color: #ffe0a3; }
+.light-inspection .walking-light[data-status='shade'] { color: #d9e6ff; }
 .winter-capture figure { position: relative; margin: 0; }
 .winter-capture-date { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .winter-capture-date select { min-height: 34px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--night); background: #fbfaf3; }

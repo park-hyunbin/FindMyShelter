@@ -7,7 +7,7 @@ import { loadOpoData, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonRange, type DirectionProfile } from './opo-horizon';
 import { routeAscent, routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
-import { observationHeight, type LightReport, type LightSample } from './opo-sunlight';
+import { interval, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
@@ -73,8 +73,22 @@ const winterWalkStops = [
   { id: 'south-paving', shortName: '남쪽 포장로' },
 ];
 const winterWalkHours = [13, 14, 15, 16, 17];
+const winterStart = winterWalkHours[0] * 60;
+const winterEnd = winterWalkHours[winterWalkHours.length - 1] * 60;
+const winterMinutes = Array.from({ length: (winterEnd - winterStart) / interval + 1 }, (_, i) => winterStart + i * interval);
 const winterWalkStatus = { sun: '직사광', shade: '그늘', unknown: '미판정', night: '일몰 후' };
 type WinterWalkSelection = { id: string; hour: number };
+type WalkLight = { date: string; minute: number; status: LightSample['status'] | 'outside'; text: string };
+
+function winterSampleRanges(samples: LightSample[]) {
+  const ranges: { first: number; last: number; status: LightSample['status'] }[] = [];
+  for (const { minute, status } of samples) {
+    const previous = ranges.at(-1);
+    if (previous?.status === status) previous.last = minute;
+    else ranges.push({ first: minute, last: minute, status });
+  }
+  return ranges;
+}
 
 function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, onSelect, onView, onSave }: {
   world: OpoWorld | null; date: string; detailsRef: React.RefObject<HTMLDetailsElement | null>;
@@ -85,10 +99,11 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
 }) {
   const data = useMemo(() => winterWalkStops.map(stop => {
     const point = world?.presets.find(preset => preset.id === stop.id);
-    return { ...stop, point, samples: point && world ? winterWalkHours.map(hour => world.lightAt(point, date, hour * 60)) : [] };
-  }), [world, date]);
+    const samples = point && world && expanded && date ? winterMinutes.map(minute => world.lightAt(point, date, minute)) : [];
+    return { ...stop, point, samples };
+  }), [world, date, expanded]);
   const stop = data.find(item => item.id === selection.id);
-  const sample = stop?.samples[winterWalkHours.indexOf(selection.hour)];
+  const sample = stop?.samples.find(result => result.minute === selection.hour * 60);
   const selectedPoint = stop?.point;
 
   return <details ref={detailsRef} className="season-compare winter-walk" open={expanded}
@@ -97,10 +112,10 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
     <p className="season-caption">{date} · 한국 시간 · 지면 위 {observationHeight}m · 맑은 날 모델</p>
     <table aria-label="겨울 오후 세 지점 모델 일조">
       <thead><tr><th scope="col">시각</th>{data.map(item => <th key={item.id} scope="col">{item.shortName}</th>)}</tr></thead>
-      <tbody>{winterWalkHours.map((hour, index) => <tr key={hour}>
+      <tbody>{winterWalkHours.map(hour => <tr key={hour}>
         <th scope="row"><time>{timeLabel(hour * 60)}</time></th>
         {data.map(item => {
-          const result = item.samples[index];
+          const result = item.samples[(hour * 60 - winterStart) / interval];
           const label = result ? winterWalkStatus[result.status] : '—';
           return <td key={item.id}><button type="button" disabled={!result} data-status={result?.status}
             aria-label={`${item.point?.label ?? item.shortName} ${timeLabel(hour * 60)} ${label}`}
@@ -109,9 +124,16 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
         })}
       </tr>)}</tbody>
     </table>
-    {sample && selectedPoint && <div className="winter-walk-result">
+    {sample && selectedPoint && stop && <div className="winter-walk-result">
       <strong>{selectedPoint.label} · {timeLabel(sample.minute)}</strong>
       <p>{lightStatus(sample)}</p>
+      <p>{interval}분 간격 모델 표본</p>
+      <ul className="winter-sample-ranges" aria-label="오후 일조 변화">
+        {winterSampleRanges(stop.samples).map(({ first, last, status }) => <li key={first} data-status={status}>
+          <span>{first === last ? timeLabel(first) : `${timeLabel(first)}~${timeLabel(last)}`}</span>
+          <span>{winterWalkStatus[status]}</span>
+        </li>)}
+      </ul>
       <div className="site-actions">
         <button type="button" onClick={() => onView(selectedPoint, date, sample.minute, false)}>같은 시각에 걸어 보기</button>
         {sample.status !== 'night' && <button type="button" onClick={() => onView(selectedPoint, date, sample.minute, true)}>
@@ -340,6 +362,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
   const [showWinterWalk, setShowWinterWalk] = useState(false);
   const [winterViewing, setWinterViewing] = useState(false);
+  const [walkLight, setWalkLight] = useState<WalkLight | null>(null);
   const [showVisitPlan, setShowVisitPlan] = useState(false);
   const [winterWalkOpen, setWinterWalkOpen] = useState(false);
   const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
@@ -432,12 +455,25 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   useEffect(() => {
     if (!world) return;
-    const clock = window.setInterval(() => {
+    let sampledPosition: Point | undefined;
+    function refresh() {
+      if (!world) return;
       const next = world.streetStatus();
       setStreet(old => old.name === next.name && old.speed === next.speed && old.touring === next.touring ? old : next);
-    }, 210);
+      if (!winterStreet || !date) return;
+      const position = world.position();
+      if (position === sampledPosition) return;
+      sampledPosition = position;
+      const sample = world.canAnalyze(position) ? world.lightAt(position, date, minute) : null;
+      const status = sample?.status ?? 'outside';
+      const text = sample ? lightStatus(sample) : '일조 분석 범위 밖';
+      setWalkLight(old => old?.date === date && old.minute === minute && old.status === status && old.text === text
+        ? old : { date, minute, status, text });
+    }
+    refresh();
+    const clock = window.setInterval(refresh, 210);
     return () => window.clearInterval(clock);
-  }, [world]);
+  }, [world, winterStreet, date, minute]);
 
   useEffect(() => {
     if (!world) return;
@@ -767,7 +803,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setMinute(at);
     choosePoint('A', point);
     if (!trace) {
-      visitAtEyeLevel(point.id, true);
+      const sample = world.lightAt(point, winterDate, at);
+      setWalkLight({ date: winterDate, minute: at, status: sample.status, text: lightStatus(sample) });
+      visitAtEyeLevel(point.id, point);
       return;
     }
     setWinterViewing(false);
@@ -807,11 +845,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world?.walkStick(x, y);
   }
 
-  function visit(id: string, withStudyLighting = false) {
+  function visit(id: string, observation?: SitePoint) {
     if (!world) return;
-    const next = world.goTo(id);
+    const next = world.goTo(id, observation);
     if (!next) return;
-    setWinterViewing(withStudyLighting);
+    setWinterViewing(Boolean(observation));
     setAmbientStopId(null);
     hideTreeCover();
     setShowSunMap(false);
@@ -825,8 +863,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     return true;
   }
 
-  function visitAtEyeLevel(id: string, withStudyLighting = false) {
-    if (!world || !visit(id, withStudyLighting)) return;
+  function visitAtEyeLevel(id: string, observation?: SitePoint) {
+    if (!world || !visit(id, observation)) return;
     setWalkingAtEyeLevel(true);
     world.setWalkingCamera(true);
     world.focus();
@@ -960,7 +998,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
     </section>}
     {winterStreet && <section className="light-inspection" aria-label="겨울 일조 산책 시각">
-      <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자{walkingAtEyeLevel && ' · 눈높이 1.5m'}</p></div>
+      <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자 · 지면 위 {observationHeight}m</p>
+        {walkLight?.date === date && walkLight.minute === minute &&
+          <p className="walking-light" data-status={walkLight.status} aria-live="polite">현재 위치 · {walkLight.text}</p>}
+      </div>
     </section>}
     {ambientStop && <section className="light-inspection walk-preview" aria-label="소음·야간 3D 장면">
       <div aria-live="polite"><strong>{ambientStop.name}</strong>

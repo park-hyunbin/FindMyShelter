@@ -956,13 +956,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       viewAngle = 0;
       speed = travelSpeed = 0;
     },
-    goTo(id: string) {
+    goTo(id: string, observation?: SitePoint) {
       const target = destinations.find(place => place.id === id)
         ?? ambientMap?.stops.find(place => place.id === id && canAnalyze(place.position));
-      if (!target) return;
+      if (!target || (observation && (!target.lookAt || !canAnalyze(observation)))) return;
       if (target.lookAt) {
         setMode('walk');
-        position = target.position;
+        position = observation ?? target.position;
         heading = headingTo(position, target.lookAt);
       } else {
         const entry = streets.nearest(target.position, 64);
@@ -996,7 +996,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const onSongpaStartRoad = !isOpo && nearest?.id === roadSpawn.segment.road.id;
       const streetName = onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name;
       const parkView = mode === 'walk' ? parkViews.find(view => Math.hypot(position.x - view.position.x, position.z - view.position.z) < 12) : undefined;
-      const analysisPoint = eyeLevel && 'label' in position && typeof position.label === 'string' ? position.label : undefined;
+      const analysisPoint = (eyeLevel || studyingSunlight) && 'label' in position && typeof position.label === 'string' ? position.label : undefined;
       const namedPoint = entry?.name ?? streetView?.name
         ?? (nearSchoolCrossing ? '송이로 횡단보도' : nearRoadside ? roadside.name : (paving?.name ?? parkView?.name));
       return { name: analysisPoint ?? namedPoint ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
