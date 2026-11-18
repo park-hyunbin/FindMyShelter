@@ -227,19 +227,21 @@ function TerrainSection({ profiles, onLook }: {
     {profiles.map(({ slot, point, profile: { heights: values, hit, terrainAngleBelowBuilding, nearestHeightGap } }) => {
       const peak = Math.round(Math.max(...values));
       const end = Math.round(values[values.length - 1]);
+      const cutoff = hit && (hit.angle < 0.1 ? '0.1° 미만' : `약 ${hit.angle.toFixed(1)}°`);
       return <div key={slot} className={`profile-${slot}`}>
-        <div className="profile-title"><b>{slot} 지점</b><span>지형 최대 상승 약 {peak}m</span></div>
+        <div className="profile-title"><b>{slot} · {point.label}</b><span>지형 최대 상승 약 {peak}m</span></div>
         <div className="profile-plot" aria-hidden="true">
           {values.map((value, i) => <i key={i} style={{ height: `${Math.abs(value) / envelope * 48}%`, top: `${value > 0 ? 50 - value / envelope * 48 : 50}%` }} />)}
         </div>
         <div className="profile-title plot-scale"><span>0m</span><span>{horizonRange}m · 고도차 {end > 0 ? '+' : ''}{end}m</span></div>
         <div className="horizon-result">
-          <strong>{hit ? `차폐각 약 ${hit.angle.toFixed(1)}°` : '모델상 수평선 위 차폐 없음'}</strong>
+          <strong>{hit ? `자료상 차폐각 ${cutoff}`
+            : nearestHeightGap === null ? '모델상 수평선 위 차폐 없음' : '높이 자료 부족 · 차폐 여부 미판정'}</strong>
           {hit && <small>{hit.source} · 약 {Math.round(hit.distance)}m</small>}
           {terrainAngleBelowBuilding !== null && <small>지형만 적용 시 약 {terrainAngleBelowBuilding.toFixed(1)}°</small>}
-          {nearestHeightGap !== null && <small className="horizon-gap">높이 미확인 건물 · 약 {Math.round(nearestHeightGap)}m</small>}
+          {nearestHeightGap !== null && <small className="horizon-gap">높이 미확인 건물 · 약 {Math.round(nearestHeightGap)}m{hit && ' · 추가 차폐 가능'}</small>}
         </div>
-        <button className="eye-view" aria-label={`${slot} 지점 눈높이로 보기`} onClick={() => onLook(point, hit?.angle ?? 0)}>눈높이로 보기</button>
+        <button className="eye-view" aria-label={`${slot} 지점 ${point.label} 눈높이로 보기`} onClick={() => onLook(point, hit?.angle ?? 0)}>눈높이로 보기</button>
       </div>;
     })}
   </div>;
@@ -379,7 +381,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         setStatus('');
       });
       const options = active.presets;
-      setPoints({ A: options[0], B: options.find(point => point.id === '104동') ?? options.at(-1) });
+      const courtyardPoints = region === 'songpa' ? options.filter(point => point.id === 'west-garden' || point.id === 'playground-edge') : [];
+      setPoints({
+        A: courtyardPoints.find(point => point.id === 'west-garden') ?? options[0],
+        B: courtyardPoints.find(point => point.id === 'playground-edge') ?? options.find(point => point.id === '104동') ?? options.at(-1),
+      });
       active.setMode('walk');
       setWorld(active);
     }).catch(() => {
@@ -599,16 +605,20 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world.showGreenAccess(next);
   }
 
-  function lookAtRoutePoint(point: Pick<RouteTerrainSample, 'position' | 'bearing'>) {
+  function lookFromPoint(point: Point, direction: number, obstructionAngle = 0) {
     if (!world) return;
     setSelectedSlot(null);
     setStatus('');
     hideTreeCover();
     setWalkingAtEyeLevel(true);
     world.setWalkingCamera(true);
-    world.lookFrom(point.position, point.bearing, 0);
+    world.lookFrom(point, direction, obstructionAngle);
     setMode('walk');
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
+  function lookAtRoutePoint(point: Pick<RouteTerrainSample, 'position' | 'bearing'>) {
+    lookFromPoint(point.position, point.bearing);
   }
 
   function viewHomeStop(routeId: string, index: number) {
@@ -1070,13 +1080,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </div>
         <p className="horizon-caption">차폐각은 눈높이 {observationHeight}m에서 지형이나 건물이 수평선 위를 가리는 각도예요.</p>
         <TerrainSection profiles={profiles} onLook={(point, angle) => {
-          setSelectedSlot(null);
-          setStatus('');
-          setMode('walk');
-          hideTreeCover();
+          setHomeStep(null);
           setAccessId(null);
           world?.showGreenAccess(null);
-          world?.lookFrom(point, bearing, angle);
+          lookFromPoint(point, bearing, angle);
+          world?.focus();
         }} />
         {region === 'opo' && <><div className="imagery-row">
           <button aria-pressed={satellite} disabled={!world || imageStatus === 'loading'} onClick={toggleSatellite}>위성영상 {satellite ? '켜짐' : '꺼짐'}</button>
@@ -1171,7 +1179,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           })}
         </section>
         <details className="basis"><summary>자료와 계산 기준</summary>
-          <p>지형 단면은 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 표시합니다. {world?.sources.localTerrain ?
+          <p>3D와 같은 지형 표면에서 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 단면을 표시합니다. {world?.sources.localTerrain ?
             '단지 주변은 서울시 수치지형도에서 보간하고 외곽은 GEDTM30과 연결했어요.' :
             `${world?.sources.terrain.name ?? 'GEDTM30'}을 사용하며 표고 기준은 ${world?.sources.terrain.datum ?? 'EGM2008'}입니다. 자료 기준 기간은 ${world?.sources.terrain.epoch ?? '2006–2015'}입니다.`}</p>
           <p>차폐각은 선택한 한 방향으로 {horizonRange}m 안의 지형 표본과 모델에 높이가 있는 건물 지붕 중 가장 위에 보이는 각도입니다. 높이 미확인 건물은 별도로 표시합니다. 주변 건물 높이 자료의 범위가 제한되며 수목과 {horizonRange}m 밖의 지형은 별도 확인이 필요합니다.</p>

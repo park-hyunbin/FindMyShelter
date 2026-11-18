@@ -36,6 +36,7 @@ export type SitePoint = Point & { id: string; label: string };
 const roadEntry = [127.16554, 37.351224];
 const routePlaces = ['수레실.오포롯데캐슬', '능평도서관', '용상골현대아파트', '현동빌라'];
 const headingTo = (from: Point, to: Point) => Math.atan2(to.x - from.x, from.z - to.z);
+const eyeFov = 60;
 
 function makePlayer() {
   const player = new T.Group();
@@ -765,7 +766,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   renderer.setAnimationLoop(now => {
     const elapsed = Math.min(0.045, (now - last) / 1000);
     last = now;
-    const fov = firstPerson() ? 60 : 49;
+    const fov = firstPerson() ? eyeFov : 49;
     if (camera.fov !== fov) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -985,9 +986,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const onSongpaStartRoad = !isOpo && nearest?.id === roadSpawn.segment.road.id;
       const streetName = onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name;
       const parkView = mode === 'walk' ? parkViews.find(view => Math.hypot(position.x - view.position.x, position.z - view.position.z) < 12) : undefined;
+      const analysisPoint = eyeLevel && 'label' in position && typeof position.label === 'string' ? position.label : undefined;
       const namedPoint = entry?.name ?? streetView?.name
         ?? (nearSchoolCrossing ? '송이로 횡단보도' : nearRoadside ? roadside.name : (paving?.name ?? parkView?.name));
-      return { name: namedPoint ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
+      return { name: analysisPoint ?? namedPoint ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
         speed: Math.round(travelSpeed * 3.6), touring: tripIndex > 0 };
     },
     toggleTrip() {
@@ -1012,7 +1014,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       position = point;
       heading = T.MathUtils.degToRad(bearing) + data.northOffset;
       viewAngle = 0;
-      pitch = 0.17 - obstructionAngle / 180;
+      // Leave room above steep rooflines that a midpoint framing would cut out.
+      const lookElevation = Math.max(obstructionAngle / 2, obstructionAngle - (eyeFov / 2 - 6));
+      pitch = 0.17 - lookElevation / 90;
       speed = 0;
     },
     places: data.places,

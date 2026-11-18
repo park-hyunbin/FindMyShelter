@@ -1,5 +1,5 @@
 import { inShape, type OpoData, type Point, type Shape } from './opo-data';
-import type { RoofOutline } from './opo-meshes';
+import { terrainSurface, type RoofOutline } from './opo-meshes';
 import { observationHeight } from './opo-sunlight';
 
 export const horizonRange = 800;
@@ -38,12 +38,12 @@ export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 
     surface: OpoData['ground'], point: Point, bearing: number): DirectionProfile {
   const angle = bearing * Math.PI / 180 + data.northOffset;
   const direction = { x: Math.sin(angle), z: -Math.cos(angle) };
-  const base = data.ground(point.x, point.z);
+  const base = terrainSurface(data.ground, point.x, point.z);
   const eye = surface(point.x, point.z) + observationHeight;
   const heights = [0];
   let hit: HorizonHit | null = null;
   for (let distance = terrainStep; distance <= horizonRange; distance += terrainStep) {
-    const height = data.ground(point.x + direction.x * distance, point.z + direction.z * distance);
+    const height = terrainSurface(data.ground, point.x + direction.x * distance, point.z + direction.z * distance);
     if (distance % 50 === 0) heights.push(height - base);
     const elevationAngle = Math.atan2(height - eye, distance) * 180 / Math.PI;
     if (elevationAngle > (hit?.angle ?? 0)) hit = { angle: elevationAngle, distance, source: '주변 지형' };
