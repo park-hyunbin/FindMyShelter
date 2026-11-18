@@ -13,6 +13,7 @@ import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, approach, playgroundReference } from './opo-site';
 import { addStreets } from './opo-streets';
+import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import type { TourPeer, TourPose } from './tour-live-types';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
@@ -86,7 +87,7 @@ function makeCar() {
   return model;
 }
 
-export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (position: Point) => void) {
+export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (position: Point, source?: 'sun-grid') => void) {
   const isOpo = data.region === 'opo';
   const scene = new T.Scene();
   scene.background = new T.Color('#354D65');
@@ -143,6 +144,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point))
     || Boolean(entrance?.occupied(point) || garden?.blocked(point));
+  const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= Math.min(precinct, data.buildingRadius);
+  const siteSamples = isOpo ? sunGridPoints(data.siteOutline, canAnalyze) : [];
+  const sunMap = siteSamples.length ? createSunMap(scene, data.siteOutline, siteSamples, streets.grade) : undefined;
   const roadSpawn = isOpo ? streets.nearest(data.project(roadEntry)) : streets.nearest({ x: 0, z: 0 }, data.buildingRadius);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
   const spawn = roadSpawn.point;
@@ -270,6 +274,46 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     controls.update();
   }
   overview();
+
+  function frameSurface(points: T.Vector3[], center: T.Vector3, offset: T.Vector3, clearTitle = false) {
+    const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
+    const panel = host.parentElement?.querySelector<HTMLElement>('.analysis');
+    const availableWidth = panel && width > 780 ? panel.offsetLeft : width;
+    const bottom = panel && width <= 780 ? panel.offsetTop : height;
+    const title = clearTitle && width <= 780 && host.parentElement?.querySelector<HTMLElement>('.tour-title');
+    const live = title && host.parentElement?.querySelector<HTMLElement>('.tour-live-toggle');
+    const top = Math.min(Math.max(0, bottom - 130), Math.max(
+      title ? title.offsetTop + title.offsetHeight : 0, live ? live.offsetTop + live.offsetHeight : 0,
+    ) + (title ? 6 : 0));
+    const availableHeight = bottom - top;
+    const horizontalFrame = 0.84 * Math.max(1, availableWidth) / width;
+    const verticalFrame = 0.82 * Math.max(1, availableHeight) / height;
+    camera.fov = 49;
+    camera.updateProjectionMatrix();
+    controls.target.copy(center);
+    camera.position.copy(center).add(offset);
+    const projection = new T.Vector3();
+    for (let attempt = 0; attempt < 4; attempt++) {
+      controls.update();
+      camera.updateMatrixWorld(true);
+      let frame = 1;
+      for (const point of points) {
+        projection.copy(point).project(camera);
+        frame = Math.max(frame, Math.abs(projection.x) / horizontalFrame, Math.abs(projection.y) / verticalFrame);
+      }
+      if (frame <= 1.01) break;
+      camera.position.sub(center).multiplyScalar(Math.min(2.1, frame * 1.04)).add(center);
+    }
+    if (!panel) return;
+    const halfHeight = camera.position.distanceTo(center) * Math.tan(T.MathUtils.degToRad(camera.fov / 2));
+    const horizontal = width > 780;
+    const inset = horizontal ? (width - availableWidth) / width : (height - bottom - top) / height;
+    const viewAxis = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, horizontal ? 0 : 1);
+    const shift = halfHeight * inset * (horizontal ? camera.aspect : -1);
+    controls.target.addScaledVector(viewAxis, shift);
+    camera.position.addScaledVector(viewAxis, shift);
+    controls.update();
+  }
 
   function resize() {
     camera.aspect = host.clientWidth / Math.max(host.clientHeight, 1);
@@ -587,7 +631,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const pointer = new T.Vector2((event.clientX - frame.left) / frame.width * 2 - 1, -((event.clientY - frame.top) / frame.height) * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
       const hit = raycaster.intersectObjects([terrain, ...occluders], false)[0];
-      if (hit && selecting) onPick({ x: hit.point.x, z: hit.point.z });
+      if (selecting) {
+        const sample = sunMap?.pick(raycaster, hit?.distance ?? Infinity);
+        if (sample) onPick(sample, 'sun-grid');
+        else if (hit) onPick({ x: hit.point.x, z: hit.point.z });
+      }
       else if (hit?.object === terrain) {
         const goal = { x: hit.point.x, z: hit.point.z };
         const distance = Math.hypot(goal.x - position.x, goal.z - position.z);
@@ -734,6 +782,16 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     destinations,
     tripLength,
     showLightPath,
+    sunMap: sunMap && {
+      render: (date: string, minute: number, done: (counts: SunMapCounts) => void) => sunMap.render(analysis.sampleAtTime(date, minute), done),
+      focus() {
+        setMode('orbit');
+        const frame = new T.Box3().setFromPoints(sunMap.positions);
+        const { x, z } = frame.getSize(new T.Vector3());
+        const size = Math.max(160, x, z);
+        frameSurface(sunMap.positions, frame.getCenter(new T.Vector3()), new T.Vector3(0, size * 1.42, size * 0.14), true);
+      },
+    },
     sources: { terrain: data.terrainSource, osmSnapshot: data.snapshot, referenceHeight: data.referenceHeight,
       streets: data.streetSource, register: data.buildingRegister },
     setMode,
@@ -850,41 +908,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const center = layer.bounds.getCenter(new T.Vector3());
       const size = layer.bounds.getSize(new T.Vector3());
       const scale = Math.max(340, size.x, size.z);
-      const width = host.clientWidth, height = host.clientHeight;
-      const panel = host.parentElement?.querySelector<HTMLElement>('.analysis');
-      const availableWidth = panel && width > 780 ? panel.offsetLeft : width;
-      const availableHeight = panel && width <= 780 ? panel.offsetTop : height;
-      const horizontalFrame = 0.84 * availableWidth / width;
-      const verticalFrame = 0.82 * availableHeight / height;
-      controls.target.copy(center);
-      camera.position.copy(center).add(new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34));
-      const projection = new T.Vector3();
-      for (let attempt = 0; attempt < 4; attempt++) {
-        controls.update();
-        camera.updateMatrixWorld(true);
-        let frame = 1;
-        for (const point of layer.routePoints) {
-          projection.copy(point).project(camera);
-          frame = Math.max(frame, Math.abs(projection.x) / horizontalFrame, Math.abs(projection.y) / verticalFrame);
-        }
-        if (frame <= 1.01) break;
-        camera.position.sub(center).multiplyScalar(Math.min(2.1, frame * 1.04)).add(center);
-      }
-      if (panel && width <= 780) {
-        const inset = (host.clientHeight - panel.offsetTop) / host.clientHeight;
-        const halfHeight = camera.position.distanceTo(center) * Math.tan(T.MathUtils.degToRad(camera.fov / 2));
-        const viewUp = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
-        controls.target.addScaledVector(viewUp, -halfHeight * inset);
-        camera.position.addScaledVector(viewUp, -halfHeight * inset);
-        controls.update();
-      } else if (panel) {
-        const inset = (width - panel.offsetLeft) / width;
-        const halfWidth = camera.position.distanceTo(center) * Math.tan(T.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
-        const viewRight = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-        controls.target.addScaledVector(viewRight, halfWidth * inset);
-        camera.position.addScaledVector(viewRight, halfWidth * inset);
-        controls.update();
-      }
+      frameSurface(layer.routePoints, center, new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34));
     },
     position() { return position; },
     tourPose(): TourPose {
@@ -893,7 +917,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     showPeer,
     removePeer,
     clearPeers() { for (const id of peers.keys()) removePeer(id); },
-    canAnalyze(p: Point) { return !occupied(p) && Math.hypot(p.x, p.z) <= Math.min(precinct, data.buildingRadius); },
+    canAnalyze,
     place(slot: Slot, location: Point) {
       const y = streets.grade(location.x, location.z);
       markers[slot].visible = true;
@@ -958,6 +982,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
       window.removeEventListener('blur', blur);
+      sunMap?.dispose();
       lightPath.dispose();
       const materials = new Set<T.Material>(), geometries = new Set<T.BufferGeometry>();
       scene.traverse(object => {

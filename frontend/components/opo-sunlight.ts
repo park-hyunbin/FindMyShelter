@@ -1,4 +1,4 @@
-import { Raycaster, Vector3, type Mesh } from 'three';
+import { Raycaster, Vector3, type Intersection, type Mesh } from 'three';
 import SunCalc from 'suncalc3';
 import { extent, type OpoData, type Point } from './opo-data';
 
@@ -63,22 +63,27 @@ export function createLightAnalyzer(data: OpoData, terrain: Mesh, buildings: Mes
   const origin = new Vector3();
   const ray = new Raycaster(origin, new Vector3(), 0.05, extent * 3);
   const objects = [terrain, ...buildings];
+  const hits: Intersection[] = [];
 
-  function at(location: Point, date: string, minute: number): LightSample {
+  function sampleAtTime(date: string, minute: number) {
     const { altitude, direction } = sunAt(data, date, minute);
-    if (altitude <= 0) return { minute, status: 'night' };
-    origin.set(location.x, surface(location.x, location.z) + observationHeight, location.z);
-    ray.set(origin, direction);
-    const hit = ray.intersectObjects(objects, false)[0];
-    if (hit) return { minute, status: 'shade', cause: hit.object.name,
-      obstruction: { kind: hit.object === terrain ? 'terrain' : 'building', objectId: hit.object.id,
-        distance: hit.distance, point: { x: hit.point.x, y: hit.point.y, z: hit.point.z } } };
+    return (location: Point): LightSample => {
+      if (altitude <= 0) return { minute, status: 'night' };
+      origin.set(location.x, surface(location.x, location.z) + observationHeight, location.z);
+      ray.set(origin, direction);
+      hits.length = 0;
+      const hit = ray.intersectObjects(objects, false, hits)[0];
+      if (hit) return { minute, status: 'shade', cause: hit.object.name,
+        obstruction: { kind: hit.object === terrain ? 'terrain' : 'building', objectId: hit.object.id,
+          distance: hit.distance, point: { x: hit.point.x, y: hit.point.y, z: hit.point.z } } };
 
-    const cause = altitude < 5 * Math.PI / 180 ? '낮은 태양 고도 · 먼 지형 차폐 가능'
-      : possibleUnmappedShade(data, origin, direction);
-    return cause ? { minute, status: 'unknown', cause } : { minute, status: 'sun' };
+      const cause = altitude < 5 * Math.PI / 180 ? '낮은 태양 고도 · 먼 지형 차폐 가능'
+        : possibleUnmappedShade(data, origin, direction);
+      return cause ? { minute, status: 'unknown', cause } : { minute, status: 'sun' };
+    };
   }
 
+  const at = (location: Point, date: string, minute: number) => sampleAtTime(date, minute)(location);
   function day(location: Point, date: string): LightReport {
     const samples: LightSample[] = [];
     let sunMinutes = 0, unclassifiedMinutes = 0;
@@ -90,5 +95,5 @@ export function createLightAnalyzer(data: OpoData, terrain: Mesh, buildings: Mes
     }
     return { samples, sunMinutes, unclassifiedMinutes };
   }
-  return { at, day };
+  return { at, day, sampleAtTime };
 }

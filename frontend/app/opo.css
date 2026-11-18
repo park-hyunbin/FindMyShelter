@@ -116,6 +116,17 @@ h1, h2, p { margin: 0; }
 .time-row output small { color: var(--muted); font-size: 9px; }
 .time-row input { grid-column: 1 / -1; width: 100%; margin: 0; height: 21px; accent-color: #427064; }
 .time-scale { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); font-weight: 550; }
+.sun-map-control { display: grid; gap: 7px; margin-bottom: 9px; padding: 9px 10px; border: 1px solid #63748d; border-radius: 9px; background: #23334b; }
+.sun-map-control button { min-height: 36px; padding: 5px 10px; color: var(--moon); background: #17243a; border: 1px solid #70829a; border-radius: 6px; text-align: left; font-weight: 750; }
+.sun-map-control button[aria-pressed=true] { background: var(--glow); border-color: var(--glow); color: var(--night); }
+.sun-map-control p { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.sun-map-key { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 13px; padding: 0; list-style: none; }
+.sun-map-key li { display: flex; gap: 7px; align-items: center; }
+.sun-map-key strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+.sun-map-key i { width: 11px; height: 11px; flex: none; background: currentColor; border-radius: 50%; }
+.sun-map-key i[data-shape=diamond] { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border-radius: 0; }
+.sun-map-key i[data-shape=triangle] { clip-path: polygon(50% 0, 100% 96%, 0 96%); border-radius: 0; }
+.sun-map-key i[data-shape=ring] { background: transparent; border: 2px solid currentColor; }
 .locations { display: grid; gap: 8px; }
 .nature-locations { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .site-card { padding: 9px 11px; border: 1px solid #63748d; border-radius: 9px; background: #23334b; }

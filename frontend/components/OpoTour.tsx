@@ -8,6 +8,7 @@ import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './o
 import { horizonRange, type DirectionProfile } from './opo-horizon';
 import { routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
 import { observationHeight, type LightReport, type LightSample } from './opo-sunlight';
+import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import greenAccess from '../public/opo-green-access.json';
@@ -141,6 +142,8 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
   const [points, setPoints] = useState<Points>({});
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [lightSlot, setLightSlot] = useState<Slot | null>(null);
+  const [showSunMap, setShowSunMap] = useState(false);
+  const [sunMapResult, setSunMapResult] = useState<{ date: string; minute: number; counts: SunMapCounts } | null>(null);
   const [status, setStatus] = useState('');
   const [open, setOpen] = useState(region !== 'opo');
   const [placeCategory, setPlaceCategory] = useState('all');
@@ -161,14 +164,15 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     let active: OpoWorld | undefined;
     loadOpoData(controller.signal, region).then(data => {
       if (controller.signal.aborted || !host.current) return;
-      active = openOpoWorld(host.current, data, location => {
+      active = openOpoWorld(host.current, data, (location, source) => {
         const slot = pickSlot.current;
         if (!slot || !active) return;
         if (!active.canAnalyze(location)) {
           setStatus('분석 범위 안의 실외 지점을 선택해 주세요.');
           return;
         }
-        setPoints(current => ({ ...current, [slot]: { ...location, id: 'custom', label: '직접 선택한 지점' } }));
+        const label = source === 'sun-grid' ? '일조 지도에서 고른 표본' : '직접 선택한 지점';
+        setPoints(current => ({ ...current, [slot]: { ...location, id: 'custom', label } }));
         setSelectedSlot(null);
         setStatus('');
       });
@@ -229,6 +233,11 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
   useEffect(() => {
     world?.showLightPath(lightPoint && date && tab === 'sun' && !selectedSlot ? lightPoint : null, date, minute, lightSlot ?? 'A', true);
   }, [world, lightPoint, date, minute, lightSlot, tab, selectedSlot]);
+  useEffect(() => {
+    if (!showSunMap || !date || tab !== 'sun' || mode !== 'orbit') return;
+    setSunMapResult(null);
+    return world?.sunMap?.render(date, minute, counts => setSunMapResult({ date, minute, counts }));
+  }, [world, date, minute, mode, showSunMap, tab]);
 
   const reports = useMemo(() => {
     const result: Partial<Record<Slot, LightReport>> = {};
@@ -259,6 +268,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
   }, [world, open, tab, points, bearing]);
 
   function chooseMode(next: ViewMode) {
+    setShowSunMap(false);
     setLightSlot(null);
     setSelectedSlot(null);
     setStatus('');
@@ -271,6 +281,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
   }
 
   function chooseTab(next: AnalysisTab) {
+    if (next !== 'sun') setShowSunMap(false);
     setLightSlot(null);
     setSelectedSlot(null);
     setStatus('');
@@ -310,6 +321,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     const point = points[slot];
     if (!world || !point) return;
     if (lightSlot === slot) { setLightSlot(null); return; }
+    setShowSunMap(false);
     setLightSlot(slot);
     setSelectedSlot(null);
     setAccessId(null);
@@ -317,6 +329,19 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     world.showGreenAccess(null);
     setMode('orbit');
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
+  function toggleSunMap() {
+    if (!world?.sunMap || !date) return;
+    if (showSunMap) { setShowSunMap(false); return; }
+    setLightSlot(null);
+    setSelectedSlot(null);
+    setStatus('');
+    setAccessId(null);
+    world.showGreenAccess(null);
+    world.sunMap.focus();
+    setMode('orbit');
+    setShowSunMap(true);
   }
 
   function useCurrentPosition() {
@@ -351,6 +376,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     if (!world) return;
     const next = world.goTo(id);
     if (!next) return;
+    setShowSunMap(false);
     setLightSlot(null);
     setMode(next);
     setSelectedSlot(null);
@@ -363,6 +389,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
   const buildingRegister = world?.sources.register;
   const selectedPlace = world?.places.find(place => place.id === selectedPlaceId);
   const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
+  const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
 
   return <main className="tour" data-mode={mode} data-satellite={satellite} onKeyDown={event => {
     if (event.key === 'Escape') { setSelectedSlot(null); setStatus(''); }
@@ -402,6 +429,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
     {Boolean(world?.tripLength) && <button className="street-trip" aria-pressed={street.touring}
       title={`단지 입구에서 수레실 정류장을 거쳐 능평도서관까지 약 ${world?.tripLength}m`} onClick={() => {
         if (!world) return;
+        setShowSunMap(false);
         setLightSlot(null);
         setSelectedSlot(null);
         setAccessId(null);
@@ -434,6 +462,19 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
           <input id="tour-time" type="range" min={0} max={1439} step={1} value={minute} aria-valuetext={timeLabel(minute)} onChange={event => setMinute(Number(event.target.value))} />
           <div className="time-scale"><span>00시</span><span>06시</span><span>12시</span><span>18시</span><span>24시</span></div>
         </div>
+        {world?.sunMap && <section className="sun-map-control" aria-label="단지 일조 분포">
+          <button aria-pressed={showSunMap} disabled={!date} onClick={toggleSunMap}>단지 일조 분포</button>
+          {showSunMap && (date ? mapCounts ? <>
+            <p role="status">{timeLabel(minute)} · {Object.values(mapCounts).reduce((sum, count) => sum + count, 0)}개 실외 표본</p>
+            <ul className="sun-map-key">
+              {(mapCounts.night ? ['night'] as const : ['sun', 'building', 'terrain', 'unknown'] as const).map(kind => (
+                <li key={kind}><i aria-hidden="true" data-shape={sunMapLegend[kind].shape} style={{ color: sunMapLegend[kind].color }} />
+                  {sunMapLegend[kind].name} <strong>{mapCounts[kind]}</strong></li>
+              ))}
+            </ul>
+            <p>{sunGridSpacing}m 간격으로 뽑은 점에서 계산했어요. A·B 옆 ⌖를 누른 뒤 지도 위 점을 선택하면 하루 일조를 비교할 수 있어요.</p>
+          </> : <p role="status">일조 분포 계산 중…</p> : <p role="status">비교 날짜를 입력해 주세요.</p>)}
+        </section>}
       </>}
 
       {(tab === 'sun' || tab === 'nature') && <div className={tab === 'nature' ? 'locations nature-locations' : 'locations'}>
@@ -486,6 +527,7 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
           <p>지형은 {world?.sources.terrain.name ?? 'GEDTM30'}의 약 {world?.sources.terrain.resolution ?? 30}m 표고 모델입니다. 수목의 그늘은 현장에서 따로 확인해야 합니다.</p>
           <p>모델 내 최대 건물 높이({world?.sources.referenceHeight.toLocaleString('ko-KR') ?? '—'}m)까지의 차폐를 검토합니다. 햇빛 방향에 높이 미확인 건물이 있거나 건물 표본 밖에서 차폐 가능성이 있으면 해당 시간을 미판정으로 남깁니다.</p>
           <p>막대는 00~24시입니다. 누적 시간은 10분 구간의 중앙 시점으로 계산하고, 시각을 옮길 때의 판정은 화면에 표시된 시각을 사용합니다.</p>
+          {world?.sunMap && <p>단지 일조 분포는 지도에 표시된 단지 경계 안의 {sunGridSpacing}m 간격 실외 표본에서 계산합니다. 표본 사이의 값은 추정하지 않으며, 표본 간격과 표고 자료의 해상도는 서로 다릅니다.</p>}
           <a href="https://github.com/hypnos3/suncalc3" target="_blank" rel="noreferrer">태양 위치 계산 · SunCalc3 ↗</a>
           {buildingRegister && <a href={buildingRegister.source.url} target="_blank" rel="noreferrer">주동 등록 높이 · 국토교통부 건축HUB ↗</a>}
         </details>
