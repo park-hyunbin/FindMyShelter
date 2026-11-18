@@ -6,8 +6,10 @@ import { nearestOnLine, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
-import { songpaHospital, visitRoutes } from './data/visit-routes';
+import { songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
+import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
+import { songpaEntrance } from './data/songpa-entrance';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
@@ -138,9 +140,12 @@ export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoDat
   return { group, stops, stationDistancesM, labels, frames };
 }
 
-export function addGreenAccess(data: OpoData, scene: T.Scene) {
+export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
   const recorded = new LineMaterial({ color: data.region === 'songpa' ? '#148b80' : '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
+  const aerialTrace = data.region === 'songpa' ? new LineMaterial({ color: '#8e69d5', linewidth: 4.3 }) : null;
+  const shortConnection = data.region === 'songpa'
+    ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
   const routes = visitRoutes[data.region].routes;
   const crossingGeometry = routes.some(route => route.crossings?.length)
     ? new T.RingGeometry(2.6, 3.9, 18).rotateX(-Math.PI / 2) : null;
@@ -154,11 +159,10 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
     const bounds = new T.Box3();
     const routePoints: T.Vector3[] = [];
     group.visible = false;
-    for (const [index, segment] of route.segments.entries()) {
-      const points = projected[index];
+    function addLine(points: Point[], style: LineMaterial) {
       const vertices: number[] = [];
       function vertex(x: number, z: number) {
-        const y = data.ground(x, z) + 1.6;
+        const y = grade(x, z) + 0.76;
         const position = new T.Vector3(x, y, z);
         bounds.expandByPoint(position);
         routePoints.push(position);
@@ -167,13 +171,50 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
       vertex(points[0].x, points[0].z);
       for (let i = 1; i < points.length; i++) {
         const a = points[i - 1], b = points[i];
-        const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 8));
+        const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 4));
         for (let j = 1; j <= count; j++) vertex(a.x + (b.x - a.x) * j / count, a.z + (b.z - a.z) * j / count);
       }
-      const line = new Line2(new LineGeometry().setPositions(vertices), segment.mappedWalkway ? recorded : unconfirmed);
+      const line = new Line2(new LineGeometry().setPositions(vertices), style);
       line.computeLineDistances();
       group.add(line);
     }
+    route.segments.forEach((segment, index) => addLine(projected[index], segment.mappedWalkway ? recorded : unconfirmed));
+    const homeWalk = aerialTrace && shortConnection && (route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId) ? (() => {
+      const nearStation = songpaHomeLinks.stationExit.coordinates.map(data.project);
+      const nearGate = songpaHomeLinks.gateApproach.coordinates.map(data.project);
+      const inner = songpaGrounds.points.find(point => point.id === 'inner-paving');
+      if (!inner) return null;
+      const arrival = data.project(inner.coordinate);
+      const apron = songpaCourtyard.apron.map(data.project);
+      const join = apron.slice(1).map((end, index) => ({ index, ...nearestOnLine(arrival, [[apron[index], end]]) }))
+        .sort((a, b) => a.distance - b.distance)[0];
+      const inside = [nearGate.at(-1)!, ...apron.slice(0, join.index + 1), join.point, arrival];
+      addLine(nearStation, shortConnection);
+      addLine(nearGate, shortConnection);
+      addLine(inside, aerialTrace);
+      const at = (name: string, evidence: string, position: Point, toward: Point) => ({
+        name, evidence, position,
+        bearing: T.MathUtils.radToDeg(Math.atan2(toward.x - position.x, position.z - toward.z) - data.northOffset),
+      });
+      const uphill = profile?.returnSteepest;
+      const uphillSample = uphill && profile?.samples[uphill.index];
+      return {
+        insideM: Math.round(inside.slice(1).reduce((sum, p, index) =>
+          sum + Math.hypot(p.x - inside[index].x, p.z - inside[index].z), 0)),
+        stops: [
+          at('송파역 2번 출구 위치', `지도상 출구 위치 · 보행로까지 약 ${songpaHomeLinks.stationExit.lengthM}m 연결 미확인`, nearStation[0], nearStation[1]),
+          ...(uphill && uphillSample ? [{
+            name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
+            position: uphillSample.position, bearing: uphillSample.bearing + 180,
+          }] : []),
+          at('단지 앞 교차점', `정문 방향 약 ${songpaHomeLinks.gateApproach.lengthM}m · 지도에 보도 연결 표시 없음`, nearGate[0], nearGate[1]),
+          at('단지 정문 횡단부', '정문과 횡단부 위치 참고 · 보행 연결과 개방 여부는 현장 확인',
+            data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
+          at(inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',
+            arrival, data.project(inner.lookAt)),
+        ],
+      };
+    })() : null;
     for (const crossing of route.crossings ?? []) {
       const { x, z } = data.project(crossing.coordinate);
       const ring = new T.Mesh(crossingGeometry!, crossingMaterial!);
@@ -205,7 +246,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
       bearing: T.MathUtils.radToDeg(Math.atan2(crossing.toward.x - crossing.position.x,
         crossing.position.z - crossing.toward.z) - data.northOffset),
     };
-    return { id: route.id, name: route.name, group, bounds, endpoint, entranceLabel, routePoints, profile, crossingView };
+    return { id: route.id, name: route.name, group, bounds, endpoint, entranceLabel, routePoints, profile, crossingView, homeWalk };
   });
   const marker = new T.Group();
   marker.visible = false;

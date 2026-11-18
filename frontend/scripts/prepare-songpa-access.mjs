@@ -24,6 +24,7 @@ const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 // This junction is outside the mapped residential outline. Unit-to-gate paths need their own verification.
 const start = 1810741885;
+const gateApproachNode = 1810741895;
 const destinations = [
   {
     id: 'songpa-station', name: '송파역 2번 출구 인근', node: 10911566248, reference: 3401171608,
@@ -46,7 +47,8 @@ const destinations = [
     referenceSource: 'https://www.openstreetmap.org/way/169916267',
   },
 ];
-if (!ways.get(169916279)?.nodes.includes(start) || !ways.get(169916276)?.nodes.includes(start)) {
+const gateStreet = ways.get(169916279);
+if (!gateStreet?.nodes.includes(start) || !gateStreet.nodes.includes(gateApproachNode) || !ways.get(169916276)?.nodes.includes(start)) {
   throw new Error('The public-road junction is missing from the map extract');
 }
 const station = elements.find(item => item.type === 'node' && item.id === destinations[0].reference);
@@ -186,8 +188,22 @@ routes.push(describeRoute({ ...stationRoute, id: 'songpa-station-detour', varian
 routes.push(describeRoute({ ...parkRoute, id: 'songi-park-distance', variantOf: parkRoute.id,
   comparisonLabel: '송이로14길 경유' }, parkDistanceRoute));
 
+const streetStart = gateStreet.nodes.indexOf(start);
+const streetEnd = gateStreet.nodes.indexOf(gateApproachNode);
+const approachNodes = gateStreet.nodes.slice(Math.min(streetStart, streetEnd), Math.max(streetStart, streetEnd) + 1);
+if (streetStart > streetEnd) approachNodes.reverse();
+function referenceLink(ids, linkSource) {
+  const coordinates = ids.map(id => nodes.get(id));
+  const lengthM = Math.round(ids.slice(1).reduce((sum, id, index) => sum + distance(projected.get(ids[index]), projected.get(id)), 0));
+  return { coordinates, lengthM, source: linkSource };
+}
+const homeLinks = {
+  stationExit: referenceLink([station.id, stationRoute.node], stationRoute.referenceSource),
+  gateApproach: referenceLink(approachNodes, `https://www.openstreetmap.org/way/${gateStreet.id}`),
+};
+
 await writeFile(new URL('../public/datasets/regions/songpa/access.json', import.meta.url), JSON.stringify({
-  source, retrieved: new Date().toISOString().slice(0, 10), start: nodes.get(start), startNode: start, routes,
+  source, retrieved: new Date().toISOString().slice(0, 10), start: nodes.get(start), startNode: start, routes, homeLinks,
   attribution: '© OpenStreetMap contributors', license: 'https://www.openstreetmap.org/copyright',
 }) + '\n');
 for (const route of routes) {

@@ -159,7 +159,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const schoolMap = isOpo ? undefined : addSongpaSchoolMap(data, scene, streets.surface);
   const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
-  const greenAccess = addGreenAccess(data, scene);
+  const greenAccess = addGreenAccess(data, scene, streets.surface);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   const parkViews = isOpo ? [] : songiPark.views.map(({ name, coordinate, toward }) => {
     const position = data.project(coordinate);
@@ -527,6 +527,17 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     labels.push({ point: layer.entranceLabel ?? new T.Vector3(x, data.ground(x, z) + 5, z), element,
       enabled: () => layer.group.visible && (!greenAccess.marker.visible
         || Math.hypot(greenAccess.marker.position.x - x, greenAccess.marker.position.z - z) > 15), keepInFrame: true });
+    const arrival = layer.homeWalk?.stops.at(-1);
+    if (arrival) {
+      const mark = document.createElement('span');
+      mark.className = 'building-label access-label';
+      mark.textContent = '정문 · 단지 안 포장 공간';
+      mark.hidden = true;
+      host.appendChild(mark);
+      const { x, z } = arrival.position;
+      labels.push({ point: new T.Vector3(x, streets.surface(x, z) + 9, z), element: mark,
+        enabled: () => layer.group.visible && mode === 'orbit', keepInFrame: true });
+    }
   }
   const routeTerrainLabel = document.createElement('span');
   routeTerrainLabel.className = 'building-label route-terrain-label';
@@ -1041,7 +1052,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const scale = Math.max(160, x, z);
       frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
     },
-    greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView }) => ({ id, profile, crossingView })),
+    greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, homeWalk }) => ({ id, profile, crossingView, homeWalk })),
     parkViews,
     markGreenAccess(id: string | null, index: number) {
       greenAccess.mark(id, index);

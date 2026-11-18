@@ -11,7 +11,7 @@ import { observationHeight, type LightReport, type LightSample } from './opo-sun
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
-import { songpaHospital, visitRoutes } from './data/visit-routes';
+import { songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFacilities, songpaGrounds } from './data/songpa-grounds';
@@ -337,6 +337,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : 'sun');
   const [accessId, setAccessId] = useState<string | null>(null);
   const [accessSample, setAccessSample] = useState(0);
+  const [homeStep, setHomeStep] = useState<number | null>(null);
   const [bearing, setBearing] = useState(0);
   const [satellite, setSatellite] = useState(false);
   const [treeCoverVisible, setTreeCoverVisible] = useState(false);
@@ -496,6 +497,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, open, tab, points, bearing]);
 
   function chooseMode(next: ViewMode) {
+    setHomeStep(null);
     setShowSunMap(false);
     setLightSlot(null);
     setSelectedSlot(null);
@@ -557,6 +559,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function showAccessRoute(next: string | null) {
     if (!world) return;
+    setHomeStep(null);
     setAccessId(next);
     if (next !== accessId) setAccessSample(0);
     setSelectedSlot(null);
@@ -575,6 +578,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world.lookFrom(point.position, point.bearing, 0);
     setMode('walk');
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
+  function viewHomeStop(routeId: string, index: number) {
+    const stop = world?.greenAccessProfiles.find(route => route.id === routeId)?.homeWalk?.stops[index];
+    if (!stop) return;
+    if (routeId !== accessId || homeStep === null || mode !== 'walk') showAccessRoute(routeId);
+    setHomeStep(index);
+    lookAtRoutePoint(stop);
   }
 
   function openAccessRoute(id: string) {
@@ -729,7 +740,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'station-route':
       case 'park-route':
-        openAccessRoute(target === 'station-route' ? 'songpa-station' : songiPark.routeId);
+        openAccessRoute(target === 'station-route' ? songpaStationRouteId : songiPark.routeId);
         break;
       case 'school-route':
         openAccessRoute(songpaSchool.routeId);
@@ -755,6 +766,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const parkingSpaces = songpaFacilities.surfaceParking + songpaFacilities.undergroundParking;
   const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
   const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
+  const homeWalk = tab === 'nature' && mode === 'walk' && homeStep !== null && accessId
+    ? world?.greenAccessProfiles.find(route => route.id === accessId)?.homeWalk : null;
+  const currentHomeStop = homeStep === null ? null : homeWalk?.stops[homeStep];
 
   return <main className="tour" data-mode={mode} data-satellite={satellite} onKeyDown={event => {
     if (event.key === 'Escape') { setSelectedSlot(null); setStatus(''); }
@@ -775,6 +789,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     </header>
 
     {world && <TourLive world={world} region={region} />}
+
+    {homeWalk && currentHomeStop && accessId && homeStep !== null && <section className="light-inspection home-walk-control" aria-label="귀갓길 체험">
+      <div aria-live="polite"><strong>{homeStep + 1}/{homeWalk.stops.length} · {currentHomeStop.name}</strong>
+        <p>{currentHomeStop.evidence}</p></div>
+      <div className="home-walk-actions">
+        <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
+        <button type="button" disabled={homeStep === homeWalk.stops.length - 1} onClick={() => viewHomeStop(accessId, homeStep + 1)}>다음</button>
+        <button type="button" onClick={() => { showAccessRoute(accessId); setOpen(true); }}>경로 지도</button>
+      </div>
+    </section>}
 
     {lightSlot && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
       <div><strong>{lightSlot} 지점 · {date} {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>
@@ -987,6 +1011,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const accessDetails = world?.greenAccessProfiles.find(item => item.id === route.id);
             const profile = accessDetails?.profile;
             const crossing = accessDetails?.crossingView;
+            const home = accessDetails?.homeWalk;
             const selected = accessId === route.id;
             const routeVisible = selected && mode === 'orbit';
             return <div key={primary.id} ref={selected ? activeAccessCard : undefined} className="site-card access-card">
@@ -1012,6 +1037,17 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               {!hospital && route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
               <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : hospital ? '도로 연결과 출입구 보기' : '경로 보기'}</button>
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
+              {home && <section className="route-terrain return-walk" aria-label="송파역에서 단지로 돌아오는 길">
+                <strong>송파역에서 정문과 단지 안까지</strong>
+                <ul>
+                  <li><i className="walk-mapped" aria-hidden="true" />지도에 보도가 표시된 경로 {route.walkwayM}m</li>
+                  <li><i className="walk-gap" aria-hidden="true" />출구 약 {songpaHomeLinks.stationExit.lengthM}m, 정문 쪽 약 {songpaHomeLinks.gateApproach.lengthM}m 연결 미확인</li>
+                  <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>
+                </ul>
+                <div className="site-actions"><button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button></div>
+                <a href={songpaHomeLinks.gateApproach.source} target="_blank" rel="noreferrer">정문 앞 도로 원본 ↗</a>
+                <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">단지 항공영상 촬영 정보 ↗</a>
+              </section>}
               {selected && hospital && <div className="route-terrain">
                 <strong>보조출입구 조사 · {hospital.referenceDate}</strong>
                 <p>{hospital.address} · 경사로 설치, 조사 기준 5° 이하 경사, 문폭 1m 이상, 문 하부 단차 없음.</p>

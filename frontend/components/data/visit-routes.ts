@@ -4,6 +4,8 @@ import songpa from '../../public/datasets/regions/songpa/access.json';
 import hospital from '../../public/datasets/regions/songpa/hospital-entrance.json';
 
 export const songpaHospital = hospital;
+export const songpaHomeLinks = songpa.homeLinks;
+export const songpaStationRouteId = 'songpa-station';
 
 type AccessRoute = {
   id: string;

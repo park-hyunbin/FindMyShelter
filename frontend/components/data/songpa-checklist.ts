@@ -70,8 +70,8 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'transit', title: '역·정류장까지 걷기', evidence: 'model',
-        finding: '단지 앞 교차점에서 송파역 2번 출구 인근까지 지도에 이어진 길과 횡단 구간을 볼 수 있어요. 단지 출입구 연결, 출구까지 마지막 구간과 버스정류장 경로는 현장 확인이 필요해요.',
-        views: [{ target: 'station-route', label: '송파역 방향 경로 보기' }],
+        finding: '송파역 2번 출구부터 정문을 지나 단지 안 포장 공간까지 주요 지점의 눈높이를 볼 수 있어요. 역과 정문 앞의 보행 연결과 버스정류장 경로는 현장 확인이 필요해요.',
+        views: [{ target: 'station-route', label: '송파역 귀갓길 열기' }],
         followUp: '출근할 시간에 횡단보도, 신호 대기, 계단과 실제 걸린 시간을 기록해 보세요.',
         sources: [walkingNetwork],
       },
