@@ -1,6 +1,6 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
-import { regions, type RegionId } from './data/regions';
+import { regions, songpaComplex, type RegionId } from './data/regions';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
@@ -138,14 +138,15 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const officialHeights = new Map(register.towers.map(row => [row.outlineId, row]));
   const registerRows: (typeof register.towers[number] & { outlineAreaM2: number })[] = [];
   const toBuilding = ({ geometry, properties }: BuildingFile['features'][number]): Building => {
-    const dong = region === 'opo' && properties.name === '오포 롯데캐슬 포레스트' ? properties.dong : null;
+    const dong = region === 'opo' && properties.name === '오포 롯데캐슬 포레스트' ? properties.dong
+      : region === 'songpa' ? songpaComplex.towers.find(tower => tower.id === properties.id)?.dong ?? null : null;
     const row = officialHeights.get(properties.id);
     const recorded = row && row.dong === dong ? row : undefined;
     const shapes = (geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates).map(toShape);
     if (recorded) registerRows.push({ ...recorded, outlineAreaM2: properties.area_m2 ?? outlineArea(shapes) });
     return {
       id: properties.id,
-      label: [properties.name ?? '주변 건물', properties.dong === properties.name ? null : properties.dong].filter(Boolean).join(' '),
+      label: [properties.name ?? '주변 건물', properties.dong === properties.name ? null : dong ?? properties.dong].filter(Boolean).join(' '),
       dong,
       height: recorded?.heightM ?? properties.height_m,
       levels: recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors ?? null,

@@ -17,6 +17,7 @@ import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
 import { createStreetOcclusion } from './opo-contact-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
+import { songpaComplex } from './data/regions';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
@@ -111,8 +112,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
   const smallScreen = window.innerWidth < 720;
   const streetOcclusion = isOpo && !smallScreen ? createStreetOcclusion(renderer, scene, camera) : undefined;
-  const finish = isOpo ? createTourMaterials(Math.min(renderer.capabilities.getMaxAnisotropy(), 8), !smallScreen) : undefined;
-  const sky = isOpo ? createTourSky(scene) : undefined;
+  const finish = createTourMaterials(Math.min(renderer.capabilities.getMaxAnisotropy(), 8), !smallScreen);
+  const sky = createTourSky(scene);
   const fog = scene.fog as T.FogExp2;
   sky?.light(new T.Vector3(-0.5, 0.5, 0.5).normalize(), 0.5, fog.color);
   const sun = new T.DirectionalLight('#F8E9C6', 2.35);
@@ -129,7 +130,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   scene.add(terrain);
   const { occluders, anchors, roofs } = buildMeshes(data, scene);
   const streets = addStreets(data, scene, finish);
-  const entrance = finish ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
+  const entrance = isOpo ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const insideBuilding = buildingCollision(data.buildings);
   const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
   const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
@@ -138,9 +139,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const road = streets.nearest(point, 14);
     return entrance?.paved(point) || insideBuilding(point) || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
   }, treeCover ?? undefined);
-  const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, courtyardOpening);
+  const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
   const site = addSiteDetails(data, scene, streets.surface);
-  const garden = finish ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
+  const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   const greenAccess = addGreenAccess(data, scene);
   scene.updateMatrixWorld(true);
@@ -150,14 +151,16 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point))
     || Boolean(entrance?.occupied(point) || garden?.blocked(point));
-  const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= Math.min(precinct, data.buildingRadius);
-  const siteSamples = isOpo ? sunGridPoints(data.siteOutline, canAnalyze) : [];
+  const analysisRadius = isOpo ? Math.min(precinct, data.buildingRadius) : data.buildingRadius;
+  const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= analysisRadius;
+  const siteSamples = data.siteOutline.length ? sunGridPoints(data.siteOutline, canAnalyze) : [];
   const sunMap = siteSamples.length ? createSunMap(scene, data.siteOutline, siteSamples, streets.grade) : undefined;
-  const roadSpawn = isOpo ? streets.nearest(data.project(roadEntry)) : streets.nearest({ x: 0, z: 0 }, data.buildingRadius);
+  const roadSpawn = streets.nearest(data.project(isOpo ? roadEntry : songpaComplex.roadside), 64);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
   const spawn = roadSpawn.point;
   const approachPoint = isOpo ? data.project(approach) : spawn;
-  const initialHeading = isOpo ? headingTo(spawn, entrance?.gate ?? approachPoint) : headingTo(roadSpawn.segment.a, roadSpawn.segment.b);
+  const lookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(songpaComplex.lookAt);
+  const initialHeading = headingTo(spawn, lookAt);
   const destinations: { id: string; name: string; position: Point; lookAt?: Point }[] = isOpo ? [
     { id: 'approach', name: '오포 롯데캐슬 정문·진입교', position: approachPoint },
     courtyard,
@@ -167,7 +170,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const place = data.streetPoints.find(item => item.name === name);
       return place ? [{ id: place.id, name, position: place.position }] : [];
     }),
-  ] : [];
+  ] : [{ id: 'approach', name: songpaComplex.roadName, position: spawn, lookAt }];
   const tripStops = ['approach', ...destinations.filter(place => routePlaces.slice(0, 2).includes(place.name)).map(place => place.id)]
     .map(id => destinations.find(place => place.id === id))
     .flatMap(place => {
@@ -194,7 +197,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let stickX = 0, stickY = 0;
   let mode: ViewMode = 'orbit';
   let eyeLevel = false;
-  let walkingAtEyeLevel = isOpo;
+  let walkingAtEyeLevel = true;
   const firstPerson = () => eyeLevel || (mode === 'walk' && walkingAtEyeLevel);
   let selecting = false;
   let active = true;
@@ -263,7 +266,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
   }
   function overview() {
-    if (!isOpo) {
+    if (!isOpo && apartmentBounds.isEmpty()) {
       controls.target.set(0, 8, 0);
       camera.position.set(430, 640, 830);
       controls.update();
@@ -478,12 +481,17 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       { x: point.x, z: north - 8 }, { x: point.x, z: south + 8 },
       { x: point.x, z: north - 15 }, { x: point.x, z: south + 15 },
     ];
-    const sample = candidates.find(p => !occupied(p));
+    if (!isOpo) {
+      const east = Math.max(...outer.map(p => p.x)), west = Math.min(...outer.map(p => p.x));
+      candidates.push({ x: east + 6, z: point.z }, { x: west - 6, z: point.z });
+    }
+    const sample = candidates.find(p => canAnalyze(p) && (isOpo || !data.siteOutline.length || inShape(p, [data.siteOutline])))
+      ?? candidates.find(canAnalyze);
     return sample ? { ...sample, id: building.dong, label: `${building.dong} 인근` } : null;
   }).filter((point): point is SitePoint => point !== null).sort((a, b) => a.id.localeCompare(b.id));
   if (isOpo) {
     if (!occupied(courtyard.position)) presets.push({ ...courtyard.position, id: courtyard.id, label: courtyard.name });
-  } else {
+  } else if (!presets.length) {
     const candidates = data.streets.filter(road => road.motor).flatMap(road => road.points)
       .filter(p => Math.hypot(p.x, p.z) < 280 && !occupied(p))
       .sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
@@ -528,7 +536,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     if (next === 'orbit') overview();
   }
 
-  function updateOpoShadows(now: number) {
+  function updateShadows(now: number) {
     if (!sun.castShadow) return;
     const aerial = mode === 'orbit';
     const x = aerial ? controls.target.x : position.x + Math.sin(heading) * 22;
@@ -663,7 +671,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   renderer.setAnimationLoop(now => {
     const elapsed = Math.min(0.045, (now - last) / 1000);
     last = now;
-    const fov = isOpo && firstPerson() ? 60 : 49;
+    const fov = firstPerson() ? 60 : 49;
     if (camera.fov !== fov) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -775,10 +783,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         element.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
       }
     }
-    if (sky) {
-      sky.follow(camera);
-      updateOpoShadows(now);
-    }
+    sky.follow(camera);
+    updateShadows(now);
     environment.waterNormal?.offset.set(now * 0.000018, -now * 0.000033);
     fog.density = mode === 'orbit'
       ? Math.min(fogDensity, 0.62 / Math.max(1, controls.getDistance())) : fogDensity;
@@ -812,7 +818,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       player.visible = mode === 'walk' && !firstPerson();
       viewAngle = 0;
       pitch = 0.17;
-      if (isOpo) renderer.shadowMap.needsUpdate = true;
+      renderer.shadowMap.needsUpdate = true;
     },
     focus() { canvas.focus({ preventScroll: true }); },
     setSelect(enabled: boolean) {
@@ -863,7 +869,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     streetStatus() {
       const nearest = mode === 'drive' ? driveSegment.road : streets.nearest(position, 8)?.segment.road;
       const nearCourtyard = isOpo && mode === 'walk' && Math.hypot(position.x - courtyard.position.x, position.z - courtyard.position.z) < 20;
-      return { name: nearCourtyard ? courtyard.name : nearest?.name || (nearest ? '동네 골목' : data.area.name),
+      const onSongpaStartRoad = !isOpo && nearest?.id === roadSpawn.segment.road.id;
+      const streetName = onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name;
+      return { name: nearCourtyard ? courtyard.name : nearest?.name || streetName,
         speed: Math.round(travelSpeed * 3.6), touring: tripIndex > 0 };
     },
     toggleTrip() {
@@ -938,31 +946,20 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     light(date: string, minute: number) {
       const solar = sunAt(data, date, minute);
       const daylight = solar.altitude > 0;
-      if (sky) {
-        sky.light(solar.direction, solar.altitude, fog.color);
-        sunDirection.copy(daylight ? solar.direction : new T.Vector3(-200, 300, 100).normalize());
-        sun.castShadow = daylight;
-        const strength = T.MathUtils.smoothstep(solar.altitude, -0.04, 0.36);
-        sun.intensity = 0.17 + strength * 2.35;
-        sun.color.set(daylight ? '#fff0d7' : '#a5b9df');
-        ambient.intensity = 0.57 + T.MathUtils.smoothstep(solar.altitude, -0.14, 0.24) * 0.98;
-        ambient.color.set(daylight ? '#d9e9fa' : '#98a6d0');
-        ambient.groundColor.set(daylight ? '#6b735d' : '#242c38');
-        shadowFocus.set(Infinity, 0, Infinity);
-        if (!daylight) {
-          sun.target.position.set(45, 0, 0);
-          sun.position.copy(sunDirection).multiplyScalar(660).add(sun.target.position);
-        }
-        return;
+      sky.light(solar.direction, solar.altitude, fog.color);
+      sunDirection.copy(daylight ? solar.direction : new T.Vector3(-200, 300, 100).normalize());
+      sun.castShadow = daylight;
+      const strength = T.MathUtils.smoothstep(solar.altitude, -0.04, 0.36);
+      sun.intensity = 0.17 + strength * 2.35;
+      sun.color.set(daylight ? '#fff0d7' : '#a5b9df');
+      ambient.intensity = 0.57 + T.MathUtils.smoothstep(solar.altitude, -0.14, 0.24) * 0.98;
+      ambient.color.set(daylight ? '#d9e9fa' : '#98a6d0');
+      ambient.groundColor.set(daylight ? '#6b735d' : '#242c38');
+      shadowFocus.set(Infinity, 0, Infinity);
+      if (!daylight) {
+        sun.target.position.set(45, 0, 0);
+        sun.position.copy(sunDirection).multiplyScalar(660).add(sun.target.position);
       }
-      sun.position.copy(solar.direction).multiplyScalar(660).add(new T.Vector3(45, 0, 0));
-      if (!daylight) sun.position.set(-200, 300, 100);
-      sun.target.position.set(45, 0, 0);
-      sun.intensity = daylight ? 2.7 : 0.4;
-      ambient.intensity = daylight ? 1.8 : 0.85;
-      (scene.background as T.Color).set(daylight ? '#354D65' : '#17243A');
-      (scene.fog as T.FogExp2).color.copy(scene.background as T.Color);
-      renderer.shadowMap.needsUpdate = true;
     },
     report: analysis.day,
     lightAt: analysis.at,

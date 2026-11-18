@@ -1,0 +1,78 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "source": "https://www.openstreetmap.org/way/1079940834",
+    "license": "https://www.openstreetmap.org/copyright",
+    "attribution": "© OpenStreetMap contributors",
+    "detail": "Mapped residential outline for the address. No cadastral survey or entrance verification."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1079940834,
+        "kind": "boundary",
+        "bridge": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              127.1158724,
+              37.4980485
+            ],
+            [
+              127.1159263,
+              37.4981512
+            ],
+            [
+              127.1159898,
+              37.4982503
+            ],
+            [
+              127.1160624,
+              37.4983453
+            ],
+            [
+              127.1161412,
+              37.498433
+            ],
+            [
+              127.1162278,
+              37.4985159
+            ],
+            [
+              127.1163217,
+              37.4985935
+            ],
+            [
+              127.1164225,
+              37.4986656
+            ],
+            [
+              127.1175401,
+              37.4975252
+            ],
+            [
+              127.1166571,
+              37.4973565
+            ],
+            [
+              127.1165039,
+              37.4973504
+            ],
+            [
+              127.1155997,
+              37.4973143
+            ],
+            [
+              127.1158724,
+              37.4980485
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

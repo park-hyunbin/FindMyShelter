@@ -13,7 +13,7 @@ import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode }
 import satelliteMetadata from '../public/opo-sentinel.json';
 import greenAccess from '../public/opo-green-access.json';
 import architecture from '../public/opo-architecture.json';
-import { regions, type RegionId } from './data/regions';
+import { regions, songpaComplex, type RegionId } from './data/regions';
 import TourLive from './TourLive';
 
 const slots: Slot[] = ['A', 'B'];
@@ -184,8 +184,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
   const [world, setWorld] = useState<OpoWorld | null>(null);
-  const [mode, setMode] = useState<ViewMode>(region === 'opo' ? 'walk' : 'orbit');
-  const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(region === 'opo');
+  const [mode, setMode] = useState<ViewMode>('walk');
+  const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
   const [date, setDate] = useState(initialDate);
   const [seasonOpen, setSeasonOpen] = useState(false);
   const [seasonSlot, setSeasonSlot] = useState<Slot>('A');
@@ -196,7 +196,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [showSunMap, setShowSunMap] = useState(false);
   const [sunMapResult, setSunMapResult] = useState<{ date: string; minute: number; counts: SunMapCounts } | null>(null);
   const [status, setStatus] = useState('');
-  const [open, setOpen] = useState(region !== 'opo');
+  const [open, setOpen] = useState(false);
   const [placeCategory, setPlaceCategory] = useState('all');
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [tab, setTab] = useState<AnalysisTab>('sun');
@@ -209,7 +209,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
 
-  const [street, setStreet] = useState({ name: '수레실길', speed: 0, touring: false });
+  const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : songpaComplex.roadName, speed: 0, touring: false });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -230,7 +230,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       });
       const options = active.presets;
       setPoints({ A: options[0], B: options.find(point => point.id === '104동') ?? options.at(-1) });
-      active.setMode(region === 'opo' ? 'walk' : 'orbit');
+      active.setMode('walk');
       setWorld(active);
     }).catch(() => {
       if (!controller.signal.aborted) setError('3D 공간을 열지 못했어요. 브라우저의 그래픽 가속과 자료 연결을 확인해 주세요.');
@@ -473,10 +473,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       <div className="place"><h1>{area.name}</h1><p>{area.area}</p></div>
       {(onChangeRegion || region === 'opo' || mode !== 'orbit') && <div className="street-controls">
         {onChangeRegion && <button className="region-return" type="button" aria-haspopup="dialog" aria-controls="region-picker" onClick={onChangeRegion}>지역 바꾸기</button>}
-        {region === 'opo' && <select aria-label="동네에서 장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
+        {(region === 'opo' || world?.destinations.length) ? <select aria-label="동네에서 장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
           <option value="" disabled>동네에서 장소로 이동</option>
           {world?.destinations.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
-        </select>}
+        </select> : null}
         {mode !== 'orbit' && <span className="street-position">{street.name}{mode === 'drive' && <b>{street.speed} km/h</b>}</span>}
       </div>}
     </header>
@@ -490,7 +490,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
     <nav className="view-controls" aria-label="3D 탐색 모드">
       {(Object.keys(modeLabels) as ViewMode[]).map(key => <button key={key} disabled={!world} aria-pressed={mode === key} onClick={() => chooseMode(key)}>{modeLabels[key]}</button>)}
-      {region === 'opo' && mode === 'walk' && <button disabled={!world} aria-pressed={walkingAtEyeLevel} onClick={() => {
+      {mode === 'walk' && <button disabled={!world} aria-pressed={walkingAtEyeLevel} onClick={() => {
         if (!world) return;
         setWalkingAtEyeLevel(!walkingAtEyeLevel);
         world.setWalkingCamera(!walkingAtEyeLevel);
@@ -519,7 +519,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <button aria-pressed={tab === 'sun'} onClick={() => chooseTab('sun')}>일조 비교</button>
         <button aria-pressed={tab === 'nature'} onClick={() => chooseTab('nature')}>주변 자연환경</button>
         <button aria-pressed={tab === 'places'} onClick={() => chooseTab('places')}>생활·학교</button>
-        {region === 'opo' && <button aria-pressed={tab === 'site'} onClick={() => chooseTab('site')}>단지 시설</button>}
+        <button aria-pressed={tab === 'site'} onClick={() => chooseTab('site')}>{region === 'opo' ? '단지 시설' : '단지 정보'}</button>
       </div>
 
       {tab === 'sun' && <>
@@ -706,6 +706,20 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </section>}
         <div className="place-note"><strong>학교 위치와 통학구역은 달라요</strong><p>현재는 학교 위치만 표시합니다. 배정 학교와 학군 경계는 공식 자료를 연결한 뒤 별도 레이어로 제공합니다.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>
         <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 2026-11-15 지도 스냅샷. 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
+      </div>}
+
+      {region === 'songpa' && tab === 'site' && <div className="site-features">
+        <article className="site-card">
+          <h3>{songpaComplex.name}</h3>
+          <p>{songpaComplex.address} · 5개 동</p>
+          <p>외관은 건물 윤곽과 높이 표본으로 표현했어요. 건물 자료와 OSM에서 103·104동 표기가 달라 3D 동 이름에는 건물 자료를 사용했어요.</p>
+          <p>점선은 지도상 주거 영역이에요. 첫 시점은 {songpaComplex.roadName}이고, 단지 출입구와 내부 보행로는 추가 확인이 필요해요.</p>
+          <div className="basis">
+            <a href={songpaComplex.info} target="_blank" rel="noreferrer">서울시 공동주택 단지 정보 ↗</a>
+            <a href={songpaComplex.boundary} target="_blank" rel="noreferrer">OpenStreetMap 단지 경계 ↗</a>
+            <a href={songpaComplex.road} target="_blank" rel="noreferrer">OpenStreetMap 도로 위치 ↗</a>
+          </div>
+        </article>
       </div>}
 
       {region === 'opo' && tab === 'site' && <div className="site-features">

@@ -273,9 +273,9 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
         : /garage|shed|greenhouse|hut/.test(building.category) ? 3.1 : style === 2 ? 6.4 : style === 1 ? 10 : 5.9);
       const shape = shapeFrom(rings);
       const geometry = new T.ExtrudeGeometry(shape, { depth: displayHeight + skirt, bevelEnabled: false });
-      const roofRise = building.dong && building.height ? architecture.roofRiseM : 0;
+      const roofRise = data.region === 'opo' && building.dong && building.height ? architecture.roofRiseM : 0;
       const wallHeight = displayHeight - roofRise;
-      const floorHeight = building.dong && building.levels ? wallHeight / building.levels : 3.1;
+      const floorHeight = building.dong && building.levels && building.levels > 0 ? wallHeight / building.levels : 3.1;
       if (!roofRise) {
         const uv = geometry.getAttribute('uv');
         for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3.25, (uv.getY(i) - skirt) / floorHeight);
@@ -291,7 +291,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       }
       const mesh = new T.Mesh(geometry, building.dong ? [apartmentRoof, facade] : [roofMaterials[roofStyle], facadeMaterials[style]]);
       mesh.castShadow = mesh.receiveShadow = true;
-      mesh.name = building.dong ? `오포 포레스트 ${building.dong}` : building.label;
+      mesh.name = data.region === 'opo' && building.dong ? `오포 포레스트 ${building.dong}` : building.label;
       scene.add(mesh);
       occluders.push(mesh);
       if (roofRise) {
