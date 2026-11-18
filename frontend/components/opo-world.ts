@@ -379,7 +379,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let guidedWalk = false;
   let accessEntranceId: string | null = null;
   const analysisMapVisible = () => ambientMap?.group.visible || floodMap?.group.visible || schoolMap?.group.visible;
-  const updateComparisonMarkers = () => { comparisonMarkers.visible = !ambientInspection && !guidedWalk && !analysisMapVisible(); };
+  const updateComparisonMarkers = () => {
+    comparisonMarkers.visible = !ambientInspection && !guidedWalk && !analysisMapVisible() && !lightPath.group.visible;
+  };
   const markers = Object.fromEntries((['A', 'B'] as const).map((slot, index) => {
     const group = new T.Group();
     const color = index === 0 ? '#e5ae45' : '#407b7b';
@@ -481,7 +483,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   lightPathLabel.className = 'building-label light-path-label';
   lightPathLabel.hidden = true;
   host.appendChild(lightPathLabel);
-  labels.push({ point: lightPath.labelPoint, element: lightPathLabel, enabled: () => lightPath.group.visible });
+  const lightOriginLabel = document.createElement('span');
+  lightOriginLabel.className = 'building-label light-path-origin';
+  lightOriginLabel.hidden = true;
+  host.appendChild(lightOriginLabel);
+  const lightPathVisible = () => lightPath.group.visible;
+  labels.push({ point: lightPath.labelPoint, element: lightPathLabel, enabled: lightPathVisible, keepInFrame: true },
+    { point: lightPath.originPoint, element: lightOriginLabel, enabled: lightPathVisible, keepInFrame: true });
   const placeGroup = new T.Group();
   scene.add(placeGroup);
   let placeCategories: string[] = [];
@@ -671,14 +679,22 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
   }
 
-  function showLightPath(location: Point | null, date: string, minute: number, slot: Slot, focus = false) {
-    if (!location) { lightPath.group.visible = false; return; }
+  function showLightPath(location: SitePoint | null, date: string, minute: number, slot: Slot, focus = false) {
+    if (!location) {
+      lightPath.group.visible = false;
+      updateComparisonMarkers();
+      return;
+    }
     const sample = analysis.at(location, date, minute);
     const origin = new T.Vector3(location.x, streets.surface(location.x, location.z) + observationHeight, location.z);
     const { direction } = sunAt(data, date, minute);
     lightPath.update(sample, origin, direction, slot);
-    lightPathLabel.textContent = sample.obstruction ? `${slot} · ${sample.cause}`
-      : sample.status === 'unknown' ? `${slot} · 차폐 미판정` : `${slot} · 태양 방향`;
+    updateComparisonMarkers();
+    lightOriginLabel.textContent = `${slot} · ${location.label}`;
+    lightPathLabel.textContent = sample.obstruction ? `차폐 · ${sample.cause}`
+      : sample.status === 'unknown' ? '차폐 미판정' : '태양 방향';
+    lightOriginLabel.dataset.slot = slot;
+    lightPathLabel.dataset.slot = slot;
     if (!focus || !lightPath.group.visible) return;
     setMode('orbit');
     const sphere = lightPath.bounds.getBoundingSphere(new T.Sphere());

@@ -40,7 +40,10 @@ h1, h2, p { margin: 0; }
 .access-entrance-label { border-color: #d8bcff; color: #f2e6ff; background: #3e3051; }
 .street-label { border-color: #c1c8bb; color: #314a3e; background: #f2f1e7f2; }
 .bus-label { border-color: #85a99c; color: #eaf6ef; background: #346655f0; font-size: 10px; }
-.light-path-label { color: #17243a; border-color: #f8d78b; background: #fff2cbf5; }
+.light-path-label, .light-path-origin { color: #17243a; border-color: #f8d78b; background: #fff2cbf5; }
+.light-path-origin { margin-top: 16px; color: #fff2cb; background: #17243af5; }
+.light-path-label[data-slot='B'] { border-color: #91ded0; background: #dbf4eff5; }
+.light-path-origin[data-slot='B'] { border-color: #91ded0; color: #dbf4ef; }
 
 .tour-title { position: absolute; top: 26px; left: 30px; pointer-events: none; }
 .brand { display: flex; align-items: center; gap: 7px; width: max-content; padding: 2px 6px 2px 2px; border-radius: 5px; color: var(--lilac); background: #17243ad9; font-weight: 740; font-size: 13px; letter-spacing: -.2px; }

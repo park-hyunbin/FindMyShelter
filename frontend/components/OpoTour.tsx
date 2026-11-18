@@ -942,8 +942,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       </div>
     </section>}
 
-    {lightSlot && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
-      <div><strong>{lightSlot} 지점 · {date} {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>
+    {lightSlot && lightPoint && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
+      <div aria-live="polite"><strong>{lightPoint.label}</strong><p>{date} · {timeLabel(minute)} KST</p>
+        <p>{lightStatus(moment[lightSlot])}</p></div>
       <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
     </section>}
     {winterStreet && <section className="light-inspection" aria-label="겨울 일조 산책 시각">
@@ -1029,7 +1030,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         {region === 'songpa' && <>
           <WinterWalk world={world} date={`${date.slice(0, 4) || initialDate.slice(0, 4)}-12-21`}
             detailsRef={winterWalkDetails} expanded={winterWalkOpen} selection={winterWalkSelection}
-            onToggle={setWinterWalkOpen} onSelect={setWinterWalkSelection} onView={viewWinterWalk} onSave={saveWinterVisit} />
+            onToggle={setWinterWalkOpen} onSelect={selection => {
+              if (selection.id !== winterWalkSelection.id || selection.hour !== winterWalkSelection.hour) setLightSlot(null);
+              setWinterWalkSelection(selection);
+            }} onView={viewWinterWalk} onSave={saveWinterVisit} />
           <WinterCapture world={world} onCompare={compareWinterCapture} detailsRef={winterDetails} />
         </>}
         <details className="season-compare" open={seasonOpen} onToggle={event => setSeasonOpen(event.currentTarget.open)}>
