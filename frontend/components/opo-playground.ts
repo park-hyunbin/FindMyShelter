@@ -34,14 +34,13 @@ export function addPlayground(data: OpoData, scene: T.Scene, grade: OpoData['gro
     piece(new T.CylinderGeometry(radius, radius, direction.length(), 10).applyQuaternion(rotation), color, [mid.x, mid.y, mid.z]);
   }
 
-  function slide(x: number, height: number, color: string) {
-    const curve = path([[x, height, 0.58], [x, height - 0.16, 1.14], [x, height * 0.45, 2.15], [x, 0.21, 3.2]]);
+  function slideChannel(curve: T.CatmullRomCurve3, color: string, width: number, sideHeight: number) {
     const positions: number[] = [], indices: number[] = [];
     const across = 8;
     for (const [row, point] of curve.getPoints(24).entries()) {
       for (let col = 0; col <= across; col++) {
         const offset = 2 * col / across - 1;
-        positions.push(point.x + offset * 0.39, point.y + Math.abs(offset) ** 6 * 0.19, point.z);
+        positions.push(point.x + offset * width * 0.5, point.y + Math.abs(offset) ** 6 * sideHeight, point.z);
         if (row && col) {
           const i = row * (across + 1) + col;
           indices.push(i, i - 1, i - across - 1, i - 1, i - across - 2, i - across - 1);
@@ -53,7 +52,12 @@ export function addPlayground(data: OpoData, scene: T.Scene, grade: OpoData['gro
     body.setIndex(indices);
     body.computeVertexNormals();
     piece(body, color, [0, 0, 0]);
-    beam([x, 0.06, 2.93], [x, 0.3, 2.93], 0.1, blue);
+  }
+
+  function slide(x: number, height: number, color: string) {
+    const curve = path([[x, height, 0.58], [x, height - 0.16, 1.14], [x, height * 0.45, 2.15], [x, 0.21, 3.2]]);
+    slideChannel(curve, color, 0.78, 0.19);
+    beam([x, 0.03, 2.93], [x, 0.19, 2.93], 0.08, blue);
   }
 
   function platform(x: number, deck: number, roof: number, roofColor: string) {
@@ -76,6 +80,8 @@ export function addPlayground(data: OpoData, scene: T.Scene, grade: OpoData['gro
     slide(1.38, 1.26, '#b4dbd6');
     const chute = path([[-1.57, 1.72, 0.06], [-2.53, 1.64, 0.17], [-3.07, 1.20, 1.03], [-2.76, 0.74, 1.77], [-2.49, 0.48, 2.83]]);
     piece(new T.TubeGeometry(chute, 28, 0.43, 12, false), '#788c87', [0, 0, 0]);
+    piece(new T.TorusGeometry(0.41, 0.055, 8, 20), '#bf634b', [-2.49, 0.48, 2.84]);
+    slideChannel(path([[-2.49, 0.13, 2.76], [-2.47, 0.13, 3.08], [-2.43, 0.18, 3.52]]), '#dc785f', 0.86, 0.18);
     beam([-2.85, 0, 1.98], [-2.85, 0.86, 1.98], 0.04, steel);
     for (let step = 0; step < 6; step++) {
       box([0.64, 0.08, 0.24], [1.28, 0.16 + step * 0.186, -2.01 + step * 0.22], '#424a50');
