@@ -12,7 +12,6 @@ type SiteCrossing = { start: Coordinate; end: Coordinate; depth: number };
 export type GateLayout = {
   axis: [Coordinate, Coordinate];
   width: number;
-  roadOverhang: [before: number, after: number];
   crossing: [start: number, end: number];
   sidewalks: { width: number; points: [GateOffset, GateOffset][] };
 };
@@ -21,6 +20,7 @@ export type SiteSurfaceLayout = {
   drive?: { width: number; points: Coordinate[] };
   paths: { width: number; points: Coordinate[] }[];
   pavedDrive?: Coordinate[];
+  roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number }[];
   crossings: SiteCrossing[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
 };
@@ -58,11 +58,15 @@ export function addSiteSurfaces(
   const edging = material('#aaa59a');
   const paint = material('#eeeae0');
   const frame = gate && axisBetween(data.project(gate.axis[0]), data.project(gate.axis[1]));
+  const gateCrossing = gate && gateCrosswalkArea(data.project, gate);
   const roadBlendWidth = 2.5;
   const drivewayGrade = (x: number, z: number) => {
-    const clearance = roadClearance({ x, z });
+    const crossingClearance = gateCrossing
+      ? Math.hypot(x - gateCrossing.center.x, z - gateCrossing.center.z) - (gateCrossing.section.width / 2 + 0.8)
+      : Infinity;
+    const clearance = Math.min(roadClearance({ x, z }), crossingClearance);
     const blend = T.MathUtils.smoothstep(clearance, 0, roadBlendWidth);
-    // A traced drive can meet the mapped street anywhere along its edge.
+    // Hold the whole crossing at street-deck grade before transitioning to the courtyard.
     return grade(x, z) + T.MathUtils.lerp(streetDeckLift + 0.02, 0.15, blend);
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
@@ -114,12 +118,28 @@ export function addSiteSurfaces(
   }
 
   const drivewayCenterline: Point[] | undefined = layout.drive && curve(layout.drive.points);
-  if (layout.drive && drivewayCenterline) add(ribbon(drivewayCenterline, layout.drive.width,
-    (x, z) => drivewayGrade(x, z) + 0.026, 0.8, 1), asphalt, 'asphalt');
+  if (layout.pavedDrive) {
+    add(groundPolygon([layout.pavedDrive.map(data.project)], drivewayGrade, 0.65, 0), asphalt, 'asphalt');
+  } else if (layout.drive && drivewayCenterline) {
+    add(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1), asphalt, 'asphalt');
+  }
   for (const { width, points } of layout.paths) {
     const line = curve(points);
     add(ribbon(line, width + 0.26, (x, z) => grade(x, z) + 0.20), edging);
     add(ribbon(line, width, (x, z) => grade(x, z) + 0.24), paving, 'pavers');
+  }
+  for (const { curb, outward, width } of layout.roadsideWalks ?? []) {
+    const edge = curb.map(data.project);
+    const path = edge.map((point, index) => {
+      const before = edge[Math.max(0, index - 1)];
+      const after = edge[Math.min(edge.length - 1, index + 1)];
+      const { direction } = axisBetween(before, after);
+      const offset = outward * width / 2;
+      return { x: point.x + direction.z * offset, z: point.z - direction.x * offset };
+    });
+    const deck = (x: number, z: number) => grade(x, z) + streetDeckLift + 0.09;
+    add(ribbon(path, width, deck, 0.5, 1), paving, 'pavers');
+    add(ribbon(edge, 0.16, (x, z) => deck(x, z) + 0.018, 0.5, 1), edging);
   }
 
   if (layout.playground) {
@@ -129,19 +149,14 @@ export function addSiteSurfaces(
     add(groundPolygon([playRing], grade, 3, 0.25), playFloor, surface);
     add(ribbon([...playRing, playRing[0]], 0.23, (x, z) => grade(x, z) + 0.28), edging);
   }
-  if (layout.pavedDrive) {
-    add(groundPolygon([layout.pavedDrive.map(data.project)], drivewayGrade, 0.65, 0), asphalt, 'asphalt');
-  }
-  if (gate && frame) {
-    const { at, length } = frame;
-    const [before, after] = gate.roadOverhang;
-    add(ribbon([at(0, -before), at(0, length + after)], gate.width, drivewayGrade, 0.8, 1), asphalt, 'asphalt');
+  if (gate && frame && gateCrossing) {
+    const { at } = frame;
     const sidewalk = material('#c7c6be', 'pavers');
     for (const line of gate.sidewalks.points) {
       add(ribbon(line.map(([across, along]) => at(across, along)), gate.sidewalks.width,
         (x, z) => grade(x, z) + streetDeckLift + 0.09, 0.8, 1), sidewalk, 'pavers');
     }
-    zebra(gateCrosswalkArea(data.project, gate));
+    zebra(gateCrossing);
   }
   for (const crossing of layout.crossings) zebra(siteCrosswalkArea(data.project, crossing));
   return { elevation, drivewayGrade, drivewayCenterline };

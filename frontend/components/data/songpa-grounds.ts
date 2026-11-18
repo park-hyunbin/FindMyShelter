@@ -1,5 +1,6 @@
 import type { SiteSurfaceLayout } from '../opo-site-surfaces';
 import type { PlaygroundLayout } from '../opo-playground';
+import { songpaStreetEdge } from './songpa-entrance';
 
 export const songpaFacilities = {
   checkedOn: '2026-11-18',
@@ -131,14 +132,17 @@ export const songpaGrounds = {
   source: 'https://www.arcgis.com/apps/mapviewer/index.html?source=sd&url=https%3A%2F%2Fserver.arcgisonline.com%2Farcgis%2Frest%2Fservices%2FWorld_Imagery%2FMapServer&center=127.11665,37.49762&level=19',
   captureDate: '2025-10-28',
   metadata: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/9/query?objectIds=480339&outFields=SRC_DATE,NICE_DESC,SRC_RES&returnGeometry=false&f=pjson',
-  // Trace visible pavement, paint and crowns from World Imagery at level 19.
+  // One continuous footprint from the street mouth to the inner court.
+  // Use the OpenLab road edge at the curb and trace the remaining pavement in World Imagery.
   paving: [
-    [127.1165451, 37.4973993], [127.1165559, 37.4974567], [127.1165827, 37.4975227],
-    [127.1166041, 37.4975759], [127.1166256, 37.4976206], [127.1166068, 37.4976568],
-    [127.1166310, 37.4977227], [127.1166766, 37.4977504], [127.1167356, 37.4977504],
-    [127.1167919, 37.4977334], [127.1168000, 37.4976993], [127.1167597, 37.4976674],
-    [127.1167275, 37.4976376], [127.1167034, 37.4975908], [127.1166873, 37.4975504],
-    [127.1166551, 37.4974887], [127.1166283, 37.4974376], [127.1166122, 37.4974014],
+    [127.1167168, 37.4976036], [127.1167812, 37.4976014], ...songpaStreetEdge.slice(2).reverse(),
+    [127.1169502, 37.4977738], [127.1169233, 37.4977930], [127.1168751, 37.4977866],
+    [127.1168375, 37.4977951], [127.1167892, 37.4978036], [127.1167463, 37.4977866],
+    [127.1166862, 37.4977504], [127.1166766, 37.4977504], [127.1166310, 37.4977227],
+    [127.1166068, 37.4976568], [127.1166256, 37.4976206], [127.1166041, 37.4975759],
+    [127.1165559, 37.4974567], [127.1165451, 37.4973993], [127.1166122, 37.4974014],
+    [127.1166283, 37.4974376], [127.1166873, 37.4975504], [127.1167034, 37.4975908],
+    [127.1167159, 37.4976151],
   ] satisfies Coordinate[],
   markings: [
     { start: [127.1166390, 37.4976291], end: [127.1166900, 37.4976100] },
@@ -158,6 +162,7 @@ export const songpaGrounds = {
 export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
   paths: songpaCourtyard.paths,
+  roadsideWalks: [{ curb: songpaStreetEdge, outward: 1, width: 1.55 }],
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
   crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),

@@ -1371,12 +1371,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <article className="site-card" data-site-card="entrance" aria-label="정문과 지하주차장 입구">
           <h3>정문과 지하주차장 입구</h3>
           <p>송파대로32길 정문에서 보행자 횡단 표시가 차량 길과 만나는 모습을 볼 수 있어요. 양재대로60길 쪽에선 102동 옆 주차장 덮개를 볼 수 있어요.</p>
-          <p>{songpaEntrance.capturedIn} 로드뷰와 항공영상을 참고했어요. 위치와 치수는 근사예요. 지하 경사로와 차수시설, 방문차량 입차 조건은 현장에서 확인해 보세요.</p>
+          <p>정문 차도 경계는 서울시 수치지형도와 항공영상을 대조했어요. 보도 폭과 단차는 근사예요. 지하 경사로와 차수시설, 방문차량 입차 조건은 현장에서 확인해 보세요.</p>
           <div className="site-actions">
             {[songpaEntrance.main, songpaEntrance.garage].map(stop => <button key={stop.id}
               disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
           </div>
           <div className="basis">
+            <a href={songpaEntrance.roadGeometry} target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel} · 도로 경계</a>
             <a href={songpaEntrance.main.roadview} target="_blank" rel="noreferrer">카카오맵 정문 로드뷰 ↗</a>
             <a href={songpaEntrance.garage.roadview} target="_blank" rel="noreferrer">카카오맵 주차장 덮개 로드뷰 ↗</a>
             <a href={songpaEntrance.record} target="_blank" rel="noreferrer">송파구 102동 지하주차장 입구 위치 기록 ↗</a>
@@ -1516,6 +1517,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     <footer className="credits">
       <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap / OpenMapTiles</a> · <a href="https://zenodo.org/records/15689805" target="_blank" rel="noreferrer">GEDTM30 · Ho &amp; Hengl (CC BY 4.0)</a> · 실외 모델 추정
       {region === 'opo' && <> · <a href="https://registry.opendata.aws/sentinel-2-l2a-cogs/" target="_blank" rel="noreferrer">{satelliteMetadata.attribution}</a></>}
+      {region === 'songpa' && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel}</a></>}
     </footer>
   </main>;
 }
