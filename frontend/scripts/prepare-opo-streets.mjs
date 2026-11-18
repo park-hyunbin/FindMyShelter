@@ -21,7 +21,7 @@ const motorClasses = new Set(['trunk', 'trunk_link', 'primary', 'primary_link', 
 if (songpa) for (const category of ['motorway', 'motorway_link']) motorClasses.add(category);
 const walkingClasses = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
 const nodes = new Map(raw.elements.filter(element => element.type === 'node').map(element => [element.id, element]));
-const roads = [], points = [], parking = [], buildings = [];
+const roads = [], points = [], parking = [], buildings = [], crossingWays = [];
 const lineCoordinates = way => way.nodes.map(id => {
   const node = nodes.get(id);
   return node && [node.lon, node.lat];
@@ -72,6 +72,10 @@ for (const item of raw.elements) {
   }
   if (tags.area === 'yes' || (tags.tunnel && tags.tunnel !== 'no') || tags.location === 'underground') continue;
   const category = tags.highway;
+  if (songpa && category === 'footway' && tags.footway === 'crossing' && tags.crossing !== 'unmarked'
+      && tags['crossing:markings'] !== 'no') {
+    crossingWays.push([coordinates[0], coordinates.at(-1)]);
+  }
   const motor = motorClasses.has(category);
   if (!motor && !walkingClasses.has(category)) continue;
   const sidewalk = (side) => {
@@ -100,7 +104,9 @@ if ((!songpa && buildings.length < 500) || roads.length < 100 || !coreWays.every
   throw new Error('The snapshot is missing neighborhood roads or the mapped complex approach.');
 }
 const streetFile = songpa ? '../public/datasets/regions/songpa/streets.json' : '../public/opo-streets.json';
-await writeFile(new URL(streetFile, import.meta.url), JSON.stringify({ metadata, roads, points, parking }) + '\n');
+await writeFile(new URL(streetFile, import.meta.url), JSON.stringify({ metadata, roads, points, parking,
+  ...(songpa ? { crossingWays } : {}),
+}) + '\n');
 if (!songpa) await writeFile(new URL('../public/opo-osm-buildings.geojson', import.meta.url),
   JSON.stringify({ type: 'FeatureCollection', features: buildings, metadata }) + '\n');
 console.log(`${roads.length} road/path ways, ${points.length} mapped points, ${parking.length} parking polygons, ${buildings.length} building outlines.`);

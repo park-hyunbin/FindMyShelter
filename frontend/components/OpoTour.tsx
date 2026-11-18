@@ -6,7 +6,7 @@ import { courtyardStairs } from './opo-garden';
 import { loadOpoData, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonRange, type DirectionProfile } from './opo-horizon';
-import { routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
+import { routeAscent, routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
 import { observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
@@ -189,7 +189,7 @@ function TerrainSection({ profiles, onLook }: {
 
 function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
   profile: RouteTerrainProfile; selected: number; startLabel: string; onSelect: (index: number) => void;
-  onLook: (sample: RouteTerrainSample) => void;
+  onLook: (sample: Pick<RouteTerrainSample, 'position' | 'bearing'>) => void;
 }) {
   const sample = profile.samples[selected];
   if (!sample) return null;
@@ -200,10 +200,8 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
   const y = (height: number) => 67 - (height - minimum) / span * 52;
   const line = profile.samples.map(point => `${x(point.distance)},${y(point.elevation)}`).join(' ');
   const difference = profile.samples.at(-1)!.elevation - profile.samples[0].elevation;
-  const change = profile.samples.slice(1).map((point, index) => point.elevation - profile.samples[index].elevation);
-  const outboundAscent = change.reduce((sum, value) => sum + Math.max(0, value), 0);
-  const returnAscent = change.reduce((sum, value) => sum + Math.max(0, -value), 0);
-  const { survey, steepest } = profile;
+  const { outbound, returning } = routeAscent(profile);
+  const { survey, steepest, returnSteepest } = profile;
   const parkEntry = survey?.entranceSample === undefined ? undefined : profile.samples[survey.entranceSample];
   const parkRise = parkEntry ? profile.samples.at(-1)!.elevation - parkEntry.elevation : undefined;
   const step = survey ? songpaRouteElevation.routeStepM : routeTerrainStep;
@@ -225,21 +223,23 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
     <dl>
       <div><dt>출발점부터</dt><dd>{Math.round(sample.distance)}m</dd></div>
       <div><dt>선택 지형의 표고</dt><dd>약 {Math.round(sample.elevation)}m</dd></div>
-      {sample.gradient !== null && <div><dt>약 {Math.round(sample.gradientDistance)}m 구간 지형 변화율</dt>
+      {sample.gradient !== null && <div><dt>가는 방향 약 {Math.round(sample.gradientDistance)}m 지형 변화율</dt>
         <dd>{sample.gradient > 0 ? '+' : ''}{sample.gradient.toFixed(1)}%</dd></div>}
       {sample.spread !== undefined && <div><dt>지형 예측 산포</dt><dd>{sample.spread.toFixed(1)}m</dd></div>}
       {sample.nearestInputM !== undefined && <div><dt>가장 가까운 계산 입력</dt><dd>약 {Math.round(sample.nearestInputM)}m</dd></div>}
-      <div><dt>모델 누적 상승</dt><dd>가는 길 약 {Math.round(outboundAscent)}m · 오는 길 약 {Math.round(returnAscent)}m</dd></div>
+      <div><dt>모델 누적 상승</dt><dd>가는 길 약 {Math.round(outbound)}m · 오는 길 약 {Math.round(returning)}m</dd></div>
     </dl>
     <p>종점 지형은 출발 지형보다 약 {Math.round(Math.abs(difference))}m {difference >= 0 ? '높아요' : '낮아요'}.</p>
     {parkEntry && parkRise !== undefined && <p>공원 남쪽 진입부부터 안쪽 보행로까지 약 {Math.round(profile.length - parkEntry.distance)}m 구간에서 모델 지형이 약 {Math.abs(parkRise).toFixed(1)}m {parkRise >= 0 ? '높아져요' : '낮아져요'}.</p>}
     {survey && <div className="site-actions">
       {steepest && <button onClick={() => onSelect(steepest.index)}>가는 길 오르막 · {Math.round(steepest.start)}~{Math.round(steepest.end)}m · +{steepest.gradient.toFixed(1)}%</button>}
+      {returnSteepest && <button onClick={() => onSelect(returnSteepest.index)}>오는 길 오르막 · 종점부터 {Math.round(profile.length - returnSteepest.end)}~{Math.round(profile.length - returnSteepest.start)}m · +{returnSteepest.gradient.toFixed(1)}%</button>}
       {profile.samples.map((point, index) => point.contourM !== undefined
         ? <button key={point.distance} aria-pressed={selected === index} onClick={() => onSelect(index)}>{point.contourM}m 등고선 교차점 · 출발 {Math.round(point.distance)}m</button>
         : null)}
     </div>}
     <button className="route-look" onClick={() => onLook(sample)}>선택 위치 눈높이로 보기 ↗</button>
+    {survey && <button className="route-look" onClick={() => onLook({ position: sample.position, bearing: sample.bearing + 180 })}>오는 방향 눈높이로 보기 ↗</button>}
     {survey ? <>
       <p>서울시 1:{songpaRouteElevation.scale.toLocaleString('ko-KR')} 수치지형도의 등고선과 표고점을 삼각망으로 보간했어요. 주변 표고점 {survey.checkedSpots}개를 하나씩 빼고 예측했을 때 평균 절대차는 약 {survey.meanErrorM.toFixed(1)}m였어요.</p>
       <p>실제 보도 경사, 계단·옹벽·교량 단차는 현장 확인이 필요해요.</p>
@@ -882,17 +882,34 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <h3>{region === 'songpa' ? '주변 시설 방향 경로' : '공원 인근 도로 연결'}</h3>
           <p>{access.startLabel} 출발 · 실선은 지도에 보행로·보도가 표시된 구간, 점선은 보도 미확인 구간이에요.</p>
           {access.retrieved && <p>지도 확인 {access.retrieved} · 노란 고리는 지도상 횡단 구간이에요. 단지 출입구와 신호 대기는 현장에서 확인해 주세요.</p>}
-          {access.routes.map(route => {
+          {access.routes.filter(route => !route.variantOf).map(primary => {
+            const alternative = access.routes.find(route => route.variantOf === primary.id);
+            const route = alternative?.id === accessId ? alternative : primary;
             const hospital = route.id === songpaHospital.routeId ? songpaHospital : null;
             const accessDetails = world?.greenAccessProfiles.find(item => item.id === route.id);
             const profile = accessDetails?.profile;
             const crossing = accessDetails?.crossingView;
             const selected = accessId === route.id;
             const routeVisible = selected && mode === 'orbit';
-            return <div key={route.id} ref={selected ? activeAccessCard : undefined} className="site-card access-card">
+            return <div key={primary.id} ref={selected ? activeAccessCard : undefined} className="site-card access-card">
               <div className="access-heading"><strong>{route.name}</strong><span>{access.retrieved ? `${route.lengthM.toLocaleString()}m` : meters(route.lengthM)}</span></div>
+              {alternative && <table className="route-comparison">
+                <caption>같은 출발점과 종점 · 모델 누적 상승</caption>
+                <thead><tr><th scope="col">경로</th><th scope="col">거리</th><th scope="col">가는 길 ↑</th><th scope="col">오는 길 ↑</th></tr></thead>
+                <tbody>{[primary, alternative].map(option => {
+                  const optionProfile = world?.greenAccessProfiles.find(item => item.id === option.id)?.profile;
+                  const ascent = optionProfile?.survey ? routeAscent(optionProfile) : undefined;
+                  return <tr key={option.id}>
+                    <th scope="row"><button disabled={!world} aria-pressed={accessId === option.id} onClick={() => showAccessRoute(option.id)}>{option.comparisonLabel ?? '보도 위주 경로'}</button></th>
+                    <td>{option.lengthM}m</td>
+                    <td>{ascent ? `약 ${Math.round(ascent.outbound)}m` : '—'}</td>
+                    <td>{ascent ? `약 ${Math.round(ascent.returning)}m` : '—'}</td>
+                  </tr>;
+                })}</tbody>
+              </table>}
               <p>{route.endLabel}{route.gapM !== null && ` · ${hospital ? '조사 출입구' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
               {route.crossings && <p>보행로·보도 표기 약 {route.walkwayM.toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
+              {route.variantOf && route.lengthM > route.walkwayM && <p className="route-missing-sidewalk">약 {route.lengthM - route.walkwayM}m는 지도에 보도 표시가 없어요. 3D에서 점선으로 표시하며 통행 조건은 현장에서 확인해 주세요.</p>}
               {route.parkEntrance && <p>같은 출발점에서 남쪽 진입부까지 경로 약 {route.parkEntrance.routeM}m · 직선 약 {route.parkEntrance.directM}m</p>}
               {!hospital && route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
               <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : hospital ? '도로 연결과 출입구 보기' : '경로 보기'}</button>

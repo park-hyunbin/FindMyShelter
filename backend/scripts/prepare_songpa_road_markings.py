@@ -3,7 +3,6 @@
 import argparse
 from io import BytesIO
 import json
-import math
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -11,7 +10,6 @@ from openpyxl import load_workbook
 from pyproj import CRS, Transformer
 import shapefile
 from shapely import make_valid
-from shapely.affinity import rotate
 from shapely.geometry import box, shape
 
 REGION = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions/songpa"
@@ -59,25 +57,6 @@ def lane_style(kind, subtype):
     return None
 
 
-def paint_crosswalk(polygon):
-    ring = list(polygon.minimum_rotated_rectangle.exterior.coords)
-    a, b = max(zip(ring, ring[1:]), key=lambda pair: math.dist(*pair))
-    angle = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
-    origin = (polygon.centroid.x, polygon.centroid.y)
-    aligned = rotate(polygon, -angle, origin=origin)
-    west, south, east, north = aligned.bounds
-    count = max(1, round((east - west) / 0.83))
-    spacing = (east - west) / count
-    stripes = []
-    for i in range(count):
-        x = west + (i + 0.5) * spacing
-        clipped = aligned.intersection(box(x - 0.22, south - 0.1, x + 0.22, north + 0.1))
-        for stripe in getattr(clipped, "geoms", [clipped]):
-            if stripe.geom_type == "Polygon" and stripe.area > 0.08:
-                stripes.append(gps(rotate(stripe, angle, origin=origin).exterior.coords[:-1]))
-    return stripes
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lanes", type=Path)
@@ -111,8 +90,7 @@ def main():
                     center = gps([(geom.centroid.x, geom.centroid.y)])[0]
                     crosswalks.append({"center": center,
                                        "inventoryMatch": tags["MGRNU"] in current,
-                                       "surfaces": [gps(polygon.exterior.coords[:-1]) for polygon in polygons],
-                                       "stripes": [stripe for polygon in polygons for stripe in paint_crosswalk(polygon)]})
+                                       "surfaces": [gps(polygon.exterior.coords[:-1]) for polygon in polygons]})
 
     if len(lanes) < 250 or len(crosswalks) < 30:
         raise ValueError("Street marking or crosswalk coverage is incomplete")

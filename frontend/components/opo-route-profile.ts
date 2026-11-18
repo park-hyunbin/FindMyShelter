@@ -12,7 +12,18 @@ export type RouteTerrainProfile = {
   samples: RouteTerrainSample[];
   survey?: SurveyedRoute;
   steepest?: { start: number; end: number; gradient: number; index: number };
+  returnSteepest?: RouteTerrainProfile['steepest'];
 };
+
+export function routeAscent(profile: RouteTerrainProfile) {
+  let outbound = 0, returning = 0;
+  for (const [index, point] of profile.samples.slice(1).entries()) {
+    const difference = point.elevation - profile.samples[index].elevation;
+    outbound += Math.max(0, difference);
+    returning += Math.max(0, -difference);
+  }
+  return { outbound, returning };
+}
 
 export function routeTerrainProfile(
   data: Pick<OpoData, 'elevationAt' | 'spreadAt' | 'northOffset'>,
@@ -51,7 +62,7 @@ export function routeTerrainProfile(
         : { elevation: data.elevationAt(position.x, position.z), spread: data.spreadAt(position.x, position.z) }),
     });
   }
-  if (survey) return { length, samples, survey, steepest: summarizeSurveyedSlope(length, samples) };
+  if (survey) return { length, samples, survey, ...summarizeSurveyedSlope(length, samples) };
   for (const [index, sample] of samples.entries()) {
     const before = samples[Math.max(0, index - 1)];
     const after = samples[Math.min(samples.length - 1, index + 1)];
@@ -79,13 +90,19 @@ function summarizeSurveyedSlope(length: number, samples: RouteTerrainSample[]) {
     sample.gradient = (heightAt(start + window) - heightAt(start)) / window * 100;
   }
   let steepest: RouteTerrainProfile['steepest'];
+  let returnSteepest: RouteTerrainProfile['returnSteepest'];
   for (const start of samples.flatMap(({ distance }) => [distance, distance - window])) {
     const end = start + window;
     if (start < 0 || end > length) continue;
     const gradient = (heightAt(end) - heightAt(start)) / window * 100;
-    if (gradient <= (steepest?.gradient ?? 0)) continue;
-    const index = samples.findIndex(point => point.distance >= start);
-    steepest = { start, end, gradient, index };
+    if (gradient > (steepest?.gradient ?? 0)) {
+      const index = samples.findIndex(point => point.distance >= start);
+      steepest = { start, end, gradient, index };
+    }
+    if (-gradient > (returnSteepest?.gradient ?? 0)) {
+      const index = samples.findLastIndex(point => point.distance <= end);
+      returnSteepest = { start, end, gradient: -gradient, index };
+    }
   }
-  return steepest;
+  return { steepest, returnSteepest };
 }

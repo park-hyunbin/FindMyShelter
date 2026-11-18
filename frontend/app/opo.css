@@ -234,6 +234,12 @@ h1, h2, p { margin: 0; }
 .access-card button[aria-pressed='true'] { background: #eaceaa; }
 .access-card a { margin-left: 8px; color: var(--muted); font-size: 10px; }
 .access-card > button { color: var(--night); }
+.route-comparison { width: 100%; margin: 8px 0; border-collapse: collapse; text-align: left; font-size: 11px; }
+.route-comparison caption { margin-bottom: 5px; color: var(--muted); text-align: left; }
+.route-comparison th, .route-comparison td { padding: 4px 3px; border-bottom: 1px solid #e2d9c7; }
+.route-comparison td { white-space: nowrap; }
+.route-comparison button { width: 100%; color: var(--night); text-align: left; }
+.route-missing-sidewalk { color: #774b25; font-weight: 650; }
 .route-terrain-label { color: #17243a; background: #fff2cbf5; border-color: #f8d78b; }
 .route-terrain { margin-top: 12px; padding-top: 10px; border-top: 1px solid #63748d; }
 .route-terrain > strong { font-size: 12px; }

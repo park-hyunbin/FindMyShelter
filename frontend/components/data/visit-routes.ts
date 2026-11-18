@@ -19,6 +19,8 @@ type AccessRoute = {
   crossingView?: { position: number[]; toward: number[] };
   parkEntrance?: { routeM: number; directM: number };
   stepWays?: number;
+  variantOf?: string;
+  comparisonLabel?: string;
 };
 
 type AccessDataset = { startLabel: string; routes: AccessRoute[]; retrieved?: string; source: string };

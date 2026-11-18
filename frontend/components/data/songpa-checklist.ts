@@ -77,17 +77,17 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'slope', title: '언덕길과 귀갓길', evidence: 'model',
-        finding: '송이공원·송파역·서울신가초 방향은 서울시 수치지형도로 보행 경로의 높이 변화를 살펴볼 수 있어요. 선택 지점의 주변 시야는 약 30m 표고 모델로 계산해요.',
+        finding: '서울시 수치지형도로 송이공원·송파역·서울신가초 방향의 누적 오르막과 왕복에서 가장 가파른 30m 구간을 볼 수 있어요.',
         followUp: '귀갓길의 가장 가파른 구간은 실제 보도나 경사로에서 확인해 보세요.',
         views: [{ target: 'park-route', label: '송이공원 방향 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }],
         sources: [{ label: '서울시 등고선·표고점', url: songpaRouteElevation.source }, terrainGrade],
       },
       {
-        id: 'alternatives', title: '완만한 길·계단 우회', evidence: 'visit',
-        finding: '표시한 경로의 지도상 계단 태그와 모델 지형 단면을 볼 수 있어요. 실제 계단·승강기와 이용 가능한 우회로는 구간별 확인이 필요해요.',
-        views: [{ target: 'station-route', label: '역 방향 경로에서 확인' }],
-        followUp: '출입구와 횡단 지점을 바꿔 보면서 완만한 길과 걸린 시간을 기록해 보세요.',
-        sources: [walkingNetwork],
+        id: 'alternatives', title: '완만한 길·계단 우회', evidence: 'model',
+        finding: '송파역과 송이공원 방향에서 같은 종점까지 가는 두 경로를 비교할 수 있어요. 거리, 보도 미확인 구간, 가고 돌아올 때의 오르막을 함께 살펴보세요.',
+        views: [{ target: 'station-route', label: '송파역 두 경로 비교' }, { target: 'park-route', label: '송이공원 두 경로 비교' }],
+        followUp: '지도에 계단 태그가 없는 구간도 실제 계단·턱·출입 가능 여부는 현장에서 확인해 보세요.',
+        sources: [walkingNetwork, { label: '서울시 등고선·표고점', url: songpaRouteElevation.source }],
       },
       {
         id: 'accessibility', title: '유모차·휠체어 동선', evidence: 'document',

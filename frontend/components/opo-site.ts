@@ -33,33 +33,6 @@ function addSongiPark(data: OpoData, scene: T.Scene, grade: OpoData['ground'], f
   }
 }
 
-function addSingaCrosswalk(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
-  const crossing = visitRoutes.songpa.routes.find(route => route.id === songpaSchool.routeId)?.crossingView;
-  if (!crossing) return;
-  const a = data.project(crossing.position);
-  const b = data.project(crossing.toward);
-  const length = Math.hypot(b.x - a.x, b.z - a.z);
-  const dx = (b.x - a.x) / length;
-  const dz = (b.z - a.z) / length;
-  const fromStart = (distance: number) => ({ x: a.x + dx * distance, z: a.z + dz * distance });
-  const crossingPavement = ribbon([fromStart(1.3), fromStart(length - 1.3)], 4.8, (x, z) => grade(x, z) + 0.51);
-  const asphalt = new T.MeshStandardMaterial({ color: '#fffaf3', roughness: 0.92, side: T.DoubleSide });
-  surfaceUV(crossingPavement, 'asphalt');
-  const surface = new T.Mesh(crossingPavement, finish(asphalt, 'asphalt'));
-  surface.receiveShadow = true;
-  scene.add(surface);
-  const paint = new T.MeshStandardMaterial({ color: '#f3ead9', roughness: 0.9, side: T.DoubleSide });
-  for (let distance = 1.9; distance < length - 1.9; distance += 1.15) {
-    const point = fromStart(distance);
-    const stripe = new T.Mesh(ribbon([
-      { x: point.x - dz * 2.1, z: point.z + dx * 2.1 },
-      { x: point.x + dz * 2.1, z: point.z - dx * 2.1 },
-    ], 0.58, (x, z) => grade(x, z) + 0.56), paint);
-    stripe.receiveShadow = true;
-    scene.add(stripe);
-  }
-}
-
 export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
   const group = new T.Group();
   group.visible = false;
@@ -108,7 +81,6 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
   if (data.region === 'songpa') {
     addSongpaEntrance(data, scene, grade, finish);
     addSongpaCourtyard(data, scene, grade, finish);
-    addSingaCrosswalk(data, scene, grade, finish);
     addSongiPark(data, scene, grade, finish);
     const pavement = new T.MeshStandardMaterial({ color: '#b3aea4', roughness: 0.96, side: T.DoubleSide });
     const paint = new T.MeshStandardMaterial({ color: '#dedbd0', roughness: 0.92, side: T.DoubleSide });

@@ -18,7 +18,7 @@ from shapely.geometry import LineString, Point, box, shape
 
 REGION = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions/songpa"
 SOURCE = "https://data.seoul.go.kr/dataList/OA-22241/F/1/datasetView.do"
-ROUTES = {"songpa-station", "songi-park", "singa-school"}
+ROUTES = {"songpa-station", "songpa-station-detour", "songi-park", "songi-park-distance", "singa-school"}
 STEP = 10
 GRADE_WINDOW = 30
 
@@ -121,7 +121,7 @@ def main():
     for route in route_set["routes"]:
         if route["id"] not in ROUTES:
             continue
-        if not all(segment["mappedWalkway"] for segment in route["segments"]):
+        if route["id"] != "songi-park-distance" and not all(segment["mappedWalkway"] for segment in route["segments"]):
             raise ValueError(f"Expected a route tagged as footway/sidewalk for {route['id']}")
         coordinates = [coordinate for segment in route["segments"] for coordinate in segment["coordinates"]]
         paths.append((route, coordinates, LineString([project(*coordinate) for coordinate in coordinates])))

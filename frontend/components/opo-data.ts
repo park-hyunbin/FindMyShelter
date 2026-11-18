@@ -28,13 +28,14 @@ type StreetPointProperties = { id: string; kind: 'bus' | 'crossing' | 'lamp' | '
 type StreetFile = {
   metadata: { source: string }; roads: (StreetProperties & { coordinates: Position[] })[];
   points: (StreetPointProperties & { coordinates: Position })[]; parking: { id: number; coordinates: Position[] }[];
+  crossingWays?: [Position, Position][];
 };
 export type StreetPaint = 'yellow' | 'yellow-dash' | 'yellow-double' | 'yellow-combined' | 'blue' | 'blue-dash' | 'white' | 'white-dash' | 'stop';
 type StreetPaintFile = {
   lanesSource: string; crosswalksSource: string; crosswalkInventory: string;
   markingsArchiveDate: string; crosswalkInventoryDate: string;
   lanes: { style: StreetPaint; points: Position[]; edge?: boolean }[];
-  crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][]; stripes: Position[][] }[];
+  crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][] }[];
 };
 export type Street = StreetProperties & { points: Point[] };
 export type StreetPoint = StreetPointProperties & { position: Point };
@@ -238,7 +239,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     terrainSource: { name: dem.source, catalog: dem.catalog, datum: dem.verticalDatum, resolution: dem.nativeResolutionM,
       epoch: dem.sourceEpoch, relativeDifference: dem.meanRelativeDifferenceFrom90M },
     localTerrain: localTerrain && { source: localTerrain.source, spacing: localTerrain.spacingM, scale: localTerrain.scale },
-    roadMarkings,
+    roadMarkings, crossingWays: neighborhood?.crossingWays?.map(([a, b]) => [project(a), project(b)] as const) ?? [],
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
 

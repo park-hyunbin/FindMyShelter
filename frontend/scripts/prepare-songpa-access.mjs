@@ -4,13 +4,17 @@ import proj4 from 'proj4';
 const hospital = JSON.parse(await readFile(new URL('../public/datasets/regions/songpa/hospital-entrance.json', import.meta.url), 'utf8'));
 const bounds = [127.1090, 37.4947, 127.1231, 37.5024];
 const source = `https://www.openstreetmap.org/api/0.6/map.json?bbox=${bounds.join(',')}`;
-const response = await fetch(source, {
-  headers: { Accept: 'application/json', 'User-Agent': 'FindMyShelter/1.0 (mapped Songpa walking routes)' },
-  signal: AbortSignal.timeout(25_000),
-});
-if (!response.ok) throw new Error(`OpenStreetMap returned ${response.status}`);
+const snapshotPath = process.argv[2];
+async function fetchSnapshot() {
+  const response = await fetch(source, {
+    headers: { Accept: 'application/json', 'User-Agent': 'FindMyShelter/1.0 (mapped Songpa walking routes)' },
+    signal: AbortSignal.timeout(25_000),
+  });
+  if (!response.ok) throw new Error(`OpenStreetMap returned ${response.status}`);
+  return response.json();
+}
 
-const { elements } = await response.json();
+const { elements } = snapshotPath ? JSON.parse(await readFile(snapshotPath, 'utf8')) : await fetchSnapshot();
 const nodes = new Map(elements.filter(item => item.type === 'node').map(item => [item.id, [item.lon, item.lat]]));
 const ways = new Map(elements.filter(item => item.type === 'way').map(item => [item.id, item]));
 const epsg5186 = '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs';
@@ -96,33 +100,37 @@ for (const { id, tags, nodes: wayNodes } of ways.values()) {
   }
 }
 
-const costs = new Map([[start, 0]]);
-const previous = new Map();
-const pending = new Set([start]);
-const wanted = new Set(destinations.map(item => item.node));
-while (pending.size && wanted.size) {
-  let current;
-  for (const id of pending) if (current === undefined || costs.get(id) < costs.get(current)) current = id;
-  pending.delete(current);
-  wanted.delete(current);
-  for (const edge of graph.get(current) ?? []) {
-    // Prefer mapped pedestrian links without treating an unlabeled local road as impassable.
-    const cost = costs.get(current) + edge.length * (edge.mappedWalkway ? 1 : 1.45);
-    if (cost >= (costs.get(edge.to) ?? Infinity)) continue;
-    costs.set(edge.to, cost);
-    previous.set(edge.to, edge);
-    pending.add(edge.to);
+function shortestPaths(targets, costOf) {
+  const costs = new Map([[start, 0]]);
+  const previous = new Map();
+  const pending = new Set([start]);
+  const wanted = new Set(targets);
+  while (pending.size && wanted.size) {
+    let current;
+    for (const id of pending) if (current === undefined || costs.get(id) < costs.get(current)) current = id;
+    pending.delete(current);
+    wanted.delete(current);
+    for (const edge of graph.get(current) ?? []) {
+      const cost = costs.get(current) + costOf(edge);
+      if (cost >= (costs.get(edge.to) ?? Infinity)) continue;
+      costs.set(edge.to, cost);
+      previous.set(edge.to, edge);
+      pending.add(edge.to);
+    }
   }
+  return node => {
+    if (!previous.has(node) || wanted.has(node)) throw new Error(`No mapped connection to node ${node}`);
+    const edges = [];
+    for (let next = node; next !== start;) {
+      const edge = previous.get(next);
+      edges.unshift(edge);
+      next = edge.from;
+    }
+    return edges;
+  };
 }
 
-const routes = destinations.map(({ node, reference, park, entrance, approachCrossing, ...destination }) => {
-  if (!previous.has(node) || wanted.has(node)) throw new Error(`No mapped connection to ${destination.name}`);
-  const edges = [];
-  for (let next = node; next !== start;) {
-    const edge = previous.get(next);
-    edges.unshift(edge);
-    next = edge.from;
-  }
+function describeRoute({ node, reference, park, entrance, approachCrossing, ...destination }, edges) {
   const hospitalRoute = destination.id === hospital.routeId;
   if (hospitalRoute && (edges.at(-1)?.id !== hospitalApproach.id || edges.some(edge => edge.id === 1175929591))) {
     throw new Error('The hospital approach must end at the local street without following the Songi-ro centerline');
@@ -161,7 +169,22 @@ const routes = destinations.map(({ node, reference, park, entrance, approachCros
     stepWays: new Set(edges.filter(edge => edge.steps).map(edge => edge.id)).size,
     wayIds: [...new Set(edges.map(edge => edge.id))],
   };
-});
+}
+
+// Keep the existing paths, preferring mapped pedestrian links over unclassified streets.
+const primary = shortestPaths(destinations.map(item => item.node), edge => edge.length * (edge.mappedWalkway ? 1 : 1.45));
+const routes = destinations.map(destination => describeRoute(destination, primary(destination.node)));
+const [stationRoute, parkRoute] = destinations;
+const stationDetour = shortestPaths([stationRoute.node], edge =>
+  edge.mappedWalkway && !edge.steps && edge.id !== 1487965505 ? edge.length : Infinity)(stationRoute.node);
+const parkDistanceRoute = shortestPaths([parkRoute.node], edge => edge.length)(parkRoute.node);
+if (!stationDetour.some(edge => edge.id === 1174305297) || !parkDistanceRoute.some(edge => edge.id === 169916267)) {
+  throw new Error('A reviewed alternative changed in the map extract');
+}
+routes.push(describeRoute({ ...stationRoute, id: 'songpa-station-detour', variantOf: stationRoute.id,
+  comparisonLabel: '북쪽 보행로 경유' }, stationDetour));
+routes.push(describeRoute({ ...parkRoute, id: 'songi-park-distance', variantOf: parkRoute.id,
+  comparisonLabel: '송이로14길 경유' }, parkDistanceRoute));
 
 await writeFile(new URL('../public/datasets/regions/songpa/access.json', import.meta.url), JSON.stringify({
   source, retrieved: new Date().toISOString().slice(0, 10), start: nodes.get(start), startNode: start, routes,

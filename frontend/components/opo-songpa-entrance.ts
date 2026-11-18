@@ -4,6 +4,7 @@ import { songpaEntrance } from './data/songpa-entrance';
 import type { OpoData, Point } from './opo-data';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { ribbon } from './opo-meshes';
+import { zebraOffsets } from './opo-crosswalks';
 
 function axisBetween(start: Point, end: Point) {
   const length = Math.hypot(end.x - start.x, end.z - start.z);
@@ -23,7 +24,8 @@ function surfaceMaterial(color: string, roughness = 0.9) {
 function addMainCrossing(data: OpoData, group: T.Group, grade: OpoData['ground'], finish: TourMaterials) {
   const [start, end] = songpaEntrance.main.axis.map(data.project);
   const { at, heading, length } = axisBetween(start, end);
-  const asphalt = finish(surfaceMaterial('#e2dfd8'), 'asphalt');
+  const asphalt = finish(surfaceMaterial('#e2ecf8'), 'asphalt');
+  asphalt.color.multiplyScalar(1.42);
   const pavers = finish(surfaceMaterial('#898986'), 'cobble');
   const paint = surfaceMaterial('#eeeae0');
   const gray = surfaceMaterial('#747d7b');
@@ -35,10 +37,7 @@ function addMainCrossing(data: OpoData, group: T.Group, grade: OpoData['ground']
   const strip = (points: Point[], width: number, lift: number) => ribbon(points, width, (x, z) => grade(x, z) + lift);
   const apron = strip([at(0, -2.4), at(0, length + 2.2)], 9.4, 0.49);
   surfaceUV(apron, 'asphalt');
-  const crossing = mergeGeometries(Array.from({ length: 10 }, (_, index) => {
-    const across = -4.05 + index * 0.9;
-    return strip([at(across, 0.15), at(across, 2.05)], 0.43, 0.52);
-  }));
+  const crossing = mergeGeometries(zebraOffsets(9.4).map(across => strip([at(across, 0.15), at(across, 2.05)], 0.44, 0.52)));
   const sidewalks = [
     [at(-7.2, 0.9), at(-4.7, 0.9)],
     [at(4.7, 0.9), at(7.2, 0.9)],
