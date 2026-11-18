@@ -70,6 +70,7 @@ export function addSiteSurfaces(
     return grade(x, z) + T.MathUtils.lerp(streetDeckLift + 0.02, 0.15, blend);
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
+  const asphaltDecks: T.BufferGeometry[] = [];
   const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
   const hits: T.Intersection[] = [];
 
@@ -84,6 +85,7 @@ export function addSiteSurfaces(
     mesh.receiveShadow = true;
     scene.add(mesh);
     if (walkable) {
+      if (texture === 'asphalt') asphaltDecks.push(geometry);
       geometry.computeBoundingBox();
       if (geometry.boundingBox && !geometry.boundingBox.isEmpty()) decks.push({ mesh, bounds: geometry.boundingBox });
     }
@@ -159,5 +161,5 @@ export function addSiteSurfaces(
     zebra(gateCrossing);
   }
   for (const crossing of layout.crossings) zebra(siteCrosswalkArea(data.project, crossing));
-  return { elevation, drivewayGrade, drivewayCenterline };
+  return { elevation, drivewayGrade, drivewayCenterline, asphaltDecks };
 }

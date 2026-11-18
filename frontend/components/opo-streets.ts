@@ -7,6 +7,7 @@ import { groundPolygon, ribbon, streetDeckLift, terrainSurface } from './opo-mes
 import { crossingOutline, crosswalkFrame, fitCrosswalk, leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type Crosswalk } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
 import { gateCrosswalkArea, siteCrosswalkArea } from './opo-site-surfaces';
+import { createRoadPaintClipper } from './opo-road-paint';
 
 const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 const paths = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
@@ -226,6 +227,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const centerlines = createStreetNetwork(data.streets);
   const survey = data.roadMarkings;
   const surveyedLines = survey?.lanes.map(lane => ({ ...lane, points: lane.points.map(data.project) })) ?? [];
+  const roadPaint = surveyedLines.length ? createRoadPaintClipper() : undefined;
   const surveyedWays = new Set<number>();
   const edgeOffsets = new Map<number, number[]>();
   for (const { points, edge } of surveyedLines) for (const [index, a] of points.slice(0, -1).entries()) {
@@ -313,8 +315,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (layer) layer.geometry.push(geometry);
     else layers.set(key, { color, texture, geometry: [geometry], castsShadow });
   }
-  function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface) {
-    add(color, ribbon(points, width, (x, z) => surface(x, z) + height, songpa ? 1.25 : Infinity), texture);
+  function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface, roadDeck = false) {
+    const geometry = ribbon(points, width, (x, z) => surface(x, z) + height, songpa ? 1.25 : Infinity);
+    if (roadDeck) roadPaint?.addSurface(geometry);
+    add(color, geometry, texture);
   }
   function zebra(crossing: Crosswalk) {
     const { depth, section: { width, road }, confirmed } = crossing;
@@ -340,13 +344,15 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       strip([position(-rampDepth, at(1.34)), position(rampDepth, at(1.34))], 0.88, sidewalkLift + 0.004, '#d4cec2', paving);
     });
   }
-  function surveyedPaint(points: Point[], style: StreetPaint) {
+  function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createRoadPaintClipper>) {
     const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0' : '#f2eee3';
     const double = style === 'yellow-double' || style === 'yellow-combined';
     const paint = (line: Point[], dashed: boolean) => {
       const segments = dashed ? lineChunks(line, style === 'yellow-dash' ? 2.7 : 4, 4.5) : [line];
       for (const segment of segments) for (const piece of leaveCrosswalkGaps(segment, paintCrossings)) {
-        strip(piece, style === 'stop' ? 0.31 : 0.14, 0.55, color);
+        const outline = ribbon(piece, style === 'stop' ? 0.31 : 0.14, () => 0);
+        add(color, clipper.clip(outline, 0.018));
+        outline.dispose();
       }
     };
     if (double) {
@@ -367,6 +373,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       : isPath ? '#bba994' : isMain ? '#626970' : road.category === 'residential' ? '#737878' : '#858780';
     const texture = unpaved ? 'forest' : isPath ? (songpa ? 'pavers' : 'cobble') : 'asphalt';
     const tint = finish ? (songpa && texture === 'asphalt' ? '#e2ecf8' : isMain ? '#dfdedd' : '#fffaf3') : color;
+    const pavedMotorRoad = road.motor && !isPath && !unpaved;
     function interruptedStrip(points: Point[], widthM: number, lift: number, color: string, texture?: TourSurface, shoulder = 0) {
       for (const run of leaveCrosswalkGaps(points, roadCrossings, shoulder)) strip(run, widthM, lift, color, texture);
     }
@@ -409,7 +416,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         if (!finish || isPath || road.bridge) {
           strip(line, width + (isPath ? 0.14 : 0.42), 0.38, isPath ? '#a29477' : '#a29f91');
         }
-        strip(line, width, streetDeckLift, tint, texture);
+        strip(line, width, streetDeckLift, tint, texture, pavedMotorRoad);
       }
       if (!isPath) {
         for (const point of (songpa && width > 12 ? [points[0], points[points.length - 1]] : points)) {
@@ -419,6 +426,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
             const positions = cap.getAttribute('position');
             for (let i = 0; i < positions.count; i++) positions.setY(i, surface(positions.getX(i), positions.getZ(i)) + 0.355);
           } else cap.translate(0, surface(point.x, point.z) + 0.445, 0);
+          if (pavedMotorRoad) roadPaint?.addSurface(cap);
           add(tint, cap, texture);
         }
       }
@@ -495,19 +503,30 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (item.kind === 'bus') busStops.push(item.position);
     if (item.kind === 'bench') benches.push(item.position);
   }
-  for (const { style, points } of surveyedLines) surveyedPaint(points, style);
   for (const crossing of crossings) zebra(crossing);
-  for (const { color, texture, geometry: geometries, castsShadow } of layers.values()) {
-    const geometry = mergeGeometries(geometries);
-    geometries.forEach(item => item.dispose());
-    if (!geometry) continue;
-    const material = new T.MeshStandardMaterial({ color, roughness: 0.91, side: T.DoubleSide });
-    if (texture && finish) finish(material, texture);
-    if (songpa && texture === 'asphalt') material.color.multiplyScalar(1.42);
-    const mesh = new T.Mesh(geometry, material);
-    mesh.receiveShadow = true;
-    mesh.castShadow = castsShadow;
-    scene.add(mesh);
+  function flushLayers() {
+    for (const { color, texture, geometry: geometries, castsShadow } of layers.values()) {
+      const geometry = mergeGeometries(geometries);
+      geometries.forEach(item => item.dispose());
+      if (!geometry) continue;
+      const material = new T.MeshStandardMaterial({ color, roughness: 0.91, side: T.DoubleSide });
+      if (texture && finish) finish(material, texture);
+      if (songpa && texture === 'asphalt') material.color.multiplyScalar(1.42);
+      const mesh = new T.Mesh(geometry, material);
+      mesh.receiveShadow = true;
+      mesh.castShadow = castsShadow;
+      scene.add(mesh);
+    }
+    layers.clear();
+  }
+  flushLayers();
+
+  function addSurveyedPaint(asphaltDecks: T.BufferGeometry[] = []) {
+    if (!roadPaint) return;
+    for (const deck of asphaltDecks) roadPaint.addSurface(deck);
+    for (const { style, points } of surveyedLines) surveyedPaint(points, style, roadPaint);
+    flushLayers();
+    roadPaint.clear();
   }
   const markers = (geometry: T.BufferGeometry, color: string, points: Point[], height: number) => {
     const instances = new T.InstancedMesh(geometry, new T.MeshStandardMaterial({ color, roughness: 0.74 }), points.length);
@@ -522,5 +541,5 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   markers(new T.BoxGeometry(1.15, 0.48, 0.12), '#53615b', benches, 0.31);
   const roadClearance = (point: Point) => network.nearby(point, 24)
     .reduce((clearance, hit) => Math.min(clearance, hit.distance - hit.segment.width / 2), Infinity);
-  return { ...network, surface, roadClearance };
+  return { ...network, surface, roadClearance, addSurveyedPaint };
 }
