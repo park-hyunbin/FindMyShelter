@@ -1,0 +1,21 @@
+{
+  "snapshotDate": "2026-11-13",
+  "complexes": {
+    "opo": {
+      "code": "A46492201",
+      "households": 204,
+      "parkingSpaces": 340,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "songpa": {
+      "code": "A13816002",
+      "households": 264,
+      "parkingSpaces": 536,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    }
+  }
+}

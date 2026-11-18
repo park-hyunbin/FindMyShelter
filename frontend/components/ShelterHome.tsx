@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { regions, type RegionId } from './data/regions';
+import TourPlanner, { type TourMode } from './TourPlanner';
 import './shelter-home.css';
 
 function Opening() {
@@ -17,6 +18,7 @@ function normalize(value: string) {
 
 export default function ShelterHome() {
   const [region, setRegion] = useState<RegionId | null>(null);
+  const [mode, setMode] = useState<TourMode>('match');
   const [query, setQuery] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
 
@@ -24,15 +26,13 @@ export default function ShelterHome() {
     function syncRegion() {
       const requested = new URLSearchParams(window.location.search).get('region');
       dialog.current?.close();
-      setRegion(regions.find(entry => entry.id === requested)?.id ?? 'opo');
+      setRegion(regions.find(entry => entry.id === requested)?.id ?? null);
     }
 
     syncRegion();
     window.addEventListener('popstate', syncRegion);
     return () => window.removeEventListener('popstate', syncRegion);
   }, []);
-
-  if (!region) return <Opening />;
 
   const matches = regions.filter(entry =>
     normalize(`${entry.name}${entry.area}${entry.keywords}`).includes(normalize(query)),
@@ -43,18 +43,21 @@ export default function ShelterHome() {
     dialog.current?.showModal();
   }
 
-  function changeRegion(next: RegionId) {
+  function changeRegion(next: RegionId | null) {
     dialog.current?.close();
     if (next === region) return;
 
     const url = new URL(window.location.href);
-    url.searchParams.set('region', next);
+    if (next === null) url.searchParams.delete('region');
+    else url.searchParams.set('region', next);
+    url.hash = '';
     window.history.pushState(null, '', url);
     setRegion(next);
   }
 
   return <>
-    <Tour key={region} region={region} onChangeRegion={openPicker} />
+    <div hidden={region !== null}><TourPlanner mode={mode} onMode={setMode} onEnter={changeRegion} /></div>
+    {region !== null && <Tour key={region} region={region} onChangeRegion={openPicker} />}
     <dialog id="region-picker" ref={dialog} className="region-picker" aria-labelledby="region-picker-title"
       onKeyDown={event => {
         if (event.key !== 'Escape' || event.nativeEvent.isComposing) return;
@@ -77,6 +80,8 @@ export default function ShelterHome() {
           </button>
         </li>)}
       </ul> : <p role="status">검색 결과가 없어요.</p>}
+      <button type="button" className="region-planner-return" onClick={() => { setMode('explore'); changeRegion(null); }}>← 자유 3D 탐험 목록</button>
+      <button type="button" className="region-planner-return" onClick={() => { setMode('match'); changeRegion(null); }}>← 조건 맞춤 임장</button>
       <a href="/polygons/">건물 데이터 검증 ↗</a>
     </dialog>
   </>;

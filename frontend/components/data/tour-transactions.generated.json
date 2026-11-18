@@ -1,0 +1,44 @@
+{
+  "startDate": "2026-09-18",
+  "endDate": "2026-11-18",
+  "complexes": {
+    "opo": [
+      {
+        "kind": "sale",
+        "date": "2026-10-31",
+        "area": 101.7432,
+        "amount": 60000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-30",
+        "area": 101.7432,
+        "amount": 38000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-28",
+        "area": 133.4858,
+        "amount": 67000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-21",
+        "area": 145.3163,
+        "amount": 56000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-22",
+        "area": 127.8968,
+        "amount": 60500,
+        "monthly": null
+      }
+    ],
+    "songpa": []
+  }
+}

@@ -1,0 +1,7 @@
+[
+  { "dong": "101동", "legacyId": "55765286", "footprintId": "B0010000000RS1PN8", "topoFloors": 21, "legacyFloors": 21, "iou": 0.9746 },
+  { "dong": "102동", "legacyId": "55765487", "footprintId": "B0010000000RS1PM7", "topoFloors": 22, "legacyFloors": 23, "iou": 0.9671 },
+  { "dong": "103동", "legacyId": "55765541", "footprintId": "B0010000000RS1PL6", "topoFloors": 22, "legacyFloors": 23, "iou": 0.9579 },
+  { "dong": "104동", "legacyId": "55765485", "footprintId": "B0010000000RS1PO9", "topoFloors": 18, "legacyFloors": 18, "iou": 0.9490 },
+  { "dong": "105동", "legacyId": "55765284", "footprintId": "B0010000000RS1PPA", "topoFloors": 16, "legacyFloors": 16, "iou": 0.9544 }
+]

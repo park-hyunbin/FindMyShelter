@@ -1,0 +1,135 @@
+.planner {
+  --plan-ink: #293b30;
+  --plan-muted: #526357;
+  --plan-mint: #297457;
+  --plan-paper: #f6f3e7;
+  --plan-card: #fffdf4;
+  --plan-line: #d9d5ba;
+  min-height: 100dvh;
+  overflow: clip;
+  padding: 0 clamp(18px, 5vw, 74px) 2.6rem;
+  background: var(--plan-paper);
+  color: var(--plan-ink);
+}
+
+.planner > * { max-width: 1170px; margin-inline: auto; }
+.planner a { color: inherit; text-underline-offset: 3px; }
+.planner :focus-visible { outline: 2px solid #36735d; outline-offset: 4px; }
+.planner-icon { display: block; width: 19px; height: 19px; flex: none; }
+.planner-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 69px; border-bottom: 1px solid var(--plan-line); }
+.planner-mark { display: inline-flex; align-items: center; gap: 10px; color: var(--plan-ink); font: 850 1.15rem/1.1 Nunito, system-ui, sans-serif; text-decoration: none; letter-spacing: -.035em; }
+.planner-mark span { display: grid; width: 37px; height: 37px; place-items: center; border-radius: 13px 13px 16px 16px; background: #cfe5bd; color: #345746; }
+.planner-modes { display: flex; flex-wrap: wrap; gap: 5px; }
+.planner .planner-tab { min-height: 36px; border-color: transparent; background: transparent; box-shadow: none; color: #4e5d4a; }
+.planner .planner-tab[aria-pressed="true"] { border-color: #cfddbd; background: #e5eed7; color: #285446; }
+.planner-welcome {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 20px;
+  align-items: center;
+  padding: clamp(17px, 2.8vw, 34px) 0;
+}
+.planner-kicker { display: flex; align-items: center; gap: 6px; margin: 0 0 .45rem; color: #396846; font-size: .82rem; font-weight: 790; }
+.planner-kicker .planner-icon { width: 16px; height: 16px; }
+.planner-welcome h1 { margin: 0; color: var(--plan-ink); font-size: clamp(1.9rem, 4.5vw, 3.4rem); line-height: 1.14; letter-spacing: -.06em; word-break: keep-all; }
+.planner-welcome em { color: #2d684f; font-style: normal; }
+.planner-lede { max-width: 38rem; margin: .46rem 0 0; color: #475c48; font-size: clamp(.85rem, 1.5vw, 1rem); line-height: 1.6; word-break: keep-all; }
+.planner .planner-village-button { min-height: 45px; padding-inline: 1.15rem; box-shadow: 0 4px #b5c8a6; background: #285c47; color: #fffef2; }
+.planner .planner-village-button:hover { background: #377a59; }
+.planner .planner-village-button .planner-icon { color: #e6efd3; }
+.planner-postcard { min-width: 0; margin: 0; }
+.planner-postcard-image { display: block; aspect-ratio: 720/390; min-width: 0; }
+.planner .planner-postcard-image img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 1; }
+.planner-entry, .planner-candidates { scroll-margin-top: 1rem; }
+.planner .planner-search-card { padding: clamp(17px, 2.6vw, 27px); border: 1px solid var(--plan-line); border-radius: 23px; background: var(--plan-card); color: var(--plan-ink); }
+.planner-section-heading h2 { margin: 0; font-size: clamp(1.33rem, 3vw, 2rem); line-height: 1.25; letter-spacing: -.045em; }
+.planner-section-heading > p:not(.planner-kicker) { margin: .45rem 0 0; color: var(--plan-muted); font-size: .9rem; line-height: 1.55; }
+.planner-fields { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, .72fr) minmax(0, 1fr); gap: 11px; margin-top: .85rem; }
+.planner-fields:has(#planner-monthly) { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); }
+.planner-field { display: grid; min-width: 0; align-content: start; gap: 5px; }
+.planner-field label, .planner legend, .planner-listing label { color: #3d5142; font-size: .84rem; font-weight: 760; }
+.planner small { color: var(--plan-muted); font-size: .76rem; }
+.planner .planner-input { width: 100%; min-width: 0; min-height: 44px; border-color: #dad4b6; background: #fbf8e9; }
+.planner .planner-input:focus-within { border-color: #75956d; }
+.planner .planner-input:has([aria-invalid="true"]) { border-color: #b45344; }
+.planner .planner-input input { width: 100%; min-width: 0; color: #273b30; font-family: inherit; font-size: .9rem; }
+.planner .planner-input input::placeholder { color: #62695a; }
+.planner .planner-input .planner-icon { width: 16px; height: 16px; color: #658168; }
+.planner select { width: 100%; min-height: 44px; padding: 0 .8rem; border: 2px solid #dad4b6; border-radius: 999px; background: #fbf8e9; color: inherit; font-size: .91rem; }
+.planner-form-bottom { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-top: .8rem; }
+.planner fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
+.planner .planner-feature-checkboxes { flex-wrap: wrap; gap: .45rem .8rem; margin-top: .35rem; }
+.planner .planner-feature-checkboxes label { min-height: 33px; color: var(--plan-ink); font-family: inherit; font-size: .88rem; }
+.planner .planner-search-button { min-height: 43px; padding-inline: 1.25rem; box-shadow: 0 4px #c4d1ab; background: #cde5a9; color: #2a4536; font-weight: 800; white-space: nowrap; }
+.planner .planner-search-button:hover { background: #dceebe; }
+.planner-candidates { margin-top: 2rem; }
+.planner-results-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 18px; }
+.planner .planner-result-count { max-width: 100%; white-space: normal; }
+.planner .planner-budget-toggle { margin-top: .65rem; }
+.planner .planner-budget-toggle label { min-height: 36px; color: var(--plan-ink); font-family: inherit; font-size: .88rem; }
+.planner-map-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(258px, 1fr); align-items: start; gap: clamp(15px, 2.8vw, 30px); margin-top: .85rem; }
+.village-map { position: relative; width: 100%; min-width: 0; min-height: 335px; aspect-ratio: 7 / 4; overflow: hidden; isolation: isolate; border: 2px solid #ccd4aa; border-radius: 33px 23px 39px 28px; background: #e8ecd2; }
+.village-landscape, .village-pins { position: absolute; inset: 0; width: 100%; height: 100%; }
+.village-map-label, .village-map-caption { position: absolute; z-index: 1; color: #49644a; }
+.village-map-label { top: 16px; left: 18px; border-radius: 999px; padding: 6px 11px; background: #f8f4dc; font-size: .76rem; font-weight: 820; }
+.village-map-caption { right: 12px; bottom: 10px; border-radius: 6px; padding: 3px 6px; background: #f8f4dce8; font-size: .67rem; }
+.village-stop { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 3px; width: min(37%, 192px); transform: translate(-50%, -22%); }
+.village-stop-opo { left: 28%; top: 42%; }
+.village-stop-songpa { left: 73%; top: 25%; }
+.village-stop-number { display: grid; width: 33px; height: 33px; place-items: center; border: 2px solid #fef7dd; border-radius: 50% 50% 45% 45%; background: #8f6950; box-shadow: 0 3px #724f3d41; color: #fff9e9; font: 850 .79rem Nunito, system-ui, sans-serif; }
+.village-stop-songpa .village-stop-number { background: #587c66; }
+.planner .village-pin { width: 100%; min-height: 62px; padding: 7px 7px 9px; border: 2px solid #cbb791; border-radius: 19px 15px 18px 14px; background: #fff8df; box-shadow: 0 4px #b9a37891; color: #3d503e; white-space: normal; }
+.planner .village-pin[aria-pressed="true"] { border-color: #5f8b62; background: #fff4cc; box-shadow: 0 4px #7d9b6691; }
+.village-pin > span { display: grid; gap: 3px; justify-items: center; }
+.village-pin strong { font-size: clamp(.78rem, 1.7vw, 1rem); letter-spacing: -.025em; line-height: 1.2; word-break: keep-all; }
+.village-pin-district, .village-pin-note { color: #596249; font-size: clamp(.61rem, 1.3vw, .75rem); line-height: 1.2; }
+.village-pin-district { font-weight: 820; }
+.planner-field-notes { display: grid; min-width: 0; gap: .43rem; padding: 4px 0 4px clamp(11px, 2.3vw, 24px); border-left: 1px dashed #bfb999; }
+.planner-field-notes .planner-postcard { max-width: 300px; margin-top: .45rem; }
+.planner-field-notes .planner-postcard-image { overflow: hidden; background-color: #e5ead0; }
+.planner-card-tags { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: #546f52; font-size: .76rem; font-weight: 780; }
+.planner-field-notes h3 { margin: .05rem 0 0; font-size: clamp(1.06rem, 2.1vw, 1.35rem); letter-spacing: -.035em; }
+.planner-address { color: var(--plan-muted); font-size: .82rem; }
+.planner-status { justify-self: start; }
+.planner .planner-status.status-no-match { color: #793f2e; }
+.planner .planner-status.status-unknown { color: #6a4e17; }
+.planner-price { display: grid; gap: .22rem; margin-top: .35rem; padding: .65rem .8rem; border-radius: 12px; background: #f2f3e4; }
+.planner-price > span, .planner-price > small { color: #4f654f; font-size: .76rem; }
+.planner-price > strong { color: #285c47; font-size: 1.19rem; letter-spacing: -.025em; }
+.planner-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: .55rem 0 .35rem; }
+.planner-facts div { padding: .45rem; border: 1px solid #e7e2cb; border-radius: 9px; background: #fcf9ec; }
+.planner-facts dt { color: var(--plan-muted); font-size: .73rem; }
+.planner-facts dd { margin: .19rem 0 0; font-size: .86rem; font-weight: 720; }
+.planner .planner-enter { justify-self: start; min-height: 42px; margin: .25rem 0; border-color: #bccdae; background: #ecf3dc; color: #335b43; }
+.planner-checks, .planner-transaction-list { display: grid; gap: .3rem; margin: .35rem 0; padding: 0; list-style: none; }
+.planner-checks li, .planner-transaction-list li { display: flex; flex-wrap: wrap; gap: 3px 8px; justify-content: space-between; color: var(--plan-muted); font-size: .8rem; }
+.planner-checks strong, .planner-transaction-list strong { color: var(--plan-ink); }
+.planner-detail { padding: .6rem 0 0; border-top: 1px dashed #dad5b8; }
+.planner-detail summary { color: #4d614b; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.planner-listing { display: grid; gap: .35rem; margin-top: .65rem; }
+.planner-listing > div { display: flex; align-items: center; gap: 6px; }
+.planner .planner-empty { margin-top: .8rem; }
+.planner-footer { display: grid; gap: 8px; margin-top: 2.5rem; padding-top: 1.2rem; border-top: 1px dashed #ccc7aa; color: #536556; font-size: .76rem; line-height: 1.55; }
+.planner-footer div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; }
+.planner-footer strong { color: #355d43; font: 850 .95rem Nunito, system-ui, sans-serif; }
+
+@media (max-width: 770px) {
+  .planner-map-layout { grid-template-columns: minmax(0, 1fr) minmax(225px, .66fr); }
+  .planner-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 740px) {
+  .planner-map-layout { grid-template-columns: 1fr; margin-top: .6rem; }
+  .planner-field-notes { padding: 12px 2px 0; border-left: 0; border-top: 1px dashed #bfb999; }
+}
+
+@media (max-width: 600px) {
+  .planner-header { flex-wrap: wrap; gap: 7px; padding-block: 9px; }
+  .planner-mark { font-size: 1.02rem; }
+  .planner-mark span { width: 31px; height: 31px; }
+  .planner-fields, .planner-fields:has(#planner-monthly) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .planner-fields > :first-child, .planner-fields:has(#planner-monthly) > :last-child { grid-column: 1 / -1; }
+  .planner-form-bottom { align-items: stretch; flex-direction: column; }
+  .village-map { min-height: 266px; }
+}
