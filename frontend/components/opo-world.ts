@@ -12,6 +12,8 @@ import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
 import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, approach, playgroundReference } from './opo-site';
+import { addSongpaFloodMap } from './opo-flood';
+import type { FloodView } from './data/songpa-flood';
 import { addStreets } from './opo-streets';
 import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
@@ -143,6 +145,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
   const site = addSiteDetails(data, scene, streets.surface, finish);
   const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);
+  const floodMap = isOpo ? undefined : addSongpaFloodMap(data, scene, streets.surface);
   const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   const greenAccess = addGreenAccess(data, scene);
@@ -341,6 +344,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
   const comparisonMarkers = new T.Group();
   scene.add(comparisonMarkers);
+  let ambientInspection = false;
   const markers = Object.fromEntries((['A', 'B'] as const).map((slot, index) => {
     const group = new T.Group();
     const color = index === 0 ? '#e5ae45' : '#407b7b';
@@ -366,7 +370,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.className = 'building-label';
     element.textContent = building.dong;
     host.appendChild(element);
-    return { point, element, enabled: () => !ambientMap?.group.visible };
+    return { point, element, enabled: () => !ambientMap?.group.visible && !floodMap?.group.visible };
   });
   for (const label of ambientMap?.labels ?? []) {
     const element = document.createElement('span');
@@ -375,6 +379,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.hidden = true;
     host.appendChild(element);
     labels.push({ point: label.point, element, enabled: () => Boolean(ambientMap?.group.visible), keepInFrame: true });
+  }
+  for (const label of floodMap?.labels ?? []) {
+    const element = document.createElement('span');
+    element.className = 'building-label flood-map-label';
+    element.dataset.kind = label.kind;
+    element.textContent = label.text;
+    element.hidden = true;
+    host.appendChild(element);
+    labels.push({ point: label.point, element, enabled: () => Boolean(floodMap?.group.visible && label.enabled()), keepInFrame: true });
   }
   for (const stop of pavingStops) {
     const element = document.createElement('span');
@@ -950,12 +963,23 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     ambientScene: ambientMap && { stops: ambientMap.stops.filter(stop => canAnalyze(stop.position)), stationDistancesM: ambientMap.stationDistancesM },
     showAmbient(active: boolean, map: boolean) {
       if (!ambientMap) return;
-      comparisonMarkers.visible = !active;
+      ambientInspection = active;
+      comparisonMarkers.visible = !active && !floodMap?.group.visible;
       ambientMap.group.visible = map;
       if (!map) return;
       const bounds = new T.Box3().setFromPoints(ambientMap.frames);
       const scale = bounds.getSize(new T.Vector3()).length();
       frameSurface(ambientMap.frames, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.10, scale * 1.1, scale * 0.22));
+    },
+    showFlood(year: string | null, view: FloodView) {
+      if (!floodMap) return;
+      const points = floodMap.show(year, view);
+      comparisonMarkers.visible = !ambientInspection && !floodMap.group.visible;
+      if (!points.length) return;
+      const bounds = new T.Box3().setFromPoints(points);
+      const { x, z } = bounds.getSize(new T.Vector3());
+      const scale = Math.max(160, x, z);
+      frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
     },
     greenAccessProfiles: greenAccess.layers.map(layer => ({ id: layer.id, profile: layer.profile })),
     markGreenAccess(id: string | null, index: number) {

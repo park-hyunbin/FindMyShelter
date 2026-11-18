@@ -1,9 +1,10 @@
 import { songpaComplex } from './regions';
 import { songpaFacilities, songpaGrounds } from './songpa-grounds';
 import { ambientSources } from './songpa-ambient';
+import { floodSource } from './songpa-flood';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'paving' | 'parking' | 'ambient';
+export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'paving' | 'parking' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -116,10 +117,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         ],
       },
       {
-        id: 'drainage', title: '물길·침수·배수', evidence: 'visit',
-        finding: '서울시 침수흔적도에서 공개된 이력을 살펴볼 수 있어요. 지하주차장 진입부나 단지 배수구의 실제 상태는 현장 확인이 필요해요.',
-        followUp: '비 오는 날 물이 모이는 곳과 주차장 차수 시설을 확인해 보세요.',
-        sources: [{ label: '서울 안전누리 침수흔적도', url: 'https://safecity.seoul.go.kr/distFclt/cfMapDs/cfMapDs.page?menuId=MENU_SSNS_000192' }],
+        id: 'drainage', title: '물길·침수·배수', evidence: 'document',
+        finding: '서울시 공개 침수흔적과 단지 경계를 대조하고, 주변 연못과 하천의 위치를 지도에서 볼 수 있어요.',
+        followUp: '비가 그친 뒤 물이 모인 곳, 빗물받이와 지하주차장 차수 시설을 확인해 보세요.',
+        views: [{ target: 'flood', label: '침수 기록과 물길 보기' }],
+        sources: [{ label: '서울시 침수흔적도 원본', url: floodSource }],
       },
       {
         id: 'interior', title: '세대 내부', evidence: 'visit',

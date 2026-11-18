@@ -16,8 +16,10 @@ import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
+import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import TourLive from './TourLive';
 import SongpaAmbient from './SongpaAmbient';
+import SongpaFlood from './SongpaFlood';
 import SongpaChecklist from './SongpaChecklist';
 import type { ChecklistView } from './data/songpa-checklist';
 
@@ -32,7 +34,7 @@ const seasonDates = [
 const capture = new Date(Date.parse(satelliteMetadata.acquired_at) + 9 * 3600000);
 const captureMinute = capture.getUTCHours() * 60 + capture.getUTCMinutes();
 type Points = Partial<Record<Slot, SitePoint>>;
-type AnalysisTab = 'sun' | 'nature' | 'site' | 'places' | 'checklist' | 'ambient';
+type AnalysisTab = 'sun' | 'nature' | 'site' | 'places' | 'checklist' | 'ambient' | 'flood';
 const modeLabels: Record<ViewMode, string> = { orbit: '조감', walk: '걷기', drive: '운전' };
 const directions = [ ['up', '↑', '전진'], ['left', '←', '왼쪽'], ['down', '↓', '후진'], ['right', '→', '오른쪽'] ];
 const bearings = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
@@ -223,6 +225,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [retry, setRetry] = useState(0);
   const [ambientMoment, setAmbientMoment] = useState<AmbientMoment>(defaultAmbientMoment);
   const [ambientViewing, setAmbientViewing] = useState(false);
+  const [floodYear, setFloodYear] = useState(latestLocalFloodYear);
+  const [floodView, setFloodView] = useState<FloodView>('closest');
   const sceneDate = ambientViewing ? ambientMoment.day : date;
   const sceneMinute = ambientViewing ? ambientMoment.hour * 60 + ambientArchive.minute : minute;
 
@@ -297,6 +301,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     const active = tab === 'ambient';
     world?.showAmbient(active && (open || ambientViewing), active && open && mode === 'orbit');
   }, [world, open, tab, mode, ambientViewing]);
+
+  useEffect(() => {
+    world?.showFlood(open && tab === 'flood' && mode === 'orbit' ? floodYear : null, floodView);
+  }, [world, open, tab, mode, floodYear, floodView]);
 
   useEffect(() => {
     world?.markGreenAccess(accessId, accessSample);
@@ -376,8 +384,15 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     }
     if (next !== tab) analysisPanel.current?.scrollTo(0, 0);
     if (next !== 'ambient') setAmbientViewing(false);
-    else if (next !== tab) chooseMode('orbit');
+    if (next !== tab && (next === 'ambient' || next === 'flood')) chooseMode('orbit');
     setTab(next);
+  }
+
+  function openFloodLocation(view: FloodView, year = floodYear) {
+    if (mode === 'orbit' && year === floodYear && view === floodView) world?.showFlood(year, view);
+    setFloodYear(year);
+    setFloodView(view);
+    chooseMode('orbit');
   }
 
   function selectPlace(id: string) {
@@ -513,6 +528,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       case 'ambient':
         chooseTab('ambient');
         break;
+      case 'flood':
+        chooseTab('flood');
+        break;
       case 'station-route':
       case 'park-route':
         chooseTab('nature');
@@ -599,6 +617,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <button aria-pressed={tab === 'places'} onClick={() => chooseTab('places')}>생활·학교</button>
         <button aria-pressed={tab === 'site'} onClick={() => chooseTab('site')}>{region === 'opo' ? '단지 시설' : '단지 정보'}</button>
         {region === 'songpa' && <button className="ambient-tab" aria-pressed={tab === 'ambient'} onClick={() => chooseTab('ambient')}>소음·야간</button>}
+        {region === 'songpa' && <button aria-pressed={tab === 'flood'} onClick={() => chooseTab('flood')}>물길·침수</button>}
       </div>
 
       {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)} />}
@@ -608,6 +627,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           chooseMode('orbit');
           world?.showAmbient(true, true);
         }} />}
+      {region === 'songpa' && tab === 'flood' && <SongpaFlood year={floodYear} view={floodView} sceneReady={Boolean(world)}
+        onView={openFloodLocation} onVisit={visit} />}
 
       {tab === 'sun' && <>
         <div className="date-row">
