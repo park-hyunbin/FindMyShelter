@@ -72,7 +72,6 @@ function granularGround(anisotropy: number) {
   const context = canvas.getContext('2d')!;
   const pixels = context.createImageData(size, size);
   const grains = new Uint8Array(size * size);
-  const variation = Array.from({ length: size }, (_, i) => Math.sin(i / size * Math.PI * 2));
   let seed = 3743;
   for (let i = 0; i < grains.length; i++) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -84,7 +83,7 @@ function granularGround(anisotropy: number) {
     for (let x = 0; x < size; x++) {
       const left = (x + size - 1) % size;
       const grain = grains[row + x] * 0.21 + (grains[row + left] + grains[previous + x]) * 0.09;
-      const value = 147 + grain + 7 * variation[x] * variation[y];
+      const value = 147 + grain;
       const pixel = (row + x) * 4;
       pixels.data[pixel] = value;
       pixels.data[pixel + 1] = value - 4;
