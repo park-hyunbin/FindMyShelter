@@ -22,6 +22,39 @@ const bayDesigns = [
 const sillLevel = 0.24;
 const headLevel = 0.84;
 
+function groundFloorMaterial() {
+  const canvas = document.createElement('canvas');
+  canvas.width = (bayDesigns.length + 1) * bayWidth;
+  canvas.height = bayHeight;
+  const ctx = canvas.getContext('2d')!;
+  for (let index = 0; index <= bayDesigns.length; index++) {
+    const x = index * bayWidth;
+    ctx.fillStyle = '#a7aaa2';
+    ctx.fillRect(x, 0, bayWidth, bayHeight);
+    ctx.fillStyle = '#767f7d';
+    ctx.fillRect(x, 99, bayWidth, 29);
+    ctx.fillStyle = '#969e98';
+    for (const y of [100, 112, 124]) ctx.fillRect(x, y, bayWidth, 1);
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + 32 + i * 32, 101 + i % 2 * 11, 1, 11);
+    ctx.fillStyle = '#8a938d';
+    ctx.fillRect(x + 2, 0, 1, 98);
+    if (index === bayDesigns.length) continue;
+    const width = [76, 64, 50, 70][index];
+    const left = x + (bayWidth - width) / 2;
+    ctx.fillStyle = '#626c69';
+    ctx.fillRect(left - 4, 24, width + 8, 57);
+    const glass = ctx.createLinearGradient(left, 29, left, 75);
+    glass.addColorStop(0, '#779895');
+    glass.addColorStop(1, '#3f6062');
+    ctx.fillStyle = glass;
+    ctx.fillRect(left, 29, width, 47);
+    ctx.fillStyle = '#b9c3ba';
+    ctx.fillRect(left + width / 2 - 1, 29, 2, 47);
+    ctx.fillRect(left - 2, 75, width + 4, 3);
+  }
+  return materialForCanvas(canvas, false);
+}
+
 export function songpaExteriorMaterials() {
   const canvas = document.createElement('canvas');
   canvas.width = bayDesigns.length * bayWidth;
@@ -67,6 +100,7 @@ export function songpaExteriorMaterials() {
   }
   return {
     balconies: materialForCanvas(canvas, true),
+    groundFloor: groundFloorMaterial(),
     concrete: new T.MeshStandardMaterial({ color: '#d9ddd5', roughness: 0.92, side: T.DoubleSide }),
     plinth: new T.MeshStandardMaterial({ color: '#949b95', roughness: 0.94, side: T.DoubleSide }),
     profiles: new T.MeshStandardMaterial({ color: '#c8d0ca', roughness: 0.66 }),
@@ -126,18 +160,25 @@ export function addSongpaTowerExterior(scene: T.Scene, building: {
     exterior.add(mesh);
   }
   function wall(a: Point, b: Point, low: number, high: number, material: T.Material,
-    u0 = 0, u1 = 1, highV = 1) {
+    u0 = 0, u1 = 1, highV = 1, lowV = 0) {
     const left = rightHand ? u1 : u0, right = rightHand ? u0 : u1;
     const geometry = new T.BufferGeometry();
     geometry.setAttribute('position', new T.Float32BufferAttribute([
       b.x, low, b.z, a.x, low, a.z, a.x, high, a.z, b.x, high, b.z,
     ], 3));
-    geometry.setAttribute('uv', new T.Float32BufferAttribute([right, 0, left, 0, left, highV, right, highV], 2));
+    geometry.setAttribute('uv', new T.Float32BufferAttribute([right, lowV, left, lowV, left, highV, right, highV], 2));
     geometry.setIndex([0, 1, 2, 0, 2, 3]);
     geometry.computeVertexNormals();
     const faces = walls.get(material) ?? [];
     faces.push(geometry);
     walls.set(material, faces);
+  }
+  const upperStart = grade + floorHeight;
+  function groundBay(a: Point, b: Point, style: number) {
+    const atlasWidth = (bayDesigns.length + 1) * bayWidth;
+    const left = (style * bayWidth + 0.5) / atlasWidth;
+    const right = ((style + 1) * bayWidth - 0.5) / atlasWidth;
+    wall(a, b, grade, upperStart, materials.groundFloor, left, right);
   }
   for (const [index, a] of points.entries()) {
     const b = points[(index + 1) % points.length];
@@ -146,7 +187,9 @@ export function addSongpaTowerExterior(scene: T.Scene, building: {
     const end = record.endFaces.includes(index);
     wall(a, b, bottom, grade, materials.plinth);
     if (end || length < 1.8) {
-      wall(a, b, grade, eave, end ? (index === record.numberFace ? numberedEnd : plainEnd) : materials.concrete);
+      groundBay(a, b, bayDesigns.length);
+      wall(a, b, upperStart, eave, end ? (index === record.numberFace ? numberedEnd : plainEnd) : materials.concrete,
+        0, 1, 1, 1 / levels);
       continue;
     }
     const dx = (b.x - a.x) / length, dz = (b.z - a.z) / length;
@@ -167,12 +210,13 @@ export function addSongpaTowerExterior(scene: T.Scene, building: {
       const from = i * width;
       const start = (style * bayWidth + 0.5) / (bayDesigns.length * bayWidth);
       const end = ((style + 1) * bayWidth - 0.5) / (bayDesigns.length * bayWidth);
-      wall(at(from), at(from + width), grade, eave, materials.balconies, start, end, levels);
+      groundBay(at(from), at(from + width), style);
+      wall(at(from), at(from + width), upperStart, eave, materials.balconies, start, end, levels, 1);
       const [lo, hi] = bayDesigns[style].opening;
       const left = from + (rightHand ? 1 - hi : lo) * width;
       const right = from + (rightHand ? 1 - lo : hi) * width;
       // Projecting sills and jambs are most noticeable from the pedestrian camera.
-      for (let floor = 0; floor < Math.min(levels, 5); floor++) {
+      for (let floor = 1; floor < Math.min(levels, 5); floor++) {
         const sill = grade + (floor + sillLevel) * floorHeight;
         const head = grade + (floor + headLevel) * floorHeight;
         section((left + right) / 2, sill, right - left + 0.1, 0.075, 0.16);

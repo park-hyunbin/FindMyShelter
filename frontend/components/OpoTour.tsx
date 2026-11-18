@@ -1350,6 +1350,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <article className="site-card" data-site-card="paving">
           <h3>단지 안 산책로와 놀이터</h3>
           <p>103·104동 사이 보행로와 화단, 원형 앉음벽을 지나 조합놀이대와 그네를 볼 수 있어요.</p>
+          <p>103동 앞 포장 연결과 현관 외관은 공개 사진을 참고해 재현했어요. 현관의 정확한 위치와 단차는 현장에서 확인해 보세요.</p>
           <p>시설번호 {songpaPlayground.facilityNo} · {songpaPlayground.registered}</p>
           <p>항공영상과 공식 시설 사진을 참고했어요. 놀이기구와 보행로의 배치·치수는 근사예요. 현재 기구 상태와 단차는 현장에서 확인해 보세요.</p>
           <div className="site-actions">

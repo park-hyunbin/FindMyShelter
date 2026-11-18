@@ -7,6 +7,7 @@ import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials
 import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
 import { createRoadPaintClipper } from './opo-road-paint';
 import { makeCar } from './opo-vehicle';
+import { buildingEntry, type BuildingEntryLayout } from './opo-building-entry';
 
 type Coordinate = [longitude: number, latitude: number];
 type GateOffset = [across: number, along: number];
@@ -30,6 +31,7 @@ export type GateLayout = {
 export type SiteSurfaceLayout = {
   drive?: { width: number; points: Coordinate[] };
   paths: { width: number; points: Coordinate[] }[];
+  buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   crossings: SiteCrossing[];
@@ -178,8 +180,15 @@ export function addSiteSurfaces(
   }
   for (const { width, points } of layout.paths) {
     const line = curve(points);
-    add(ribbon(line, width + 0.26, (x, z) => grade(x, z) + 0.20), edging);
-    add(ribbon(line, width, (x, z) => grade(x, z) + 0.24), paving, 'pavers');
+    add(ribbon(line, width + 0.26, (x, z) => grade(x, z) + pathLift - 0.04), edging);
+    add(ribbon(line, width, (x, z) => grade(x, z) + pathLift), paving, 'pavers');
+  }
+  for (const entry of layout.buildingEntries ?? []) {
+    const facade = buildingEntry(data, entry, grade, pathLift);
+    if (!facade) continue;
+    add(facade.connector, paving, 'pavers');
+    for (const deck of facade.stepDecks) add(deck, edging);
+    scene.add(facade.exterior);
   }
   const streetGrade = (x: number, z: number) => grade(x, z) + streetDeckLift;
   for (const { curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
@@ -220,3 +229,4 @@ export function addSiteSurfaces(
   });
   return { elevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked };
 }
+  const pathLift = 0.24;

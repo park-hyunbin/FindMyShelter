@@ -26,6 +26,7 @@ export const songpaManagementFees = {
 };
 
 type Coordinate = [longitude: number, latitude: number];
+export type SongpaGroundView = { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate; viewFrom?: Coordinate };
 
 export const songpaPlayground = {
   facilityNo: '503928',
@@ -65,7 +66,7 @@ export const songpaCourtyard = {
       [127.1159711, 37.4977653], [127.1160677, 37.4977844], [127.1161723, 37.4978185],
     ] },
     { width: 1.75, points: [
-      [127.1160060, 37.4975908], [127.1159980, 37.4975333], [127.1159658, 37.4974801],
+      [127.1160489, 37.4975908], [127.1160200, 37.4975770], [127.1159980, 37.4975333], [127.1159658, 37.4974801],
       [127.1159577, 37.4974269],
     ] },
   ] satisfies { width: number; points: Coordinate[] }[],
@@ -123,9 +124,10 @@ export const songpaCourtyard = {
     [127.1170735, 37.4974695],
   ] satisfies Coordinate[],
   views: [
-    { id: 'west-garden', name: '103·104동 사이 산책로', coordinate: [127.1161133, 37.4974865], lookAt: [127.1160275, 37.4976759] },
+    { id: 'west-garden', name: '103·104동 사이 산책로', coordinate: [127.1161133, 37.4974865],
+      viewFrom: [127.1160543, 37.4975674], lookAt: [127.1160784, 37.4976185] },
     { id: 'playground-edge', name: '어린이놀이터 옆', coordinate: [127.1159685, 37.4978100], lookAt: [127.1159551, 37.4979057] },
-  ] satisfies { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate }[],
+  ] satisfies SongpaGroundView[],
 };
 
 // Use the same traced points for the asphalt edge and the adjoining curb.
@@ -181,12 +183,16 @@ export const songpaGrounds = {
   points: [
     { id: 'south-paving', name: '포장로 남쪽', coordinate: [127.1165511, 37.4974674], lookAt: [127.1166685, 37.4976248] },
     { id: 'inner-paving', name: '동 사이 포장 공간', coordinate: [127.1166846, 37.4976632], lookAt: [127.1166176, 37.4975248] },
-  ] satisfies { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate }[],
+  ] satisfies SongpaGroundView[],
 };
 // Geometry stays in the site data. The photos inform visual details separately.
 export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
   paths: songpaCourtyard.paths,
+  // The pavers and entrance style are photo references. The door placement and dimensions are illustrative.
+  buildingEntries: [
+    { buildingId: '55765541', wall: [127.1160945, 37.4976121], path: [127.1160462, 37.4976100], width: 3.10 },
+  ],
   roadsideWalks: [
     { curb: songpaStreetEdge, outward: 1, width: 1.55 },
     { curb: songpaWestDriveEdge, outward: -1, width: 1.32, beside: 'driveway' },

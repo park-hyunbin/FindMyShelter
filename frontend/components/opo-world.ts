@@ -24,7 +24,7 @@ import { songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
 import { sampleWinterPixel, winterCapturePoints } from './data/songpa-winter-capture';
-import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
+import { songpaCourtyard, songpaGrounds, type SongpaGroundView } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
 import { ambientStationDistance } from './data/songpa-ambient';
@@ -156,9 +156,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const approachPoint = isOpo ? data.project(approach) : spawn;
   const lookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(songpaComplex.lookAt);
   const initialHeading = headingTo(spawn, lookAt);
-  const pavingStops = isOpo ? [] : [...songpaGrounds.points, ...songpaCourtyard.views].map(point => ({
-    id: point.id, name: point.name, position: data.project(point.coordinate), lookAt: data.project(point.lookAt),
-  })).filter(point => canAnalyze(point.position) && inShape(point.position, [data.siteOutline]));
+  const pavingStops = isOpo ? [] : [...songpaGrounds.points, ...songpaCourtyard.views].map((point: SongpaGroundView) => {
+    const samplePosition = data.project(point.coordinate);
+    const position = point.viewFrom ? data.project(point.viewFrom) : samplePosition;
+    return { id: point.id, name: point.name, position, samplePosition, lookAt: data.project(point.lookAt) };
+  }).filter(point => canAnalyze(point.position) && inShape(point.position, [data.siteOutline]));
   const entranceStops = isOpo ? [] : [songpaEntrance.main, songpaEntrance.garage].map(stop => ({
     id: stop.id, name: stop.name, position: data.project(stop.position), lookAt: data.project(stop.lookAt),
   })).filter(stop => !occupied(stop.position));
@@ -582,7 +584,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       presets.push({...point, id:`road-${index}`, label:`구역 도로 인근 ${index + 1}`});
     }
   }
-  presets.push(...pavingStops.map(stop => ({ ...stop.position, id: stop.id, label: stop.name })));
+  presets.push(...pavingStops.map(stop => ({ ...stop.samplePosition, id: stop.id, label: stop.name })));
   if (!isOpo) for (const { id, label, coordinate } of winterCapturePoints) {
     const point = data.project(coordinate);
     if (canAnalyze(point) && inShape(point, [data.siteOutline])) presets.push({ ...point, id, label });
