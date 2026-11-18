@@ -19,6 +19,7 @@ export function shapeFrom(rings: Shape) {
 
 export type RoofOutline = { rings: Shape; elevation: number; label: string };
 const terrainSegments = 144;
+const terrainSpacing = extent * 2 / terrainSegments;
 
 export function makeGround(data: OpoData) {
   const geometry = new T.PlaneGeometry(extent * 2, extent * 2, terrainSegments, terrainSegments);
@@ -44,7 +45,7 @@ export function makeGround(data: OpoData) {
 }
 
 export function terrainSurface(ground: OpoData['ground'], x: number, z: number) {
-  const spacing = extent * 2 / terrainSegments;
+  const spacing = terrainSpacing;
   const column = T.MathUtils.clamp((x + extent) / spacing, 0, terrainSegments);
   const row = T.MathUtils.clamp((z + extent) / spacing, 0, terrainSegments);
   const i = Math.min(terrainSegments - 1, Math.floor(column));
@@ -54,6 +55,30 @@ export function terrainSurface(ground: OpoData['ground'], x: number, z: number) 
   const northEast = ground(left + spacing, top), southWest = ground(left, top + spacing);
   if (fx + fz <= 1) return ground(left, top) * (1 - fx - fz) + northEast * fx + southWest * fz;
   return ground(left + spacing, top + spacing) * (fx + fz - 1) + northEast * (1 - fz) + southWest * (1 - fx);
+}
+
+export function terrainRayBreaks(origin: Point, direction: Point, limit: number) {
+  function edge(coordinate: number, velocity: number) {
+    return velocity === 0 ? Infinity : ((velocity > 0 ? extent : -extent) - coordinate) / velocity;
+  }
+  const range = Math.max(0, Math.min(limit, edge(origin.x, direction.x), edge(origin.z, direction.z)));
+  const distances = range ? [range] : [];
+  // Each rendered triangle lies between two grid edges and the north-east to south-west diagonal.
+  for (const [coordinate, velocity] of [
+    [origin.x + extent, direction.x],
+    [origin.z + extent, direction.z],
+    [origin.x + origin.z + 2 * extent, direction.x + direction.z],
+  ]) {
+    if (Math.abs(velocity) < 1e-10) continue;
+    const far = coordinate + velocity * range;
+    const first = Math.ceil(Math.min(coordinate, far) / terrainSpacing);
+    const last = Math.floor(Math.max(coordinate, far) / terrainSpacing);
+    for (let index = first; index <= last; index++) {
+      const distance = (index * terrainSpacing - coordinate) / velocity;
+      if (distance > 1e-6 && distance < range) distances.push(distance);
+    }
+  }
+  return { range, distances: distances.sort((a, b) => a - b) };
 }
 
 export function groundPolygon(rings: Shape, ground: OpoData['ground'], maxEdge = 12, lift = 0.23) {

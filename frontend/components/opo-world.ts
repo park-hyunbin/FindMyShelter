@@ -130,6 +130,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
     return paved;
   }
+  function walkFloor(point: Point, ground: number) {
+    return isOpo ? modeledElevation(point) : walkDeck(point, ground);
+  }
   const greenAccess = addGreenAccess(data, scene, streets.surface, site.paving);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   const parkViews = isOpo ? [] : songiPark.views.map(({ name, coordinate, toward }) => {
@@ -202,7 +205,6 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let stickX = 0, stickY = 0;
   let mode: ViewMode = 'orbit';
   let eyeLevel = false;
-  let sightlineView = false;
   let studyingSunlight = false;
   let walkingAtEyeLevel = true;
   const firstPerson = () => eyeLevel || (mode === 'walk' && walkingAtEyeLevel);
@@ -584,6 +586,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
   }
   presets.push(...pavingStops.map(stop => ({ ...stop.samplePosition, id: stop.id, label: stop.name })));
+  const gate = entranceStops.find(stop => stop.id === songpaEntrance.main.id && canAnalyze(stop.position));
+  if (gate) presets.push({ ...gate.position, id: gate.id, label: gate.name });
   if (!isOpo) for (const { id, label, coordinate } of winterCapturePoints) {
     const point = data.project(coordinate);
     if (canAnalyze(point) && inShape(point, [data.siteOutline])) presets.push({ ...point, id, label });
@@ -824,7 +828,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       travelSpeed = T.MathUtils.damp(travelSpeed,
         Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
       const surfaceHeight = streets.surface(position.x, position.z);
-      const modeledFloor = isOpo ? modeledElevation(position) : driving ? undefined : walkDeck(position, surfaceHeight);
+      const modeledFloor = driving && !isOpo ? undefined : walkFloor(position, surfaceHeight);
       const y = (eyeLevel ? undefined : modeledFloor) ?? surfaceHeight;
       const actor = driving ? car : player;
       const actorHeight = modeledFloor === undefined
@@ -836,7 +840,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
       const angle = heading + viewAngle;
       if (firstPerson()) {
-        const base = studyingSunlight || (eyeLevel && (isOpo || sightlineView || modeledFloor === undefined))
+        const base = studyingSunlight || (eyeLevel && (isOpo || modeledFloor === undefined))
           ? surfaceHeight : isOpo ? undefined : modeledFloor;
         const eye = base === undefined ? actor.position.y + 1.6 : base + observationHeight;
         camera.position.set(position.x, eye, position.z);
@@ -1017,7 +1021,6 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     lookFrom(point: Point, bearing: number, sightlineAngle?: number) {
       setMode('walk');
       eyeLevel = true;
-      sightlineView = sightlineAngle !== undefined;
       walkingTo = null;
       player.visible = false;
       movement.clear();
@@ -1166,7 +1169,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         : nearestOnLine(point, environment.greens.map(shape => [...shape[0], shape[0][0]])).distance;
       return { water, green, elevation: data.elevationAt(point.x, point.z), spread: data.spreadAt(point.x, point.z) };
     },
-    directionProfile: (point: Point, bearing: number) => directionProfile(data, roofs, streets.surface, point, bearing),
+    directionProfile(point: Point, bearing: number) {
+      const ground = streets.surface(point.x, point.z);
+      const base = isOpo ? ground : walkFloor(point, ground) ?? ground;
+      return directionProfile(data, roofs, base, point, bearing);
+    },
     showTreeCover(enabled: boolean) {
       if (!treeCoverOverlay || treeCoverOverlay.visible === enabled) return;
       treeCoverOverlay.visible = enabled;

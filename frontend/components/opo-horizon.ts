@@ -1,12 +1,13 @@
-import { inShape, type OpoData, type Point, type Shape } from './opo-data';
-import { terrainSurface, type RoofOutline } from './opo-meshes';
+import { distanceToBuildingCoverage, inShape, type OpoData, type Point, type Shape } from './opo-data';
+import { terrainRayBreaks, terrainSurface, type RoofOutline } from './opo-meshes';
 import { observationHeight } from './opo-sunlight';
 
 export const horizonRange = 800;
-const terrainStep = 10;
+export const horizonChartStep = 50;
 type HorizonHit = { angle: number; distance: number; source: string };
 export type DirectionProfile = {
-  heights: number[]; hit: HorizonHit | null; terrainAngleBelowBuilding: number | null; nearestHeightGap: number | null;
+  heights: (number | null)[]; hit: HorizonHit | null; terrainAngleBelowBuilding: number | null; nearestHeightGap: number | null;
+  terrainRange: number; buildingRange: number;
 };
 
 function outlineDistance(origin: Point, direction: Point, rings: Shape) {
@@ -34,18 +35,24 @@ function outlineDistance(origin: Point, direction: Point, rings: Shape) {
   return nearest;
 }
 
-export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 'heightGaps'>, roofs: RoofOutline[],
-    surface: OpoData['ground'], point: Point, bearing: number): DirectionProfile {
+export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 'heightGaps' | 'buildingRadius'>, roofs: RoofOutline[],
+    standingHeight: number, point: Point, bearing: number): DirectionProfile {
   const angle = bearing * Math.PI / 180 + data.northOffset;
   const direction = { x: Math.sin(angle), z: -Math.cos(angle) };
   const base = terrainSurface(data.ground, point.x, point.z);
-  const eye = surface(point.x, point.z) + observationHeight;
-  const heights = [0];
+  const eye = standingHeight + observationHeight;
+  const { range: terrainRange, distances } = terrainRayBreaks(point, direction, horizonRange);
+  const buildingRange = Math.min(horizonRange, distanceToBuildingCoverage(point, direction, data.buildingRadius));
+  const heightAt = (distance: number) => terrainSurface(data.ground,
+    point.x + direction.x * distance, point.z + direction.z * distance);
+  const heights: (number | null)[] = [0];
+  for (let distance = horizonChartStep; distance <= horizonRange; distance += horizonChartStep) {
+    heights.push(distance <= terrainRange ? heightAt(distance) - base : null);
+  }
   let hit: HorizonHit | null = null;
-  for (let distance = terrainStep; distance <= horizonRange; distance += terrainStep) {
-    const height = terrainSurface(data.ground, point.x + direction.x * distance, point.z + direction.z * distance);
-    if (distance % 50 === 0) heights.push(height - base);
-    const elevationAngle = Math.atan2(height - eye, distance) * 180 / Math.PI;
+  // Elevation is linear inside each triangle, so the maximum angle occurs at one of its ends.
+  for (const distance of distances) {
+    const elevationAngle = Math.atan2(heightAt(distance) - eye, distance) * 180 / Math.PI;
     if (elevationAngle > (hit?.angle ?? 0)) hit = { angle: elevationAngle, distance, source: '주변 지형' };
   }
   const terrainHit = hit;
@@ -59,7 +66,7 @@ export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 
   let nearestHeightGap = Infinity;
   for (const shape of data.heightGaps) nearestHeightGap = Math.min(nearestHeightGap, outlineDistance(point, direction, shape));
   return {
-    heights, hit, terrainAngleBelowBuilding: hit === terrainHit ? null : terrainHit?.angle ?? 0,
+    heights, terrainRange, buildingRange, hit, terrainAngleBelowBuilding: hit === terrainHit ? null : terrainHit?.angle ?? 0,
     nearestHeightGap: nearestHeightGap <= horizonRange ? nearestHeightGap : null,
   };
 }

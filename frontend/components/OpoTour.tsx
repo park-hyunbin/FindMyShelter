@@ -5,7 +5,7 @@ import { courtyard, courtyardGarden } from './opo-courtyard';
 import { courtyardStairs } from './opo-garden';
 import { loadOpoData, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
-import { horizonRange, type DirectionProfile } from './opo-horizon';
+import { horizonChartStep, horizonRange, type DirectionProfile } from './opo-horizon';
 import { routeAscent, routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
 import { interval, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
@@ -260,24 +260,30 @@ function TerrainSection({ profiles, onLook }: {
   profiles: { slot: Slot; point: SitePoint; profile: DirectionProfile }[];
   onLook: (point: SitePoint, angle: number) => void;
 }) {
-  const envelope = Math.max(10, ...profiles.flatMap(({ profile }) => profile.heights.map(Math.abs)));
+  const envelope = Math.max(10, ...profiles.flatMap(({ profile }) => profile.heights.map(value => Math.abs(value ?? 0))));
   return <div className="terrain-profiles">
-    {profiles.map(({ slot, point, profile: { heights: values, hit, terrainAngleBelowBuilding, nearestHeightGap } }) => {
-      const peak = Math.round(Math.max(...values));
-      const end = Math.round(values[values.length - 1]);
+    {profiles.map(({ slot, point, profile: { heights: values, hit, terrainAngleBelowBuilding, nearestHeightGap, terrainRange, buildingRange } }) => {
+      const peak = Math.round(Math.max(...values.map(value => value ?? 0)));
+      const last = values.at(-1);
+      const end = last == null ? null : Math.round(last);
+      const incompleteRange = buildingRange < horizonRange || terrainRange < horizonRange;
       const cutoff = hit && (hit.angle < 0.1 ? '0.1° 미만' : `약 ${hit.angle.toFixed(1)}°`);
       return <div key={slot} className={`profile-${slot}`}>
         <div className="profile-title"><b>{slot} · {point.label}</b><span>지형 최대 상승 약 {peak}m</span></div>
         <div className="profile-plot" aria-hidden="true">
-          {values.map((value, i) => <i key={i} style={{ height: `${Math.abs(value) / envelope * 48}%`, top: `${value > 0 ? 50 - value / envelope * 48 : 50}%` }} />)}
+          {values.map((value, i) => value === null ? <i key={i} style={{ visibility: 'hidden' }} />
+            : <i key={i} style={{ height: `${Math.abs(value) / envelope * 48}%`, top: `${value > 0 ? 50 - value / envelope * 48 : 50}%` }} />)}
         </div>
-        <div className="profile-title plot-scale"><span>0m</span><span>{horizonRange}m · 고도차 {end > 0 ? '+' : ''}{end}m</span></div>
+        <div className="profile-title plot-scale"><span>0m</span><span>{horizonRange}m{end !== null && ` · 고도차 ${end > 0 ? '+' : ''}${end}m`}</span></div>
         <div className="horizon-result">
           <strong>{hit ? `자료상 차폐각 ${cutoff}`
-            : nearestHeightGap === null ? '모델상 수평선 위 차폐 없음' : '높이 자료 부족 · 차폐 여부 미판정'}</strong>
+            : nearestHeightGap !== null ? '높이 자료 부족 · 차폐 여부 미판정'
+              : incompleteRange ? '확인 범위에서 차폐 없음' : '모델상 수평선 위 차폐 없음'}</strong>
           {hit && <small>{hit.source} · 약 {Math.round(hit.distance)}m</small>}
           {terrainAngleBelowBuilding !== null && <small>지형만 적용 시 약 {terrainAngleBelowBuilding.toFixed(1)}°</small>}
           {nearestHeightGap !== null && <small className="horizon-gap">높이 미확인 건물 · 약 {Math.round(nearestHeightGap)}m{hit && ' · 추가 차폐 가능'}</small>}
+          {buildingRange < horizonRange && <small>건물 자료 약 {Math.round(buildingRange)}m까지 · 이후 미판정</small>}
+          {terrainRange < horizonRange && <small>지형 자료 약 {Math.round(terrainRange)}m까지 · 이후 미판정</small>}
         </div>
         <button className="eye-view" aria-label={`${slot} 지점 ${point.label} 눈높이로 보기`} onClick={() => onLook(point, hit?.angle ?? 0)}>눈높이로 보기</button>
       </div>;
@@ -1181,7 +1187,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             {bearings.map((label, i) => <option key={label} value={i * 45}>{label}쪽</option>)}
           </select>
         </div>
-        <p className="horizon-caption">차폐각은 눈높이 {observationHeight}m에서 지형이나 건물이 수평선 위를 가리는 각도예요.</p>
+        <p className="horizon-caption">차폐각은 {region === 'songpa' ? '서 있는 바닥' : '모델 지면'}에서 {observationHeight}m 높이로 봤을 때 지형이나 건물이 수평선 위를 가리는 각도예요.</p>
         <TerrainSection profiles={profiles} onLook={(point, angle) => {
           setHomeStep(null);
           setAccessId(null);
@@ -1306,10 +1312,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           })}
         </section>
         <details className="basis"><summary>자료와 계산 기준</summary>
-          <p>3D와 같은 지형 표면에서 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 단면을 표시합니다. {world?.sources.localTerrain ?
+          <p>3D와 같은 지형 표면에서 출발 지면을 0m로 두고 최대 {horizonRange}m까지 {horizonChartStep}m 간격으로 단면을 표시합니다. {world?.sources.localTerrain ?
             '단지 주변은 서울시 수치지형도에서 보간하고 외곽은 GEDTM30과 연결했어요.' :
             `${world?.sources.terrain.name ?? 'GEDTM30'}을 사용하며 표고 기준은 ${world?.sources.terrain.datum ?? 'EGM2008'}입니다. 자료 기준 기간은 ${world?.sources.terrain.epoch ?? '2006–2015'}입니다.`}</p>
-          <p>차폐각은 선택한 한 방향으로 {horizonRange}m 안의 지형 표본과 모델에 높이가 있는 건물 지붕 중 가장 위에 보이는 각도입니다. 높이 미확인 건물은 별도로 표시합니다. 주변 건물 높이 자료의 범위가 제한되며 수목과 {horizonRange}m 밖의 지형은 별도 확인이 필요합니다.</p>
+          <p>차폐각은 같은 방향에 있는 3D 지형의 삼각면 경계와 높이 자료가 있는 건물 지붕에서 구해요. 건물·지형 자료가 끝나는 거리와 높이 미확인 건물을 따로 표시해요. 수목이나 먼 지형이 가리는 정도는 현장에서 확인해 주세요.</p>
           <p>예측 산포는 지형 모델의 예측 변동입니다. 보도·옹벽·계단과 현장 표고 오차는 별도 확인이 필요합니다.</p>
           {world?.sources.terrain.relativeDifference != null && <p>기존 90m 자료와 중앙 기준점에 맞춰 비교한 상대 높이의 평균 절대 차이는 {world.sources.terrain.relativeDifference.toFixed(1)}m입니다.</p>}
           <a href={world?.sources.terrain.catalog ?? 'https://zenodo.org/records/15689805'} target="_blank" rel="noreferrer">지형 출처 · Ho &amp; Hengl / CC BY 4.0 ↗</a>

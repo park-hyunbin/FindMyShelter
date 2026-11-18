@@ -1,6 +1,6 @@
 import { Raycaster, Vector3, type Intersection, type Mesh } from 'three';
 import SunCalc from 'suncalc3';
-import { extent, type OpoData, type Point } from './opo-data';
+import { distanceToBuildingCoverage, extent, type OpoData, type Point } from './opo-data';
 
 export const interval = 10;
 export const observationHeight = 1.5;
@@ -50,10 +50,8 @@ function possibleUnmappedShade(data: OpoData, origin: Vector3, direction: Vector
     }
   }
 
-  const towardEdge = origin.x * dx + origin.z * dz;
-  const inside = data.buildingRadius ** 2 - origin.x ** 2 - origin.z ** 2;
-  const leaveAt = -towardEdge + Math.sqrt(Math.max(0, towardEdge ** 2 + inside));
-  for (let distance = Math.max(0, leaveAt); distance < maxDistance; distance += 30) {
+  const leaveAt = distanceToBuildingCoverage(origin, { x: dx, z: dz }, data.buildingRadius);
+  for (let distance = leaveAt; distance < maxDistance; distance += 30) {
     if (requiresHeightAt(distance) <= data.referenceHeight) return '건물 표본 밖에서 차폐 가능';
   }
   return undefined;

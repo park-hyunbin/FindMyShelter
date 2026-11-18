@@ -314,6 +314,13 @@ export function nearestOnLine(point: Point, lines: Point[][]) {
   return best;
 }
 
+// Distance along a unit horizontal ray from a point inside the circular import window.
+export function distanceToBuildingCoverage(origin: Point, direction: Point, radius: number) {
+  const towardEdge = origin.x * direction.x + origin.z * direction.z;
+  const inside = radius ** 2 - origin.x ** 2 - origin.z ** 2;
+  return Math.max(0, -towardEdge + Math.sqrt(Math.max(0, towardEdge ** 2 + inside)));
+}
+
 export function splitLineAt(points: Point[], target: Point) {
   let best = { distance: Infinity, point: points[0], index: 0 };
   for (let i = 1; i < points.length; i++) {
