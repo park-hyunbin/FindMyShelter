@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, inShape, nearestOnLine, type Building, type OpoData, type Point, type Shape } from './opo-data';
+import architecture from '../public/opo-architecture.json';
 
 export function shapeFrom(rings: Shape) {
   const path = (ring: Point[]) => ring.map(({ x, z }) => new T.Vector2(x, -z));
@@ -118,16 +119,16 @@ function facadeTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128; canvas.height = 96;
   const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#e5decd'; ctx.fillRect(0, 0, 128, 96);
-  ctx.fillStyle = '#c7bcaa'; ctx.fillRect(0, 0, 26, 96);
-  ctx.fillStyle = '#f6ebd9'; ctx.fillRect(28, 0, 5, 96);
-  ctx.fillStyle = '#b9ab98'; ctx.fillRect(0, 83, 128, 5);
-  ctx.fillStyle = '#77878a'; ctx.fillRect(46, 16, 61, 57);
-  ctx.fillStyle = '#a3b5b7'; ctx.fillRect(50, 20, 53, 44);
-  ctx.fillStyle = '#5d747b'; ctx.fillRect(50, 47, 53, 20);
-  ctx.fillStyle = '#d1c8b9'; ctx.fillRect(76, 20, 3, 47);
-  ctx.fillStyle = '#f1e9da'; ctx.fillRect(40, 66, 74, 5); ctx.fillRect(43, 14, 67, 4);
-  ctx.fillStyle = '#7c8580'; ctx.fillRect(45, 18, 3, 50); ctx.fillRect(105, 18, 3, 50);
+  ctx.fillStyle = '#e5e5dc'; ctx.fillRect(0, 0, 128, 96);
+  ctx.fillStyle = '#d6d7cf'; ctx.fillRect(0, 0, 23, 96);
+  ctx.fillStyle = '#f1f0e7'; ctx.fillRect(24, 0, 5, 96);
+  ctx.fillStyle = '#aeb6b1'; ctx.fillRect(0, 90, 128, 3);
+  ctx.fillStyle = '#76888a'; ctx.fillRect(45, 21, 60, 49);
+  ctx.fillStyle = '#a8babb'; ctx.fillRect(49, 24, 52, 40);
+  ctx.fillStyle = '#607a80'; ctx.fillRect(49, 49, 52, 16);
+  ctx.fillStyle = '#e5e6dc'; ctx.fillRect(74, 24, 3, 41);
+  ctx.fillStyle = '#f3f2e9'; ctx.fillRect(40, 69, 70, 5); ctx.fillRect(41, 19, 67, 3);
+  ctx.fillStyle = '#a0aaa5'; ctx.fillRect(43, 22, 3, 49); ctx.fillRect(104, 22, 3, 49);
   const texture = new T.CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = T.RepeatWrapping;
   texture.colorSpace = T.SRGBColorSpace;
@@ -169,52 +170,78 @@ function splitMaterialGroup(geometry: T.BufferGeometry, index: number) {
   return result;
 }
 
-function apartmentRoofScene(rings: Shape, eave: number, top: number, material: T.MeshStandardMaterial,
-    pavilionWall: T.MeshStandardMaterial, scene: T.Scene) {
+function apartmentRoofScene(rings: Shape, coreFaces: Point[][],
+    dimensions: { base: number; eave: number; top: number; levels: number },
+    finishes: { roof: T.MeshStandardMaterial; wall: T.MeshStandardMaterial }, scene: T.Scene) {
+  const { base, eave, top, levels } = dimensions;
+  const { roof: material, wall: pavilionWall } = finishes;
   const outlines = rings.map(ring => [...ring, ring[0]]);
   const edgeDistance = (point: Point) => nearestOnLine(point, outlines).distance;
   const roofRise = top - eave;
-  const roofGeometry = groundPolygon(rings, (x, z) => eave + Math.min(roofRise, edgeDistance({ x, z }) * 0.39), 2.1, 0);
+  const roofGeometry = groundPolygon(rings, (x, z) => eave + Math.min(architecture.mainRoofRiseM, edgeDistance({ x, z }) * 0.39), 2.1, 0);
   const roof = new T.Mesh(roofGeometry, material);
   roof.castShadow = roof.receiveShadow = true;
   scene.add(roof);
 
-  const outline = rings[0];
-  const center = outline.reduce((p, a) => ({ x: p.x + a.x / outline.length, z: p.z + a.z / outline.length }), { x: 0, z: 0 });
-  const moment = outline.reduce((sum, p) => {
-    const x = p.x - center.x, z = p.z - center.z;
-    return { xx: sum.xx + x * x, xz: sum.xz + x * z, zz: sum.zz + z * z };
-  }, { xx: 0, xz: 0, zz: 0 });
-  const theta = 0.5 * Math.atan2(2 * moment.xz, moment.xx - moment.zz);
-  const along = { x: Math.cos(theta), z: Math.sin(theta) };
-  const projections = outline.map(p => (p.x - center.x) * along.x + (p.z - center.z) * along.z);
-  const reach = Math.max(...projections) - Math.min(...projections);
-  const fractions = reach > 38 ? [-0.23, 0.23] : [0];
-  for (const fraction of fractions) {
-    const position = [1, 0.75, 0.55].map(factor => ({
-      x: center.x + along.x * fraction * reach * factor, z: center.z + along.z * fraction * reach * factor,
-    })).find(p => inShape(p, rings) && edgeDistance(p) > 2.9);
-    if (!position) continue;
-    const body = new T.Mesh(new T.BoxGeometry(4.05, roofRise * 0.69, 3.15), pavilionWall);
-    body.position.set(position.x, eave + roofRise * 0.34, position.z);
-    body.rotation.y = -theta;
-    body.castShadow = body.receiveShadow = true;
-    scene.add(body);
-    const cap = new T.CylinderGeometry(1.12, 2.49, roofRise * 0.34, 4, 1);
-    cap.rotateY(Math.PI / 4);
-    cap.scale(1.25, 1, 1);
+  const trim = new T.MeshStandardMaterial({ color: '#98a29d', roughness: 0.92 });
+  const accent = new T.MeshStandardMaterial({ color: '#627781', roughness: 0.87 });
+  const bandMaterial = new T.MeshStandardMaterial({
+    color: '#929c98', roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+  });
+  for (const floor of [5, 10, levels]) {
+    const band = new T.ExtrudeGeometry(shapeFrom(rings), { depth: 0.2, bevelEnabled: false });
+    band.rotateX(-Math.PI / 2).translate(0, base + (eave - base) * floor / levels, 0);
+    const mesh = new T.Mesh(band, bandMaterial);
+    mesh.name = '사진 참고 외벽 띠 장식';
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  }
+  const bodyHeight = roofRise * 0.55, lanternHeight = roofRise * 0.2, capHeight = roofRise * 0.25;
+  for (const [a, b] of coreFaces) {
+    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    const along = { x: (b.x - a.x) / length, z: (b.z - a.z) / length };
+    const middle = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    const normal = { x: -along.z, z: along.x };
+    const inward = [1, -1].find(sign => inShape({
+      x: middle.x + normal.x * 1.9 * sign, z: middle.z + normal.z * 1.9 * sign,
+    }, rings));
+    if (!inward) continue;
+    const position = { x: middle.x + normal.x * 1.9 * inward, z: middle.z + normal.z * 1.9 * inward };
+    const theta = Math.atan2(along.z, along.x);
+    function box(width: number, height: number, depth: number, y: number, finish: T.Material, x = position.x, z = position.z) {
+      const mesh = new T.Mesh(new T.BoxGeometry(width, height, depth), finish);
+      mesh.position.set(x, y + height / 2, z);
+      mesh.rotation.y = -theta;
+      mesh.castShadow = mesh.receiveShadow = true;
+      scene.add(mesh);
+      return mesh;
+    }
+    box(4.4, bodyHeight, 3.5, eave, pavilionWall).name = '사진 참고 지붕 탑';
+    box(4.75, 0.2, 3.85, eave + bodyHeight - 0.2, trim);
+    for (const x of [-1.7, 1.7]) for (const z of [-1.26, 1.26]) {
+      const worldX = position.x + along.x * x - along.z * z;
+      const worldZ = position.z + along.z * x + along.x * z;
+      box(0.45, lanternHeight, 0.45, eave + bodyHeight, pavilionWall, worldX, worldZ);
+    }
+    box(4.8, 0.17, 3.9, top - capHeight - 0.17, trim);
+    const cap = new T.CylinderGeometry(1.18, 2.55, capHeight, 4, 1);
+    cap.rotateY(Math.PI / 4).scale(1.22, 1, 1);
     const canopy = new T.Mesh(cap, material);
-    canopy.position.set(position.x, top - roofRise * 0.17, position.z);
+    canopy.position.set(position.x, top - capHeight / 2, position.z);
     canopy.rotation.y = -theta;
     canopy.castShadow = true;
     scene.add(canopy);
+    const faceX = middle.x - normal.x * inward * 0.1;
+    const faceZ = middle.z - normal.z * inward * 0.1;
+    box(2.65, eave + bodyHeight - base, 0.18, base, trim, faceX, faceZ);
+    box(1.8, eave + bodyHeight - base - 0.6, 0.2, base + 0.3, accent, faceX, faceZ);
   }
 }
 
 export function buildMeshes(data: OpoData, scene: T.Scene) {
   const facade = new T.MeshStandardMaterial({ map: facadeTexture(), roughness: 0.88 });
-  const apartmentRoof = new T.MeshStandardMaterial({ color: '#805e4f', roughness: 0.95 });
-  const pavilionWall = new T.MeshStandardMaterial({ color: '#d6cabb', roughness: 0.91 });
+  const apartmentRoof = new T.MeshStandardMaterial({ color: '#665a53', roughness: 0.95 });
+  const pavilionWall = new T.MeshStandardMaterial({ color: '#e4e2d8', roughness: 0.91 });
   const roofColors = ['#70645a', '#777875', '#596d71', '#845a48'];
   const roofMaterials = roofColors.map(color => new T.MeshStandardMaterial({ color, roughness: 0.96 }));
   const facadeMaterials = [
@@ -244,7 +271,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
         : /garage|shed|greenhouse|hut/.test(building.category) ? 3.1 : style === 2 ? 6.4 : style === 1 ? 10 : 5.9);
       const shape = shapeFrom(rings);
       const geometry = new T.ExtrudeGeometry(shape, { depth: displayHeight + skirt, bevelEnabled: false });
-      const roofRise = building.dong && building.height ? 2.8 : 0;
+      const roofRise = building.dong && building.height ? architecture.roofRiseM : 0;
       const wallHeight = displayHeight - roofRise;
       const floorHeight = building.dong && building.levels ? wallHeight / building.levels : 3.1;
       if (!roofRise) {
@@ -278,7 +305,10 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
         facadeMesh.name = `${mesh.name} 외관`;
         facadeMesh.castShadow = facadeMesh.receiveShadow = true;
         scene.add(facadeMesh);
-        apartmentRoofScene(rings, verticalBase + wallHeight, verticalBase + displayHeight, apartmentRoof, pavilionWall, scene);
+        const coreFaces = architecture.towers.find(tower => tower.outlineId === building.id)?.coreFaces ?? [];
+        apartmentRoofScene(rings, coreFaces.map(face => face.map(data.project)),
+          { base: verticalBase, eave: verticalBase + wallHeight, top: verticalBase + displayHeight, levels: building.levels ?? 15 },
+          { roof: apartmentRoof, wall: pavilionWall }, scene);
       }
       roofs.push({ rings, elevation: verticalBase + building.height, label: mesh.name });
       if (building.dong && index === 0) {

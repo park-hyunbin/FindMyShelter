@@ -9,6 +9,7 @@ import { observationHeight, type LightReport, type LightSample } from './opo-sun
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import greenAccess from '../public/opo-green-access.json';
+import architecture from '../public/opo-architecture.json';
 import { regions, type RegionId } from './data/regions';
 
 const slots: Slot[] = ['A', 'B'];
@@ -570,6 +571,10 @@ export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; on
             <p>같은 필지의 등록 부속시설</p>
             <ul>{buildingRegister.facilities.map(row => <li key={row.name}>
               {row.name} · {row.aboveGroundFloors ? `지상 ${row.aboveGroundFloors}층` : `지하 ${row.belowGroundFloors}층`}
+            </li>)}</ul>
+            <p>{architecture.method}</p>
+            <ul>{architecture.references.map(reference => <li key={reference.image}>
+              <a href={reference.image} target="_blank" rel="noreferrer">{reference.name} ↗</a>
             </li>)}</ul>
           </details>
           <a href={buildingRegister.source.url} target="_blank" rel="noreferrer">건축HUB 표제부 · 능평동 917번지 ↗</a>

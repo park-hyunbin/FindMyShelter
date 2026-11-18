@@ -218,6 +218,14 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   controls.minDistance = 52;
   controls.maxDistance = 4800;
   controls.zoomToCursor = true;
+  const apartmentBounds = new T.Box3();
+  for (const { building, point } of anchors) {
+    const roofY = point.y - 7;
+    for (const [outline] of building.shapes) for (const { x, z } of outline) {
+      apartmentBounds.expandByPoint(new T.Vector3(x, roofY, z));
+      apartmentBounds.expandByPoint(new T.Vector3(x, roofY - (building.height ?? 0), z));
+    }
+  }
   function overview() {
     if (!isOpo) {
       controls.target.set(0, 8, 0);
@@ -225,9 +233,14 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       controls.update();
       return;
     }
-    controls.target.set(45, 6, 0);
-    const narrow = host.clientWidth < 700;
-    camera.position.set(narrow ? 155 : 175, narrow ? 215 : 180, narrow ? 318 : 275);
+    const sphere = apartmentBounds.isEmpty()
+      ? new T.Sphere(new T.Vector3(45, 6, 0), 95) : apartmentBounds.getBoundingSphere(new T.Sphere());
+    const halfFov = T.MathUtils.degToRad(camera.fov / 2);
+    const aspect = host.clientWidth / Math.max(1, host.clientHeight);
+    const halfAngle = Math.min(halfFov, Math.atan(Math.tan(halfFov) * aspect));
+    const distance = Math.max(260, (sphere.radius + 14) / Math.sin(halfAngle * 0.82));
+    controls.target.copy(sphere.center);
+    camera.position.copy(sphere.center).addScaledVector(new T.Vector3(150, 170, 260).normalize(), distance);
     controls.update();
   }
   overview();
