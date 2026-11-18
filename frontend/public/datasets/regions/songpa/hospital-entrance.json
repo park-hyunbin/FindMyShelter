@@ -1,0 +1,17 @@
+{
+  "facility": "뉴스타트병원",
+  "address": "송파구 송이로 76",
+  "routeId": "newstart-hospital",
+  "recordId": "B1103_004",
+  "referenceDate": "2022-11-23",
+  "coordinate": [127.1193848, 37.4993019],
+  "source": "https://data.seoul.go.kr/dataList/OA-21699/S/1/datasetView.do?tab=A",
+  "facilitySource": "https://data.seoul.go.kr/dataList/OA-21698/S/1/datasetView.do?tab=A",
+  "codes": {
+    "type": "MED_CB",
+    "ramp": "ER_Y",
+    "entranceGrade": "ED_EC",
+    "doorWidth": "EW_FA",
+    "doorGap": "ET_HA"
+  }
+}

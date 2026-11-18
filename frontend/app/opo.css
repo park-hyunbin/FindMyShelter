@@ -37,6 +37,7 @@ h1, h2, p { margin: 0; }
 .point-B { color: #203f3b; border-color: #7aaba2; background: #b7dad1; }
 .facility-label { border-color: #ad9b71; color: #5b472a; background: #f3e6c9; }
 .access-label { border-color: #d3ad83; color: #684525; background: #fff0db; }
+.access-entrance-label { border-color: #d8bcff; color: #f2e6ff; background: #3e3051; }
 .street-label { border-color: #c1c8bb; color: #314a3e; background: #f2f1e7f2; }
 .bus-label { border-color: #85a99c; color: #eaf6ef; background: #346655f0; font-size: 10px; }
 .light-path-label { color: #17243a; border-color: #f8d78b; background: #fff2cbf5; }

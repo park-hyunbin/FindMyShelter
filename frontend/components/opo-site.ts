@@ -6,7 +6,7 @@ import { nearestOnLine, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
-import { visitRoutes } from './data/visit-routes';
+import { songpaHospital, visitRoutes } from './data/visit-routes';
 import { songpaGrounds } from './data/songpa-grounds';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
@@ -175,7 +175,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
   const crossingMaterial = crossingGeometry ? new T.MeshBasicMaterial({ color: '#f6dc94', side: T.DoubleSide }) : null;
   const layers = routes.map(route => {
     const projected = route.segments.map(segment => segment.coordinates.map(data.project));
-    const profile = routeTerrainProfile(data, projected);
+    const surveyedEntrance = route.id === songpaHospital.routeId ? data.project(songpaHospital.coordinate) : null;
+    const profile = surveyedEntrance ? undefined : routeTerrainProfile(data, projected);
     const group = new T.Group();
     const bounds = new T.Box3();
     const routePoints: T.Vector3[] = [];
@@ -206,6 +207,21 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
       ring.position.set(x, data.ground(x, z) + 2, z);
       group.add(ring);
     }
+    let entranceLabel;
+    if (surveyedEntrance) {
+      const { x, z } = surveyedEntrance;
+      const y = data.ground(x, z);
+      const material = new T.MeshBasicMaterial({ color: '#d8bcff', depthTest: false });
+      const stem = new T.Mesh(new T.CylinderGeometry(0.5, 0.5, 12, 8), material);
+      const tip = new T.Mesh(new T.SphereGeometry(2.8, 12, 8), material);
+      stem.position.set(x, y + 6, z);
+      tip.position.set(x, y + 12, z);
+      stem.renderOrder = tip.renderOrder = 9;
+      group.add(stem, tip);
+      entranceLabel = new T.Vector3(x, y + 24, z);
+      bounds.expandByPoint(entranceLabel);
+      routePoints.push(entranceLabel);
+    }
     scene.add(group);
     const endpoint = data.project(route.end);
     const crossing = route.crossingView && {
@@ -216,7 +232,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
       bearing: T.MathUtils.radToDeg(Math.atan2(crossing.toward.x - crossing.position.x,
         crossing.position.z - crossing.toward.z) - data.northOffset),
     };
-    return { id: route.id, name: route.name, group, bounds, endpoint, routePoints, profile, crossingView };
+    return { id: route.id, name: route.name, group, bounds, endpoint, entranceLabel, routePoints, profile, crossingView };
   });
   const marker = new T.Group();
   marker.visible = false;
@@ -235,7 +251,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
     markerLabelPoint,
     mark(id: string | null, index: number) {
       const layer = layers.find(layer => layer.id === id);
-      const sample = layer?.profile.samples[index];
+      const sample = layer?.profile?.samples[index];
       marker.visible = Boolean(layer?.group.visible && sample);
       if (!sample || !marker.visible) return;
       const { x, z } = sample.position;

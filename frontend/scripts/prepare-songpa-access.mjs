@@ -1,6 +1,7 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import proj4 from 'proj4';
 
+const hospital = JSON.parse(await readFile(new URL('../public/datasets/regions/songpa/hospital-entrance.json', import.meta.url), 'utf8'));
 const bounds = [127.1090, 37.4947, 127.1231, 37.5024];
 const source = `https://www.openstreetmap.org/api/0.6/map.json?bbox=${bounds.join(',')}`;
 const response = await fetch(source, {
@@ -35,6 +36,11 @@ const destinations = [
     endLabel: '송이로 횡단보도 학교 쪽 보행로 · 교문까지의 연결은 현장 확인',
     referenceSource: 'https://www.openstreetmap.org/way/544143915',
   },
+  {
+    id: hospital.routeId, name: `${hospital.facility} 방향`, node: 1810741871,
+    endLabel: '송이로14길과 송이로가 만나는 지도상 도로 지점',
+    referenceSource: 'https://www.openstreetmap.org/way/169916267',
+  },
 ];
 if (!ways.get(169916279)?.nodes.includes(start) || !ways.get(169916276)?.nodes.includes(start)) {
   throw new Error('The public-road junction is missing from the map extract');
@@ -53,6 +59,10 @@ if (ways.get(418397238)?.tags?.amenity !== 'school' || schoolCrossing?.tags?.foo
     || !schoolCrossing.nodes.includes(destinations[2].node) || !schoolCrossing.nodes.includes(10926471872)
     || ways.get(1175929591)?.tags?.name !== '송이로' || !ways.get(1175929591).nodes.includes(10926471872)) {
   throw new Error('The school or the mapped Songi-ro crossing has changed');
+}
+const hospitalApproach = ways.get(169916267);
+if (hospitalApproach?.tags?.name !== '송이로14길' || !hospitalApproach.nodes.includes(destinations[3].node)) {
+  throw new Error('The mapped Songi-ro 14-gil approach has changed');
 }
 
 const pedestrian = new Set(['footway', 'path', 'pedestrian', 'steps']);
@@ -112,6 +122,10 @@ const routes = destinations.map(({ node, reference, park, approachCrossing, ...d
     edges.unshift(edge);
     next = edge.from;
   }
+  const hospitalRoute = destination.id === hospital.routeId;
+  if (hospitalRoute && (edges.at(-1)?.id !== hospitalApproach.id || edges.some(edge => edge.id === 1175929591))) {
+    throw new Error('The hospital approach must end at the local street without following the Songi-ro centerline');
+  }
   const segments = [];
   const crossings = new Map();
   for (const edge of edges) {
@@ -129,7 +143,8 @@ const routes = destinations.map(({ node, reference, park, approachCrossing, ...d
     ...destination, end: nodes.get(node), segments,
     lengthM: Math.round(edges.reduce((sum, edge) => sum + edge.length, 0)),
     walkwayM: Math.round(edges.filter(edge => edge.mappedWalkway).reduce((sum, edge) => sum + edge.length, 0)),
-    gapM: reference ? Math.round(distance(projected.get(node), projected.get(reference))) : null,
+    gapM: hospitalRoute ? Math.round(distance(projected.get(node), project.forward(hospital.coordinate)))
+      : reference ? Math.round(distance(projected.get(node), projected.get(reference))) : null,
     crossings: [...crossings.values()],
     ...(crossingEdges.length && {
       crossingView: { position: nodes.get(crossingEdges[0].from), toward: nodes.get(crossingEdges.at(-1).to) },

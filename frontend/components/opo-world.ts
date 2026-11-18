@@ -498,12 +498,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   }
   for (const layer of greenAccess.layers) {
     const element = document.createElement('span');
-    element.className = 'building-label access-label';
-    element.textContent = data.region === 'songpa' ? layer.name : `${layer.name} 인근`;
+    element.className = `building-label access-label${layer.entranceLabel ? ' access-entrance-label' : ''}`;
+    element.textContent = layer.entranceLabel ? '병원 보조출입구 · 2022년 조사'
+      : data.region === 'songpa' ? layer.name : `${layer.name} 인근`;
     element.hidden = true;
     host.appendChild(element);
     const { x, z } = layer.endpoint;
-    labels.push({ point: new T.Vector3(x, data.ground(x, z) + 5, z), element,
+    labels.push({ point: layer.entranceLabel ?? new T.Vector3(x, data.ground(x, z) + 5, z), element,
       enabled: () => layer.group.visible && (!greenAccess.marker.visible
         || Math.hypot(greenAccess.marker.position.x - x, greenAccess.marker.position.z - z) > 15), keepInFrame: true });
   }
@@ -1011,7 +1012,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView }) => ({ id, profile, crossingView })),
     markGreenAccess(id: string | null, index: number) {
       greenAccess.mark(id, index);
-      const sample = greenAccess.layers.find(layer => layer.id === id)?.profile.samples[index];
+      const sample = greenAccess.layers.find(layer => layer.id === id)?.profile?.samples[index];
       if (sample) routeTerrainLabel.textContent = `${Math.round(sample.distance)}m · 모델 표고 ${Math.round(sample.elevation)}m`;
     },
     showGreenAccess(id: string | null) {

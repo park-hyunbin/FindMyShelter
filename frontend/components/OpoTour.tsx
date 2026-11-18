@@ -11,7 +11,7 @@ import { observationHeight, type LightReport, type LightSample } from './opo-sun
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
-import { visitRoutes } from './data/visit-routes';
+import { songpaHospital, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
@@ -446,9 +446,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
   }
 
-  function openSchoolRoute() {
+  function openAccessRoute(id: string) {
     chooseTab('nature');
-    showAccessRoute(songpaSchool.routeId);
+    showAccessRoute(id);
   }
 
   function choosePoint(slot: Slot, point: SitePoint) {
@@ -556,11 +556,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'station-route':
       case 'park-route':
-        chooseTab('nature');
-        showAccessRoute(target === 'station-route' ? 'songpa-station' : 'songi-park');
+        openAccessRoute(target === 'station-route' ? 'songpa-station' : 'songi-park');
         break;
       case 'school-route':
-        openSchoolRoute();
+        openAccessRoute(songpaSchool.routeId);
+        break;
+      case 'hospital-route':
+        openAccessRoute(songpaHospital.routeId);
         break;
       case 'school':
       case 'places':
@@ -793,10 +795,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </>}
         </>}
         <section className="green-access" aria-label="주변 접근 경로">
-          <h3>{region === 'songpa' ? '역·공원·학교 방향 경로' : '공원 인근 도로 연결'}</h3>
+          <h3>{region === 'songpa' ? '주변 시설 방향 경로' : '공원 인근 도로 연결'}</h3>
           <p>{access.startLabel} 출발 · 실선은 지도에 보행로·보도가 표시된 구간, 점선은 보도 미확인 구간이에요.</p>
           {access.retrieved && <p>지도 확인 {access.retrieved} · 노란 고리는 지도상 횡단 구간이에요. 단지 출입구와 신호 대기는 현장에서 확인해 주세요.</p>}
           {access.routes.map(route => {
+            const hospital = route.id === songpaHospital.routeId ? songpaHospital : null;
             const accessDetails = world?.greenAccessProfiles.find(item => item.id === route.id);
             const profile = accessDetails?.profile;
             const crossing = accessDetails?.crossingView;
@@ -804,11 +807,17 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const routeVisible = selected && mode === 'orbit';
             return <div key={route.id} ref={selected ? activeAccessCard : undefined} className="site-card access-card">
               <div className="access-heading"><strong>{route.name}</strong><span>{access.retrieved ? `${route.lengthM.toLocaleString()}m` : meters(route.lengthM)}</span></div>
-              <p>{route.endLabel}{route.gapM !== null && ` · 등록 위치까지 직선 약 ${route.gapM}m`}</p>
+              <p>{route.endLabel}{route.gapM !== null && ` · ${hospital ? '조사 출입구' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
               {route.crossings && <p>보행로·보도 표기 약 {route.walkwayM.toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
-              {route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
-              <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : '경로 보기'}</button>
+              {!hospital && route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
+              <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : hospital ? '도로 연결과 출입구 보기' : '경로 보기'}</button>
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
+              {selected && hospital && <div className="route-terrain">
+                <strong>보조출입구 조사 · {hospital.referenceDate}</strong>
+                <p>{hospital.address} · 경사로 설치, 조사 기준 5° 이하 경사, 문폭 1m 이상, 문 하부 단차 없음.</p>
+                <p>보라색 표식은 조사된 출입구예요. 도로 종점에서 출입구까지의 보도 연결과 현재 개방 여부는 현장에서 확인해 주세요.</p>
+                <a href={hospital.source} target="_blank" rel="noreferrer">서울시 보행자 출입구 조사 ↗</a>
+              </div>}
               {selected && crossing && <>
                 <div className="site-actions"><button onClick={() => lookAtRoutePoint(crossing)}>송이로 횡단보도 눈높이 보기</button></div>
                 <p>횡단보도 줄무늬 폭은 화면용 근사예요.</p>
@@ -848,7 +857,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               setSelectedPlaceId(null);
               if (next) chooseMode('orbit');
             }}>통학구역 지도</button>
-            <button disabled={!world} onClick={openSchoolRoute}>통학 방향 경로</button>
+            <button disabled={!world} onClick={() => openAccessRoute(songpaSchool.routeId)}>통학 방향 경로</button>
           </div>
           <details className="basis">
             <summary>공식 자료 확인</summary>

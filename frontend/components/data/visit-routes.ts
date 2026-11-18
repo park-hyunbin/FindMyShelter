@@ -1,6 +1,9 @@
 import type { RegionId } from './regions';
 import opo from '../../public/opo-green-access.json';
 import songpa from '../../public/datasets/regions/songpa/access.json';
+import hospital from '../../public/datasets/regions/songpa/hospital-entrance.json';
+
+export const songpaHospital = hospital;
 
 type AccessRoute = {
   id: string;
