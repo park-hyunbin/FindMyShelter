@@ -72,12 +72,14 @@ const winterWalkStops = [
 ];
 const winterWalkHours = [13, 14, 15, 16, 17];
 const winterWalkStatus = { sun: '직사광', shade: '그늘', unknown: '미판정', night: '일몰 후' };
+type WinterWalkSelection = { id: string; hour: number };
 
-function WinterWalk({ world, date, detailsRef, onView }: {
+function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, onSelect, onView }: {
   world: OpoWorld | null; date: string; detailsRef: React.RefObject<HTMLDetailsElement | null>;
+  expanded: boolean; selection: WinterWalkSelection;
+  onToggle: (expanded: boolean) => void; onSelect: (selection: WinterWalkSelection) => void;
   onView: (point: SitePoint, date: string, minute: number, trace: boolean) => void;
 }) {
-  const [selection, setSelection] = useState({ id: 'playground-edge', hour: 15 });
   const data = useMemo(() => winterWalkStops.map(stop => {
     const point = world?.presets.find(preset => preset.id === stop.id);
     return { ...stop, point, samples: point && world ? winterWalkHours.map(hour => world.lightAt(point, date, hour * 60)) : [] };
@@ -86,7 +88,8 @@ function WinterWalk({ world, date, detailsRef, onView }: {
   const sample = stop?.samples[winterWalkHours.indexOf(selection.hour)];
   const selectedPoint = stop?.point;
 
-  return <details ref={detailsRef} className="season-compare winter-walk">
+  return <details ref={detailsRef} className="season-compare winter-walk" open={expanded}
+    onToggle={event => onToggle(event.currentTarget.open)}>
     <summary>겨울 오후 산책 비교</summary>
     <p className="season-caption">{date} · 한국 시간 · 지면 위 {observationHeight}m · 맑은 날 모델</p>
     <table aria-label="겨울 오후 세 지점 모델 일조">
@@ -99,7 +102,7 @@ function WinterWalk({ world, date, detailsRef, onView }: {
           return <td key={item.id}><button type="button" disabled={!result} data-status={result?.status}
             aria-label={`${item.point?.label ?? item.shortName} ${timeLabel(hour * 60)} ${label}`}
             aria-pressed={item.id === selection.id && hour === selection.hour}
-            onClick={() => setSelection({ id: item.id, hour })}>{label}</button></td>;
+            onClick={() => onSelect({ id: item.id, hour })}>{label}</button></td>;
         })}
       </tr>)}</tbody>
     </table>
@@ -312,6 +315,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const winterWalkDetails = useRef<HTMLDetailsElement>(null);
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
   const [showWinterWalk, setShowWinterWalk] = useState(false);
+  const [winterWalkOpen, setWinterWalkOpen] = useState(false);
+  const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
   const [world, setWorld] = useState<OpoWorld | null>(null);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
@@ -442,7 +447,6 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   useEffect(() => {
     if (!showWinterWalk || tab !== 'sun' || !winterWalkDetails.current) return;
-    winterWalkDetails.current.open = true;
     winterWalkDetails.current.scrollIntoView({ block: 'start' });
     setShowWinterWalk(false);
   }, [showWinterWalk, tab]);
@@ -624,6 +628,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function openWinterWalk() {
     chooseTab('sun');
+    setWinterWalkOpen(true);
     setShowWinterWalk(true);
   }
 
@@ -804,7 +809,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         setStreet(current => ({ ...current, touring }));
       }}>{street.touring ? '드라이브 정지' : '동네 드라이브'}</button>}
 
-    <button className="analysis-toggle" aria-expanded={open} aria-controls="analysis-panel" onClick={() => setOpen(value => !value)}>{open ? '분석 접기' : '주거환경 분석'}</button>
+    <button className="analysis-toggle" aria-expanded={open} aria-controls="analysis-panel" onClick={() => {
+      if (!open && tab === 'sun' && winterWalkOpen) setShowWinterWalk(true);
+      setOpen(!open);
+    }}>{open ? '분석 접기' : '주거환경 분석'}</button>
     {open && <aside id="analysis-panel" ref={analysisPanel} className="analysis" aria-label="주거환경 분석">
       <div className="analysis-heading"><h2>주거환경 분석</h2><button aria-label="분석 접기" onClick={() => setOpen(false)}>−</button></div>
       <div className="analysis-tabs" aria-label="분석 항목">
@@ -843,7 +851,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>미판정</span><span><i className="strip-night"/>야간</span></div>
         {region === 'songpa' && <>
           <WinterWalk world={world} date={`${date.slice(0, 4) || initialDate.slice(0, 4)}-12-21`}
-            detailsRef={winterWalkDetails} onView={viewWinterWalk} />
+            detailsRef={winterWalkDetails} expanded={winterWalkOpen} selection={winterWalkSelection}
+            onToggle={setWinterWalkOpen} onSelect={setWinterWalkSelection} onView={viewWinterWalk} />
           <WinterCapture world={world} onCompare={compareWinterCapture} detailsRef={winterDetails} />
         </>}
         <details className="season-compare" open={seasonOpen} onToggle={event => setSeasonOpen(event.currentTarget.open)}>
