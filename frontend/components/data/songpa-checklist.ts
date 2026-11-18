@@ -4,7 +4,7 @@ import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
 import { floodSource } from './songpa-flood';
 import { songpaSchool } from './songpa-school';
-import { songpaBusStop, songpaHospital } from './visit-routes';
+import { songpaBusStop, songpaHospital, songpaStationAccess } from './visit-routes';
 import { songiPark } from './songi-park';
 import { songpaWinterCapture } from './songpa-winter-capture';
 import { songpaArchitecture } from './songpa-architecture';
@@ -93,9 +93,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'accessibility', title: '유모차·휠체어 동선', evidence: 'document',
-        finding: '2022년 서울시 조사에서 뉴스타트병원 보조출입구 한 곳에 경사로 설치가 기록돼 있어요. 병원 방향 도로의 대부분은 지도에서 보도 여부를 확인하기 어려워요.',
-        followUp: '이용할 동 출입구부터 목적지까지 보도 유효폭과 턱, 횡경사, 경사로 개방 여부를 확인해 보세요.',
-        views: [{ target: 'hospital-route', label: '병원 방향과 조사 출입구 보기' }], sources: [hospitalEntrances],
+        finding: `송파역 ${songpaStationAccess.exit}에는 계단이 있고, 지상 엘리베이터는 ${songpaStationAccess.elevator}에 있어요. 뉴스타트병원은 2022년 서울시 조사에서 보조출입구에 경사로가 기록됐어요.`,
+        followUp: '엘리베이터 가동 여부, 지상에서 보도까지 연결, 단지까지 보도 폭과 턱, 병원 경사로 개방 여부를 확인해 보세요.',
+        views: [{ target: 'station-route', label: '송파역 계단·엘리베이터 확인' }, { target: 'hospital-route', label: '병원 방향과 조사 출입구 보기' }],
+        sources: [{ label: '서울교통공사 송파역 안내도', url: songpaStationAccess.guide },
+          { label: '국가철도공단 엘리베이터 목록', url: songpaStationAccess.elevatorSource }, hospitalEntrances],
       },
       {
         id: 'school', title: '통학·통원', evidence: 'document',

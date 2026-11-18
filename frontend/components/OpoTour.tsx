@@ -11,7 +11,7 @@ import { observationHeight, type LightReport, type LightSample } from './opo-sun
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
-import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
+import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFacilities, songpaGrounds, songpaManagementFees, songpaPlayground } from './data/songpa-grounds';
@@ -1196,11 +1196,15 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               {route.crossings && <p>보행로·보도 표기 약 {route.walkwayM.toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
               {access.retrieved && route.lengthM > route.walkwayM && <p className="route-missing-sidewalk">약 {route.lengthM - route.walkwayM}m는 지도에 보도 표시가 없어요. 3D 지도에서 주황 점선으로 표시해요.</p>}
               {route.parkEntrance && <p>같은 출발점에서 남쪽 진입부까지 경로 약 {route.parkEntrance.routeM}m · 직선 약 {route.parkEntrance.directM}m</p>}
-              {!hospital && route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
+              {!hospital && route.stepWays !== undefined && <p>지도상 보행 경로의 계단 기록 {route.stepWays ? `${route.stepWays}개` : '없음'} · {home ? '역 출구 계단은 아래 참고' : '실제 턱·계단은 현장 확인'}</p>}
               <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : hospital ? '도로 연결과 출입구 보기' : '경로 보기'}</button>
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
               {home && <section className="route-terrain return-walk" aria-label="송파역에서 단지로 돌아오는 길">
                 <strong>송파역에서 정문과 단지 안까지</strong>
+                <p><b>{songpaStationAccess.exit}</b>는 체험 시작점이에요. 서울교통공사 안내도에 계단과 자전거 경사로가 표시돼 있어요.</p>
+                <p><b>엘리베이터</b>는 {songpaStationAccess.elevator}에 있어요. {songpaStationAccess.elevatorFloors}을 연결해요. 현재 가동 여부와 지상 보도 연결은 현장에서 확인해 주세요.</p>
+                <a href={songpaStationAccess.guide} target="_blank" rel="noreferrer">서울교통공사 송파역 안내도 ({songpaStationAccess.guideDate}) ↗</a>
+                <a href={songpaStationAccess.elevatorSource} target="_blank" rel="noreferrer">국가철도공단 설치 목록 ({songpaStationAccess.elevatorDate}) ↗</a>
                 <ul className="walk-legend">
                   <li><i className="walk-mapped" aria-hidden="true" />지도에 보도가 표시된 경로 {route.walkwayM}m</li>
                   <li><i className="walk-gap" aria-hidden="true" />출구 약 {songpaHomeLinks.stationExit.lengthM}m, 정문 쪽 약 {songpaHomeLinks.gateApproach.lengthM}m 연결 미확인</li>

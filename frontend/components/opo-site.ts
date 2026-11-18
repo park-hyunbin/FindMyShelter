@@ -6,7 +6,7 @@ import { nearestOnLine, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
-import { songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
+import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
 import { songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
@@ -261,7 +261,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         insideM: Math.round(inside.slice(1).reduce((sum, p, index) =>
           sum + Math.hypot(p.x - inside[index].x, p.z - inside[index].z), 0)),
         stops: [
-          at('station-exit', '송파역 2번 출구 위치', `지도상 출구 위치 · 보행로까지 약 ${songpaHomeLinks.stationExit.lengthM}m 연결 미확인`, nearStation[0], nearStation[1]),
+          at('station-exit', '송파역 2번 출구 위치', `역 안내도상 계단 · 지상 엘리베이터는 ${songpaStationAccess.elevator} · 출구에서 보도까지 약 ${songpaHomeLinks.stationExit.lengthM}m 연결 미확인`,
+            nearStation[0], nearStation[1]),
           ...(uphill && uphillSample ? [{
             id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
             position: uphillSample.position, bearing: uphillSample.bearing + 180,

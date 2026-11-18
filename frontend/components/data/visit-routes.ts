@@ -8,6 +8,16 @@ export const songpaHospital = hospital;
 export const songpaBusStop = busStop;
 export const songpaHomeLinks = songpa.homeLinks;
 export const songpaStationRouteId = 'songpa-station';
+export const songpaStationAccess = {
+  exit: '2번 출구',
+  elevator: '1·2번 출구 사이',
+  elevatorFloors: '지하 1층 대합실과 지상',
+  guideDate: '2026-08-31',
+  guide: '/datasets/regions/songpa/station-guide.jpg',
+  guideSource: 'https://www.data.go.kr/data/15004974/fileData.do',
+  elevatorDate: '2025-06-30',
+  elevatorSource: 'https://www.data.go.kr/data/15041396/fileData.do',
+};
 
 type AccessRoute = {
   id: string;
