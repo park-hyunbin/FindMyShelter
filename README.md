@@ -88,4 +88,4 @@ Node WebSocket 서버를 따로 배포할 경우 `TOUR_HOST`와 `PORT`로 바인
 
 ## 지역과 건물 데이터 작업
 
-오포·송파 건물 윤곽은 지역별 QGIS 편집본에서 생성한 manifest를 통해 불러옵니다. `/polygons`에서 지역별 건물 자료를 검토할 수 있습니다. 송파는 OpenFreeMap의 도로와 주변 장소를 사용하며, 높이가 미확인된 건물은 평면 윤곽으로 표시합니다. [지역 데이터 생성](docs/region-tour-pipeline.md) · [폴리곤 파이프라인](docs/building-pipeline.md)
+오포·송파 건물 윤곽은 지역별 QGIS 편집본에서 생성한 manifest를 통해 불러옵니다. `/polygons`에서 지역별 건물 자료를 검토할 수 있습니다. 높이가 없는 건물은 층수 또는 확인된 용도로 높이를 추정해 표시하고, 둘 다 없으면 윤곽을 표시합니다. 기반 데이터와 공통 규칙으로 장면을 만든 뒤, 확인한 단지별 외관을 적용합니다. [3D 장면 제작 원칙](docs/planning/2026-11-17-complex-online-tour-spec.md#3d-장면-제작-원칙) · [지역 데이터 생성](docs/region-tour-pipeline.md) · [폴리곤 파이프라인](docs/building-pipeline.md)
