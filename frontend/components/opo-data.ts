@@ -240,7 +240,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   if (region === 'songpa') for (const [index, coordinate] of [...songpaGrounds.crowns, ...songpaCourtyard.crowns, ...songiPark.crowns].entries()) {
     streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
   }
-  if (region === 'songpa') for (const [index, coordinate] of songpaFrontage.crowns.entries()) {
+  if (region === 'songpa') for (const [index, coordinate] of [...songpaFrontage.crowns, ...songpaFrontage.streetTrees].entries()) {
     streetPoints.push({
       id: `songpa-frontage-crown-${index}`, kind: 'tree', name: null, position: project(coordinate), treeForm: 'broadleaf',
     });

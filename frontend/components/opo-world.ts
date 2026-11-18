@@ -150,7 +150,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point))
-    || Boolean(entrance?.occupied(point) || garden?.blocked(point));
+    || Boolean(entrance?.occupied(point) || garden?.blocked(point) || site.paving?.fenced(point));
   const blockedForMovement = (point: Point) => occupied(point) || site.paving?.parked(point);
   const analysisRadius = isOpo ? Math.min(precinct, data.buildingRadius) : data.buildingRadius;
   const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= analysisRadius;

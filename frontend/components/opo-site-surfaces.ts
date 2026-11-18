@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { inShape, type OpoData, type Point } from './opo-data';
+import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
 import { curbWalk } from './opo-curb-walk';
 import { crosswalkFrame, zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
@@ -47,6 +47,8 @@ export type SiteSurfaceLayout = {
   drive?: { width: number; points: Coordinate[] };
   paths: { width: number; points: Coordinate[] }[];
   plantingBeds?: { outline: Coordinate[]; hedge: Coordinate[]; width: number; height: number }[];
+  plantedGround?: Coordinate[][];
+  ironFences?: Coordinate[][];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
   drivewayRoad?: Omit<SurveyedRoad, 'outline'>;
@@ -89,6 +91,45 @@ export function gateGuardRuns(gate: GateLayout) {
 export function siteCrosswalkArea(project: OpoData['project'], { start, end, depth }: SiteCrossing): CrosswalkArea {
   const { at, length, direction } = axisBetween(project(start), project(end));
   return { center: at(0, length / 2), depth, direction: { x: direction.z, z: -direction.x }, section: { width: length } };
+}
+
+function ironFence(lines: Point[][], grade: OpoData['ground']) {
+  const pieces: T.BufferGeometry[] = [];
+  const height = 1.06;
+  const railAxis = new T.Vector3(0, 0, 1);
+  const span = new T.Vector3();
+  const angle = new T.Quaternion();
+  const rotation = new T.Matrix4();
+  for (const line of lines) {
+    const points = line.map(({ x, z }) => new T.Vector3(x, grade(x, z), z));
+    for (const [i, a] of points.slice(0, -1).entries()) {
+      const b = points[i + 1];
+      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      if (length < 0.005) continue;
+      const panels = Math.ceil(length / 2.4);
+      const pickets = Math.ceil(length / panels / 0.24);
+      for (let j = 0; j < panels * pickets; j++) {
+        const t = j / (panels * pickets);
+        const x = T.MathUtils.lerp(a.x, b.x, t), z = T.MathUtils.lerp(a.z, b.z, t);
+        const post = j % pickets === 0;
+        const width = post ? 0.074 : 0.027;
+        pieces.push(new T.BoxGeometry(width, height, width).translate(x, grade(x, z) + height / 2, z));
+      }
+      span.subVectors(b, a);
+      const beamLength = span.length();
+      rotation.makeRotationFromQuaternion(angle.setFromUnitVectors(railAxis, span.normalize()));
+      for (const lift of [0.23, 0.98]) {
+        pieces.push(new T.BoxGeometry(0.048, 0.046, beamLength).applyMatrix4(rotation)
+          .translate((a.x + b.x) / 2, (a.y + b.y) / 2 + lift, (a.z + b.z) / 2));
+      }
+    }
+    const last = points.at(-1);
+    if (last) pieces.push(new T.BoxGeometry(0.074, height, 0.074).translate(last.x, last.y + height / 2, last.z));
+  }
+  if (!pieces.length) return;
+  const geometry = mergeGeometries(pieces);
+  pieces.forEach(piece => piece.dispose());
+  return geometry;
 }
 
 export function addSiteSurfaces(
@@ -261,6 +302,33 @@ export function addSiteSurfaces(
       }, 0.25), sidewalk, 'pavers');
     }
   }
+  const fenceLines = (layout.ironFences ?? []).map(line => line.map(data.project));
+  const fenceGeometry = ironFence(fenceLines, (x, z) => elevation({ x, z }) ?? grade(x, z));
+  if (fenceGeometry) {
+    const fence = new T.Mesh(fenceGeometry, material('#536053'));
+    fence.name = '철책';
+    fence.castShadow = fence.receiveShadow = true;
+    scene.add(fence);
+  }
+  if (layout.plantedGround?.length) {
+    const groundCover = material('#c0bd9f', 'forest');
+    groundCover.vertexColors = true;
+    groundCover.transparent = true;
+    groundCover.depthWrite = false;
+    for (const outline of layout.plantedGround) {
+      const ring = outline.map(data.project);
+      const boundary = [[...ring, ring[0]]];
+      const ground = groundPolygon([ring], grade, 0.7, 0.04);
+      const vertices = ground.getAttribute('position');
+      const colors = new Float32Array(vertices.count * 4).fill(1);
+      for (let i = 0; i < vertices.count; i++) {
+        const point = { x: vertices.getX(i), z: vertices.getZ(i) };
+        colors[i * 4 + 3] = T.MathUtils.smoothstep(nearestOnLine(point, boundary).distance, 0.03, 0.65);
+      }
+      ground.setAttribute('color', new T.BufferAttribute(colors, 4));
+      add(ground, groundCover, 'forest', false);
+    }
+  }
   if (layout.plantingBeds?.length) {
     const soil = material('#9b8f73', 'forest');
     const bedLift = 0.25;
@@ -289,6 +357,7 @@ export function addSiteSurfaces(
     const dx = point.x - center.x, dz = point.z - center.z;
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
-  return { elevation, drivewayElevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked };
+  const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
+  return { elevation, drivewayElevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked, fenced };
 }
   const pathLift = 0.24;
