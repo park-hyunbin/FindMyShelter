@@ -1104,7 +1104,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const center = layer.bounds.getCenter(new T.Vector3());
       const size = layer.bounds.getSize(new T.Vector3());
       const scale = Math.max(340, size.x, size.z);
-      frameSurface(layer.routePoints, center, new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34));
+      frameSurface(layer.routePoints, center, new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34), Boolean(layer.entranceView));
     },
     position() { return position; },
     tourPose(): TourPose {

@@ -182,6 +182,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       const line = new Line2(new LineGeometry().setPositions(vertices), style);
       line.computeLineDistances();
       lines.add(line);
+      return line;
     }
     route.segments.forEach((segment, index) => addLine(projected[index], segment.mappedWalkway ? recorded : unconfirmed));
     const homeWalk = aerialTrace && shortConnection && (route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId) ? (() => {
@@ -231,9 +232,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     if (surveyedEntrance) {
       const { x, z } = surveyedEntrance;
       const y = data.ground(x, z);
-      addLine([endpoint, surveyedEntrance], new LineMaterial({
+      const entranceDistance = addLine([endpoint, surveyedEntrance], new LineMaterial({
         color: '#ba9aeb', linewidth: 3.2, dashed: true, dashSize: 2.1, gapSize: 1.7,
+        depthTest: false, depthWrite: false,
       }));
+      entranceDistance.renderOrder = 8;
       const material = new T.MeshBasicMaterial({ color: '#d8bcff', depthTest: false });
       const stem = new T.Mesh(new T.CylinderGeometry(0.5, 0.5, 12, 8), material);
       const tip = new T.Mesh(new T.SphereGeometry(2.8, 12, 8), material);
