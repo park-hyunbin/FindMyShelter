@@ -147,8 +147,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'visit-plan', title: '방문 장소·시간 정하기', evidence: 'visit',
-        finding: '온라인에서 확인한 것과 현장에서 다시 볼 항목을 메모로 남겨 가져갈 수 있어요.',
-        followUp: '예를 들어 겨울 오후 2시, 볕이 드는 길과 그늘진 자리를 직접 비교할 계획을 적어 보세요.',
+        finding: '귀갓길과 겨울 일조 비교에서 담은 장소에 방문 예정 시각과 확인할 질문을 적을 수 있어요.',
       },
     ],
   },

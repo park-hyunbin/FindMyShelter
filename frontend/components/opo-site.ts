@@ -192,8 +192,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       addLine(nearStation, shortConnection);
       addLine(nearGate, shortConnection);
       addLine(inside, aerialTrace);
-      const at = (name: string, evidence: string, position: Point, toward: Point) => ({
-        name, evidence, position,
+      const at = (id: string, name: string, evidence: string, position: Point, toward: Point) => ({
+        id, name, evidence, position,
         bearing: T.MathUtils.radToDeg(Math.atan2(toward.x - position.x, position.z - toward.z) - data.northOffset),
       });
       const uphill = profile?.returnSteepest;
@@ -202,15 +202,15 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         insideM: Math.round(inside.slice(1).reduce((sum, p, index) =>
           sum + Math.hypot(p.x - inside[index].x, p.z - inside[index].z), 0)),
         stops: [
-          at('송파역 2번 출구 위치', `지도상 출구 위치 · 보행로까지 약 ${songpaHomeLinks.stationExit.lengthM}m 연결 미확인`, nearStation[0], nearStation[1]),
+          at('station-exit', '송파역 2번 출구 위치', `지도상 출구 위치 · 보행로까지 약 ${songpaHomeLinks.stationExit.lengthM}m 연결 미확인`, nearStation[0], nearStation[1]),
           ...(uphill && uphillSample ? [{
-            name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
+            id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
             position: uphillSample.position, bearing: uphillSample.bearing + 180,
           }] : []),
-          at('단지 앞 교차점', `정문 방향 약 ${songpaHomeLinks.gateApproach.lengthM}m · 지도에 보도 연결 표시 없음`, nearGate[0], nearGate[1]),
-          at('단지 정문 횡단부', '정문과 횡단부 위치 참고 · 보행 연결과 개방 여부는 현장 확인',
+          at('front-junction', '단지 앞 교차점', `정문 방향 약 ${songpaHomeLinks.gateApproach.lengthM}m · 지도에 보도 연결 표시 없음`, nearGate[0], nearGate[1]),
+          at('main-gate', '단지 정문 횡단부', '정문과 횡단부 위치 참고 · 보행 연결과 개방 여부는 현장 확인',
             data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
-          at(inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',
+          at(inner.id, inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',
             arrival, data.project(inner.lookAt)),
         ],
       };

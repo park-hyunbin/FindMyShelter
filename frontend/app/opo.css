@@ -94,7 +94,7 @@ h1, h2, p { margin: 0; }
   border: 1px solid #b79f68; border-radius: 9px; background: #17243aeb; font-size: 12px; }
 .light-inspection p { margin-top: 4px; color: var(--lilac); font-size: 11px; line-height: 1.5; }
 .light-inspection.home-walk-control { display: grid; gap: 6px; max-width: min(335px, calc(100% - 30px)); }
-.home-walk-actions { display: flex; gap: 6px; }
+.home-walk-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .light-inspection .home-walk-actions button { width: auto; min-width: 45px; min-height: 36px; padding: 0 9px; font-size: 11px; }
 .home-walk-actions button:disabled { opacity: 0.46; cursor: default; }
 .light-inspection button { flex: none; width: 36px; height: 36px; border: 1px solid #70829a; border-radius: 6px;
@@ -438,8 +438,13 @@ h1, h2, p { margin: 0; }
 .checklist-views { display: flex; flex-wrap: wrap; gap: 5px; }
 .checklist-sources { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 11px; }
 .checklist-field { display: grid; gap: 3px; min-width: 0; color: var(--lilac); font-size: 11px; }
-.checklist-field select, .checklist-field textarea {
+.checklist-field select, .checklist-field textarea, .checklist-field input {
   width: 100%; min-height: 36px; padding: 5px 7px; border: 1px solid #70829a;
   border-radius: 6px; background: var(--night); color: var(--moon); font: inherit;
 }
 .checklist-field textarea { resize: vertical; }
+.checklist-field input[type='datetime-local'] { color-scheme: dark; }
+.checklist-field-visits { display: grid; min-width: 0; gap: 7px; }
+.checklist-field-visit { display: grid; min-width: 0; gap: 6px; padding: 8px; border-radius: 6px; background: #17243a; }
+.checklist-field-visit p { color: var(--muted); font-size: 11px; }
+.checklist-field-visit [type='datetime-local'] { width: 100%; min-width: 0; }

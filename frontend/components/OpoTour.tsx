@@ -29,6 +29,7 @@ import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
 import SongpaChecklist from './SongpaChecklist';
 import type { ChecklistView } from './data/songpa-checklist';
+import { useFieldVisits, type FieldScene } from './opo-field-visits';
 
 const slots: Slot[] = ['A', 'B'];
 const initialDate = '2026-12-21';
@@ -74,11 +75,12 @@ const winterWalkHours = [13, 14, 15, 16, 17];
 const winterWalkStatus = { sun: '직사광', shade: '그늘', unknown: '미판정', night: '일몰 후' };
 type WinterWalkSelection = { id: string; hour: number };
 
-function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, onSelect, onView }: {
+function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, onSelect, onView, onSave }: {
   world: OpoWorld | null; date: string; detailsRef: React.RefObject<HTMLDetailsElement | null>;
   expanded: boolean; selection: WinterWalkSelection;
   onToggle: (expanded: boolean) => void; onSelect: (selection: WinterWalkSelection) => void;
   onView: (point: SitePoint, date: string, minute: number, trace: boolean) => void;
+  onSave: (point: SitePoint, date: string, sample: LightSample) => void;
 }) {
   const data = useMemo(() => winterWalkStops.map(stop => {
     const point = world?.presets.find(preset => preset.id === stop.id);
@@ -114,6 +116,7 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
         {sample.status !== 'night' && <button type="button" onClick={() => onView(selectedPoint, date, sample.minute, true)}>
           {sample.status === 'shade' ? '차폐 경로 보기' : sample.status === 'unknown' ? '미판정 방향 보기' : '태양 방향 보기'}
         </button>}
+        <button type="button" onClick={() => onSave(selectedPoint, date, sample)}>현장 메모에 담기</button>
       </div>
     </div>}
     <p className="season-caption">건물과 지형의 차폐를 계산했어요. 수목·구름과 겨울 오후의 실제 그늘 경계는 현장 확인이 필요해요.</p>
@@ -306,6 +309,7 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
 export default function OpoTour({region = 'opo', onChangeRegion}: {region?: RegionId; onChangeRegion?: () => void}) {
   const area = regions.find(r => r.id === region)!;
   const access = visitRoutes[region];
+  const field = useFieldVisits(region === 'songpa');
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
   const analysisPanel = useRef<HTMLElement>(null);
@@ -315,6 +319,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const winterWalkDetails = useRef<HTMLDetailsElement>(null);
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
   const [showWinterWalk, setShowWinterWalk] = useState(false);
+  const [showVisitPlan, setShowVisitPlan] = useState(false);
   const [winterWalkOpen, setWinterWalkOpen] = useState(false);
   const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
   const [world, setWorld] = useState<OpoWorld | null>(null);
@@ -447,10 +452,19 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [showWinterEvidence, tab]);
 
   useEffect(() => {
-    if (!showWinterWalk || tab !== 'sun' || !winterWalkDetails.current) return;
+    if (!showWinterWalk || !open || tab !== 'sun' || !winterWalkDetails.current) return;
     winterWalkDetails.current.scrollIntoView({ block: 'start' });
     setShowWinterWalk(false);
-  }, [showWinterWalk, tab]);
+  }, [showWinterWalk, open, tab]);
+
+  useEffect(() => {
+    if (!showVisitPlan || !open || tab !== 'checklist') return;
+    const plan = analysisPanel.current?.querySelector<HTMLDetailsElement>('[data-check-id="visit-plan"]');
+    if (!plan) return;
+    plan.open = true;
+    plan.scrollIntoView({ block: 'start' });
+    setShowVisitPlan(false);
+  }, [showVisitPlan, open, tab]);
 
   useEffect(() => {
     if (tab !== 'site' || !pendingSiteCard.current) return;
@@ -643,6 +657,38 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setShowWinterWalk(true);
   }
 
+  function openVisitPlan() {
+    chooseTab('checklist');
+    setOpen(true);
+    setShowVisitPlan(true);
+  }
+
+  function saveWinterVisit(point: SitePoint, modelDate: string, sample: LightSample) {
+    field.save({
+      scene: { kind: 'winter', pointId: point.id, date: modelDate, minute: sample.minute },
+      place: point.label, finding: lightStatus(sample),
+    });
+    openVisitPlan();
+  }
+
+  function openFieldVisit(scene: FieldScene) {
+    if (!world) return false;
+    if (scene.kind === 'home') {
+      const stops = world.greenAccessProfiles.find(route => route.id === scene.routeId)?.homeWalk?.stops;
+      const index = stops?.findIndex(stop => stop.id === scene.stopId) ?? -1;
+      if (index < 0) return false;
+      chooseTab('nature');
+      viewHomeStop(scene.routeId, index);
+      return true;
+    }
+    const point = world.presets.find(item => item.id === scene.pointId);
+    if (!point || !world.destinations.some(item => item.id === point.id)) return false;
+    openWinterWalk();
+    setWinterWalkSelection({ id: point.id, hour: scene.minute / 60 });
+    viewWinterWalk(point, scene.date, scene.minute, false);
+    return true;
+  }
+
   function viewWinterWalk(point: SitePoint, winterDate: string, at: number, trace: boolean) {
     if (!world) return;
     setDate(winterDate);
@@ -797,6 +843,15 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
         <button type="button" disabled={homeStep === homeWalk.stops.length - 1} onClick={() => viewHomeStop(accessId, homeStep + 1)}>다음</button>
         <button type="button" onClick={() => { showAccessRoute(accessId); setOpen(true); }}>경로 지도</button>
+        <button type="button" onClick={() => {
+          const route = access.routes.find(item => item.id === accessId);
+          field.save({
+            scene: { kind: 'home', routeId: accessId, stopId: currentHomeStop.id },
+            place: `${currentHomeStop.name} · ${route?.comparisonLabel ?? '보도 위주 경로'}`,
+            finding: currentHomeStop.evidence,
+          });
+          openVisitPlan();
+        }}>현장 메모에 담기</button>
       </div>
     </section>}
 
@@ -849,7 +904,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         {region === 'songpa' && <button aria-pressed={tab === 'flood'} onClick={() => chooseTab('flood')}>물길·침수</button>}
       </div>
 
-      {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)} />}
+      {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)}
+        field={field} onOpenField={openFieldVisit} onShowField={openVisitPlan} />}
       {region === 'songpa' && tab === 'ambient' && <SongpaAmbient moment={ambientMoment} onTime={setAmbientMoment} scene={world?.ambientScene}
         onVisit={id => { if (visit(id)) setAmbientViewing(true); }} onMap={() => {
           setAmbientViewing(false);
@@ -876,7 +932,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         {region === 'songpa' && <>
           <WinterWalk world={world} date={`${date.slice(0, 4) || initialDate.slice(0, 4)}-12-21`}
             detailsRef={winterWalkDetails} expanded={winterWalkOpen} selection={winterWalkSelection}
-            onToggle={setWinterWalkOpen} onSelect={setWinterWalkSelection} onView={viewWinterWalk} />
+            onToggle={setWinterWalkOpen} onSelect={setWinterWalkSelection} onView={viewWinterWalk} onSave={saveWinterVisit} />
           <WinterCapture world={world} onCompare={compareWinterCapture} detailsRef={winterDetails} />
         </>}
         <details className="season-compare" open={seasonOpen} onToggle={event => setSeasonOpen(event.currentTarget.open)}>
