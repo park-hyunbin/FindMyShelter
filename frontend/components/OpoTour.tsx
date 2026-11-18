@@ -33,16 +33,26 @@ function meters(value: number) {
   return Number.isFinite(value) ? `약 ${Math.round(value / 10) * 10}m` : '자료 없음';
 }
 
-function Timeline({ report, minute }: { report: LightReport; minute: number }) {
+function lightStatus(sample: LightSample) {
+  if (sample.status === 'sun') return '모델상 직사광';
+  if (sample.status === 'night') return '태양이 지평선 아래에 있어요';
+  return `${sample.status === 'shade' ? '모델상 그늘' : '미판정'} · ${sample.cause}`;
+}
+
+function Timeline({ report, minute, slot, onTime }: {
+  report: LightReport; minute: number; slot: Slot; onTime: (minute: number) => void;
+}) {
   const runs: { status: string; length: number; start: number }[] = [];
   report.samples.forEach((sample, i) => {
     const last = runs[runs.length - 1];
     if (last?.status === sample.status) last.length++;
     else runs.push({ status: sample.status, length: 1, start: i });
   });
-  return <div className="timeline" aria-hidden="true">
-    {runs.map(run => <span key={run.start} className={`strip-${run.status}`} style={{ flexGrow: run.length }} />)}
-    <i style={{ left: `${minute / 14.4}%` }} />
+  return <div className="timeline">
+    {runs.map(run => <span aria-hidden="true" key={run.start} className={`strip-${run.status}`} style={{ flexGrow: run.length }} />)}
+    <i aria-hidden="true" style={{ left: `${minute / 14.4}%` }} />
+    <input aria-label={`지점 ${slot} 일조 시간 선택`} type="range" min={0} max={1439} step={1}
+      value={minute} aria-valuetext={`${timeLabel(minute)} KST`} onChange={event => onTime(Number(event.target.value))} />
   </div>;
 }
 
@@ -73,7 +83,7 @@ function TerrainSection({ profiles, onLook }: {
   </div>;
 }
 
-export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
+export default function OpoTour({region = 'opo', onExit}: {region?: RegionId; onExit?: () => void}) {
   const area = regions.find(r => r.id === region)!;
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
@@ -83,6 +93,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
   const [minute, setMinute] = useState(840);
   const [points, setPoints] = useState<Points>({});
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [lightSlot, setLightSlot] = useState<Slot | null>(null);
   const [status, setStatus] = useState('');
   const [open, setOpen] = useState(region !== 'opo');
   const [placeCategory, setPlaceCategory] = useState('all');
@@ -106,7 +117,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
         const slot = pickSlot.current;
         if (!slot || !active) return;
         if (!active.canAnalyze(location)) {
-          setStatus('건물 밖에서 단지에 가까운 실외 지점을 선택해 주세요.');
+          setStatus('분석 범위 안의 실외 지점을 선택해 주세요.');
           return;
         }
         setPoints(current => ({ ...current, [slot]: { ...location, id: 'custom', label: '직접 선택한 지점' } }));
@@ -162,6 +173,11 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     world?.showPlaces(open && tab === 'places' ? (placeCategory === 'all' ? ['beauty','convenience','school'] : [placeCategory]) : []);
   }, [world, open, tab, placeCategory]);
 
+  const lightPoint = lightSlot ? points[lightSlot] : undefined;
+  useEffect(() => {
+    world?.showLightPath(lightPoint && date && tab === 'sun' && !selectedSlot ? lightPoint : null, date, minute, lightSlot ?? 'A', true);
+  }, [world, lightPoint, date, minute, lightSlot, tab, selectedSlot]);
+
   const reports = useMemo(() => {
     const result: Partial<Record<Slot, LightReport>> = {};
     if (world && date && open && tab === 'sun') for (const slot of slots) {
@@ -172,11 +188,11 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
 
   const moment = useMemo(() => {
     const result: Partial<Record<Slot, LightSample>> = {};
-    if (world && date && open && tab === 'sun') for (const slot of slots) {
+    if (world && date && (open || lightSlot !== null) && tab === 'sun') for (const slot of slots) {
       if (points[slot]) result[slot] = world.lightAt(points[slot], date, minute);
     }
     return result;
-  }, [world, date, open, tab, points, minute]);
+  }, [world, date, open, tab, points, minute, lightSlot]);
 
   const nature = useMemo(() => {
     if (!world || tab !== 'nature') return {};
@@ -191,6 +207,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
   }, [world, open, tab, points, bearing]);
 
   function chooseMode(next: ViewMode) {
+    setLightSlot(null);
     setSelectedSlot(null);
     setStatus('');
     setMode(next);
@@ -202,6 +219,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
   }
 
   function chooseTab(next: AnalysisTab) {
+    setLightSlot(null);
     setSelectedSlot(null);
     setStatus('');
     if (next !== 'nature') {
@@ -236,6 +254,19 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     setStatus('');
   }
 
+  function inspectLight(slot: Slot) {
+    const point = points[slot];
+    if (!world || !point) return;
+    if (lightSlot === slot) { setLightSlot(null); return; }
+    setLightSlot(slot);
+    setSelectedSlot(null);
+    setAccessId(null);
+    setStatus('');
+    world.showGreenAccess(null);
+    setMode('orbit');
+    if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
   function useCurrentPosition() {
     if (!world || !selectedSlot) return;
     const position = world.position();
@@ -268,6 +299,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     if (!world) return;
     const next = world.goTo(id);
     if (!next) return;
+    setLightSlot(null);
     setMode(next);
     setSelectedSlot(null);
     setAccessId(null);
@@ -288,7 +320,8 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     <header className="tour-title">
       <div className="brand"><span aria-hidden="true" className="brand-icon">⌂</span> Find My Shelter</div>
       <div className="place"><h1>{area.name}</h1><p>{area.area}</p></div>
-      {(region === 'opo' || mode !== 'orbit') && <div className="street-controls">
+      {(onExit || region === 'opo' || mode !== 'orbit') && <div className="street-controls">
+        {onExit && <button className="region-return" onClick={onExit}>← 지역 다시 찾기</button>}
         {region === 'opo' && <select aria-label="동네에서 장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
           <option value="" disabled>동네에서 장소로 이동</option>
           {world?.destinations.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
@@ -297,6 +330,11 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
       </div>}
     </header>
 
+    {lightSlot && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
+      <div><strong>{lightSlot} 지점 · {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>
+      <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
+    </section>}
+
     <nav className="view-controls" aria-label="3D 탐색 모드">
       {(Object.keys(modeLabels) as ViewMode[]).map(key => <button key={key} disabled={!world} aria-pressed={mode === key} onClick={() => chooseMode(key)}>{modeLabels[key]}</button>)}
       <button className="recenter" aria-label="시작 위치로 돌아가기" title="시작 위치로 돌아가기" disabled={!world} onClick={() => world?.locate()}>⌖</button>
@@ -304,6 +342,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
     {Boolean(world?.tripLength) && <button className="street-trip" aria-pressed={street.touring}
       title={`단지 입구에서 수레실 정류장을 거쳐 능평도서관까지 약 ${world?.tripLength}m`} onClick={() => {
         if (!world) return;
+        setLightSlot(null);
         setSelectedSlot(null);
         setAccessId(null);
         world.showGreenAccess(null);
@@ -360,8 +399,12 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
             </div>
             {tab === 'sun' && report && sample && <>
               <div className="sun-total"><strong>{duration(report.sunMinutes)}</strong><span>모델상 직사광</span></div>
-              <Timeline report={report} minute={minute} />
-              <p className="site-status">{sample.status === 'sun' ? '모델상 직사광' : sample.status === 'night' ? '태양이 지평선 아래에 있어요' : sample.status === 'shade' ? `모델상 그늘 · ${sample.cause}` : `미판정 · ${sample.cause}`}</p>
+              <Timeline report={report} minute={minute} slot={slot} onTime={setMinute} />
+              <p className="site-status">{lightStatus(sample)}</p>
+              {sample.obstruction && <p className="site-status">차폐 지점까지 광선 거리 약 {Math.round(sample.obstruction.distance)}m</p>}
+              <button className="light-trace" aria-label={`${slot} 지점 ${sample.status === 'shade' ? '그늘 원인 보기' : '햇빛 방향 보기'}`}
+                aria-pressed={lightSlot === slot} disabled={sample.status === 'night' && lightSlot !== slot}
+                onClick={() => inspectLight(slot)}>{sample.status === 'shade' ? '그늘 원인 보기' : '햇빛 방향 보기'} ↗</button>
               {report.unclassifiedMinutes > 0 && <p className="site-status">하루 중 미판정 {duration(report.unclassifiedMinutes)}</p>}
             </>}
             {tab === 'nature' && details && <dl className="nature-values">
@@ -378,6 +421,7 @@ export default function OpoTour({region = 'opo'}: {region?: RegionId}) {
         <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>자료 한계</span></div>
         <details className="basis"><summary>계산 기준과 자료</summary>
           <p>맑은 하늘을 가정하고 지면에서 1.5m 높이의 지점을 10분 간격으로 계산합니다. 건물과 지형이 태양을 가리는지 검사합니다.</p>
+          <p>3D 경로는 관측 지점에서 태양 방향으로 보낸 광선입니다. 그늘일 때 처음 닿은 건물 체적 또는 지형을 표시합니다. 점선은 자료 한계로 판정하지 못한 방향을 표시합니다.</p>
           {buildingRegister && <p>대상 주동은 건축HUB 표제부({buildingRegister.source.dataMonth})의 등록 높이로 건물 체적을 단순화해 계산합니다. 주변 건물은 QGIS 편집본 후보값과 OSM 높이를 사용합니다.</p>}
           <p>지형은 {world?.sources.terrain.name ?? 'GEDTM30'}의 약 {world?.sources.terrain.resolution ?? 30}m 표고 모델입니다. 수목의 그늘은 현장에서 따로 확인해야 합니다.</p>
           <p>모델 내 최대 건물 높이({world?.sources.referenceHeight.toLocaleString('ko-KR') ?? '—'}m)까지의 차폐를 검토합니다. 햇빛 방향에 높이 미확인 건물이 있거나 건물 표본 밖에서 차폐 가능성이 있으면 해당 시간을 미판정으로 남깁니다.</p>

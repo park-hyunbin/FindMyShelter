@@ -12,7 +12,7 @@ export default function ShelterHome() {
   const [query, setQuery] = useState('');
   const [searched, setSearched] = useState(false);
   const [selected, setSelected] = useState<RegionId | null>(null);
-  if (selected) return <div className="shelter-exploring"><Tour key={selected} region={selected}/><button className="shelter-return" onClick={() => setSelected(null)}>← 지역 다시 찾기</button></div>;
+  if (selected) return <div className="shelter-exploring"><Tour key={selected} region={selected} onExit={() => setSelected(null)}/></div>;
   const needle = query.trim().replace(/\s/g, '').toLowerCase();
   const matches = regions.filter(r => `${r.name}${r.area}${r.keywords}`.replace(/\s/g, '').toLowerCase().includes(needle));
   return <main className="shelter-home">

@@ -4,6 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { buildingCollision, extent, inShape, nearestOnLine, precinct, type OpoData, type Point } from './opo-data';
 import { addCourtyard, courtyard, courtyardGarden, inCourtyardRing } from './opo-courtyard';
 import { directionProfile } from './opo-horizon';
+import { createLightPath } from './opo-light-path';
 import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
 import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, approach, playgroundReference } from './opo-site';
@@ -118,6 +119,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const greenAccess = addGreenAccess(data, scene);
   scene.updateMatrixWorld(true);
   const analysis = createLightAnalyzer(data, terrain, occluders, streets.grade);
+  const lightPath = createLightPath(scene, [terrain, ...occluders]);
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const insideBuilding = buildingCollision(data.buildings);
@@ -265,6 +267,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     return { point, element, enabled: () => true };
   });
+  const lightPathLabel = document.createElement('span');
+  lightPathLabel.className = 'building-label light-path-label';
+  lightPathLabel.hidden = true;
+  host.appendChild(lightPathLabel);
+  labels.push({ point: lightPath.labelPoint, element: lightPathLabel, enabled: () => lightPath.group.visible });
   const placeGroup = new T.Group();
   scene.add(placeGroup);
   let placeCategories: string[] = [];
@@ -384,6 +391,35 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     car.visible = next === 'drive';
     controls.enabled = next === 'orbit' && !selecting;
     if (next === 'orbit') overview();
+  }
+
+  function showLightPath(location: Point | null, date: string, minute: number, slot: Slot, focus = false) {
+    if (!location) { lightPath.group.visible = false; return; }
+    const sample = analysis.at(location, date, minute);
+    const origin = new T.Vector3(location.x, streets.grade(location.x, location.z) + observationHeight, location.z);
+    const { direction } = sunAt(data, date, minute);
+    lightPath.update(sample, origin, direction, slot);
+    lightPathLabel.textContent = sample.obstruction ? `${slot} · ${sample.cause}`
+      : sample.status === 'unknown' ? `${slot} · 차폐 미판정` : `${slot} · 태양 방향`;
+    if (!focus || !lightPath.group.visible) return;
+    setMode('orbit');
+    const sphere = lightPath.bounds.getBoundingSphere(new T.Sphere());
+    const panel = host.clientWidth > 780 ? host.parentElement?.querySelector<HTMLElement>('.analysis') : null;
+    const availableWidth = panel?.offsetLeft ?? host.clientWidth;
+    const halfFov = T.MathUtils.degToRad(camera.fov / 2);
+    const halfAngle = Math.min(halfFov, Math.atan(Math.tan(halfFov) * availableWidth / host.clientHeight));
+    const distance = Math.max(95, (sphere.radius + 12) / Math.sin(halfAngle * 0.85));
+    controls.target.copy(sphere.center);
+    const viewDirection = new T.Vector3(direction.z, 1, -direction.x).normalize();
+    camera.position.copy(sphere.center).addScaledVector(viewDirection, distance);
+    controls.update();
+    if (panel) {
+      const right = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+      const shift = distance * Math.tan(halfFov) * camera.aspect * (host.clientWidth - availableWidth) / host.clientWidth;
+      controls.target.addScaledVector(right, shift);
+      camera.position.addScaledVector(right, shift);
+      controls.update();
+    }
   }
 
   const movement = new Set<string>();
@@ -559,6 +595,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     presets,
     destinations,
     tripLength,
+    showLightPath,
     sources: { terrain: data.terrainSource, osmSnapshot: data.snapshot, referenceHeight: data.referenceHeight,
       streets: data.streetSource, register: data.buildingRegister },
     setMode,
@@ -734,6 +771,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
       window.removeEventListener('blur', blur);
+      lightPath.dispose();
       const materials = new Set<T.Material>(), geometries = new Set<T.BufferGeometry>();
       scene.traverse(object => {
         if (object instanceof T.Mesh || object instanceof T.Line) {

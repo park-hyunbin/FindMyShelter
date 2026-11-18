@@ -4,7 +4,13 @@ import { extent, type OpoData, type Point } from './opo-data';
 
 export const interval = 10;
 export const observationHeight = 1.5;
-export type LightSample = { minute: number; status: 'night' | 'sun' | 'shade' | 'unknown'; cause?: string };
+export type LightSample = {
+  minute: number; status: 'night' | 'sun' | 'shade' | 'unknown'; cause?: string;
+  obstruction?: {
+    kind: 'terrain' | 'building'; objectId: number; distance: number;
+    point: { x: number; y: number; z: number };
+  };
+};
 export type LightReport = { samples: LightSample[]; sunMinutes: number; unclassifiedMinutes: number };
 
 export function sunAt(data: OpoData, date: string, minute: number) {
@@ -64,7 +70,9 @@ export function createLightAnalyzer(data: OpoData, terrain: Mesh, buildings: Mes
     origin.set(location.x, surface(location.x, location.z) + observationHeight, location.z);
     ray.set(origin, direction);
     const hit = ray.intersectObjects(objects, false)[0];
-    if (hit) return { minute, status: 'shade', cause: hit.object.name };
+    if (hit) return { minute, status: 'shade', cause: hit.object.name,
+      obstruction: { kind: hit.object === terrain ? 'terrain' : 'building', objectId: hit.object.id,
+        distance: hit.distance, point: { x: hit.point.x, y: hit.point.y, z: hit.point.z } } };
 
     const cause = altitude < 5 * Math.PI / 180 ? '낮은 태양 고도 · 먼 지형 차폐 가능'
       : possibleUnmappedShade(data, origin, direction);
