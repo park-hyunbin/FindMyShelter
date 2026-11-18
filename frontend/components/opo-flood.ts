@@ -50,6 +50,7 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
 
   const pinGeometry = new T.SphereGeometry(4, 12, 9);
   const nearestMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({ color: '#f7bf66', depthTest: false, depthWrite: false }));
+  nearestMarker.scale.setScalar(0.65);
   nearestMarker.renderOrder = 14;
   group.add(nearestMarker);
   const labelPoint = new T.Vector3();

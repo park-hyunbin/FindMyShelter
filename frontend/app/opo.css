@@ -396,6 +396,7 @@ h1, h2, p { margin: 0; }
 .school-legend span::before { content: ''; display: inline-block; width: 11px; margin-right: 4px; border-top: 2px solid #bacbff; vertical-align: 3px; }
 .school-legend span + span::before { border-color: #70ead1; }
 .building-label.flood-map-label { border-color: #f1b96d; background: #342a24; color: #ffebcd; }
+.building-label.flood-map-label[data-kind='trace'] { margin-top: -26px; }
 .building-label.flood-map-label[data-kind='water'] { border-color: #8fe4ff; background: #1a3847; color: #d1f5ff; }
 .flood-panel { display: grid; gap: 8px; }
 .flood-panel h3 { margin: 1px 0 6px; }
