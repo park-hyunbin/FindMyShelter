@@ -130,11 +130,12 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'noise', title: '소음·야간 환경', evidence: 'document',
-        finding: '대로 옆과 단지 안쪽을 같은 시각으로 둘러보고, 주변 서울시 센서의 소음·조도 기록을 확인할 수 있어요.',
+        finding: '같은 시각의 대로 옆과 단지 안쪽을 둘러보며 지도에 기록된 조명 위치를 볼 수 있어요. 주변 센서의 소음·조도에는 실제 측정 장소와 시각을 표시해요.',
         followUp: '대로 쪽과 안쪽에서 평일 밤·주말 소음, 조명, 냄새를 확인해 보세요.',
         views: [{ target: 'ambient', label: '소음·야간 환경 둘러보기' }],
         sources: [
           { label: '서울시 S-DoT 센서 기록', url: ambientSources.readings },
+          { label: '서울시 가로등·보안등 위치 도형', url: ambientSources.lamps },
           { label: 'OpenStreetMap 양재대로', url: ambientSources.road },
         ],
       },

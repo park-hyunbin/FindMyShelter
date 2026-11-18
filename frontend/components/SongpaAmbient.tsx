@@ -41,7 +41,7 @@ export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene, a
         <button disabled={!scene} onClick={onMap}>도로와 센서 위치 지도</button>
       </div>
       {mapVisible && reference && <p>청록색 점선은 {reference.name}에서 센서까지의 직선거리를 표시해요.</p>}
-      <p>3D는 하늘과 주변광의 변화를 표현해요. 조명과 단지 안 소음은 현장에서 확인해요.</p>
+      <p>가로등과 보안등은 서울시 도면에 기록된 위치를 참고했어요. 등기구 높이와 밤에 켜진 모습은 모형이며, 실제 밝기와 소음은 현장 확인이 필요해요.</p>
     </article>
     <article className="site-card">
       <h3>주변 센서 관측</h3>
@@ -69,7 +69,7 @@ export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene, a
         <a href={ambientSources.locations} target="_blank" rel="noreferrer">센서 설치 위치표 ↗</a>
         <a href={ambientSources.road} target="_blank" rel="noreferrer">양재대로 지도 ↗</a>
         <a href={ambientSources.sidewalk} target="_blank" rel="noreferrer">대로 옆 보행로 지도 ↗</a>
-        <a href={ambientSources.lamps} target="_blank" rel="noreferrer">서울시 가로등 위치 자료 ↗</a>
+        <a href={ambientSources.lamps} target="_blank" rel="noreferrer">서울시 가로등·보안등 위치 도형 ↗</a>
       </details>
     </article>
   </section>;

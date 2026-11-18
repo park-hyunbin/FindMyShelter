@@ -1023,7 +1023,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     </section>}
     {ambientStop && <section className="light-inspection walk-preview" aria-label="소음·야간 3D 장면">
       <div aria-live="polite"><strong>{ambientStop.name}</strong>
-        <p>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST · 하늘과 주변광 모형</p></div>
+        <p>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST · 하늘과 조명 모형</p></div>
       <div className="walk-preview-actions">
         {!open && otherAmbientStop && <button type="button" onClick={() => visitAmbientStop(otherAmbientStop.id)}>{otherAmbientStop.name} 보기</button>}
         <button type="button" aria-label="관측 시각 미리보기 닫기" onClick={() => setAmbientStopId(null)}>닫기</button>

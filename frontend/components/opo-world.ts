@@ -18,6 +18,7 @@ import { addStreets } from './opo-streets';
 import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
 import { createStreetOcclusion } from './opo-contact-shadows';
+import { addStreetLights } from './opo-street-lights';
 import { createStudyShadows } from './opo-study-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
@@ -27,7 +28,7 @@ import { sampleWinterPixel, winterCapturePoints } from './data/songpa-winter-cap
 import { songpaCourtyard, songpaGrounds, type SongpaGroundView } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
-import { ambientStationDistance } from './data/songpa-ambient';
+import { ambientFixtures, ambientStationDistance } from './data/songpa-ambient';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
@@ -137,6 +138,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const ground = streets.surface(x, z);
     return isOpo ? ground : walkFloor({ x, z }, ground) ?? ground;
   }
+  const streetLights = isOpo ? undefined : addStreetLights(scene, ambientFixtures.flatMap(({ kind, coordinate }) => {
+    const position = data.project(coordinate);
+    if (insideBuilding(position) || streets.roadClearance(position) < 0.02 || site.paving?.fenced(position)) return [];
+    return [{ kind, position, toward: streets.nearest(position, 32)?.point }];
+  }), observationSurface, smallScreen ? 3 : 4);
   const greenAccess = addGreenAccess(data, scene, streets.surface, site.paving, observationSurface);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   const parkViews = isOpo ? [] : [songiPark.crossingView, ...songiPark.views].map(({ name, coordinate, toward }) => {
@@ -1074,8 +1080,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       ambientInspection = active;
       ambientMap.group.visible = map;
       updateComparisonMarkers();
-      if (!map) return;
       const reference = ambientMap.selectReference(referenceId);
+      streetLights?.refer(active && !map ? reference?.position : undefined);
+      if (!map) return;
       for (const { label, element } of ambientLabels) {
         if (label.kind === 'station') {
           const distance = reference?.stationDistancesM[label.serial];
@@ -1145,6 +1152,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const solar = sunAt(data, date, minute);
       const daylight = solar.altitude > 0;
       sky.light(solar.direction, solar.altitude, fog.color);
+      streetLights?.setSunAltitude(solar.altitude);
       sunDirection.copy(daylight ? solar.direction : new T.Vector3(-200, 300, 100).normalize());
       sun.castShadow = daylight;
       const strength = T.MathUtils.smoothstep(solar.altitude, -0.04, 0.36);
