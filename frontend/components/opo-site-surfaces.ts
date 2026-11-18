@@ -1,9 +1,9 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
+import type { OpoData, Point } from './opo-data';
 import { zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
-import { groundPolygon, ribbon } from './opo-meshes';
+import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
 
 type Coordinate = [longitude: number, latitude: number];
 type GateOffset = [across: number, along: number];
@@ -42,46 +42,55 @@ export function gateCrosswalkArea(project: OpoData['project'], gate: GateLayout)
   return { center: at(0, (start + end) / 2), depth: end - start, direction, section: { width: gate.width } };
 }
 
-export function siteSurfaceContains(project: OpoData['project'], layout: SiteSurfaceLayout, gate?: GateLayout) {
-  const areas = [layout.plaza, layout.playground].flatMap(ring => ring ? [[ring.map(project)]] : []);
-  const lines = [...layout.paths, ...(layout.drive ? [layout.drive] : [])]
-    .map(({ width, points }) => ({ width, points: points.map(project) }));
-  if (gate) {
-    const { at, length } = axisBetween(project(gate.axis[0]), project(gate.axis[1]));
-    const [before, after] = gate.roadOverhang;
-    lines.push({ width: gate.width, points: [at(0, -before), at(0, length + after)] });
-    for (const line of gate.sidewalks.points) {
-      lines.push({ width: gate.sidewalks.width, points: line.map(([across, along]) => at(across, along)) });
-    }
-  }
-  return (point: Point) => areas.some(shape => inShape(point, shape))
-    || lines.some(({ points, width }) => nearestOnLine(point, [points]).distance <= width / 2 + 0.15);
-}
-
 export function addSiteSurfaces(
   data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
   layout: SiteSurfaceLayout, gate?: GateLayout,
 ) {
-  const asphalt = material('#d5d2ca', 'asphalt');
+  const asphalt = material('#e2ecf8', 'asphalt');
+  asphalt.color.multiplyScalar(1.42);
   const paving = material('#c8c1b8', 'pavers');
   const edging = material('#aaa59a');
   const paint = material('#eeeae0');
   const plaza = material('#c2bcaf', 'pavers');
+  const frame = gate && axisBetween(data.project(gate.axis[0]), data.project(gate.axis[1]));
+  const join = gate && frame?.at(0, (gate.crossing[0] + gate.crossing[1]) / 2);
+  const innerDeckLift = 0.15;
+  const drivewayGrade = (x: number, z: number) => {
+    const blend = gate && join
+      ? T.MathUtils.smoothstep(Math.hypot(x - join.x, z - join.z), gate.width * 0.6, gate.width * 1.35)
+      : 1;
+    return grade(x, z) + T.MathUtils.lerp(streetDeckLift + 0.02, innerDeckLift, blend);
+  };
+  const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
+  const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
+  const hits: T.Intersection[] = [];
 
   function material(color: string, texture?: TourSurface) {
     const base = new T.MeshStandardMaterial({ color, roughness: 0.93, side: T.DoubleSide });
     return texture ? finish(base, texture) : base;
   }
 
-  function add(geometry: T.BufferGeometry, value: T.Material, texture?: TourSurface) {
+  function add(geometry: T.BufferGeometry, value: T.Material, texture?: TourSurface, walkable = true) {
     if (texture) surfaceUV(geometry, texture);
     const mesh = new T.Mesh(geometry, value);
     mesh.receiveShadow = true;
     scene.add(mesh);
+    if (walkable) {
+      geometry.computeBoundingBox();
+      if (geometry.boundingBox && !geometry.boundingBox.isEmpty()) decks.push({ mesh, bounds: geometry.boundingBox });
+    }
   }
 
-  function strip(points: Point[], width: number, lift: number) {
-    return ribbon(points, width, (x, z) => grade(x, z) + lift);
+  function elevation({ x, z }: Point) {
+    let top: number | undefined;
+    for (const { mesh, bounds } of decks) {
+      if (x < bounds.min.x || x > bounds.max.x || z < bounds.min.z || z > bounds.max.z) continue;
+      ray.ray.origin.set(x, bounds.max.y + 1, z);
+      mesh.raycast(ray, hits);
+      for (const hit of hits) top = Math.max(top ?? hit.point.y, hit.point.y);
+      hits.length = 0;
+    }
+    return top;
   }
 
   function curve(points: Coordinate[]) {
@@ -89,42 +98,44 @@ export function addSiteSurfaces(
     return line.getSpacedPoints(Math.ceil(line.getLength() / 1.2));
   }
 
-  function zebra(at: ReturnType<typeof axisBetween>['at'], width: number, start: number, end: number, lift: number) {
-    const stripes = zebraOffsets(width).map(across => strip([at(across, start), at(across, end)], 0.44, lift));
+  function zebra(at: ReturnType<typeof axisBetween>['at'], width: number, start: number, end: number) {
+    const markingsGrade = (x: number, z: number) => (elevation({ x, z }) ?? grade(x, z)) + 0.028;
+    const stripes = zebraOffsets(width).map(across =>
+      ribbon([at(across, start), at(across, end)], 0.44, markingsGrade, 0.11, 0.11));
     if (!stripes.length) return;
-    add(mergeGeometries(stripes), paint);
+    add(mergeGeometries(stripes), paint, undefined, false);
     stripes.forEach(stripe => stripe.dispose());
   }
 
-  if (layout.drive) add(strip(curve(layout.drive.points), layout.drive.width, 0.19), asphalt, 'asphalt');
+  if (layout.drive) add(ribbon(curve(layout.drive.points), layout.drive.width,
+    (x, z) => drivewayGrade(x, z) + 0.026, 0.8, 1), asphalt, 'asphalt');
   for (const { width, points } of layout.paths) {
     const line = curve(points);
-    add(strip(line, width + 0.26, 0.20), edging);
-    add(strip(line, width, 0.24), paving, 'pavers');
+    add(ribbon(line, width + 0.26, (x, z) => grade(x, z) + 0.20), edging);
+    add(ribbon(line, width, (x, z) => grade(x, z) + 0.24), paving, 'pavers');
   }
 
   if (layout.playground) {
     const playRing = layout.playground.map(data.project);
     const playFloor = material('#a69984', 'granular');
     add(groundPolygon([playRing], grade, 3, 0.25), playFloor, 'granular');
-    add(strip([...playRing, playRing[0]], 0.23, 0.28), edging);
+    add(ribbon([...playRing, playRing[0]], 0.23, (x, z) => grade(x, z) + 0.28), edging);
   }
-  if (layout.plaza) add(groundPolygon([layout.plaza.map(data.project)], grade, 3, 0.12), plaza, 'pavers');
-  for (const { start, end, depth } of layout.crossings) {
-    const { at, length } = axisBetween(data.project(start), data.project(end));
-    zebra((across, along) => at(along, across + length / 2), length, -depth / 2, depth / 2, 0.15);
-  }
-
-  if (gate) {
-    const { at, length } = axisBetween(data.project(gate.axis[0]), data.project(gate.axis[1]));
-    const gateAsphalt = material('#e2ecf8', 'asphalt');
-    gateAsphalt.color.multiplyScalar(1.42);
+  if (layout.plaza) add(groundPolygon([layout.plaza.map(data.project)], drivewayGrade, 1.2, 0), plaza, 'pavers');
+  if (gate && frame) {
+    const { at, length } = frame;
     const [before, after] = gate.roadOverhang;
-    add(strip([at(0, -before), at(0, length + after)], gate.width, 0.49), gateAsphalt, 'asphalt');
-    zebra(at, gate.width, ...gate.crossing, 0.52);
+    add(ribbon([at(0, -before), at(0, length + after)], gate.width, drivewayGrade, 0.8, 1), asphalt, 'asphalt');
     const sidewalk = material('#c7c6be', 'pavers');
     for (const line of gate.sidewalks.points) {
-      add(strip(line.map(([across, along]) => at(across, along)), gate.sidewalks.width, 0.56), sidewalk, 'pavers');
+      add(ribbon(line.map(([across, along]) => at(across, along)), gate.sidewalks.width,
+        (x, z) => grade(x, z) + streetDeckLift + 0.09, 0.8, 1), sidewalk, 'pavers');
     }
+    zebra(at, gate.width, ...gate.crossing);
   }
+  for (const { start, end, depth } of layout.crossings) {
+    const { at, length } = axisBetween(data.project(start), data.project(end));
+    zebra((across, along) => at(along, across + length / 2), length, -depth / 2, depth / 2);
+  }
+  return { elevation, drivewayGrade };
 }

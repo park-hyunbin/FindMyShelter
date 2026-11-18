@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, type OpoData, type Point, type Street, type StreetPaint } from './opo-data';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
-import { groundPolygon, ribbon, terrainSurface } from './opo-meshes';
+import { groundPolygon, ribbon, streetDeckLift, terrainSurface } from './opo-meshes';
 import { crossingOutline, crosswalkFrame, fitCrosswalk, leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type Crosswalk } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
 import { gateCrosswalkArea } from './opo-site-surfaces';
@@ -404,7 +404,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         if (!finish || isPath || road.bridge) {
           strip(line, width + (isPath ? 0.14 : 0.42), 0.38, isPath ? '#a29477' : '#a29f91');
         }
-        strip(line, width, 0.47, tint, texture);
+        strip(line, width, streetDeckLift, tint, texture);
       }
       if (!isPath) {
         for (const point of (songpa && width > 12 ? [points[0], points[points.length - 1]] : points)) {

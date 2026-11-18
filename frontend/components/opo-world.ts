@@ -8,7 +8,7 @@ import { courtyardStairs } from './opo-garden';
 import { directionProfile } from './opo-horizon';
 import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
-import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
+import { addEnvironment, buildMeshes, makeGround, streetDeckLift } from './opo-meshes';
 import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, addSongpaSchoolMap, approach, playgroundReference } from './opo-site';
@@ -27,8 +27,6 @@ import { songpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
-import { siteSurfaces } from './data/site-surfaces';
-import { siteSurfaceContains } from './opo-site-surfaces';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
@@ -37,6 +35,8 @@ const roadEntry = [127.16554, 37.351224];
 const routePlaces = ['수레실.오포롯데캐슬', '능평도서관', '용상골현대아파트', '현동빌라'];
 const headingTo = (from: Point, to: Point) => Math.atan2(to.x - from.x, from.z - to.z);
 const eyeFov = 60;
+// The foot rests above the avatar group's origin.
+const playerFootHeight = 0.16;
 
 function makePlayer() {
   const player = new T.Group();
@@ -147,20 +147,26 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
   const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
   if (treeCoverOverlay) scene.add(treeCoverOverlay);
-  const surfaces = siteSurfaces[data.region];
-  const sitePaved = surfaces && siteSurfaceContains(data.project, surfaces.layout, surfaces.gate);
+  const site = addSiteDetails(data, scene, streets.surface, finish);
   const environment = addEnvironment(data, scene, finish, point => {
     const road = streets.nearest(point, 14);
-    return entrance?.paved(point) || sitePaved?.(point) || insideBuilding(point)
+    return entrance?.paved(point) || site.paving?.elevation(point) !== undefined || insideBuilding(point)
       || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
   }, treeCover ?? undefined);
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
-  const site = addSiteDetails(data, scene, streets.surface, finish);
   const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);
   const floodMap = isOpo ? undefined : addSongpaFloodMap(data, scene, streets.surface);
   const schoolMap = isOpo ? undefined : addSongpaSchoolMap(data, scene, streets.surface);
   const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
+  function walkDeck(point: Point, ground: number) {
+    const paved = site.paving?.elevation(point);
+    const roadway = streets.nearest(point, 22);
+    if (roadway && roadway.distance <= roadway.segment.width / 2) {
+      return Math.max(paved ?? ground, ground + streetDeckLift);
+    }
+    return paved;
+  }
   const greenAccess = addGreenAccess(data, scene, streets.surface);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   const parkViews = isOpo ? [] : songiPark.views.map(({ name, coordinate, toward }) => {
@@ -230,6 +236,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let stickX = 0, stickY = 0;
   let mode: ViewMode = 'orbit';
   let eyeLevel = false;
+  let sightlineView = false;
   let studyingSunlight = false;
   let walkingAtEyeLevel = true;
   const firstPerson = () => eyeLevel || (mode === 'walk' && walkingAtEyeLevel);
@@ -763,7 +770,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         if (distance >= 0.5 && distance <= 85 && !endOfTile(goal) && !occupied(goal)) {
           walkingTo = goal;
           viewAngle = 0;
-          const floor = modeledElevation(goal) ?? streets.surface(goal.x, goal.z) + 0.50;
+          const ground = streets.surface(goal.x, goal.z);
+          const floor = (isOpo ? modeledElevation(goal) : walkDeck(goal, ground)) ?? ground + 0.50;
           stepMarker.position.set(goal.x, floor + 0.12, goal.z);
         }
       }
@@ -831,19 +839,22 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
       travelSpeed = T.MathUtils.damp(travelSpeed,
         Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
-      const modeledFloor = modeledElevation(position);
       const surfaceHeight = streets.surface(position.x, position.z);
+      const modeledFloor = isOpo ? modeledElevation(position) : driving ? undefined : walkDeck(position, surfaceHeight);
       const y = (eyeLevel ? undefined : modeledFloor) ?? surfaceHeight;
       const actor = driving ? car : player;
-      actor.position.set(position.x, modeledFloor ?? surfaceHeight + (driving ? 0.47 : 0.18), position.z);
+      const actorHeight = modeledFloor === undefined
+        ? surfaceHeight + (driving ? streetDeckLift : 0.18)
+        : modeledFloor - (isOpo ? 0 : playerFootHeight);
+      actor.position.set(position.x, actorHeight, position.z);
       actor.rotation.y = -heading;
       if (!driving) legs.forEach((leg, index) => { leg.rotation.x = Math.sin(now / 78 + index * Math.PI) * Math.min(0.68, Math.abs(speed) * 0.25); });
 
       const angle = heading + viewAngle;
       if (firstPerson()) {
-        const eye = eyeLevel || studyingSunlight
-          ? surfaceHeight + observationHeight
-          : actor.position.y + 1.6;
+        const base = studyingSunlight || (eyeLevel && (isOpo || sightlineView || modeledFloor === undefined))
+          ? surfaceHeight : isOpo ? undefined : modeledFloor;
+        const eye = base === undefined ? actor.position.y + 1.6 : base + observationHeight;
         camera.position.set(position.x, eye, position.z);
         const tilt = (0.17 - pitch) * Math.PI / 2;
         target.set(position.x + Math.sin(angle), camera.position.y + Math.tan(tilt), position.z - Math.cos(angle));
@@ -869,7 +880,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const blend = Math.hypot(actor.position.x - pose.x, actor.position.z - pose.z) > 25 ? 1 : 1 - Math.exp(-elapsed * 13);
       const x = T.MathUtils.lerp(actor.position.x, pose.x, blend);
       const z = T.MathUtils.lerp(actor.position.z, pose.z, blend);
-      const y = modeledElevation({ x, z }) ?? streets.surface(x, z) + (pose.driving ? 0.47 : 0.18);
+      const point = { x, z };
+      const ground = streets.surface(x, z);
+      const deck = !isOpo && !pose.driving ? walkDeck(point, ground) : undefined;
+      const y = isOpo ? modeledElevation(point) ?? ground + (pose.driving ? streetDeckLift : 0.18)
+        : deck === undefined ? ground + (pose.driving ? streetDeckLift : 0.18) : deck - playerFootHeight;
       actor.position.set(x, y, z);
       const turn = -pose.heading - actor.rotation.y;
       actor.rotation.y += Math.atan2(Math.sin(turn), Math.cos(turn)) * blend;
@@ -1015,9 +1030,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       movement.clear();
       return true;
     },
-    lookFrom(point: Point, bearing: number, obstructionAngle: number) {
+    lookFrom(point: Point, bearing: number, sightlineAngle?: number) {
       setMode('walk');
       eyeLevel = true;
+      sightlineView = sightlineAngle !== undefined;
       walkingTo = null;
       player.visible = false;
       movement.clear();
@@ -1025,6 +1041,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       heading = T.MathUtils.degToRad(bearing) + data.northOffset;
       viewAngle = 0;
       // Leave room above steep rooflines that a midpoint framing would cut out.
+      const obstructionAngle = sightlineAngle ?? 0;
       const lookElevation = Math.max(obstructionAngle / 2, obstructionAngle - (eyeFov / 2 - 6));
       pitch = 0.17 - lookElevation / 90;
       speed = 0;

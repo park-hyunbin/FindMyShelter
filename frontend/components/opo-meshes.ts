@@ -87,7 +87,9 @@ export function groundPolygon(rings: Shape, ground: OpoData['ground'], maxEdge =
   return geometry;
 }
 
-export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity) {
+export const streetDeckLift = 0.47;
+
+export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity, alongStep = 3) {
   const vertices: number[] = [];
   const indexes: number[] = [];
   const walk: Point[] = [];
@@ -95,7 +97,7 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
     const a = points[i - 1], b = points[i];
     const distance = Math.hypot(b.x - a.x, b.z - a.z);
     if (distance < 0.05) continue;
-    const parts = Math.ceil(distance / 3);
+    const parts = Math.ceil(distance / alongStep);
     for (let j = 0; j < parts; j++) walk.push({ x: a.x + (b.x - a.x) * j / parts, z: a.z + (b.z - a.z) * j / parts });
   }
   if (!walk.length) return new T.BufferGeometry();

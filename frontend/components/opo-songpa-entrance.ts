@@ -24,7 +24,7 @@ function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground']
     const { x, z } = at(across, along);
     const mesh = new T.Mesh(new T.BoxGeometry(...size), material);
     mesh.rotation.y = heading;
-    mesh.position.set(x, grade(x, z) + 0.49 + bottom + size[1] / 2, z);
+    mesh.position.set(x, grade(x, z) + bottom + size[1] / 2, z);
     mesh.castShadow = mesh.receiveShadow = true;
     group.add(mesh);
   }
@@ -99,9 +99,10 @@ function addParkingCanopy(data: OpoData, group: T.Group, grade: OpoData['ground'
   group.add(roof, structure, walkway, fence);
 }
 
-export function addSongpaEntrance(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
+export function addSongpaEntrance(data: OpoData, scene: T.Scene, grade: OpoData['ground'],
+  gateGrade: OpoData['ground'], finish: TourMaterials) {
   const group = new T.Group();
-  addGateFixtures(data, group, grade);
+  addGateFixtures(data, group, gateGrade);
   addParkingCanopy(data, group, grade, finish);
   scene.add(group);
 }

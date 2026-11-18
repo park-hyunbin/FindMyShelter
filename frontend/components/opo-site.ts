@@ -82,9 +82,9 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
 
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   const surfaces = siteSurfaces[data.region];
-  if (surfaces) addSiteSurfaces(data, scene, grade, finish, surfaces.layout, surfaces.gate);
+  const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, surfaces.gate);
   if (data.region === 'songpa') {
-    addSongpaEntrance(data, scene, grade, finish);
+    addSongpaEntrance(data, scene, grade, paving?.drivewayGrade ?? grade, finish);
     addSongpaCourtyard(data, scene, grade, finish);
     addSongiPark(data, scene, grade, finish);
   }
@@ -105,7 +105,7 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
     overlay.add(new T.Mesh(ribbon(road.points, 1.05, (x, z) => grade(x, z) + 0.66), routeMaterial));
   }
 
-  return { overlay };
+  return { overlay, paving };
 }
 
 export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {

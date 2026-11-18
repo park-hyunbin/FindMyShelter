@@ -614,14 +614,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world.showGreenAccess(next);
   }
 
-  function lookFromPoint(point: Point, direction: number, obstructionAngle = 0) {
+  function lookFromPoint(point: Point, direction: number, sightlineAngle?: number) {
     if (!world) return;
     setSelectedSlot(null);
     setStatus('');
     hideTreeCover();
     setWalkingAtEyeLevel(true);
     world.setWalkingCamera(true);
-    world.lookFrom(point, direction, obstructionAngle);
+    world.lookFrom(point, direction, sightlineAngle);
     setMode('walk');
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
   }
