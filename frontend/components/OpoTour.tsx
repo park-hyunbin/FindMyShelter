@@ -21,7 +21,7 @@ import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment }
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
-import { songpaWinterCapture, winterPixelSampleCount } from './data/songpa-winter-capture';
+import { songpaWinterCaptures, winterPixelSampleCount, type SongpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaArchitecture } from './data/songpa-architecture';
 import { songpaRouteElevation } from './data/songpa-route-elevation';
 import TourLive from './TourLive';
@@ -124,15 +124,15 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
   </details>;
 }
 
-function WinterCapture({ world, onCompare, detailsRef }: {
-  world: OpoWorld | null; onCompare: () => void; detailsRef: React.RefObject<HTMLDetailsElement | null>;
+function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef }: {
+  world: OpoWorld | null; capture: SongpaWinterCapture; onCaptureChange: (date: string) => void;
+  onCompare: () => void; detailsRef: React.RefObject<HTMLDetailsElement | null>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const capture = songpaWinterCapture;
   const points = useMemo(() => capture.points.map((point, index) => {
     const preset = world?.presets.find(candidate => candidate.id === point.id);
     const model = expanded && preset ? world?.lightAt(preset, capture.date, capture.exactMinute) : undefined;
-    const samples = expanded ? world?.winterPixel(point.pixel) : undefined;
+    const samples = expanded ? world?.winterPixel(point.pixel, capture.date, capture.exactMinute) : undefined;
     return { ...point, slot: slots[index], model, samples };
   }), [capture, expanded, world]);
   const statuses = ['sun', 'shade', 'unknown', 'night', 'excluded'] as const;
@@ -140,10 +140,15 @@ function WinterCapture({ world, onCompare, detailsRef }: {
   return <details ref={detailsRef} className="season-compare winter-capture"
     onToggle={event => setExpanded(event.currentTarget.open)}>
     <summary>겨울 위성영상과 비교</summary>
+    <label className="winter-capture-date">촬영일
+      <select value={capture.date} onChange={event => onCaptureChange(event.target.value)}>
+        {songpaWinterCaptures.map(item => <option key={item.date} value={item.date}>{item.date}</option>)}
+      </select>
+    </label>
     <p className="season-caption"><time dateTime={capture.acquiredAt}>{capture.date} {capture.clock} KST</time> · Sentinel-2 · {capture.resolutionM}m 픽셀</p>
     <figure>
       <img src={capture.image} width={capture.width} height={capture.height}
-        alt="가락동부센트레빌의 겨울 위성영상. A는 어두운 실외 구역, B는 상대적으로 밝은 중앙 포장로." loading="lazy" />
+        alt="가락동부센트레빌 겨울 위성영상. A는 101동 남서쪽 실외, B는 단지 중앙 포장로." loading="lazy" />
       {points.map(({ id, slot, pixel: [x, y] }) => <div key={id} className={`winter-cell site-${slot}`} aria-hidden="true"
         style={{ left: `${x / capture.width * 100}%`, top: `${y / capture.height * 100}%`,
           width: `${100 / capture.width}%`, height: `${100 / capture.height}%` }}>
@@ -151,9 +156,9 @@ function WinterCapture({ world, onCompare, detailsRef }: {
       </div>)}
     </figure>
     <ul className="winter-observations">
-      {points.map(({ id, slot, label, appearance, model, samples }) => <li key={id}>
+      {points.map(({ id, slot, label, displayBrightness, model, samples }) => <li key={id}>
         <strong>{slot} · {label}</strong>
-        <span>영상 · {appearance}</span>
+        <span>영상 밝기 · {displayBrightness} / 255</span>
         <span>모델 중앙점 · {model ? lightStatus(model) : '계산 중'}</span>
         {samples && <>
           <span>픽셀 안 모델 표본 {winterPixelSampleCount}개 · {statuses
@@ -163,7 +168,7 @@ function WinterCapture({ world, onCompare, detailsRef }: {
       </li>)}
     </ul>
     <div className="site-actions"><button type="button" disabled={!points.every(point => point.model)} onClick={onCompare}>같은 시각의 3D 일조 보기</button></div>
-    <p>픽셀 안 모델 표본은 지면 위 {observationHeight}m에서 계산해요. 영상은 오전 한 차례 촬영했고 밝기에는 바닥 재질과 수목도 반영돼요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
+    <p>두 오전의 같은 픽셀을 비교해요. 영상 밝기는 RGB 표시값으로, 바닥 재질과 수목의 영향도 받아요. 모델 표본의 높이는 지면 위 {observationHeight}m예요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
     <a href={capture.source} target="_blank" rel="noreferrer">촬영 원본과 메타데이터 ↗</a>
     <small>{capture.attribution}</small>
   </details>;
@@ -370,6 +375,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [ambientReferenceId, setAmbientReferenceId] = useState<string | null>(null);
   const [floodYear, setFloodYear] = useState(latestLocalFloodYear);
   const [floodView, setFloodView] = useState<FloodView>('closest');
+  const [winterCaptureDate, setWinterCaptureDate] = useState(songpaWinterCaptures[0].date);
+  const winterCapture = songpaWinterCaptures.find(capture => capture.date === winterCaptureDate) ?? songpaWinterCaptures[0];
   const ambientStop = world?.ambientScene?.stops.find(stop => stop.id === ambientStopId);
   const ambientReference = world?.ambientScene?.stops.find(stop => stop.id === ambientReferenceId)
     ?? world?.ambientScene?.stops.at(-1);
@@ -705,12 +712,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function compareWinterCapture() {
     if (!world?.sunMap) return;
-    const [a, b] = songpaWinterCapture.points.map(point => world.presets.find(preset => preset.id === point.id));
+    const [a, b] = winterCapture.points.map(point => world.presets.find(preset => preset.id === point.id));
     if (!a || !b) return;
     chooseTab('sun');
     showComplexSunMap();
-    setDate(songpaWinterCapture.date);
-    setMinute(songpaWinterCapture.exactMinute);
+    setDate(winterCapture.date);
+    setMinute(winterCapture.exactMinute);
     setPoints({ A: a, B: b });
   }
 
@@ -1039,7 +1046,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               if (selection.id !== winterWalkSelection.id || selection.hour !== winterWalkSelection.hour) setLightSlot(null);
               setWinterWalkSelection(selection);
             }} onView={viewWinterWalk} onSave={saveWinterVisit} />
-          <WinterCapture world={world} onCompare={compareWinterCapture} detailsRef={winterDetails} />
+          <WinterCapture world={world} capture={winterCapture} onCaptureChange={setWinterCaptureDate}
+            onCompare={compareWinterCapture} detailsRef={winterDetails} />
         </>}
         <details className="season-compare" open={seasonOpen} onToggle={event => setSeasonOpen(event.currentTarget.open)}>
           <summary>같은 지점의 계절별 일조</summary>

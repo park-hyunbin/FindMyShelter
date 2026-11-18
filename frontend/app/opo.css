@@ -141,6 +141,8 @@ h1, h2, p { margin: 0; }
 .winter-walk-result { padding: 8px; margin-top: 6px; border-radius: 5px; background: #17243a; }
 .winter-walk-result p { margin: 5px 0; color: var(--muted); line-height: 1.4; }
 .winter-capture figure { position: relative; margin: 0; }
+.winter-capture-date { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.winter-capture-date select { min-height: 34px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--night); background: #fbfaf3; }
 .winter-capture img { display: block; width: 100%; height: auto; border-radius: 5px; image-rendering: pixelated; }
 .winter-cell { position: absolute; outline: 2px solid currentColor; color: #efce91; }
 .winter-cell.site-B { color: #badbd5; }

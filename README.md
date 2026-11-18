@@ -16,7 +16,7 @@
 
 송파의 **임장 체크리스트 → 실외 일조와 시야 → 겨울 오후 산책 비교**에서 12월 21일 오후 1~5시의 단지 안 산책로·놀이터 옆·남쪽 포장로를 같은 조건으로 비교할 수 있습니다. 결과를 고르면 해당 시각에 눈높이로 이동하거나, 햇빛을 가리는 건물과 광선 방향을 3D로 볼 수 있습니다. 표는 지면 위 1.5m의 지형·건물 모형을 사용하며 미판정 시각을 표시합니다.
 
-**겨울 위성영상과 비교**에서는 2025-12-22 11:27:11 KST에 촬영된 Sentinel-2 10m 영상과 같은 시각의 모델 판정을 볼 수 있습니다. 101동 남서쪽의 어두운 실외 표본은 모델에서 103동에 가려지고, 상대적으로 밝은 중앙 포장로 표본은 모델에서 직사광으로 판정됩니다. 픽셀 밝기에는 재질과 수목의 영향도 있으며 순간 영상과 비교한 두 예시입니다. 하루 직사광 시간과 겨울 오후의 경계는 추가 관찰이 필요합니다. `node frontend/scripts/prepare-songpa-winter-imagery.mjs`로 영상과 좌표를 다시 생성할 수 있습니다. [촬영 메타데이터와 원본](https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2B_52SCG_20251222_0_L2A)
+**겨울 위성영상과 비교**에서는 2025-12-22 11:27:11과 2026-01-06 11:27:18 KST에 촬영한 Sentinel-2 10m 영상에서 같은 A·B 픽셀과 각 촬영 시각의 모델 판정을 볼 수 있습니다. 101동 남서쪽 픽셀은 두 영상 모두 중앙 포장로 픽셀보다 어둡습니다. 밝기는 RGB 표시값을 가중 평균한 0~255 값으로, 재질과 수목의 영향도 받습니다. 오후 그늘 경계는 같은 시각의 지상 관찰이 필요합니다. `node frontend/scripts/prepare-songpa-winter-imagery.mjs`로 원본과 같은 픽셀을 다시 추출할 수 있습니다. [12월 22일 원본](https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2B_52SCG_20251222_0_L2A) · [1월 6일 원본](https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2C_52SCG_20260106_0_L2A)
 
 K-apt 단지코드 `A13816002`의 관리시설정보(2026-11-18 조회)는 264세대, 주차 536면(지상 19면·지하 517면), 승강기 8대를 기록합니다. 행정안전부 시설 현황에서 같은 주소의 단지 놀이터를 확인할 수 있습니다. 단지 내 개별 시설 좌표와 방문 주차 조건은 현장 확인이 필요합니다. [K-apt 관리시설정보](https://www.k-apt.go.kr/kaptinfo/openKaptMng.do) · [행정안전부 놀이시설 현황](https://www.cpf.go.kr/cpf/ko/nori/0006/index.jsp?sido=1100000000&sigungu=1171000000&rgnCd=1171000000&ronaDaddr=%EC%86%A1%ED%8C%8C%EB%8C%80%EB%A1%9C32%EA%B8%B8)
 

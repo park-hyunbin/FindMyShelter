@@ -23,7 +23,7 @@ import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
-import { sampleWinterPixel, songpaWinterCapture } from './data/songpa-winter-capture';
+import { sampleWinterPixel, winterCapturePoints } from './data/songpa-winter-capture';
 import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
@@ -619,7 +619,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
   }
   presets.push(...pavingStops.map(stop => ({ ...stop.position, id: stop.id, label: stop.name })));
-  if (!isOpo) for (const { id, label, coordinate } of songpaWinterCapture.points) {
+  if (!isOpo) for (const { id, label, coordinate } of winterCapturePoints) {
     const point = data.project(coordinate);
     if (canAnalyze(point) && inShape(point, [data.siteOutline])) presets.push({ ...point, id, label });
   }
@@ -1188,8 +1188,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     },
     report: analysis.day,
     lightAt: analysis.at,
-    winterPixel(pixel: number[]) {
-      const sample = analysis.sampleAtTime(songpaWinterCapture.date, songpaWinterCapture.exactMinute);
+    winterPixel(pixel: number[], date: string, minute: number) {
+      const sample = analysis.sampleAtTime(date, minute);
       return sampleWinterPixel(pixel, coordinate => {
         const point = data.project(coordinate);
         return canAnalyze(point) ? sample(point) : undefined;

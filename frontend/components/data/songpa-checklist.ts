@@ -6,7 +6,7 @@ import { floodSource } from './songpa-flood';
 import { songpaSchool } from './songpa-school';
 import { songpaBusStop, songpaHospital, songpaStationAccess } from './visit-routes';
 import { songiPark } from './songi-park';
-import { songpaWinterCapture } from './songpa-winter-capture';
+import { songpaWinterCaptures } from './songpa-winter-capture';
 import { songpaArchitecture } from './songpa-architecture';
 import { songpaRouteElevation } from './songpa-route-elevation';
 
@@ -52,10 +52,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       {
         id: 'sunlight', title: '실외 일조와 시야', evidence: 'model',
         finding: '단지 안 실외 점의 직사광·그늘을 날짜와 시간별로 비교해요. 차폐 건물과 지형을 찾고 원하는 방향의 눈높이에서 시야를 살펴볼 수 있어요.',
-        followUp: '겨울 촬영 영상으로 두 지점의 밝기 차이를 비교할 수 있어요. 겨울 오후의 그늘 경계와 수목 영향을 확인하려면 같은 장소와 시각의 지상 관찰이 필요해요.',
+        followUp: '겨울 오전 이틀의 위성영상에서 같은 두 지점의 밝기를 비교할 수 있어요. 오후 그늘 경계와 수목 영향은 같은 장소와 시각의 지상 관찰이 필요해요.',
         views: [{ target: 'winter-walk', label: '겨울 오후 산책 비교' }, { target: 'sun', label: '일조 지도 열기' }, { target: 'winter-capture', label: '겨울 위성영상과 비교' },
           { target: 'horizon', label: '방향별 시야 보기' }],
-        sources: [{ label: 'Sentinel-2 겨울 촬영 원본', url: songpaWinterCapture.source }],
+        sources: songpaWinterCaptures.map(capture => ({ label: `Sentinel-2 ${capture.date} 촬영 원본`, url: capture.source })),
       },
       {
         id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'model',

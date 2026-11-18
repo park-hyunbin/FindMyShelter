@@ -2,17 +2,27 @@ import proj4 from 'proj4';
 import evidence from '../../public/datasets/regions/songpa/winter-capture.json';
 import type { LightSample } from '../opo-sunlight';
 
-const kst = new Date(Date.parse(evidence.acquiredAt) + 9 * 3_600_000).toISOString();
-const date = kst.slice(0, 10);
-const exactMinute = (Date.parse(kst) - Date.parse(`${date}T00:00:00Z`)) / 60_000;
-
-export const songpaWinterCapture = {
-  ...evidence,
-  date,
-  clock: kst.slice(11, 19),
-  exactMinute,
-  image: '/datasets/regions/songpa/winter-capture.png',
-};
+export const winterCapturePoints = evidence.points;
+export const songpaWinterCaptures = evidence.captures.map(capture => {
+  const kst = new Date(Date.parse(capture.acquiredAt) + 9 * 3_600_000).toISOString();
+  const date = kst.slice(0, 10);
+  const observations: Record<string, { rgb: number[] }> = capture.observations;
+  return {
+    ...capture,
+    date,
+    clock: kst.slice(11, 19),
+    exactMinute: (Date.parse(kst) - Date.parse(`${date}T00:00:00Z`)) / 60_000,
+    image: `/datasets/regions/songpa/${capture.image}`,
+    width: evidence.width,
+    height: evidence.height,
+    resolutionM: evidence.resolutionM,
+    points: winterCapturePoints.map(point => {
+      const [r, g, b] = observations[point.id].rgb;
+      return { ...point, displayBrightness: Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b) };
+    }),
+  };
+});
+export type SongpaWinterCapture = (typeof songpaWinterCaptures)[number];
 
 const gridSize = 5;
 export const winterPixelSampleCount = gridSize ** 2;
