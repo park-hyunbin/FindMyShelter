@@ -11,7 +11,7 @@ import { observationHeight, type LightReport, type LightSample } from './opo-sun
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
-import { songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
+import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFacilities, songpaGrounds } from './data/songpa-grounds';
@@ -857,6 +857,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       case 'park-route':
         openAccessRoute(target === 'station-route' ? songpaStationRouteId : songiPark.routeId);
         break;
+      case 'bus-route':
+        openAccessRoute(songpaBusStop.routeId);
+        break;
       case 'school-route':
         openAccessRoute(songpaSchool.routeId);
         break;
@@ -1148,6 +1151,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const profile = accessDetails?.profile;
             const crossing = accessDetails?.crossingView;
             const entrance = accessDetails?.entranceView;
+            const busView = accessDetails?.stopView;
             const home = accessDetails?.homeWalk;
             const selected = accessId === route.id;
             const routeVisible = selected && mode === 'orbit';
@@ -1185,6 +1189,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={songpaHomeLinks.gateApproach.source} target="_blank" rel="noreferrer">정문 앞 도로 원본 ↗</a>
                 <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">단지 항공영상 촬영 정보 ↗</a>
               </section>}
+              {selected && busView && <div className="route-terrain">
+                <strong>정류소 {songpaBusStop.ars} · 서울시 {songpaBusStop.referenceDate} 자료</strong>
+                <p>주황 점선으로 표시한 정문 앞 약 {songpaHomeLinks.gateApproach.lengthM}m는 보도 연결이 미확인된 구간이에요.</p>
+                <div className="site-actions"><button type="button" onClick={() => {
+                  const point = { ...busView.position, label: '정류소 앞 보행로' };
+                  lookFromPoint(point, busView.bearing);
+                  if (world) setStreet(world.streetStatus());
+                  world?.focus();
+                }}>정류소 앞 눈높이 보기</button></div>
+              </div>}
               {selected && hospital && <div className="route-terrain">
                 <strong>보조출입구 조사 · {hospital.referenceDate}</strong>
                 <p>{hospital.address} · 경사로 설치, 조사 기준 5° 이하 경사, 문폭 1m 이상, 문 하부 단차 없음.</p>

@@ -6,6 +6,7 @@ import { songiPark } from './data/songi-park';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
+import songpaBusStop from '../public/datasets/regions/songpa/bus-stop.json';
 
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
@@ -229,8 +230,13 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
         || (near(road.points[1], entrance) && near(road.points[0], innerPath))));
     if (parkApproach) parkApproach.width = songiPark.approachWidthM;
   }
-  const streetPoints: StreetPoint[] = (neighborhood?.points ?? []).map(({ coordinates, ...tags }) => ({ ...tags, position: project(coordinates) }))
+  const officialStop = region === 'songpa' ? songpaBusStop : null;
+  const streetPoints: StreetPoint[] = (neighborhood?.points ?? []).filter(({ id }) => id !== officialStop?.osmPointId)
+    .map(({ coordinates, ...tags }) => ({ ...tags, position: project(coordinates) }))
     .filter(({ position }) => Math.abs(position.x) < extent && Math.abs(position.z) < extent);
+  if (officialStop) streetPoints.push({
+    id: officialStop.osmPointId, kind: 'bus', name: officialStop.name, position: project(officialStop.coordinate),
+  });
   if (region === 'songpa') for (const [index, coordinate] of [...songpaGrounds.crowns, ...songpaCourtyard.crowns, ...songiPark.crowns].entries()) {
     streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
   }

@@ -2,9 +2,11 @@ import { readFile, writeFile } from 'node:fs/promises';
 import proj4 from 'proj4';
 
 const hospital = JSON.parse(await readFile(new URL('../public/datasets/regions/songpa/hospital-entrance.json', import.meta.url), 'utf8'));
+const busStop = JSON.parse(await readFile(new URL('../public/datasets/regions/songpa/bus-stop.json', import.meta.url), 'utf8'));
 const bounds = [127.1090, 37.4947, 127.1231, 37.5024];
 const source = `https://www.openstreetmap.org/api/0.6/map.json?bbox=${bounds.join(',')}`;
 const snapshotPath = process.argv[2];
+const retrieved = process.argv[3] ?? new Date().toISOString().slice(0, 10);
 async function fetchSnapshot() {
   const response = await fetch(source, {
     headers: { Accept: 'application/json', 'User-Agent': 'FindMyShelter/1.0 (mapped Songpa walking routes)' },
@@ -188,6 +190,32 @@ routes.push(describeRoute({ ...stationRoute, id: 'songpa-station-detour', varian
 routes.push(describeRoute({ ...parkRoute, id: 'songi-park-distance', variantOf: parkRoute.id,
   comparisonLabel: '송이로14길 경유' }, parkDistanceRoute));
 
+// The city stop coordinates align with the southern footway already reviewed for the school route.
+const schoolEdges = primary(destinations[2].node);
+const stopPosition = project.forward(busStop.coordinate);
+const approach = schoolEdges.flatMap((edge, index) => {
+  if (edge.id !== 1175929597 || !edge.mappedWalkway) return [];
+  const [ax, ay] = projected.get(edge.from);
+  const [bx, by] = projected.get(edge.to);
+  const dx = bx - ax, dy = by - ay;
+  const fraction = Math.max(0, Math.min(1, ((stopPosition[0] - ax) * dx + (stopPosition[1] - ay) * dy) / edge.length ** 2));
+  const alongEdge = fraction * edge.length;
+  const point = [ax + dx * fraction, ay + dy * fraction];
+  const viewFraction = Math.max(0, alongEdge - 9) / edge.length;
+  const view = [ax + dx * viewFraction, ay + dy * viewFraction];
+  return [{ edge, index, point, view, alongEdge, gap: distance(point, stopPosition) }];
+}).sort((a, b) => a.gap - b.gap)[0];
+if (!approach || approach.gap > 1 || approach.alongEdge < 3) {
+  throw new Error('The city stop no longer matches the reviewed Yangjae-daero footway and approach.');
+}
+nodes.set(busStop.routeId, project.inverse(approach.point));
+routes.push(describeRoute({
+  id: busStop.routeId, name: `${busStop.name} 정류소`, node: busStop.routeId,
+  endLabel: '양재대로 남쪽 보행로 · 서울시 정류소 위치 인근',
+  referenceSource: busStop.source,
+  stopView: { position: project.inverse(approach.view), toward: busStop.coordinate },
+}, [...schoolEdges.slice(0, approach.index), { ...approach.edge, to: busStop.routeId, length: approach.alongEdge }]));
+
 const streetStart = gateStreet.nodes.indexOf(start);
 const streetEnd = gateStreet.nodes.indexOf(gateApproachNode);
 const approachNodes = gateStreet.nodes.slice(Math.min(streetStart, streetEnd), Math.max(streetStart, streetEnd) + 1);
@@ -203,7 +231,7 @@ const homeLinks = {
 };
 
 await writeFile(new URL('../public/datasets/regions/songpa/access.json', import.meta.url), JSON.stringify({
-  source, retrieved: new Date().toISOString().slice(0, 10), start: nodes.get(start), startNode: start, routes, homeLinks,
+  source, retrieved, start: nodes.get(start), startNode: start, routes, homeLinks,
   attribution: '© OpenStreetMap contributors', license: 'https://www.openstreetmap.org/copyright',
 }) + '\n');
 for (const route of routes) {

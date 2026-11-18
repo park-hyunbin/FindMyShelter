@@ -4,7 +4,7 @@ import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
 import { floodSource } from './songpa-flood';
 import { songpaSchool } from './songpa-school';
-import { songpaHospital } from './visit-routes';
+import { songpaBusStop, songpaHospital } from './visit-routes';
 import { songiPark } from './songi-park';
 import { songpaWinterCapture } from './songpa-winter-capture';
 import { songpaArchitecture } from './songpa-architecture';
@@ -12,7 +12,7 @@ import { songpaRouteElevation } from './songpa-route-elevation';
 
 type Source = { label: string; url: string };
 export type ChecklistView = 'complex' | 'sun' | 'winter-walk' | 'winter-capture' | 'horizon' | 'school' | 'places'
-  | 'station-home' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route'
+  | 'station-home' | 'station-route' | 'bus-route' | 'park-route' | 'school-route' | 'hospital-route'
   | 'paving' | 'parking' | 'entrance' | 'garage' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
@@ -72,10 +72,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'transit', title: '역·정류장까지 걷기', evidence: 'model',
-        finding: '송파역 2번 출구부터 정문을 지나 단지 안 포장 공간까지 주요 지점의 눈높이를 볼 수 있어요. 역과 정문 앞의 보행 연결과 버스정류장 경로는 현장 확인이 필요해요.',
-        views: [{ target: 'station-home', label: '송파역에서 귀갓길 체험' }],
-        followUp: '출근할 시간에 횡단보도, 신호 대기, 계단과 실제 걸린 시간을 기록해 보세요.',
-        sources: [walkingNetwork],
+        finding: '송파역 2번 출구부터 단지까지 주요 지점을 눈높이에서 볼 수 있어요. 양재대로 남쪽의 가락동부센트레빌아파트 정류소도 서울시 위치와 지도상 보행로를 함께 확인할 수 있어요.',
+        views: [{ target: 'station-home', label: '송파역에서 귀갓길 체험' }, { target: 'bus-route', label: '가락동부센트레빌아파트 정류소 보기' }],
+        followUp: '정문 앞의 보도 연결, 정류소 승차 방향, 출근 시간에 실제 걸린 시간을 확인해 보세요.',
+        sources: [walkingNetwork, { label: '서울시 버스정류소 위치정보', url: songpaBusStop.source }],
       },
       {
         id: 'slope', title: '언덕길과 귀갓길', evidence: 'model',

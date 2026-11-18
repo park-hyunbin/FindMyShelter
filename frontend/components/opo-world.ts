@@ -1080,7 +1080,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const scale = Math.max(160, x, z);
       frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
     },
-    greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, entranceView, homeWalk }) => ({ id, profile, crossingView, entranceView, homeWalk })),
+    greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, entranceView, stopView, homeWalk }) =>
+      ({ id, profile, crossingView, entranceView, stopView, homeWalk })),
     showAccessEntrance(id: string) { accessEntranceId = id; },
     showGuidedWalk(id: string | null) {
       guidedWalk = mode === 'walk' && id !== null;
@@ -1104,7 +1105,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const center = layer.bounds.getCenter(new T.Vector3());
       const size = layer.bounds.getSize(new T.Vector3());
       const scale = Math.max(340, size.x, size.z);
-      frameSurface(layer.routePoints, center, new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34), Boolean(layer.entranceView));
+      frameSurface(layer.routePoints, center, new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34), Boolean(layer.entranceView || layer.stopView));
     },
     position() { return position; },
     tourPose(): TourPose {

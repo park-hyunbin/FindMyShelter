@@ -1,0 +1,9 @@
+{
+  "routeId": "garak-bus-stop",
+  "name": "가락동부센트레빌아파트",
+  "ars": "24519",
+  "coordinate": [127.1173972093, 37.4992940827],
+  "osmPointId": "n11596545391",
+  "referenceDate": "2026-09-02",
+  "source": "https://data.seoul.go.kr/dataList/OA-15067/S/1/datasetView.do?tab=A"
+}

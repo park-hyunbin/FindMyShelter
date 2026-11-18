@@ -2,8 +2,10 @@ import type { RegionId } from './regions';
 import opo from '../../public/opo-green-access.json';
 import songpa from '../../public/datasets/regions/songpa/access.json';
 import hospital from '../../public/datasets/regions/songpa/hospital-entrance.json';
+import busStop from '../../public/datasets/regions/songpa/bus-stop.json';
 
 export const songpaHospital = hospital;
+export const songpaBusStop = busStop;
 export const songpaHomeLinks = songpa.homeLinks;
 export const songpaStationRouteId = 'songpa-station';
 
@@ -19,6 +21,7 @@ type AccessRoute = {
   gapM: number | null;
   crossings?: { wayId: number; coordinate: number[] }[];
   crossingView?: { position: number[]; toward: number[] };
+  stopView?: { position: number[]; toward: number[] };
   parkEntrance?: { routeM: number; directM: number };
   stepWays?: number;
   variantOf?: string;

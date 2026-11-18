@@ -149,6 +149,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const routes = visitRoutes[data.region].routes;
   const bearingTo = (from: Point, to: Point) =>
     T.MathUtils.radToDeg(Math.atan2(to.x - from.x, from.z - to.z) - data.northOffset);
+  function viewPose(view?: { position: number[]; toward: number[] }) {
+    if (!view) return;
+    const position = data.project(view.position);
+    return { position, bearing: bearingTo(position, data.project(view.toward)) };
+  }
   const crossingGeometry = routes.some(route => route.crossings?.length)
     ? new T.RingGeometry(2.6, 3.9, 18).rotateX(-Math.PI / 2) : null;
   const crossingMaterial = crossingGeometry ? new T.MeshBasicMaterial({ color: '#f6dc94', side: T.DoubleSide }) : null;
@@ -185,6 +190,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       return line;
     }
     route.segments.forEach((segment, index) => addLine(projected[index], segment.mappedWalkway ? recorded : unconfirmed));
+    if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection);
     const homeWalk = aerialTrace && shortConnection && (route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId) ? (() => {
       const nearStation = songpaHomeLinks.stationExit.coordinates.map(data.project);
       const nearGate = songpaHomeLinks.gateApproach.coordinates.map(data.project);
@@ -254,14 +260,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       routePoints.push(entranceLabel);
     }
     scene.add(group);
-    const crossing = route.crossingView && {
-      position: data.project(route.crossingView.position), toward: data.project(route.crossingView.toward),
-    };
-    const crossingView = crossing && {
-      position: crossing.position,
-      bearing: bearingTo(crossing.position, crossing.toward),
-    };
-    return { id: route.id, name: route.name, group, lines, bounds, endpoint, entranceLabel, entranceView, routePoints, profile, crossingView, homeWalk };
+    return { id: route.id, name: route.name, group, lines, bounds, endpoint, entranceLabel, entranceView, routePoints, profile,
+      crossingView: viewPose(route.crossingView), stopView: viewPose(route.stopView), homeWalk };
   });
   const marker = new T.Group();
   marker.visible = false;
