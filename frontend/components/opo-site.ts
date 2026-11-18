@@ -3,14 +3,44 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import type { OpoData } from './opo-data';
-import { ribbon } from './opo-meshes';
+import { groundPolygon, ribbon } from './opo-meshes';
+import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
 import { visitRoutes } from './data/visit-routes';
+import { songpaGrounds } from './data/songpa-grounds';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
 
-export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
+export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
+  if (data.region === 'songpa') {
+    const pavement = new T.MeshStandardMaterial({ color: '#807771', roughness: 0.96, side: T.DoubleSide });
+    const paint = new T.MeshStandardMaterial({ color: '#dedbd0', roughness: 0.92, side: T.DoubleSide });
+    const paving = groundPolygon([songpaGrounds.paving.map(data.project)], grade, 3, 0.12);
+    surfaceUV(paving, 'asphalt');
+    const road = new T.Mesh(paving, finish(pavement, 'asphalt'));
+    road.receiveShadow = true;
+    scene.add(road);
+    for (const { start, end } of songpaGrounds.markings) {
+      const a = data.project(start);
+      const b = data.project(end);
+      const markingLength = Math.hypot(b.x - a.x, b.z - a.z);
+      const normal = { x: (b.z - a.z) / markingLength, z: (a.x - b.x) / markingLength };
+      const stripes = Math.ceil(markingLength / 0.9);
+      for (let index = 0; index < stripes; index++) {
+        const fraction = (index + 0.5) / stripes;
+        const x = a.x + (b.x - a.x) * fraction;
+        const z = a.z + (b.z - a.z) * fraction;
+        const stripe = new T.Mesh(ribbon([
+          { x: x - normal.x * 1.1, z: z - normal.z * 1.1 },
+          { x: x + normal.x * 1.1, z: z + normal.z * 1.1 },
+        ], 0.37, (x, z) => grade(x, z) + 0.15), paint);
+        stripe.receiveShadow = true;
+        scene.add(stripe);
+      }
+    }
+  }
+
   const overlay = new T.Group();
   overlay.visible = false;
   scene.add(overlay);

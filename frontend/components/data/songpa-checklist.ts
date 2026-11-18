@@ -1,7 +1,8 @@
 import { songpaComplex } from './regions';
+import { songpaFacilities, songpaGrounds } from './songpa-grounds';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'street' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route';
+export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'paving' | 'parking';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -42,10 +43,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         views: [{ target: 'sun', label: '일조 지도 열기' }, { target: 'horizon', label: '방향별 시야 보기' }],
       },
       {
-        id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'visit',
-        finding: '송파대로32길에서 단지를 볼 수 있어요. 단지 출입구와 놀이터·커뮤니티 위치, 내부 보행로는 지도에서 확인 중이에요.',
-        followUp: '정문·후문, 분리수거장, 놀이터, 주차장 경사로와 보행로가 만나는 지점을 확인해 보세요.',
-        views: [{ target: 'street', label: '단지 앞 도로로 이동' }], sources: [seoulComplex],
+        id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'model',
+        finding: '항공영상에서 확인한 단지 안 포장 구간을 눈높이로 둘러볼 수 있어요. 어린이놀이터는 등록 자료에서 확인했어요.',
+        followUp: '놀이터의 단지 내 위치, 출입구와 포장 구간의 연결, 지하주차장으로 내려가는 길은 현장에서 확인해 보세요.',
+        views: [{ target: 'paving', label: '단지 안과 공용시설 보기' }],
+        sources: [{ label: '항공영상', url: songpaGrounds.source }, { label: '행정안전부 놀이시설 현황', url: songpaFacilities.playground }],
       },
     ],
   },
@@ -97,9 +99,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'parking', title: '주차와 관리', evidence: 'document',
-        finding: '서울시 공동주택 통합정보마당에 5개 동·264세대가 공개돼 있어요. 관리비는 기준월과 면적을 함께 보고, 주차대수는 단지 공시에서 확인해요.',
+        finding: 'K-apt 관리시설 공시의 주차·승강기 수와 지상·지하 주차 구성을 확인할 수 있어요. 관리비를 비교할 때는 기준월과 면적을 맞춰 보세요.',
         followUp: '저녁 빈자리, 방문차량 이용, 청소와 조경 상태를 살펴보세요.',
-        sources: [seoulComplex, { label: '공동주택관리정보시스템 K-apt', url: 'https://www.k-apt.go.kr/' }],
+        views: [{ target: 'parking', label: '주차·승강기 공시 보기' }],
+        sources: [seoulComplex, { label: 'K-apt 관리시설정보', url: songpaFacilities.management }],
       },
       {
         id: 'noise', title: '소음·야간 환경', evidence: 'visit',

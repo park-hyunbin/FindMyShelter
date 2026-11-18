@@ -4,6 +4,10 @@
 
 송파의 **주거환경 분석 → 임장 체크리스트**에서 14개 항목의 자료 범위와 현장에서 볼 내용을 확인할 수 있습니다. 일조 지도, 방향별 시야, 단지 조감, 학교·상점 위치를 이어서 열 수 있으며 개인 기록은 현재 브라우저에 저장됩니다. 현장에서는 **체크리스트 받기**로 내려받은 텍스트를 볼 수 있습니다.
 
+송파의 **단지 정보**에서 2025-10-28 World Imagery를 참고해 그린 단지 안 포장 구간과 수목을 눈높이로 보고, 두 대표 지점을 겨울 오후 2시의 같은 조건으로 비교할 수 있습니다. 영상에서 읽은 위치와 형상은 근사입니다. 수목 높이와 노면 단차는 추정이며 출입구까지의 연결은 현장 확인이 필요합니다. 일조 계산은 건물과 지형을 기준으로 합니다. [항공영상 메타데이터](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/9/query?objectIds=480339&outFields=SRC_DATE,NICE_DESC,SRC_RES&returnGeometry=false&f=pjson)
+
+K-apt 단지코드 `A13816002`의 관리시설정보(2026-11-18 조회)는 264세대, 주차 536면(지상 19면·지하 517면), 승강기 8대를 기록합니다. 행정안전부 시설 현황에서 같은 주소의 단지 놀이터를 확인할 수 있습니다. 단지 내 개별 시설 좌표와 방문 주차 조건은 현장 확인이 필요합니다. [K-apt 관리시설정보](https://www.k-apt.go.kr/kaptinfo/openKaptMng.do) · [행정안전부 놀이시설 현황](https://www.cpf.go.kr/cpf/ko/nori/0006/index.jsp?sido=1100000000&sigungu=1171000000&rgnCd=1171000000&ronaDaddr=%EC%86%A1%ED%8C%8C%EB%8C%80%EB%A1%9C32%EA%B8%B8)
+
 송파의 **역·공원 방향 경로**는 단지 앞 교차점부터 송파역 2번 출구 인근 보행 겸용로(581m)와 송이공원 남쪽 보행로(484m)까지의 지도 연결입니다. 지도상 횡단 구간, 약 30m 표고 모델에 따른 지형 단면, 선택 위치의 눈높이 시점을 제공합니다. 송파역 출구 직전 약 3m는 보행망에 연결되지 않아 직선 이격으로 표시했습니다. `node frontend/scripts/prepare-songpa-access.mjs`로 원본 지도에서 다시 생성할 수 있습니다. [송파역 2번 출구](https://www.openstreetmap.org/node/3401171608) · [송이공원 남쪽 보행로](https://www.openstreetmap.org/way/1145100664) · [송파구 송이공원 위치](https://www.songpa.go.kr/www/detailInfo.do?cpn=13&key=5463&resrceCd=LV0273-1062546&sc1=LV0271)
 
 ## 실행

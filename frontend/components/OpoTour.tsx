@@ -14,6 +14,7 @@ import satelliteMetadata from '../public/opo-sentinel.json';
 import { visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
+import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
 import TourLive from './TourLive';
 import SongpaChecklist from './SongpaChecklist';
 import type { ChecklistView } from './data/songpa-checklist';
@@ -192,6 +193,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const pickSlot = useRef<Slot | null>(null);
   const analysisPanel = useRef<HTMLElement>(null);
   const activeAccessCard = useRef<HTMLDivElement>(null);
+  const pendingSiteCard = useRef<'paving' | 'parking' | null>(null);
   const [world, setWorld] = useState<OpoWorld | null>(null);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
@@ -293,6 +295,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   useEffect(() => {
     if (open && tab === 'nature' && accessId) activeAccessCard.current?.scrollIntoView({ block: 'nearest' });
   }, [accessId, open, tab]);
+
+  useEffect(() => {
+    if (tab !== 'site' || !pendingSiteCard.current) return;
+    analysisPanel.current?.querySelector(`[data-site-card="${pendingSiteCard.current}"]`)?.scrollIntoView({ block: 'nearest' });
+    pendingSiteCard.current = null;
+  }, [tab]);
 
   const lightPoint = lightSlot ? points[lightSlot] : undefined;
   useEffect(() => {
@@ -477,8 +485,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         chooseMode('orbit');
         world.locate();
         break;
-      case 'street':
-        visit('approach');
+      case 'paving':
+      case 'parking':
+        pendingSiteCard.current = target;
+        chooseTab('site');
         break;
       case 'sun':
         chooseTab('sun');
@@ -505,6 +515,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const seasonPoint = points[seasonSlot];
   const buildingRegister = world?.sources.register;
   const selectedPlace = world?.places.find(place => place.id === selectedPlaceId);
+  const pavingPresets = songpaGrounds.points.map(stop => world?.presets.find(point => point.id === stop.id));
+  const parkingSpaces = songpaFacilities.surfaceParking + songpaFacilities.undergroundParking;
   const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
   const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
 
@@ -765,13 +777,46 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       {region === 'songpa' && tab === 'site' && <div className="site-features">
         <article className="site-card">
           <h3>{songpaComplex.name}</h3>
-          <p>{songpaComplex.address} · 5개 동</p>
+          <p>{songpaComplex.address} · 5개 동 · {songpaFacilities.households}세대</p>
           <p>외관은 건물 윤곽과 높이 표본으로 표현했어요. 건물 자료와 OSM에서 103·104동 표기가 달라 3D 동 이름에는 건물 자료를 사용했어요.</p>
-          <p>점선은 지도상 주거 영역이에요. 첫 시점은 {songpaComplex.roadName}이고, 단지 출입구와 내부 보행로는 추가 확인이 필요해요.</p>
+          <p>점선은 지도상 주거 영역이에요.</p>
+          <div className="site-actions"><button disabled={!world} onClick={() => visit('approach')}>단지 앞 도로 보기</button></div>
           <div className="basis">
             <a href={songpaComplex.info} target="_blank" rel="noreferrer">서울시 공동주택 단지 정보 ↗</a>
             <a href={songpaComplex.boundary} target="_blank" rel="noreferrer">OpenStreetMap 단지 경계 ↗</a>
-            <a href={songpaComplex.road} target="_blank" rel="noreferrer">OpenStreetMap 도로 위치 ↗</a>
+          </div>
+        </article>
+        <article className="site-card" data-site-card="paving">
+          <h3>단지 안 포장 공간</h3>
+          <p>영상에 보이는 포장 구간, 줄무늬, 수목을 3D로 표현했어요. 수목 높이와 지면 단차는 추정이며 일조는 건물과 지형을 기준으로 계산해요.</p>
+          <p>출입구까지 이어지는 길과 실제 통행 조건은 현장 확인이 필요해요.</p>
+          <div className="site-actions">
+            {songpaGrounds.points.map((stop, index) => <button key={stop.id} disabled={!pavingPresets[index]} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
+            <button disabled={pavingPresets.some(point => !point)} onClick={() => {
+              const [south, inner] = pavingPresets;
+              if (!south || !inner) return;
+              setPoints({ A: south, B: inner });
+              setDate(`${date.slice(0, 4) || initialDate.slice(0, 4)}-12-21`);
+              setMinute(14 * 60);
+              chooseTab('sun');
+              chooseMode('orbit');
+            }}>두 지점의 겨울 오후 일조 비교</button>
+          </div>
+          <div className="basis">
+            <a href={songpaGrounds.source} target="_blank" rel="noreferrer">World Imagery 항공영상 ↗</a>
+            <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">{songpaGrounds.captureDate} 촬영 · 영상 메타데이터 ↗</a>
+          </div>
+        </article>
+        <article className="site-card" data-site-card="parking" aria-label="주차와 공용시설 공시">
+          <h3>주차와 공용시설</h3>
+          <p>{parkingSpaces}면 · 세대당 {(parkingSpaces / songpaFacilities.households).toFixed(2)}면</p>
+          <p>지상 {songpaFacilities.surfaceParking}면 · 지하 {songpaFacilities.undergroundParking}면 · 승강기 {songpaFacilities.lifts}대</p>
+          <p>{songpaFacilities.sharedFacilities.join(' · ')}</p>
+          <p>공용시설의 단지 내 위치와 방문 주차 조건은 현장 확인이 필요해요.</p>
+          <div className="basis">
+            <p>{songpaFacilities.checkedOn} 조회 · 단지코드 {songpaFacilities.complexCode}</p>
+            <a href={songpaFacilities.management} target="_blank" rel="noreferrer">K-apt 관리시설정보 ↗</a>
+            <a href={songpaFacilities.playground} target="_blank" rel="noreferrer">행정안전부 놀이시설 현황 ↗</a>
           </div>
         </article>
       </div>}

@@ -18,6 +18,7 @@ import { readTreeCover } from './opo-tree-cover';
 import { createStreetOcclusion } from './opo-contact-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
+import { songpaGrounds } from './data/songpa-grounds';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
@@ -140,7 +141,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     return entrance?.paved(point) || insideBuilding(point) || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
   }, treeCover ?? undefined);
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
-  const site = addSiteDetails(data, scene, streets.surface);
+  const site = addSiteDetails(data, scene, streets.surface, finish);
   const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   const greenAccess = addGreenAccess(data, scene);
@@ -161,6 +162,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const approachPoint = isOpo ? data.project(approach) : spawn;
   const lookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(songpaComplex.lookAt);
   const initialHeading = headingTo(spawn, lookAt);
+  const pavingStops = isOpo ? [] : songpaGrounds.points.map(point => ({
+    id: point.id, name: point.name, position: data.project(point.coordinate), lookAt: data.project(point.lookAt),
+  })).filter(point => canAnalyze(point.position) && inShape(point.position, [data.siteOutline]));
   const destinations: { id: string; name: string; position: Point; lookAt?: Point }[] = isOpo ? [
     { id: 'approach', name: '오포 롯데캐슬 정문·진입교', position: approachPoint },
     courtyard,
@@ -170,7 +174,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const place = data.streetPoints.find(item => item.name === name);
       return place ? [{ id: place.id, name, position: place.position }] : [];
     }),
-  ] : [{ id: 'approach', name: songpaComplex.roadName, position: spawn, lookAt }];
+  ] : [{ id: 'approach', name: songpaComplex.roadName, position: spawn, lookAt }, ...pavingStops];
   const tripStops = ['approach', ...destinations.filter(place => routePlaces.slice(0, 2).includes(place.name)).map(place => place.id)]
     .map(id => destinations.find(place => place.id === id))
     .flatMap(place => {
@@ -361,6 +365,17 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     return { point, element, enabled: () => true };
   });
+  for (const stop of pavingStops) {
+    const element = document.createElement('span');
+    element.className = 'building-label street-label';
+    element.textContent = stop.name;
+    element.hidden = true;
+    host.appendChild(element);
+    const { x, z } = stop.position;
+    labels.push({ point: new T.Vector3(x, streets.surface(x, z) + 3, z), element, limit: 95,
+      enabled: () => (mode === 'orbit' && site.overlay.visible)
+        || (mode === 'walk' && Math.hypot(x - position.x, z - position.z) > 9) });
+  }
   const peers = new Map<string, {
     walker: T.Group; vehicle: T.Group; pose: TourPose;
     label: typeof labels[number];
@@ -503,6 +518,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       presets.push({...point, id:`road-${index}`, label:`구역 도로 인근 ${index + 1}`});
     }
   }
+  presets.push(...pavingStops.map(stop => ({ ...stop.position, id: stop.id, label: stop.name })));
 
   function setMode(next: ViewMode) {
     if (mode === next && !eyeLevel) return;
@@ -871,9 +887,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     streetStatus() {
       const nearest = mode === 'drive' ? driveSegment.road : streets.nearest(position, 8)?.segment.road;
       const nearCourtyard = isOpo && mode === 'walk' && Math.hypot(position.x - courtyard.position.x, position.z - courtyard.position.z) < 20;
+      const paving = mode === 'walk' ? pavingStops.find(stop => Math.hypot(position.x - stop.position.x, position.z - stop.position.z) < 11) : undefined;
       const onSongpaStartRoad = !isOpo && nearest?.id === roadSpawn.segment.road.id;
       const streetName = onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name;
-      return { name: nearCourtyard ? courtyard.name : nearest?.name || streetName,
+      return { name: paving?.name ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
         speed: Math.round(travelSpeed * 3.6), touring: tripIndex > 0 };
     },
     toggleTrip() {

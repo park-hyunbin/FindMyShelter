@@ -1,6 +1,7 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { regions, songpaComplex, type RegionId } from './data/regions';
+import { songpaGrounds } from './data/songpa-grounds';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
@@ -184,6 +185,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     : regionalStreets(features);
   const streetPoints: StreetPoint[] = (neighborhood?.points ?? []).map(({ coordinates, ...tags }) => ({ ...tags, position: project(coordinates) }))
     .filter(({ position }) => Math.abs(position.x) < extent && Math.abs(position.z) < extent);
+  if (region === 'songpa') for (const [index, coordinate] of songpaGrounds.crowns.entries()) {
+    streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
+  }
   const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));
   const date = environment.metadata.tile_source.match(/\/(\d{4})(\d{2})(\d{2})_/);
   const referenceHeight = Math.max(...buildings.map(building => building.height ?? 0));
