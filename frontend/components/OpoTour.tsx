@@ -1235,7 +1235,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <article className="site-card" data-site-card="paving">
           <h3>단지 안 산책로와 놀이터</h3>
           <p>103·104동 사이를 따라 굽는 보행로, 화단, 원형 앉음벽과 놀이터 공간을 둘러볼 수 있어요.</p>
-          <p>나무에 가려진 보행로와 놀이터 경계, 앉음벽의 정확한 위치·크기는 근사예요. 놀이기구와 노면 단차는 현장에서 확인해 보세요.</p>
+          <p>나무에 가려진 보행로와 놀이터 경계, 앉음벽의 정확한 위치·크기는 근사예요. 놀이터 바닥은 모형 재질을 사용했어요. 실제 포장재와 놀이기구, 노면 단차는 현장에서 확인해 보세요.</p>
           <div className="site-actions">
             {songpaCourtyard.views.map(stop => <button key={stop.id}
               disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}

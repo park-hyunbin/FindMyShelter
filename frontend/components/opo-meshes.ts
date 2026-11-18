@@ -100,10 +100,13 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
   }
   if (!walk.length) return new T.BufferGeometry();
   walk.push(points[points.length - 1]);
+  const last = walk.length - 1;
+  const closed = last > 2 && walk[0].x === walk[last].x && walk[0].z === walk[last].z;
   const sections = Math.max(1, Math.ceil(width / crossStep));
   const rowLength = sections + 1;
   walk.forEach((point, i) => {
-    const a = walk[Math.max(0, i - 1)], b = walk[Math.min(walk.length - 1, i + 1)];
+    const a = walk[closed && i === 0 ? last - 1 : Math.max(0, i - 1)];
+    const b = walk[closed && i === last ? 1 : Math.min(last, i + 1)];
     const length = Math.hypot(b.x - a.x, b.z - a.z) || 1;
     const dx = (b.z - a.z) / length * width / 2;
     const dz = (a.x - b.x) / length * width / 2;

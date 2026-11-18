@@ -67,7 +67,6 @@ export function addSiteSurfaces(
   const edging = material('#aaa59a');
   const paint = material('#eeeae0');
   const plaza = material('#c2bcaf', 'pavers');
-  const playground = material('#7e766b');
 
   function material(color: string, texture?: TourSurface) {
     const base = new T.MeshStandardMaterial({ color, roughness: 0.93, side: T.DoubleSide });
@@ -106,8 +105,9 @@ export function addSiteSurfaces(
 
   if (layout.playground) {
     const playRing = layout.playground.map(data.project);
-    add(groundPolygon([playRing], grade, 3, 0.25), playground);
-    add(strip([...playRing, playRing[0]], 0.2, 0.27), edging);
+    const playFloor = material('#a69984', 'granular');
+    add(groundPolygon([playRing], grade, 3, 0.25), playFloor, 'granular');
+    add(strip([...playRing, playRing[0]], 0.23, 0.28), edging);
   }
   if (layout.plaza) add(groundPolygon([layout.plaza.map(data.project)], grade, 3, 0.12), plaza, 'pavers');
   for (const { start, end, depth } of layout.crossings) {

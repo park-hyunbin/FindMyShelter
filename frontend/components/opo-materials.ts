@@ -6,6 +6,7 @@ const surfaces = {
   asphalt: { tile: 2, relief: 0.32 },
   cobble: { tile: 2.6, relief: 0.5 },
   pavers: { tile: 1.6, relief: 0.013 },
+  granular: { tile: 1.25, relief: 0.005 },
   forest: { tile: 3.8, relief: 0.58 },
   grass: { tile: 4.2, relief: 0.55 },
   stonewall: { tile: 2.8, relief: 0.65 },
@@ -64,6 +65,41 @@ function concretePavers(anisotropy: number, depth: boolean) {
   return texture;
 }
 
+function granularGround(anisotropy: number) {
+  const canvas = document.createElement('canvas');
+  const size = 256;
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext('2d')!;
+  const pixels = context.createImageData(size, size);
+  const grains = new Uint8Array(size * size);
+  const variation = Array.from({ length: size }, (_, i) => Math.sin(i / size * Math.PI * 2));
+  let seed = 3743;
+  for (let i = 0; i < grains.length; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    grains[i] = seed >>> 24;
+  }
+  for (let y = 0; y < size; y++) {
+    const row = y * size;
+    const previous = ((y + size - 1) % size) * size;
+    for (let x = 0; x < size; x++) {
+      const left = (x + size - 1) % size;
+      const grain = grains[row + x] * 0.21 + (grains[row + left] + grains[previous + x]) * 0.09;
+      const value = 147 + grain + 7 * variation[x] * variation[y];
+      const pixel = (row + x) * 4;
+      pixels.data[pixel] = value;
+      pixels.data[pixel + 1] = value - 4;
+      pixels.data[pixel + 2] = value - 8;
+      pixels.data[pixel + 3] = 255;
+    }
+  }
+  context.putImageData(pixels, 0, 0);
+  const texture = new T.CanvasTexture(canvas);
+  texture.colorSpace = T.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = T.RepeatWrapping;
+  texture.anisotropy = anisotropy;
+  return texture;
+}
+
 // Adapted from the PBR texture loader in Walkable City. See tour-materials/CREDITS.txt.
 export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
   const loader = new T.TextureLoader();
@@ -71,7 +107,8 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
   function texture(file: string, color: boolean) {
     const cached = textures.get(file);
     if (cached) return cached;
-    const map = file.startsWith('pavers_') ? concretePavers(anisotropy, !color) : loader.load(`/tour-materials/${file}.webp`);
+    const map = file === 'granular_diff' ? granularGround(anisotropy)
+      : file.startsWith('pavers_') ? concretePavers(anisotropy, !color) : loader.load(`/tour-materials/${file}.webp`);
     if (color) map.colorSpace = T.SRGBColorSpace;
     map.wrapS = map.wrapT = T.RepeatWrapping;
     map.anisotropy = anisotropy;
@@ -80,6 +117,13 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
   }
   return function apply(material: T.MeshStandardMaterial, surface: TourSurface) {
     material.map = texture(`${surface}_diff`, true);
+    if (surface === 'granular') {
+      if (fullDetail) {
+        material.bumpMap = material.map;
+        material.bumpScale = surfaces.granular.relief;
+      }
+      return material;
+    }
     if (surface === 'pavers') {
       if (fullDetail) {
         material.bumpMap = texture('pavers_height', false);
