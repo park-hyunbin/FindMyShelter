@@ -369,8 +369,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const comparisonMarkers = new T.Group();
   scene.add(comparisonMarkers);
   let ambientInspection = false;
+  let guidedWalk = false;
   const analysisMapVisible = () => ambientMap?.group.visible || floodMap?.group.visible || schoolMap?.group.visible;
-  const updateComparisonMarkers = () => { comparisonMarkers.visible = !ambientInspection && !analysisMapVisible(); };
+  const updateComparisonMarkers = () => { comparisonMarkers.visible = !ambientInspection && !guidedWalk && !analysisMapVisible(); };
   const markers = Object.fromEntries((['A', 'B'] as const).map((slot, index) => {
     const group = new T.Group();
     const color = index === 0 ? '#e5ae45' : '#407b7b';
@@ -1069,7 +1070,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     },
     greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, homeWalk }) => ({ id, profile, crossingView, homeWalk })),
     showGuidedWalk(id: string | null) {
-      for (const layer of greenAccess.layers) layer.lines.visible = mode === 'orbit' || layer.id === id;
+      guidedWalk = mode === 'walk' && id !== null;
+      updateComparisonMarkers();
+      for (const layer of greenAccess.layers) {
+        const active = guidedWalk && layer.id === id;
+        layer.lines.visible = mode === 'orbit' || active;
+        layer.lines.position.y = active ? -0.10 : 0;
+      }
     },
     parkViews,
     markGreenAccess(id: string | null, index: number) {
