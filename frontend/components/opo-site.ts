@@ -11,6 +11,7 @@ import { songpaGrounds } from './data/songpa-grounds';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
+import { surveyedRoute } from './data/songpa-route-elevation';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
@@ -193,7 +194,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
   const layers = routes.map(route => {
     const projected = route.segments.map(segment => segment.coordinates.map(data.project));
     const surveyedEntrance = route.id === songpaHospital.routeId ? data.project(songpaHospital.coordinate) : null;
-    const profile = surveyedEntrance ? undefined : routeTerrainProfile(data, projected);
+    const survey = data.region === 'songpa' ? surveyedRoute(route.id, route.segments.flatMap(segment => segment.coordinates)) : undefined;
+    const profile = surveyedEntrance ? undefined : routeTerrainProfile(data, projected, survey);
     const group = new T.Group();
     const bounds = new T.Box3();
     const routePoints: T.Vector3[] = [];

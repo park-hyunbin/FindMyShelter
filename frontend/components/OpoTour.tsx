@@ -21,6 +21,7 @@ import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
 import { songpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaArchitecture } from './data/songpa-architecture';
+import { songpaRouteElevation } from './data/songpa-route-elevation';
 import TourLive from './TourLive';
 import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
@@ -200,9 +201,13 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
   const change = profile.samples.slice(1).map((point, index) => point.elevation - profile.samples[index].elevation);
   const outboundAscent = change.reduce((sum, value) => sum + Math.max(0, value), 0);
   const returnAscent = change.reduce((sum, value) => sum + Math.max(0, -value), 0);
+  const { survey, steepest } = profile;
+  const parkEntry = survey?.entranceSample === undefined ? undefined : profile.samples[survey.entranceSample];
+  const parkRise = parkEntry ? profile.samples.at(-1)!.elevation - parkEntry.elevation : undefined;
+  const step = survey ? songpaRouteElevation.routeStepM : routeTerrainStep;
   return <div className="route-terrain">
-    <strong>경로 주변 지형 단면</strong>
-    <div className="route-terrain-scale"><span>표고 약 {Math.round(maximum)}m</span><span>{routeTerrainStep}m 간격 표본</span></div>
+    <strong>경로 주변 지형 단면{survey ? ' · 서울시 수치지형도' : ''}</strong>
+    <div className="route-terrain-scale"><span>표고 약 {Math.round(maximum)}m</span><span>{step}m 간격 표본</span></div>
     <svg viewBox="0 0 300 80" aria-hidden="true">
       <polygon className="route-terrain-fill" points={`8,75 ${line} 292,75`} />
       <polyline points={line} />
@@ -220,12 +225,24 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
       <div><dt>선택 지형의 표고</dt><dd>약 {Math.round(sample.elevation)}m</dd></div>
       {sample.gradient !== null && <div><dt>약 {Math.round(sample.gradientDistance)}m 구간 지형 변화율</dt>
         <dd>{sample.gradient > 0 ? '+' : ''}{sample.gradient.toFixed(1)}%</dd></div>}
-      <div><dt>지형 예측 산포</dt><dd>{sample.spread.toFixed(1)}m</dd></div>
+      {sample.spread !== undefined && <div><dt>지형 예측 산포</dt><dd>{sample.spread.toFixed(1)}m</dd></div>}
+      {sample.nearestInputM !== undefined && <div><dt>가장 가까운 계산 입력</dt><dd>약 {Math.round(sample.nearestInputM)}m</dd></div>}
       <div><dt>모델 누적 상승</dt><dd>가는 길 약 {Math.round(outboundAscent)}m · 오는 길 약 {Math.round(returnAscent)}m</dd></div>
     </dl>
     <p>종점 지형은 출발 지형보다 약 {Math.round(Math.abs(difference))}m {difference >= 0 ? '높아요' : '낮아요'}.</p>
+    {parkEntry && parkRise !== undefined && <p>공원 남쪽 진입부부터 안쪽 보행로까지 약 {Math.round(profile.length - parkEntry.distance)}m 구간에서 모델 지형이 약 {Math.abs(parkRise).toFixed(1)}m {parkRise >= 0 ? '높아져요' : '낮아져요'}.</p>}
+    {survey && <div className="site-actions">
+      {steepest && <button onClick={() => onSelect(steepest.index)}>가는 길 오르막 · {Math.round(steepest.start)}~{Math.round(steepest.end)}m · +{steepest.gradient.toFixed(1)}%</button>}
+      {profile.samples.map((point, index) => point.contourM !== undefined
+        ? <button key={point.distance} aria-pressed={selected === index} onClick={() => onSelect(index)}>{point.contourM}m 등고선 교차점 · 출발 {Math.round(point.distance)}m</button>
+        : null)}
+    </div>}
     <button className="route-look" onClick={() => onLook(sample)}>선택 위치 눈높이로 보기 ↗</button>
-    <p>약 30m 지형 모델의 표고와 변화율입니다. 실제 보도 경사, 계단·옹벽·교량 단차는 현장 대조가 필요합니다.</p>
+    {survey ? <>
+      <p>서울시 1:{songpaRouteElevation.scale.toLocaleString('ko-KR')} 수치지형도의 등고선과 표고점을 삼각망으로 보간했어요. 주변 표고점 {survey.checkedSpots}개를 하나씩 빼고 예측했을 때 평균 절대차는 약 {survey.meanErrorM.toFixed(1)}m였어요.</p>
+      <p>실제 보도 경사, 계단·옹벽·교량 단차는 현장 확인이 필요해요.</p>
+      <a href={songpaRouteElevation.source} target="_blank" rel="noreferrer">서울시 등고선과 표고점 원본 ↗</a>
+    </> : <p>약 30m 지형 모델의 표고와 변화율입니다. 실제 보도 경사, 계단·옹벽·교량 단차는 현장 대조가 필요합니다.</p>}
   </div>;
 }
 

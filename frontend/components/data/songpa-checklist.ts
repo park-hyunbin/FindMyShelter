@@ -7,6 +7,7 @@ import { songpaHospital } from './visit-routes';
 import { songiPark } from './songi-park';
 import { songpaWinterCapture } from './songpa-winter-capture';
 import { songpaArchitecture } from './songpa-architecture';
+import { songpaRouteElevation } from './songpa-route-elevation';
 
 type Source = { label: string; url: string };
 export type ChecklistView = 'complex' | 'sun' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'ambient' | 'flood';
@@ -74,9 +75,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'slope', title: '언덕길과 귀갓길', evidence: 'model',
-        finding: '눈높이 관측 지점에서 방향별 지형 단면을 볼 수 있어요. 원본 표고 자료의 해상도는 약 30m예요.',
+        finding: '송이공원·송파역·서울신가초 방향은 서울시 수치지형도로 보행 경로의 높이 변화를 살펴볼 수 있어요. 선택 지점의 주변 시야는 약 30m 표고 모델로 계산해요.',
         followUp: '귀갓길의 가장 가파른 구간은 실제 보도나 경사로에서 확인해 보세요.',
-        views: [{ target: 'park-route', label: '송이공원 방향 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }], sources: [terrainGrade],
+        views: [{ target: 'park-route', label: '송이공원 방향 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }],
+        sources: [{ label: '서울시 등고선·표고점', url: songpaRouteElevation.source }, terrainGrade],
       },
       {
         id: 'alternatives', title: '완만한 길·계단 우회', evidence: 'visit',
