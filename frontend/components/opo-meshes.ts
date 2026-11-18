@@ -7,7 +7,7 @@ import { addSongpaTowerExterior, songpaExteriorMaterials } from './opo-songpa-ex
 import { addStreetExterior } from './opo-street-exterior';
 import { buildingAppearance } from './data/building-appearance';
 import { buildingProfile, buildingProfiles, type BuildingUse } from './data/building-profile';
-import { addLandscapeTrees } from './opo-vegetation';
+import { addLandscapeTrees, type LandscapePoint } from './opo-vegetation';
 
 export function shapeFrom(rings: Shape) {
   const path = (ring: Point[]) => ring.map(({ x, z }) => new T.Vector2(x, -z));
@@ -404,7 +404,7 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
       material.roughness = 0.29;
     }
   }
-  const trees: Point[] = [];
+  const trees: LandscapePoint[] = [];
   const greens = [];
   const waters: Point[][] = [];
   const waterAreas = data.features.filter(feature => feature.kind === 'water').flatMap(feature => feature.shapes);
@@ -477,7 +477,9 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
     const inComplex = data.siteOutline.length ? [data.siteOutline] : null;
     trees.push(...forest.placements(random, point => !canPlant(point) || Boolean(inComplex && inShape(point, inComplex))));
   }
-  for (const point of data.streetPoints) if (point.kind === 'tree' && canPlant(point.position)) trees.push(point.position);
+  for (const point of data.streetPoints) {
+    if (point.kind === 'tree' && canPlant(point.position)) trees.push({ ...point.position, mapped: true });
+  }
   addLandscapeTrees(vegetation, trees, surface, Boolean(finish), Boolean(forest));
   addReeds(surfaceOverlays, riverbanks, surface, random);
   return { greens, waters, surfaceOverlays, landCoverOverlays, vegetation, waterNormal, grassTexture: materials.grass.map };

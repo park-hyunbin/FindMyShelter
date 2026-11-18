@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { OpoData, Point } from './opo-data';
 
 type XYZ = [number, number, number];
+export type LandscapePoint = Point & { mapped?: boolean };
 
 function sampler(seed: number) {
   return () => {
@@ -92,12 +93,13 @@ function mergeGeometriesAndDispose(parts: T.BufferGeometry[]) {
   return geometry;
 }
 
-export function addLandscapeTrees(group: T.Group, trees: Point[], surface: OpoData['ground'], finished: boolean, forest: boolean) {
+export function addLandscapeTrees(group: T.Group, trees: LandscapePoint[], surface: OpoData['ground'], finished: boolean, forest: boolean) {
   if (!trees.length) return;
   const groups = { broadleaf: [] as Point[], pine: [] as Point[], distant: [] as Point[] };
   for (const tree of trees) {
     const random = sampler(Math.imul(Math.round(tree.x * 100), 73428767) ^ Math.round(tree.z * 100));
-    const type = !finished || Math.hypot(tree.x, tree.z) > 430 ? 'distant' : random() < 0.28 ? 'pine' : 'broadleaf';
+    const detailed = finished && (tree.mapped || Math.hypot(tree.x, tree.z) <= 430);
+    const type = detailed ? (random() < 0.28 ? 'pine' : 'broadleaf') : 'distant';
     groups[type].push(tree);
   }
   const bark = new T.MeshStandardMaterial({ color: '#756453', roughness: 0.97 });
