@@ -10,6 +10,8 @@ K-apt 단지코드 `A13816002`의 관리시설정보(2026-11-18 조회)는 264�
 
 송파의 **역·공원 방향 경로**는 단지 앞 교차점부터 송파역 2번 출구 인근 보행 겸용로(581m)와 송이공원 남쪽 보행로(484m)까지의 지도 연결입니다. 지도상 횡단 구간, 약 30m 표고 모델에 따른 지형 단면, 선택 위치의 눈높이 시점을 제공합니다. 송파역 출구 직전 약 3m는 보행망에 연결되지 않아 직선 이격으로 표시했습니다. `node frontend/scripts/prepare-songpa-access.mjs`로 원본 지도에서 다시 생성할 수 있습니다. [송파역 2번 출구](https://www.openstreetmap.org/node/3401171608) · [송이공원 남쪽 보행로](https://www.openstreetmap.org/way/1145100664) · [송파구 송이공원 위치](https://www.songpa.go.kr/www/detailInfo.do?cpn=13&key=5463&resrceCd=LV0273-1062546&sc1=LV0271)
 
+송파의 **소음·야간**은 양재대로 옆 보행로와 단지 안 포장 공간에서 같은 시각의 3D 시점을 엽니다. 도로 중심선까지의 직선거리는 각각 약 22m와 132m입니다. 단지 안 비교점에서 약 490m, 500m 떨어진 서울시 S-DoT 두 센서의 2026-11-02~08 시간별 평균 소음(dB)·조도(lx)를 센서 위치와 함께 제공합니다. 단지 내 소음과 조명은 현장 확인 항목이며 3D의 주변광은 시각에 따른 연출입니다. 원본 설치 위치표와 `S_DOT_ENV_2026.11.02-11.08.csv`를 내려받아 `python backend/scripts/prepare_songpa_ambient.py <설치 위치표.xlsx> <관측.csv>`로 관측 자료를 다시 만들 수 있습니다. [서울시 센서 설치 위치](https://data.seoul.go.kr/dataList/OA-15969/S/1/datasetView.do) · [서울시 시간별 기록](https://data.seoul.go.kr/dataList/OA-22833/S/1/datasetView.do) · [OpenStreetMap 양재대로](https://www.openstreetmap.org/way/1175929595)
+
 ## 실행
 
 ```sh

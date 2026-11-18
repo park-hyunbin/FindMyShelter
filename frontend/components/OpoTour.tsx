@@ -15,7 +15,9 @@ import { visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
+import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
 import TourLive from './TourLive';
+import SongpaAmbient from './SongpaAmbient';
 import SongpaChecklist from './SongpaChecklist';
 import type { ChecklistView } from './data/songpa-checklist';
 
@@ -30,7 +32,7 @@ const seasonDates = [
 const capture = new Date(Date.parse(satelliteMetadata.acquired_at) + 9 * 3600000);
 const captureMinute = capture.getUTCHours() * 60 + capture.getUTCMinutes();
 type Points = Partial<Record<Slot, SitePoint>>;
-type AnalysisTab = 'sun' | 'nature' | 'site' | 'places' | 'checklist';
+type AnalysisTab = 'sun' | 'nature' | 'site' | 'places' | 'checklist' | 'ambient';
 const modeLabels: Record<ViewMode, string> = { orbit: '조감', walk: '걷기', drive: '운전' };
 const directions = [ ['up', '↑', '전진'], ['left', '←', '왼쪽'], ['down', '↓', '후진'], ['right', '→', '오른쪽'] ];
 const bearings = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
@@ -219,6 +221,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [imageStatus, setImageStatus] = useState<'loading' | 'error' | 'idle'>('idle');
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
+  const [ambientMoment, setAmbientMoment] = useState<AmbientMoment>(defaultAmbientMoment);
+  const [ambientViewing, setAmbientViewing] = useState(false);
+  const sceneDate = ambientViewing ? ambientMoment.day : date;
+  const sceneMinute = ambientViewing ? ambientMoment.hour * 60 + ambientArchive.minute : minute;
 
   const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : songpaComplex.roadName, speed: 0, touring: false });
 
@@ -253,9 +259,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [retry, region]);
 
   useEffect(() => {
-    if (!world || !date) return;
-    world.light(date, minute);
-  }, [world, date, minute]);
+    if (world && sceneDate) world.light(sceneDate, sceneMinute);
+  }, [world, sceneDate, sceneMinute]);
 
   useEffect(() => {
     if (!world) return;
@@ -287,6 +292,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world?.showSiteDetails(open && tab === 'site');
     world?.showPlaces(open && tab === 'places' ? (placeCategory === 'all' ? ['beauty','convenience','school'] : [placeCategory]) : []);
   }, [world, open, tab, placeCategory]);
+
+  useEffect(() => {
+    const active = tab === 'ambient';
+    world?.showAmbient(active && (open || ambientViewing), active && open && mode === 'orbit');
+  }, [world, open, tab, mode, ambientViewing]);
 
   useEffect(() => {
     world?.markGreenAccess(accessId, accessSample);
@@ -365,6 +375,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       world?.showGreenAccess(null);
     }
     if (next !== tab) analysisPanel.current?.scrollTo(0, 0);
+    if (next !== 'ambient') setAmbientViewing(false);
+    else if (next !== tab) chooseMode('orbit');
     setTab(next);
   }
 
@@ -475,6 +487,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setStatus('');
     world.showGreenAccess(null);
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+    return true;
   }
 
   function openChecklistView(target: ChecklistView) {
@@ -496,6 +509,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'horizon':
         chooseTab('nature');
+        break;
+      case 'ambient':
+        chooseTab('ambient');
         break;
       case 'station-route':
       case 'park-route':
@@ -544,6 +560,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       <div><strong>{lightSlot} 지점 · {date} {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>
       <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
     </section>}
+    {ambientViewing && <section className="light-inspection" aria-label="3D 장면 시각">
+      <div><strong>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST</strong><p>하늘과 주변광을 시각에 맞춰 표현했어요.</p></div>
+      <button aria-label="관측 시각 미리보기 닫기" onClick={() => setAmbientViewing(false)}>×</button>
+    </section>}
 
     <nav className="view-controls" aria-label="3D 탐색 모드">
       {(Object.keys(modeLabels) as ViewMode[]).map(key => <button key={key} disabled={!world} aria-pressed={mode === key} onClick={() => chooseMode(key)}>{modeLabels[key]}</button>)}
@@ -578,9 +598,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <button aria-pressed={tab === 'nature'} onClick={() => chooseTab('nature')}>주변 자연환경</button>
         <button aria-pressed={tab === 'places'} onClick={() => chooseTab('places')}>생활·학교</button>
         <button aria-pressed={tab === 'site'} onClick={() => chooseTab('site')}>{region === 'opo' ? '단지 시설' : '단지 정보'}</button>
+        {region === 'songpa' && <button className="ambient-tab" aria-pressed={tab === 'ambient'} onClick={() => chooseTab('ambient')}>소음·야간</button>}
       </div>
 
       {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)} />}
+      {region === 'songpa' && tab === 'ambient' && <SongpaAmbient moment={ambientMoment} onTime={setAmbientMoment} scene={world?.ambientScene}
+        onVisit={id => { if (visit(id)) setAmbientViewing(true); }} onMap={() => {
+          setAmbientViewing(false);
+          chooseMode('orbit');
+          world?.showAmbient(true, true);
+        }} />}
 
       {tab === 'sun' && <>
         <div className="date-row">

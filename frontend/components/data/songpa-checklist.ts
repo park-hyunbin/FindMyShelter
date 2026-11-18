@@ -1,8 +1,9 @@
 import { songpaComplex } from './regions';
 import { songpaFacilities, songpaGrounds } from './songpa-grounds';
+import { ambientSources } from './songpa-ambient';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'paving' | 'parking';
+export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'paving' | 'parking' | 'ambient';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -105,12 +106,13 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         sources: [seoulComplex, { label: 'K-apt 관리시설정보', url: songpaFacilities.management }],
       },
       {
-        id: 'noise', title: '소음·야간 환경', evidence: 'visit',
-        finding: '인근 양재대로 위치와 공개 측정망을 볼 수 있어요. 단지 안의 시간대별 소음과 밝기는 현장 확인이 필요해요.',
+        id: 'noise', title: '소음·야간 환경', evidence: 'document',
+        finding: '대로 옆과 단지 안쪽을 같은 시각으로 둘러보고, 주변 서울시 센서의 소음·조도 기록을 확인할 수 있어요.',
         followUp: '대로 쪽과 안쪽에서 평일 밤·주말 소음, 조명, 냄새를 확인해 보세요.',
+        views: [{ target: 'ambient', label: '소음·야간 환경 둘러보기' }],
         sources: [
-          { label: 'OpenStreetMap 양재대로', url: 'https://www.openstreetmap.org/way/909112476' },
-          { label: '국가소음정보시스템', url: 'https://www.noiseinfo.or.kr/index.jsp' },
+          { label: '서울시 S-DoT 센서 기록', url: ambientSources.readings },
+          { label: 'OpenStreetMap 양재대로', url: ambientSources.road },
         ],
       },
       {

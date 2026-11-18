@@ -2,12 +2,13 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import type { OpoData } from './opo-data';
+import { nearestOnLine, type OpoData } from './opo-data';
 import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
 import { visitRoutes } from './data/visit-routes';
 import { songpaGrounds } from './data/songpa-grounds';
+import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
@@ -58,6 +59,38 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
   }
 
   return { overlay };
+}
+
+export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
+  const group = new T.Group();
+  group.visible = false;
+  scene.add(group);
+  const road = yangjaeRoad.map(data.project);
+  const roadMaterial = new T.MeshBasicMaterial({ color: '#e8b861', side: T.DoubleSide });
+  group.add(new T.Mesh(ribbon(road, 6, (x, z) => grade(x, z) + 1.9), roadMaterial));
+  const stops = ambientStops.map(stop => {
+    const position = data.project(stop.coordinate);
+    return { id: stop.id, name: stop.name, position, lookAt: data.project(stop.lookAt),
+      roadDistanceM: nearestOnLine(position, [road]).distance };
+  });
+  const stations = ambientArchive.stations.map(station => ({
+    name: `센서 · ${station.address}`, position: data.project(station.coordinate),
+  }));
+  const inner = stops[1].position;
+  const stationDistancesM = stations.map(({ position }) => Math.hypot(position.x - inner.x, position.z - inner.z));
+  const stationMaterial = new T.MeshBasicMaterial({ color: '#77e2d4', depthTest: false });
+  const stopGeometry = new T.SphereGeometry(4, 12, 9);
+  const stationGeometry = new T.SphereGeometry(7, 12, 9);
+  const labels = [...stops, ...stations].map(({ name, position: { x, z } }, index) => {
+    const station = index >= stops.length;
+    const pin = new T.Mesh(station ? stationGeometry : stopGeometry, station ? stationMaterial : roadMaterial);
+    pin.position.set(x, grade(x, z) + (station ? 30 : 8), z);
+    pin.renderOrder = 7;
+    group.add(pin);
+    return { name, station, point: pin.position.clone().add(new T.Vector3(0, station ? 16 : 9, 0)) };
+  });
+  const frames = [...labels.map(label => label.point), ...road.map(({ x, z }) => new T.Vector3(x, grade(x, z) + 2, z))];
+  return { group, stops, stationDistancesM, labels, frames };
 }
 
 export function addGreenAccess(data: OpoData, scene: T.Scene) {

@@ -326,6 +326,25 @@ h1, h2, p { margin: 0; }
 .analysis .site-row select option { background: var(--night); color: var(--moon); }
 
 .analysis-tabs .checklist-tab { grid-column: 1 / -1; }
+.analysis-tabs:has(.ambient-tab) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.building-label.ambient-sensor-label { border-color: #8adfd2; background: #183f41; color: #cbfff3; }
+.building-label.ambient-stop-label { border-color: #e8b861; background: #4c3b30; color: #fff0ca; }
+.ambient-panel { display: grid; gap: 8px; }
+.ambient-panel h3 { margin: 1px 0 6px; }
+.ambient-panel p { margin: 5px 0; color: var(--lilac); line-height: 1.5; }
+.ambient-stops { display: grid; gap: 5px; margin: 9px 0; }
+.ambient-stops button { min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 4px 9px; border: 1px solid #c8cebc; border-radius: 6px; color: var(--night); background: #edf0e4; font-weight: 700; text-align: left; }
+.ambient-stops button b { white-space: nowrap; font-variant-numeric: tabular-nums; color: #3a5e4c; }
+.ambient-date { display: flex; align-items: center; gap: 10px; font-weight: 700; margin: 10px 0 0; }
+.ambient-date select { flex: 1; min-width: 0; min-height: 36px; padding: 4px 7px; border: 1px solid #809d9d;
+  border-radius: 6px; color: var(--moon); background: var(--night); }
+.ambient-readings { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+.ambient-readings th, .ambient-readings td { border-bottom: 1px solid #64768e; padding: 6px 4px; }
+.ambient-readings td, .ambient-readings thead th { white-space: nowrap; }
+.ambient-readings thead th { font-size: 10px; color: var(--muted); }
+.ambient-readings tbody th { color: var(--glow); }
+.ambient-readings small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
 .visit-checklist { display: grid; gap: 12px; }
 .checklist-progress { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .checklist-progress span { font-weight: 750; font-variant-numeric: tabular-nums; }
