@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, type OpoData, type Point, type Street } from './opo-data';
+import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, terrainSurface } from './opo-meshes';
 
 const major = new Set(['trunk', 'primary', 'secondary', 'tertiary']);
@@ -195,25 +196,27 @@ function lineChunks(points: Point[], run: number, gap: number): Point[][] {
   return chunks;
 }
 
-export function addStreets(data: OpoData, scene: T.Scene) {
+export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials) {
   const network = createStreetNetwork(data.streets);
   const grade = (x: number, z: number) => data.ground(x, z) + network.raiseBridge({ x, z });
   const surface = (x: number, z: number) => terrainSurface(data.ground, x, z) + network.raiseBridge({ x, z });
-  const layers = new Map<string, T.BufferGeometry[]>();
-  function add(color: string, geometry: T.BufferGeometry) {
+  const layers = new Map<string, { color: string; texture?: TourSurface; geometry: T.BufferGeometry[]; castsShadow: boolean }>();
+  function add(color: string, geometry: T.BufferGeometry, texture?: TourSurface, castsShadow = false) {
     if (!geometry.getAttribute('position')?.count) { geometry.dispose(); return; }
     if (geometry.index) {
       const flat = geometry.toNonIndexed();
       geometry.dispose();
       geometry = flat;
     }
-    geometry.deleteAttribute('uv');
-    const list = layers.get(color);
-    if (list) list.push(geometry);
-    else layers.set(color, [geometry]);
+    if (texture && finish) surfaceUV(geometry, texture);
+    else geometry.deleteAttribute('uv');
+    const key = `${color}:${texture ?? ''}:${castsShadow}`;
+    const layer = layers.get(key);
+    if (layer) layer.geometry.push(geometry);
+    else layers.set(key, { color, texture, geometry: [geometry], castsShadow });
   }
-  function strip(points: Point[], width: number, height: number, color: string) {
-    add(color, ribbon(points, width, (x, z) => surface(x, z) + height));
+  function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface) {
+    add(color, ribbon(points, width, (x, z) => surface(x, z) + height), texture);
   }
   for (const road of data.streets) {
     const width = streetWidth(road);
@@ -221,28 +224,66 @@ export function addStreets(data: OpoData, scene: T.Scene) {
     const isMain = major.has(road.category.replace('_link', ''));
     const within = (p: Point) => Math.max(Math.abs(p.x), Math.abs(p.z)) <= extent + 28;
     let run: Point[] = [];
-    const color = road.unpaved || road.category === 'track' ? '#aa9981'
+    const unpaved = road.unpaved || road.category === 'track';
+    const color = unpaved ? '#aa9981'
       : isPath ? '#bba994' : isMain ? '#626970' : road.category === 'residential' ? '#737878' : '#858780';
+    const texture = unpaved ? 'forest' : isPath ? 'cobble' : 'asphalt';
+    const tint = finish ? (isMain ? '#dfdedd' : '#fffaf3') : color;
     const paint = (points: Point[]) => {
       if (points.length < 2) return;
-      strip(points, width + (isPath ? 0.14 : 0.42), 0.38, isPath ? '#a29477' : '#a29f91');
-      strip(points, width, 0.47, color);
+      if (!finish || isPath || road.bridge) {
+        strip(points, width + (isPath ? 0.14 : 0.42), 0.38, isPath ? '#a29477' : '#a29f91');
+      }
+      strip(points, width, 0.47, tint, texture);
       if (!isPath) {
         for (const point of points) {
           const cap = new T.CircleGeometry(width / 2, 10);
           cap.rotateX(-Math.PI / 2).translate(point.x, surface(point.x, point.z) + 0.445, point.z);
-          add(color, cap);
+          add(tint, cap, texture);
         }
       }
       if (!isPath && road.lanes && road.lanes >= 2 && road.markings && !road.unpaved) {
         for (const chunk of lineChunks(points, 3.4, 4.8)) strip(chunk, 0.11, 0.52, road.oneWay ? '#e6e4d9' : '#dfb85e');
       }
       road.sidewalks.forEach((sidewalk, i) => {
-        if (sidewalk) strip(offsetLine(points, (width / 2 + 0.85) * (i ? -1 : 1)), 1.7, 0.57, '#c2b8a5');
+        if (sidewalk) strip(offsetLine(points, (width / 2 + 0.85) * (i ? -1 : 1)), 1.7, 0.57, '#c2b8a5', 'cobble');
       });
       if (road.bridge) for (const side of [-1, 1]) {
-        strip(offsetLine(points, width / 2 * side), 0.27, 0.64, '#c8c1ad');
-        strip(offsetLine(points, width / 2 * side), 0.12, 1.12, '#72857f');
+        const edge = offsetLine(points, width / 2 * side);
+        strip(edge, 0.31, 0.69, '#b9b8ad');
+        if (!finish) {
+          strip(edge, 0.12, 1.12, '#72857f');
+          continue;
+        }
+        const paint = '#515e60';
+        const beam = new T.BoxGeometry(1, 1, 1);
+        const transform = new T.Object3D();
+        for (let i = 1; i < edge.length; i++) {
+          const a = edge[i - 1], b = edge[i];
+          const length = Math.hypot(b.x - a.x, b.z - a.z);
+          if (length < 0.05) continue;
+          const bays = Math.ceil(length / 1.45);
+          const sample = (fraction: number, lift: number) => {
+            const x = T.MathUtils.lerp(a.x, b.x, fraction), z = T.MathUtils.lerp(a.z, b.z, fraction);
+            return new T.Vector3(x, surface(x, z) + lift, z);
+          };
+          for (let bay = 0; bay < bays; bay++) {
+            const at = bay / bays, next = (bay + 1) / bays;
+            const post = sample(at, 1.08);
+            add(paint, beam.clone().scale(0.095, 0.91, 0.095).translate(post.x, post.y, post.z), undefined, true);
+            for (const lift of [1.11, 1.53]) {
+              const from = sample(at, lift), to = sample(next, lift);
+              transform.position.copy(from).lerp(to, 0.5);
+              transform.quaternion.setFromUnitVectors(T.Object3D.DEFAULT_UP, to.clone().sub(from).normalize());
+              transform.scale.set(0.072, from.distanceTo(to) + 0.035, 0.072);
+              transform.updateMatrix();
+              add(paint, beam.clone().applyMatrix4(transform.matrix), undefined, true);
+            }
+          }
+          const end = sample(1, 1.08);
+          add(paint, beam.clone().scale(0.095, 0.91, 0.095).translate(end.x, end.y, end.z), undefined, true);
+        }
+        beam.dispose();
       }
     };
     for (const point of road.points) {
@@ -251,7 +292,8 @@ export function addStreets(data: OpoData, scene: T.Scene) {
     }
     paint(run);
   }
-  for (const area of data.parking) add('#90918a', groundPolygon(area, (x, z) => surface(x, z) + 0.11));
+  for (const area of data.parking) add(finish ? '#ddd9cf' : '#90918a',
+    groundPolygon(area, (x, z) => surface(x, z) + 0.11), 'asphalt');
   const busStops: Point[] = [], benches: Point[] = [];
   for (const item of data.streetPoints) {
     if (item.kind === 'bus') busStops.push(item.position);
@@ -266,12 +308,14 @@ export function addStreets(data: OpoData, scene: T.Scene) {
       strip([{ x: x - dx * 1.08, z: z - dz * 1.08 }, { x: x + dx * 1.08, z: z + dz * 1.08 }], 0.4, 0.545, '#ede8d8');
     }
   }
-  for (const [color, geometries] of layers) {
+  for (const { color, texture, geometry: geometries, castsShadow } of layers.values()) {
     const geometry = mergeGeometries(geometries);
     geometries.forEach(item => item.dispose());
     if (!geometry) continue;
-    const mesh = new T.Mesh(geometry, new T.MeshStandardMaterial({ color, roughness: 0.91, side: T.DoubleSide }));
+    const material = new T.MeshStandardMaterial({ color, roughness: 0.91, side: T.DoubleSide });
+    const mesh = new T.Mesh(geometry, texture && finish ? finish(material, texture) : material);
     mesh.receiveShadow = true;
+    mesh.castShadow = castsShadow;
     scene.add(mesh);
   }
   const markers = (geometry: T.BufferGeometry, color: string, points: Point[], height: number) => {

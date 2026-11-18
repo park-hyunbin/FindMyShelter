@@ -5,7 +5,9 @@ import { buildingCollision, extent, inShape, nearestOnLine, precinct, type OpoDa
 import { addCourtyard, courtyard, courtyardGarden, inCourtyardRing } from './opo-courtyard';
 import { directionProfile } from './opo-horizon';
 import { createLightPath } from './opo-light-path';
+import { createTourMaterials, detailGround } from './opo-materials';
 import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
+import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, approach, playgroundReference } from './opo-site';
 import { addStreets } from './opo-streets';
@@ -15,6 +17,7 @@ export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
 export type SitePoint = Point & { id: string; label: string };
 const roadEntry = [127.164886, 37.351094];
+const approachBridgeId = 835665646;
 const routePlaces = ['수레실.오포롯데캐슬', '능평도서관', '용상골현대아파트', '현동빌라'];
 const headingTo = (from: Point, to: Point) => Math.atan2(to.x - from.x, from.z - to.z);
 
@@ -102,9 +105,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   renderer.domElement.dataset.world = data.region;
   host.appendChild(renderer.domElement);
 
+  const smallScreen = window.innerWidth < 720;
+  const finish = isOpo ? createTourMaterials(Math.min(renderer.capabilities.getMaxAnisotropy(), 8), !smallScreen) : undefined;
+  const sky = isOpo ? createTourSky(scene) : undefined;
+  const fog = scene.fog as T.FogExp2;
+  sky?.light(new T.Vector3(-0.5, 0.5, 0.5).normalize(), 0.5, fog.color);
   const sun = new T.DirectionalLight('#F8E9C6', 2.35);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(window.innerWidth < 720 ? 1024 : 2048, window.innerWidth < 720 ? 1024 : 2048);
+  const shadowResolution = smallScreen ? 1024 : 2048;
+  sun.shadow.mapSize.set(shadowResolution, shadowResolution);
   Object.assign(sun.shadow.camera, { left: -250, right: 250, top: 250, bottom: -250, near: 1, far: 1200 });
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.16;
@@ -114,17 +123,21 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   terrain.castShadow = true;
   scene.add(terrain);
   const { occluders, anchors, roofs } = buildMeshes(data, scene);
-  const environment = addEnvironment(data, scene);
-  const streets = addStreets(data, scene);
+  const streets = addStreets(data, scene, finish);
+  const insideBuilding = buildingCollision(data.buildings);
+  const environment = addEnvironment(data, scene, finish, point => {
+    const road = streets.nearest(point, 14);
+    return insideBuilding(point) || (road !== undefined && road.distance <= road.segment.width / 2 + 0.4);
+  });
+  const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture);
   const site = addSiteDetails(data, scene, streets.surface);
-  if (isOpo) addCourtyard(scene, streets.surface);
+  if (finish) addCourtyard(scene, streets.surface, finish);
   const greenAccess = addGreenAccess(data, scene);
   scene.updateMatrixWorld(true);
   const analysis = createLightAnalyzer(data, terrain, occluders, streets.grade);
   const lightPath = createLightPath(scene, [terrain, ...occluders]);
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
-  const insideBuilding = buildingCollision(data.buildings);
   const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point));
   const roadSpawn = isOpo ? streets.nearest(data.project(roadEntry)) : streets.nearest({ x: 0, z: 0 }, data.buildingRadius);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
@@ -132,7 +145,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const entrance = isOpo ? data.project(approach) : spawn;
   const initialHeading = isOpo ? headingTo(spawn, entrance) : headingTo(roadSpawn.segment.a, roadSpawn.segment.b);
   const destinations: { id: string; name: string; position: Point; lookAt?: Point }[] = isOpo ? [
-    { id: 'approach', name: '오포 롯데캐슬 입구', position: entrance },
+    { id: 'approach', name: '오포 롯데캐슬 진입교', position: entrance },
     courtyard,
     courtyardGarden,
     ...routePlaces.flatMap(name => {
@@ -166,6 +179,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let stickX = 0, stickY = 0;
   let mode: ViewMode = 'orbit';
   let eyeLevel = false;
+  let walkingAtEyeLevel = isOpo;
+  const firstPerson = () => eyeLevel || (mode === 'walk' && walkingAtEyeLevel);
   let selecting = false;
   let active = true;
   let satelliteTexture: T.Texture | null = null;
@@ -174,6 +189,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let showingSatellite = false;
   let driveSegment = roadSpawn.segment;
   let tripIndex = 0;
+  const sunDirection = new T.Vector3(-200, 300, 100).normalize();
+  const shadowFocus = new T.Vector3(Infinity, 0, Infinity);
+  const shadowActor = new T.Vector3(Infinity, 0, Infinity);
+  let lastShadow = -Infinity;
+  let aerialShadows = false;
   const { player, legs } = makePlayer();
   const car = makeCar();
   scene.add(player, car);
@@ -442,7 +462,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     cameraDistance = 1;
     movement.clear();
     stickX = stickY = 0;
-    player.visible = next === 'walk';
+    player.visible = next === 'walk' && !firstPerson();
     car.visible = next === 'drive';
     greenAccess.marker.children.forEach(part => { part.visible = next === 'orbit'; });
     for (const layer of greenAccess.layers) {
@@ -450,6 +470,29 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
     controls.enabled = next === 'orbit' && !selecting;
     if (next === 'orbit') overview();
+  }
+
+  function updateOpoShadows(now: number) {
+    if (!sun.castShadow) return;
+    const aerial = mode === 'orbit';
+    const x = aerial ? controls.target.x : position.x + Math.sin(heading) * 22;
+    const z = aerial ? controls.target.z : position.z - Math.cos(heading) * 22;
+    const radius = aerial ? 270 : smallScreen ? 78 : 94;
+    if (aerial !== aerialShadows || Math.hypot(x - shadowFocus.x, z - shadowFocus.z) > radius * 0.28) {
+      aerialShadows = aerial;
+      shadowFocus.set(x, data.ground(x, z), z);
+      sun.target.position.copy(shadowFocus);
+      sun.position.copy(sunDirection).multiplyScalar(660).add(shadowFocus);
+      Object.assign(sun.shadow.camera, { left: -radius, right: radius, top: radius, bottom: -radius });
+      sun.shadow.camera.updateProjectionMatrix();
+      renderer.shadowMap.needsUpdate = true;
+    }
+    const actor = mode === 'drive' ? car : player;
+    if (actor.visible && now - lastShadow > 130 && actor.position.distanceToSquared(shadowActor) > 0.35 ** 2) {
+      lastShadow = now;
+      shadowActor.copy(actor.position);
+      renderer.shadowMap.needsUpdate = true;
+    }
   }
 
   function showLightPath(location: Point | null, date: string, minute: number, slot: Slot, focus = false) {
@@ -518,15 +561,16 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
     drag.distance += Math.hypot(dx, dy);
     if (!selecting && drag.distance > 5) {
-      viewAngle -= dx * 0.006;
-      pitch = T.MathUtils.clamp(pitch + dy * 0.004, eyeLevel ? -0.63 : -0.05, 0.85);
+      if (firstPerson() && !eyeLevel) heading -= dx * 0.006;
+      else viewAngle -= dx * 0.006;
+      pitch = T.MathUtils.clamp(pitch + dy * 0.004, firstPerson() ? -0.63 : -0.05, 0.85);
     }
     drag.x = event.clientX; drag.y = event.clientY;
   });
   canvas.addEventListener('pointercancel', () => { drag = null; });
   canvas.addEventListener('lostpointercapture', () => { drag = null; });
   canvas.addEventListener('wheel', event => {
-    if (mode === 'orbit' || eyeLevel || selecting) return;
+    if (mode === 'orbit' || firstPerson() || selecting) return;
     event.preventDefault();
     cameraDistance = T.MathUtils.clamp(cameraDistance * Math.exp(event.deltaY * 0.0017), 0.72, 1.75);
   }, { passive: false });
@@ -557,6 +601,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   renderer.setAnimationLoop(now => {
     const elapsed = Math.min(0.045, (now - last) / 1000);
     last = now;
+    const fov = isOpo && firstPerson() ? 60 : 49;
+    if (camera.fov !== fov) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
     if (mode === 'orbit') controls.update();
     else {
       const driving = mode === 'drive';
@@ -614,8 +663,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       if (!driving) legs.forEach((leg, index) => { leg.rotation.x = Math.sin(now / 78 + index * Math.PI) * Math.min(0.68, Math.abs(speed) * 0.25); });
 
       const angle = heading + viewAngle;
-      if (eyeLevel) {
-        camera.position.set(position.x, y + observationHeight, position.z);
+      if (firstPerson()) {
+        const eye = eyeLevel ? y + observationHeight : actor.position.y + 1.6;
+        camera.position.set(position.x, eye, position.z);
         const tilt = (0.17 - pitch) * Math.PI / 2;
         target.set(position.x + Math.sin(angle), camera.position.y + Math.tan(tilt), position.z - Math.cos(angle));
       } else {
@@ -662,7 +712,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         element.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
       }
     }
-    (scene.fog as T.FogExp2).density = mode === 'orbit'
+    if (sky) {
+      sky.follow(camera);
+      updateOpoShadows(now);
+    }
+    environment.waterNormal?.offset.set(now * 0.000018, -now * 0.000033);
+    fog.density = mode === 'orbit'
       ? Math.min(fogDensity, 0.62 / Math.max(1, controls.getDistance())) : fogDensity;
     renderer.render(scene, camera);
   });
@@ -675,6 +730,14 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     sources: { terrain: data.terrainSource, osmSnapshot: data.snapshot, referenceHeight: data.referenceHeight,
       streets: data.streetSource, register: data.buildingRegister },
     setMode,
+    setWalkingCamera(enabled: boolean) {
+      walkingAtEyeLevel = enabled;
+      eyeLevel = false;
+      player.visible = mode === 'walk' && !firstPerson();
+      viewAngle = 0;
+      pitch = 0.17;
+      if (isOpo) renderer.shadowMap.needsUpdate = true;
+    },
     focus() { canvas.focus({ preventScroll: true }); },
     setSelect(enabled: boolean) {
       selecting = enabled;
@@ -708,10 +771,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         if (mode === 'orbit') setMode('walk');
         position = entry.point;
         driveSegment = entry.segment;
-        heading = mode === 'drive' ? headingTo(entry.segment.a, entry.segment.b) : headingTo(position, target.position);
+        const bridge = id === 'approach' && data.streets.find(road => road.id === approachBridgeId);
+        heading = bridge ? headingTo(position, bridge.points.at(-1)!)
+          : mode === 'drive' ? headingTo(entry.segment.a, entry.segment.b) : headingTo(position, target.position);
       }
       eyeLevel = false;
-      player.visible = mode === 'walk';
+      player.visible = mode === 'walk' && !firstPerson();
       tripIndex = 0;
       walkingTo = null;
       viewAngle = 0;
@@ -832,6 +897,23 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     light(date: string, minute: number) {
       const solar = sunAt(data, date, minute);
       const daylight = solar.altitude > 0;
+      if (sky) {
+        sky.light(solar.direction, solar.altitude, fog.color);
+        sunDirection.copy(daylight ? solar.direction : new T.Vector3(-200, 300, 100).normalize());
+        sun.castShadow = daylight;
+        const strength = T.MathUtils.smoothstep(solar.altitude, -0.04, 0.36);
+        sun.intensity = 0.17 + strength * 2.35;
+        sun.color.set(daylight ? '#fff0d7' : '#a5b9df');
+        ambient.intensity = 0.57 + T.MathUtils.smoothstep(solar.altitude, -0.14, 0.24) * 0.98;
+        ambient.color.set(daylight ? '#d9e9fa' : '#98a6d0');
+        ambient.groundColor.set(daylight ? '#6b735d' : '#242c38');
+        shadowFocus.set(Infinity, 0, Infinity);
+        if (!daylight) {
+          sun.target.position.set(45, 0, 0);
+          sun.position.copy(sunDirection).multiplyScalar(660).add(sun.target.position);
+        }
+        return;
+      }
       sun.position.copy(solar.direction).multiplyScalar(660).add(new T.Vector3(45, 0, 0));
       if (!daylight) sun.position.set(-200, 300, 100);
       sun.target.position.set(45, 0, 0);
@@ -855,6 +937,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       if (enabled) await satelliteImage();
       if (!active) return;
       showingSatellite = enabled;
+      if (groundDetail) groundDetail.value = enabled ? 0 : 1;
       terrain.material.map = enabled ? satelliteTexture : terrainPhoto;
       terrain.material.vertexColors = !enabled;
       terrain.material.needsUpdate = true;
@@ -878,12 +961,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         }
       });
       for (const geometry of geometries) geometry.dispose();
+      const textures = new Set<T.Texture>();
       for (const material of materials) {
-        if (material instanceof T.MeshStandardMaterial && material.map !== satelliteTexture && material.map !== terrainPhoto) material.map?.dispose();
+        if (material instanceof T.MeshStandardMaterial) {
+          for (const map of [material.map, material.normalMap, material.roughnessMap]) if (map) textures.add(map);
+        }
         material.dispose();
       }
-      satelliteTexture?.dispose();
-      terrainPhoto?.dispose();
+      for (const texture of [satelliteTexture, terrainPhoto, environment.waterNormal, environment.grassTexture]) if (texture) textures.add(texture);
+      for (const texture of textures) texture.dispose();
       sun.shadow.dispose();
       renderer.dispose();
       canvas.remove();

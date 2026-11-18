@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { groundPolygon, ribbon } from './opo-meshes';
+import { surfaceUV, type TourMaterials } from './opo-materials';
 import type { OpoData, Point } from './opo-data';
 
 // Field photos establish the appearance. The aerial image locates the spaces
@@ -32,13 +33,14 @@ export function inCourtyardRing(point: Point) {
   return Math.hypot((point.x - plaza.x) / 6.7, (point.z - plaza.z) / 6.15) < 1;
 }
 
-export function addCourtyard(scene: T.Scene, surface: OpoData['ground']) {
+export function addCourtyard(scene: T.Scene, surface: OpoData['ground'], finish: TourMaterials) {
   const group = new T.Group();
   group.name = '101·104동 중정 · 사진 기반 근사';
   scene.add(group);
   const material = (color: string) => new T.MeshStandardMaterial({ color, roughness: 0.9, side: T.DoubleSide });
-  const brick = material('#9d7460'), stone = material('#bdb6a5'), blue = material('#67979c');
-  const edge = material('#5c6057'), deck = material('#875e4b'), wall = material('#6e7163'), water = material('#6b938f');
+  const brick = material('#9d7460'), stone = finish(material('#d1c7b4'), 'cobble'), blue = material('#67979c');
+  const edge = material('#5c6057'), deck = material('#875e4b');
+  const wall = finish(material('#b2b3a2'), 'stonewall'), water = material('#6b938f');
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 96;
   const paint = canvas.getContext('2d');
@@ -61,7 +63,8 @@ export function addCourtyard(scene: T.Scene, surface: OpoData['ground']) {
     return mesh;
   };
   const paved = (geometry: T.BufferGeometry, finish: T.Material) => {
-    if (finish === brick && brick.map) {
+    if (finish === stone) surfaceUV(geometry, 'cobble');
+    else if (finish === brick && brick.map) {
       const position = geometry.getAttribute('position');
       const uv = new Float32Array(position.count * 2);
       for (let i = 0; i < position.count; i++) {
@@ -99,6 +102,7 @@ export function addCourtyard(scene: T.Scene, surface: OpoData['ground']) {
     transform.updateMatrix();
     post.setMatrixAt(index, transform.matrix);
   });
+  post.castShadow = true;
   group.add(post);
 
   const green = material('#729447'), ochre = material('#bc9957'), red = material('#af7353');
@@ -136,7 +140,8 @@ export function addCourtyard(scene: T.Scene, surface: OpoData['ground']) {
     geometry.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
-    add(geometry, wall);
+    surfaceUV(geometry, 'stonewall', true);
+    add(geometry, wall).castShadow = true;
     strip(path, 0.48, stone, 1.19 + i * 0.13);
     if (i < 2) strip(path.slice(3, -3).map(p => ({ x: p.x, z: p.z - 0.9 })), 1.55, water, 0.43);
   });
@@ -172,5 +177,7 @@ export function addCourtyard(scene: T.Scene, surface: OpoData['ground']) {
     foliage.setMatrixAt(index, transform.matrix);
     foliage.setColorAt(index, new T.Color(['#668650', '#7e9561', '#896748', '#86a365'][index % 4]));
   });
+  trunks.castShadow = foliage.castShadow = true;
+  foliage.receiveShadow = true;
   group.add(trunks, foliage);
 }
