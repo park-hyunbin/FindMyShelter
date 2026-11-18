@@ -6,6 +6,7 @@ type SurveyYear = {
   nearestSite: number[] | null;
   nearestM: number | null;
   nearestMonth: number | null;
+  nearestPeriods: { start: string; end: string | null }[];
   overlap: boolean;
 };
 
@@ -24,3 +25,7 @@ export const floodWaterSource = {
   river: 'https://www.openstreetmap.org/way/768407483',
 };
 export type FloodView = 'closest' | 'area' | keyof typeof archive.water;
+
+export function floodDistance(distanceM: number) {
+  return `약 ${Math.round(distanceM / 10) * 10}m`;
+}

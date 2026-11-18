@@ -419,7 +419,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     labels.push({ point: label.point, element, enabled: () => Boolean(ambientMap?.group.visible), keepInFrame: true });
     return { label, element };
   });
-  for (const label of floodMap?.labels ?? []) {
+  const floodLabels = (floodMap?.labels ?? []).map(label => {
     const element = document.createElement('span');
     element.className = 'building-label flood-map-label';
     element.dataset.kind = label.kind;
@@ -427,7 +427,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.hidden = true;
     host.appendChild(element);
     labels.push({ point: label.point, element, enabled: () => Boolean(floodMap?.group.visible && label.enabled()), keepInFrame: true });
-  }
+    return { label, element };
+  });
   for (const label of schoolMap?.labels ?? []) {
     const element = document.createElement('span');
     element.className = `building-label school-map-label school-map-${label.kind}`;
@@ -1119,6 +1120,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const points = floodMap.show(year, view);
       updateComparisonMarkers();
       if (!points.length) return;
+      for (const { label, element } of floodLabels) element.textContent = label.text;
       const bounds = new T.Box3().setFromPoints(points);
       const { x, z } = bounds.getSize(new T.Vector3());
       const scale = Math.max(160, x, z);

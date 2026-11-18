@@ -35,6 +35,37 @@ def polygon_parts(geometry):
             yield from polygon_parts(part)
 
 
+def archive_date(value):
+    stamp = str(value).strip()[:8]
+    if len(stamp) != 8 or not stamp.isdigit():
+        return None
+    try:
+        return date.fromisoformat(stamp).isoformat()
+    except ValueError:
+        return None
+
+
+def recorded_periods(reader, nearest, neighbours):
+    names = {field[0] for field in reader.fields}
+    if "F_SAT_YMD" not in names:
+        return []
+    fields = [name for name in ("F_SAT_YMD", "F_END_YMD") if name in names]
+    periods = set()
+    for polygon, oid in neighbours:
+        if polygon is not nearest:
+            intersection = polygon.intersection(nearest).area
+            union = polygon.area + nearest.area - intersection
+            if not union or intersection / union < 0.98:
+                continue
+        row = reader.record(oid, fields=fields).as_dict()
+        start = archive_date(row.get("F_SAT_YMD"))
+        if start:
+            end = archive_date(row.get("F_END_YMD"))
+            periods.add((start, end if end and end >= start else None))
+    ordered = sorted(periods, key=lambda period: (period[0], period[1] or ""))
+    return [{"start": start, "end": end} for start, end in ordered]
+
+
 def inspect_year(path, boundary, window):
     with ZipFile(path) as archive:
         (filename,) = [name for name in archive.namelist() if name.lower().endswith(".shp")]
@@ -53,13 +84,15 @@ def inspect_year(path, boundary, window):
                     if polygon.intersects(window):
                         records.append((polygon, item.oid))
             if not records:
-                return {"polygons": [], "nearest": None, "nearestSite": None, "nearestM": None, "nearestMonth": None, "overlap": False}
+                return {"polygons": [], "nearest": None, "nearestSite": None, "nearestM": None,
+                        "nearestMonth": None, "nearestPeriods": [], "overlap": False}
             nearest, row_index = min(records, key=lambda record: boundary.distance(record[0]))
             month = None
             if any(field[0] == "F_SAT_YMD" for field in reader.fields):
                 entry = str(reader.record(row_index, fields=["F_SAT_YMD"])[0]).strip()
                 if entry[:6].isdigit() and 1 <= int(entry[4:6]) <= 12:
                     month = int(entry[4:6])
+            periods = recorded_periods(reader, nearest, records)
 
     polygons = [polygon for polygon, _ in records]
     overlap = any(polygon.intersects(boundary) for polygon in polygons)
@@ -72,6 +105,7 @@ def inspect_year(path, boundary, window):
         "nearestSite": list(project(on_site, LOCAL_CRS, 4326).coords[0]),
         "nearestM": round(boundary.distance(nearest), 1),
         "nearestMonth": month,
+        "nearestPeriods": periods,
         "overlap": overlap,
     }
 

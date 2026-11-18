@@ -2,7 +2,7 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { floodHistory, type FloodView } from './data/songpa-flood';
+import { floodDistance, floodHistory, type FloodView } from './data/songpa-flood';
 import type { OpoData, Point } from './opo-data';
 import { groundPolygon } from './opo-meshes';
 
@@ -42,33 +42,42 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
       return rings.flatMap(ring => drawOutline(traces, [...ring, ring[0]], traceStroke, 12));
     });
     const nearest = record.nearest ? pointAt(data.project(record.nearest)) : null;
-    if (record.nearest && record.nearestSite && !record.overlap) {
+    const boundary = record.nearestSite && !record.overlap ? pointAt(data.project(record.nearestSite)) : null;
+    if (record.nearest && record.nearestSite && boundary) {
       drawOutline(traces, [data.project(record.nearestSite), data.project(record.nearest)], distanceStroke, 13);
     }
-    return [year, { traces, frames, nearest }];
+    return [year, { traces, frames, nearest, boundary, distance: record.nearestM }];
   }));
 
   const pinGeometry = new T.SphereGeometry(4, 12, 9);
   const nearestMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({ color: '#f7bf66', depthTest: false, depthWrite: false }));
   nearestMarker.scale.setScalar(0.65);
   nearestMarker.renderOrder = 14;
-  group.add(nearestMarker);
+  const boundaryMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({ color: '#70ead1', depthTest: false, depthWrite: false }));
+  boundaryMarker.scale.setScalar(0.5);
+  boundaryMarker.renderOrder = 14;
+  group.add(nearestMarker, boundaryMarker);
   const labelPoint = new T.Vector3();
   const waterMaterial = new T.MeshBasicMaterial({ color: '#8fe4ff', depthTest: false, depthWrite: false });
   const water = Object.fromEntries(Object.entries(floodHistory.water).map(([key, record]) => {
     const layer = new T.Group();
     const pin = new T.Mesh(pinGeometry, waterMaterial);
-    pin.position.copy(pointAt(data.project(record.point), 4.7));
+    pin.position.copy(pointAt(data.project(record.point)));
     pin.renderOrder = 14;
     layer.add(pin);
     drawOutline(layer, [data.project(record.sitePoint), data.project(record.point)], distanceStroke, 13);
     group.add(layer);
-    return [key, { layer, pin }];
+    return [key, {
+      layer, pin,
+      boundary: pointAt(data.project(record.sitePoint)),
+      text: `${record.name} · ${floodDistance(record.distanceM)}`,
+    }];
   }));
+  const traceLabel = { text: '가장 가까운 침수 기록', point: labelPoint, kind: 'trace', enabled: () => nearestMarker.visible };
   const labels = [
-    { text: '가장 가까운 침수 기록', point: labelPoint, kind: 'trace', enabled: () => nearestMarker.visible },
-    ...Object.entries(water).map(([key, { layer, pin }]) => ({
-      text: floodHistory.water[key as keyof typeof floodHistory.water].name,
+    traceLabel,
+    ...Object.values(water).map(({ layer, pin, text }) => ({
+      text,
       point: pin.position.clone().add(new T.Vector3(0, 9, 0)), kind: 'water', enabled: () => layer.visible,
     })),
   ];
@@ -82,11 +91,16 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
       for (const [key, { layer }] of Object.entries(water)) layer.visible = year !== null && view === key;
       const selected = year === null ? undefined : years.get(year);
       const nearest = selected?.nearest;
+      const boundary = traceView ? selected?.boundary : water[view].boundary;
+      boundaryMarker.visible = year !== null && Boolean(boundary);
+      if (boundary) boundaryMarker.position.copy(boundary);
       nearestMarker.visible = traceView && Boolean(nearest);
       if (!selected) return [];
       if (nearest && traceView) {
-        nearestMarker.position.copy(nearest).add(new T.Vector3(0, 4, 0));
+        nearestMarker.position.copy(nearest);
         labelPoint.copy(nearestMarker.position).add(new T.Vector3(0, 10, 0));
+        const distance = selected.distance;
+        traceLabel.text = boundary && distance !== null ? `침수 기록 · ${floodDistance(distance)}` : '단지 경계와 겹치는 침수 기록';
       }
       if (view === 'closest') return nearest ? [...site, labelPoint] : site;
       if (view === 'area') return [...site, ...selected.frames];
