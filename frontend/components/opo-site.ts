@@ -22,14 +22,14 @@ export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
 
 function addSongiPark(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
-  const pavers = finish(new T.MeshStandardMaterial({ color: '#b2ada1', roughness: 0.95, side: T.DoubleSide }), 'cobble');
-  const ground = new T.MeshStandardMaterial({ color: '#b4a083', roughness: 0.98, side: T.DoubleSide });
   const surfaces = [
-    { geometry: groundPolygon([songiPark.plaza.map(data.project)], grade, 3, 0.22), material: pavers },
-    { geometry: groundPolygon([songiPark.clearing.map(data.project)], grade, 4, 0.17), material: ground },
-  ];
-  for (const { geometry, material } of surfaces) {
-    if (material === pavers) surfaceUV(geometry, 'cobble');
+    { outline: songiPark.plaza, edge: 3, lift: 0.22, color: '#ded8cc', texture: 'pavers' },
+    { outline: songiPark.clearing, edge: 4, lift: 0.17, color: '#d7b996', texture: 'forest' },
+  ] as const;
+  for (const { outline, edge, lift, color, texture } of surfaces) {
+    const geometry = groundPolygon([outline.map(data.project)], grade, edge, lift);
+    surfaceUV(geometry, texture);
+    const material = finish(new T.MeshStandardMaterial({ color, roughness: 0.95, side: T.DoubleSide }), texture);
     const path = new T.Mesh(geometry, material);
     path.receiveShadow = true;
     scene.add(path);

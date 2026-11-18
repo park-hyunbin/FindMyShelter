@@ -4,6 +4,7 @@ import { songpaCourtyard } from './data/songpa-grounds';
 import type { OpoData, Point } from './opo-data';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon } from './opo-meshes';
+import { shrubModel } from './opo-vegetation';
 
 export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   const group = new T.Group();
@@ -48,8 +49,9 @@ export function addSongpaCourtyard(data: OpoData, scene: T.Scene, grade: OpoData
   curbMesh.receiveShadow = true;
   group.add(curbMesh);
 
-  const shrubs = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshStandardMaterial({ roughness: 0.98 }), plants.length);
-  const shrubColors = ['#4b653a', '#65774c', '#708450', '#4c633f'].map(color => new T.Color(color));
+  const shrub = shrubModel();
+  const shrubs = new T.InstancedMesh(shrub.leaves, shrub.material, plants.length);
+  const shrubColors = ['#63754a', '#71835b', '#849264', '#697b53'].map(color => new T.Color(color));
   const transform = new T.Object3D();
   plants.forEach(({ x, y, z, size }, i) => {
     transform.position.set(x, y, z);

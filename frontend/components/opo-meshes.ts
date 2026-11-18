@@ -7,6 +7,7 @@ import { addSongpaTowerExterior, songpaExteriorMaterials } from './opo-songpa-ex
 import { addStreetExterior } from './opo-street-exterior';
 import { buildingAppearance } from './data/building-appearance';
 import { buildingProfile, buildingProfiles, type BuildingUse } from './data/building-profile';
+import { addLandscapeTrees } from './opo-vegetation';
 
 export function shapeFrom(rings: Shape) {
   const path = (ring: Point[]) => ring.map(({ x, z }) => new T.Vector2(x, -z));
@@ -347,35 +348,6 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
   return { occluders, anchors, roofs };
 }
 
-// Layered conifer geometry adapted from Walkable City's instanced forest.
-function coniferCrown() {
-  const levels = Array.from({ length: 5 }, (_, i) => {
-    const radius = 0.28 - i * 0.051;
-    return new T.ConeGeometry(radius, 0.32 - i * 0.022, 9, 1, true)
-      .rotateY(i * 0.8).translate(Math.sin(i) * 0.032, 0.42 + i * 0.107, 0);
-  });
-  const geometry = mergeGeometries(levels)!;
-  levels.forEach(level => level.dispose());
-  return geometry;
-}
-
-function broadleafCrown() {
-  const branches = [[0, 0.82, 0, 0.22], [0.15, 0.69, 0.03, 0.22], [-0.13, 0.66, 0.09, 0.23],
-    [0.02, 0.74, -0.12, 0.22], [-0.04, 0.62, -0.06, 0.19]];
-  const crowns = branches.map(([x, y, z, r], i) => new T.IcosahedronGeometry(r, 1)
-    .scale(1, 0.93, 0.88).rotateY(i * 1.4).translate(x, y, z));
-  const geometry = mergeGeometries(crowns)!;
-  crowns.forEach(crown => crown.dispose());
-  const positions = geometry.getAttribute('position');
-  const color = new T.Color();
-  const colors = new Float32Array(positions.count * 3);
-  for (let i = 0; i < positions.count; i++) {
-    color.setScalar(T.MathUtils.smoothstep(positions.getY(i), 0.36, 1.02) * 0.46 + 0.52).toArray(colors, i * 3);
-  }
-  geometry.setAttribute('color', new T.BufferAttribute(colors, 3));
-  return geometry;
-}
-
 function addReeds(group: T.Group, locations: Point[], surface: OpoData['ground'], random: () => number) {
   if (!locations.length) return;
   const vertices: number[] = [];
@@ -506,52 +478,7 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
     trees.push(...forest.placements(random, point => !canPlant(point) || Boolean(inComplex && inShape(point, inComplex))));
   }
   for (const point of data.streetPoints) if (point.kind === 'tree' && canPlant(point.position)) trees.push(point.position);
-  const transform = new T.Object3D();
-  const treeMaterial = new T.MeshStandardMaterial({ color: '#93a776', roughness: 1 });
-  const trunkMaterial = new T.MeshStandardMaterial({ color: '#746250', roughness: 1 });
-  const canopies = { broadleaf: [] as Point[], conifer: [] as Point[], distant: [] as Point[] };
-  trees.forEach((tree, i) => {
-    if (!finish || Math.hypot(tree.x, tree.z) > 430) canopies.distant.push(tree);
-    else if (i % 4 === 0) canopies.conifer.push(tree);
-    else canopies.broadleaf.push(tree);
-  });
-  const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.075, 0.19, 1, 7), trunkMaterial, trees.length);
-  const leafColor = new T.Color();
-  let trunkIndex = 0;
-  for (const type of ['broadleaf', 'conifer', 'distant'] as const) {
-    const points = canopies[type];
-    if (!points.length) continue;
-    const detailed = type !== 'distant';
-    const geometry = type === 'conifer' ? coniferCrown() : type === 'broadleaf' ? broadleafCrown() : new T.SphereGeometry(1, 8, 5);
-    const foliageMaterial = detailed ? new T.MeshStandardMaterial({
-      color: '#ffffff', roughness: 0.96, vertexColors: type === 'broadleaf',
-      side: type === 'conifer' ? T.DoubleSide : T.FrontSide,
-    }) : treeMaterial;
-    const canopy = new T.InstancedMesh(geometry, foliageMaterial, points.length);
-    canopy.name = `주변 수목 · ${type}`;
-    canopy.castShadow = detailed;
-    canopy.receiveShadow = true;
-    points.forEach(({ x, z }, i) => {
-      const height = forest ? 6.3 + random() * 6.5 : detailed ? 4.4 + random() * 5.3 : 3.5 + random() * 4;
-      const y = surface(x, z);
-      transform.position.set(x, detailed ? y : y + height * 0.66, z);
-      if (detailed) transform.scale.setScalar(height);
-      else transform.scale.set(height * 0.30, height * (i % 4 ? 0.43 : 0.58), height * 0.30);
-      transform.rotation.y = random() * Math.PI;
-      transform.updateMatrix();
-      canopy.setMatrixAt(i, transform.matrix);
-      const hue = type === 'conifer' ? 0.28 + random() * 0.045 : 0.19 + random() * 0.092;
-      canopy.setColorAt(i, leafColor.setHSL(hue, detailed ? 0.29 : 0.19, 0.34 + random() * 0.16, T.SRGBColorSpace));
-      transform.position.y = y + height * 0.275;
-      transform.scale.set(height * 0.19, height * 0.55, height * 0.19);
-      transform.updateMatrix();
-      trunk.setMatrixAt(trunkIndex++, transform.matrix);
-    });
-    vegetation.add(canopy);
-  }
-  if (trees.length) vegetation.add(trunk);
-  else { trunk.geometry.dispose(); trunkMaterial.dispose(); }
-  if (!canopies.distant.length) treeMaterial.dispose();
+  addLandscapeTrees(vegetation, trees, surface, Boolean(finish), Boolean(forest));
   addReeds(surfaceOverlays, riverbanks, surface, random);
   return { greens, waters, surfaceOverlays, landCoverOverlays, vegetation, waterNormal, grassTexture: materials.grass.map };
 }
