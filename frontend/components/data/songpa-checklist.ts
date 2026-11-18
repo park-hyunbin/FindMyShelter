@@ -11,7 +11,9 @@ import { songpaArchitecture } from './songpa-architecture';
 import { songpaRouteElevation } from './songpa-route-elevation';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'sun' | 'winter-walk' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'entrance' | 'ambient' | 'flood';
+export type ChecklistView = 'complex' | 'sun' | 'winter-walk' | 'winter-capture' | 'horizon' | 'school' | 'places'
+  | 'station-home' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route'
+  | 'paving' | 'parking' | 'entrance' | 'garage' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -59,7 +61,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'model',
         finding: '정문 횡단부를 살펴보고, 103·104동 사이 산책로와 등록된 놀이터 주변을 눈높이에서 둘러볼 수 있어요.',
         followUp: '놀이기구의 상태와 정문에서 단지 안으로 이어지는 보행로의 단차를 현장에서 확인해 보세요.',
-        views: [{ target: 'entrance', label: '정문과 주차장 입구 보기' }, { target: 'paving', label: '산책로와 놀이터 보기' }],
+        views: [{ target: 'entrance', label: '정문 횡단부 눈높이 보기' }, { target: 'paving', label: '산책로와 놀이터 지점 고르기' }],
         sources: [{ label: '정문 로드뷰', url: songpaEntrance.main.roadview }, { label: '단지 안 보행로 사진', url: songpaCourtyard.groundPhoto },
           { label: '행정안전부 놀이시설 현황', url: songpaFacilities.playground }],
       },
@@ -71,7 +73,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       {
         id: 'transit', title: '역·정류장까지 걷기', evidence: 'model',
         finding: '송파역 2번 출구부터 정문을 지나 단지 안 포장 공간까지 주요 지점의 눈높이를 볼 수 있어요. 역과 정문 앞의 보행 연결과 버스정류장 경로는 현장 확인이 필요해요.',
-        views: [{ target: 'station-route', label: '송파역 귀갓길 열기' }],
+        views: [{ target: 'station-home', label: '송파역에서 귀갓길 체험' }],
         followUp: '출근할 시간에 횡단보도, 신호 대기, 계단과 실제 걸린 시간을 기록해 보세요.',
         sources: [walkingNetwork],
       },
@@ -119,7 +121,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'parking', title: '주차와 관리', evidence: 'document',
         finding: 'K-apt의 지상·지하 주차면과 승강기 수를 확인하고, 102동 옆 주차장 덮개를 길에서 볼 수 있어요.',
         followUp: '저녁 빈자리, 방문차량 이용, 청소와 조경 상태를 살펴보세요. 관리비를 비교할 때는 기준월과 면적을 맞춰 보세요.',
-        views: [{ target: 'parking', label: '주차·승강기 공시 보기' }, { target: 'entrance', label: '주차장 입구 보기' }],
+        views: [{ target: 'parking', label: '주차·승강기 공시 보기' }, { target: 'garage', label: '주차장 입구 눈높이 보기' }],
         sources: [seoulComplex, { label: 'K-apt 관리시설정보', url: songpaFacilities.management },
           { label: '송파구 지하주차장 입구 위치 기록', url: songpaEntrance.record }],
       },

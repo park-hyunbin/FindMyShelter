@@ -315,6 +315,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const analysisPanel = useRef<HTMLElement>(null);
   const activeAccessCard = useRef<HTMLDivElement>(null);
   const pendingSiteCard = useRef<'paving' | 'parking' | 'entrance' | null>(null);
+  const returnChecklistItem = useRef<string | null>(null);
   const winterDetails = useRef<HTMLDetailsElement>(null);
   const winterWalkDetails = useRef<HTMLDetailsElement>(null);
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
@@ -464,19 +465,23 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [showWinterWalk, open, tab]);
 
   useEffect(() => {
-    if (!showVisitPlan || !open || tab !== 'checklist') return;
-    const plan = analysisPanel.current?.querySelector<HTMLDetailsElement>('[data-check-id="visit-plan"]');
-    if (!plan) return;
-    plan.open = true;
-    plan.scrollIntoView({ block: 'start' });
-    setShowVisitPlan(false);
+    if (!open || tab !== 'checklist') return;
+    const checkId = showVisitPlan ? 'visit-plan' : returnChecklistItem.current;
+    if (!checkId) return;
+    const item = analysisPanel.current?.querySelector<HTMLDetailsElement>(`[data-check-id="${checkId}"]`);
+    if (!item) return;
+    item.open = true;
+    item.scrollIntoView({ block: 'start' });
+    item.querySelector('summary')?.focus({ preventScroll: true });
+    returnChecklistItem.current = null;
+    if (showVisitPlan) setShowVisitPlan(false);
   }, [showVisitPlan, open, tab]);
 
   useEffect(() => {
-    if (tab !== 'site' || !pendingSiteCard.current) return;
+    if (!open || tab !== 'site' || !pendingSiteCard.current) return;
     analysisPanel.current?.querySelector(`[data-site-card="${pendingSiteCard.current}"]`)?.scrollIntoView({ block: 'nearest' });
     pendingSiteCard.current = null;
-  }, [tab]);
+  }, [open, tab]);
 
   const lightPoint = lightSlot ? points[lightSlot] : undefined;
   useEffect(() => {
@@ -599,6 +604,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setSelectedSlot(null);
     setStatus('');
     hideTreeCover();
+    setWalkingAtEyeLevel(true);
+    world.setWalkingCamera(true);
     world.lookFrom(point.position, point.bearing, 0);
     setMode('walk');
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
@@ -688,12 +695,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       const stops = world.greenAccessProfiles.find(route => route.id === scene.routeId)?.homeWalk?.stops;
       const index = stops?.findIndex(stop => stop.id === scene.stopId) ?? -1;
       if (index < 0) return false;
+      returnChecklistItem.current = 'visit-plan';
       chooseTab('nature');
       viewHomeStop(scene.routeId, index);
       return true;
     }
     const point = world.presets.find(item => item.id === scene.pointId);
     if (!point || !world.destinations.some(item => item.id === point.id)) return false;
+    returnChecklistItem.current = 'visit-plan';
     openWinterWalk();
     setWinterWalkSelection({ id: point.id, hour: scene.minute / 60 });
     viewWinterWalk(point, scene.date, scene.minute, false);
@@ -706,11 +715,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setMinute(at);
     choosePoint('A', point);
     if (!trace) {
-      if (visit(point.id, true)) {
-        setWalkingAtEyeLevel(true);
-        world.setWalkingCamera(true);
-        world.focus();
-      }
+      visitAtEyeLevel(point.id, true);
       return;
     }
     setWinterViewing(false);
@@ -767,8 +772,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     return true;
   }
 
-  function openChecklistView(target: ChecklistView) {
+  function visitAtEyeLevel(id: string, withStudyLighting = false) {
+    if (!world || !visit(id, withStudyLighting)) return;
+    setWalkingAtEyeLevel(true);
+    world.setWalkingCamera(true);
+    world.focus();
+  }
+
+  function openChecklistView(target: ChecklistView, checkId: string) {
     if (!world) return;
+    returnChecklistItem.current = checkId;
     switch (target) {
       case 'complex':
         chooseTab('site');
@@ -777,9 +790,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'paving':
       case 'parking':
-      case 'entrance':
         pendingSiteCard.current = target;
         chooseTab('site');
+        break;
+      case 'entrance':
+      case 'garage':
+        pendingSiteCard.current = 'entrance';
+        chooseTab('site');
+        visitAtEyeLevel(target === 'garage' ? songpaEntrance.garage.id : songpaEntrance.main.id);
         break;
       case 'sun':
         chooseTab('sun');
@@ -800,6 +818,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'flood':
         chooseTab('flood');
+        break;
+      case 'station-home':
+        chooseTab('nature');
+        viewHomeStop(songpaStationRouteId, 0);
         break;
       case 'station-route':
       case 'park-route':

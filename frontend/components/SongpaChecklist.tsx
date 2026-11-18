@@ -45,7 +45,7 @@ function modelTime(scene: FieldScene) {
 }
 
 export default function SongpaChecklist({ onView, sceneReady, field, onOpenField, onShowField }: {
-  onView: (view: ChecklistView) => void;
+  onView: (view: ChecklistView, checkId: string) => void;
   sceneReady: boolean;
   field: FieldVisits;
   onOpenField: (scene: FieldScene) => boolean;
@@ -127,7 +127,7 @@ export default function SongpaChecklist({ onView, sceneReady, field, onOpenField
             {check.followUp && <p className="checklist-followup">{check.followUp}</p>}
             {check.views && <div className="checklist-views">
               {check.views.map(view => <button key={view.target} type="button" disabled={!sceneReady}
-                onClick={() => onView(view.target)}>{view.label}</button>)}
+                onClick={() => onView(view.target, check.id)}>{view.label}</button>)}
             </div>}
             {check.sources && <ul className="checklist-sources">
               {check.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.label} ↗</a></li>)}
