@@ -525,7 +525,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     const { x, z } = layer.endpoint;
     labels.push({ point: layer.entranceLabel ?? new T.Vector3(x, data.ground(x, z) + 5, z), element,
-      enabled: () => layer.group.visible && (!greenAccess.marker.visible
+      enabled: () => layer.group.visible && mode === 'orbit' && (!greenAccess.marker.visible
         || Math.hypot(greenAccess.marker.position.x - x, greenAccess.marker.position.z - z) > 15), keepInFrame: true });
     const arrival = layer.homeWalk?.stops.at(-1);
     if (arrival) {
