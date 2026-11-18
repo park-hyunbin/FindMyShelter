@@ -12,6 +12,18 @@ export const songpaFacilities = {
   management: 'https://www.k-apt.go.kr/kaptinfo/openKaptMng.do',
 };
 
+export const songpaManagementFees = {
+  month: '2026년 9월',
+  checkedOn: '2026-11-19',
+  source: 'https://www.k-apt.go.kr/web/main/index.do',
+  commonPerSquareMeter: 1_481.621155,
+  charges: [
+    { label: '공용관리비', won: 50_523_474 },
+    { label: '개별사용료', won: 33_873_038 },
+    { label: '장기수선충당금 월부과액', won: 12_048_860 },
+  ],
+};
+
 type Coordinate = [longitude: number, latitude: number];
 
 export const songpaPlayground = {

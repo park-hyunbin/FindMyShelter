@@ -1,5 +1,5 @@
 import { songpaComplex } from './regions';
-import { songpaCourtyard, songpaFacilities, songpaPlayground } from './songpa-grounds';
+import { songpaCourtyard, songpaFacilities, songpaManagementFees, songpaPlayground } from './songpa-grounds';
 import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
 import { floodSource } from './songpa-flood';
@@ -119,10 +119,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'parking', title: '주차와 관리', evidence: 'document',
-        finding: 'K-apt의 지상·지하 주차면과 승강기 수를 확인하고, 102동 옆 주차장 덮개를 길에서 볼 수 있어요.',
-        followUp: '저녁 빈자리, 방문차량 이용, 청소와 조경 상태를 살펴보세요. 관리비를 비교할 때는 기준월과 면적을 맞춰 보세요.',
-        views: [{ target: 'parking', label: '주차·승강기 공시 보기' }, { target: 'garage', label: '주차장 입구 눈높이 보기' }],
+        finding: `지상·지하 주차면, 승강기 수와 ${songpaManagementFees.month} 발생분 관리비를 K-apt 공시에서 확인했어요.`,
+        followUp: '저녁 빈자리, 방문차량 이용, 청소와 조경 상태를 살펴보세요. 다른 단지의 공용관리비는 같은 발생월의 주거전용면적 ㎡당 금액으로 비교해 보세요.',
+        views: [{ target: 'parking', label: '주차·관리비 공시 보기' }, { target: 'garage', label: '주차장 입구 눈높이 보기' }],
         sources: [seoulComplex, { label: 'K-apt 관리시설정보', url: songpaFacilities.management },
+          { label: 'K-apt 우리단지 관리비등 조회', url: songpaManagementFees.source },
           { label: '송파구 지하주차장 입구 위치 기록', url: songpaEntrance.record }],
       },
       {

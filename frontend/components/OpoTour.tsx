@@ -14,7 +14,7 @@ import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
-import { songpaCourtyard, songpaFacilities, songpaGrounds, songpaPlayground } from './data/songpa-grounds';
+import { songpaCourtyard, songpaFacilities, songpaGrounds, songpaManagementFees, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
@@ -898,6 +898,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const buildingRegister = world?.sources.register;
   const selectedPlace = world?.places.find(place => place.id === selectedPlaceId);
   const parkingSpaces = songpaFacilities.surfaceParking + songpaFacilities.undergroundParking;
+  const managementTotal = songpaManagementFees.charges.reduce((sum, charge) => sum + charge.won, 0);
   const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
   const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
   const homeWalk = guidedAccessId ? world?.greenAccessProfiles.find(route => route.id === guidedAccessId)?.homeWalk : null;
@@ -1369,12 +1370,26 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <a href={songpaEntrance.record} target="_blank" rel="noreferrer">송파구 102동 지하주차장 입구 위치 기록 ↗</a>
           </div>
         </article>
-        <article className="site-card" data-site-card="parking" aria-label="주차와 공용시설 공시">
-          <h3>주차와 공용시설</h3>
+        <article className="site-card" data-site-card="parking" aria-label="주차와 관리 공시">
+          <h3>주차와 관리</h3>
           <p>{parkingSpaces}면 · 세대당 {(parkingSpaces / songpaFacilities.households).toFixed(2)}면</p>
           <p>지상 {songpaFacilities.surfaceParking}면 · 지하 {songpaFacilities.undergroundParking}면 · 승강기 {songpaFacilities.lifts}대</p>
           <p>{songpaFacilities.sharedFacilities.join(' · ')}</p>
           <p>관리사무소·경로당·자전거보관소 위치와 방문 주차 조건은 현장 확인이 필요해요.</p>
+          <div className="basis">
+            <strong>관리비 · {songpaManagementFees.month} 발생분</strong>
+            <p>공용관리비는 주거전용면적 ㎡당 약 {Math.round(songpaManagementFees.commonPerSquareMeter).toLocaleString('ko-KR')}원이에요.</p>
+            <table className="tower-register">
+              <thead><tr><th scope="col">항목</th><th scope="col">단지 전체 금액</th></tr></thead>
+              <tbody>{songpaManagementFees.charges.map(charge => <tr key={charge.label}>
+                <th scope="row">{charge.label}</th><td>{charge.won.toLocaleString('ko-KR')}원</td>
+              </tr>)}</tbody>
+              <tfoot><tr><th scope="row">합계</th><td>{managementTotal.toLocaleString('ko-KR')}원</td></tr></tfoot>
+            </table>
+            <p>세대별 고지액은 면적과 사용량 등에 따라 달라요.</p>
+            <a href={songpaManagementFees.source} target="_blank" rel="noreferrer">K-apt 관리비 원문 조회 ↗</a>
+            <p>관리비 → 우리단지 관리비등 조회에서 가락동부센트레빌과 발생월을 선택하세요. {songpaManagementFees.checkedOn} 확인</p>
+          </div>
           <div className="basis">
             <p>{songpaFacilities.checkedOn} 조회 · 단지코드 {songpaFacilities.complexCode}</p>
             <a href={songpaFacilities.management} target="_blank" rel="noreferrer">K-apt 관리시설정보 ↗</a>
