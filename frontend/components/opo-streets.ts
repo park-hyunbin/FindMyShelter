@@ -606,23 +606,6 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (item.kind === 'bench') benches.push(item.position);
   }
   for (const crossing of crossings) zebra(crossing);
-  if (roadPaint) for (const { area, ring } of exactCrossings) {
-    const mask = groundPolygon([ring], () => 0, Infinity, 0);
-    const clipper = createRoadPaintClipper();
-    clipper.addSurface(mask);
-    const at = crosswalkFrame(area);
-    const depth = area.depth / 2;
-    for (const offset of zebraOffsets(area.section.width)) {
-      const stripe = ribbon([at(-depth, offset), at(depth, offset)], 0.44, () => 0);
-      const section = clipper.clip(stripe, 0);
-      // Read height from the rendered road triangles after clipping to the surveyed outline.
-      add('#eeeee4', roadPaint.clip(section, 0.034));
-      section.dispose();
-      stripe.dispose();
-    }
-    clipper.clear();
-    mask.dispose();
-  }
   function flushLayers() {
     for (const { color, texture, geometry: geometries, castsShadow, priority } of layers.values()) {
       const geometry = mergeGeometries(geometries);
@@ -648,6 +631,23 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   function addSurveyedPaint(asphaltDecks: T.BufferGeometry[] = []) {
     if (!roadPaint) return;
     for (const deck of asphaltDecks) roadPaint.addSurface(deck);
+    for (const { area, ring } of exactCrossings) {
+      const mask = groundPolygon([ring], () => 0, Infinity, 0);
+      const clipper = createRoadPaintClipper();
+      clipper.addSurface(mask);
+      const at = crosswalkFrame(area);
+      const depth = area.depth / 2;
+      for (const offset of zebraOffsets(area.section.width)) {
+        const stripe = ribbon([at(-depth, offset), at(depth, offset)], 0.44, () => 0);
+        const section = clipper.clip(stripe, 0);
+        // Fit the surveyed paint to the asphalt, including the adjoining site driveway.
+        add('#eeeee4', roadPaint.clip(section, 0.034));
+        section.dispose();
+        stripe.dispose();
+      }
+      clipper.clear();
+      mask.dispose();
+    }
     for (const { style, points } of surveyedLines) surveyedPaint(points, style, roadPaint);
     flushLayers();
     roadPaint.clear();

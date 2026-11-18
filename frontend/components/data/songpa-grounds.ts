@@ -146,12 +146,36 @@ const songpaApproachEast = [
   [127.1172015, 37.4979216], [127.1171764, 37.4979217], [127.1171387, 37.4979134],
   [127.1171237, 37.4979037], [127.1171040, 37.4978893], ...songpaStreetEdge.slice(0, 2),
 ] satisfies Coordinate[];
+const songpaDrivewayJoin = [
+  songpaApproachEast[0], [127.1170812, 37.4980249], [127.1170194, 37.4980780],
+] satisfies Coordinate[];
 // The opposite edge uses the orthophoto where visible and is approximate under the trees.
-// Its first point is on the published Yangjae-daero 60-gil pavement boundary.
+// The two northern points share the main road boundary. The approach wraps around N1A_A0043325 crossing 14.
 const songpaApproachWest = [
-  [127.1171640, 37.4979538], [127.1171090, 37.4979170], [127.1170470, 37.4978800],
+  ...songpaDrivewayJoin.slice(1),
+  [127.1169984, 37.4980526], [127.1169931, 37.4980100], [127.1169904, 37.4979781],
+  [127.1170011, 37.4979355], [127.1170199, 37.4978972], [127.1170470, 37.4978800],
   [127.1169980, 37.4978510], [127.1169270, 37.4978150], [127.1168751, 37.4977866],
 ] satisfies Coordinate[];
+
+export const songpaJunction = {
+  crossingSource: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0043325.zip',
+  crossings: [{
+    // Crossing over the Songpa-daero 32-gil mouth, UFID ending in 14.
+    start: [127.1170250, 37.4980161], end: [127.1171278, 37.4979335],
+    outline: [
+      [127.1170348, 37.4980489], [127.1171526, 37.4979535],
+      [127.1171029, 37.4979135], [127.1170152, 37.4979834],
+    ],
+  }, {
+    // Crossing over Yangjae-daero 60-gil, UFID ending in 15.
+    start: [127.1170064, 37.4981201], end: [127.1171010, 37.4981690],
+    outline: [
+      [127.1170819, 37.4981918], [127.1171201, 37.4981463],
+      [127.1170265, 37.4980968], [127.1169863, 37.4981434],
+    ],
+  }] satisfies NonNullable<SiteSurfaceLayout['surveyedCrossings']>,
+};
 
 // Approach under the 102 canopy. Use N1L road edges ending in 151 and 142
 // where they flank the drive, and the orthophoto to close the ends.
@@ -205,9 +229,7 @@ export const songpaFrontage = {
   // Continuous planted ground interpreted from the 2025-10-28 orthophoto.
   plantedGround: [
     [
-      [127.1169823, 37.4981185], [127.1170145, 37.4980675], [127.1170360, 37.4979972],
-      [127.1170440, 37.4979462], [127.1170521, 37.4979036], [127.1170333, 37.4978781],
-      [127.1169823, 37.4978525], [127.1169314, 37.4978249], [127.1168751, 37.4978036],
+      [127.1169823, 37.4981185], ...songpaApproachWest.slice(1, -1), [127.1168751, 37.4978036],
       [127.1168268, 37.4978376], [127.1168590, 37.4978972], [127.1168804, 37.4979802],
       [127.1169207, 37.4981015],
     ],
@@ -266,7 +288,7 @@ export const songpaFrontage = {
     [127.1169126, 37.4980845], [127.1169341, 37.4980207], [127.1169636, 37.4979802],
     [127.1169394, 37.4979249], [127.1169180, 37.4978823], [127.1168724, 37.4978525],
     [127.1169421, 37.4976887], [127.1168938, 37.4976121],
-    [127.1169904, 37.4978760], [127.1170145, 37.4979589], [127.1169823, 37.4978504],
+    [127.1169904, 37.4978760], [127.1169823, 37.4978504],
     [127.1170360, 37.4977696], [127.1171057, 37.4978249], [127.1171862, 37.4978653],
   ] satisfies Coordinate[],
   // N1P_D0030000 public street trees. Sizes are not populated in the source.
@@ -328,7 +350,7 @@ export const songpaSurfaceLayout = {
     ],
   }],
   surveyedJunctions: songiParkSurvey.pavement,
-  surveyedCrossings: songiParkSurvey.crosswalks,
+  surveyedCrossings: [...songiParkSurvey.crosswalks, ...songpaJunction.crossings],
   surveyedWalks: [...songiParkSurvey.sidewalks, {
     roadId: 169916276,
     side: -1,
@@ -370,6 +392,7 @@ export const songpaSurfaceLayout = {
   }],
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
+  drivewayJoin: songpaDrivewayJoin,
   crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),
   parkingRows: songpaGrounds.parkingRows,
 } satisfies SiteSurfaceLayout;

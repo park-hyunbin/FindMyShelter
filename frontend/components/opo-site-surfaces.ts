@@ -52,6 +52,7 @@ export type SiteSurfaceLayout = {
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
   drivewayRoad?: Omit<SurveyedRoad, 'outline'>;
+  drivewayJoin?: Coordinate[];
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   surveyedWalks?: SurveyedWalk[];
   surveyedRoads?: SurveyedRoad[];
@@ -154,7 +155,7 @@ export function addSiteSurfaces(
     const clearance = Math.min(roadClearance({ x, z }), crossingClearance);
     const blend = T.MathUtils.smoothstep(clearance, 0, roadBlendWidth);
     // Hold the whole crossing at street-deck grade before transitioning to the courtyard.
-    return grade(x, z) + T.MathUtils.lerp(streetDeckLift + 0.02, 0.15, blend);
+    return grade(x, z) + T.MathUtils.lerp(streetDeckLift, 0.15, blend);
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
   const drivewayDecks: typeof decks = [];
@@ -250,6 +251,11 @@ export function addSiteSurfaces(
   const drivewayCenterline: Point[] | undefined = layout.drive && curve(layout.drive.points);
   if (layout.pavedDrive) {
     add(groundPolygon([layout.pavedDrive.map(data.project)], drivewayGrade, 0.65, 0), asphalt, 'asphalt');
+    if (layout.drivewayJoin) {
+      // Keep the sub-centimetre gap between independently tessellated pavement edges covered.
+      const join = layout.drivewayJoin.map(data.project);
+      add(ribbon(join, 0.16, (x, z) => grade(x, z) + streetDeckLift - 0.012, 0.08, 0.65), asphalt, 'asphalt');
+    }
   } else if (layout.drive && drivewayCenterline) {
     add(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1), asphalt, 'asphalt');
   }
