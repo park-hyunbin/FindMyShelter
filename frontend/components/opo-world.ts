@@ -23,7 +23,7 @@ import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
-import { songpaWinterCapture } from './data/songpa-winter-capture';
+import { sampleWinterPixel, songpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
@@ -1159,6 +1159,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     },
     report: analysis.day,
     lightAt: analysis.at,
+    winterPixel(pixel: number[]) {
+      const sample = analysis.sampleAtTime(songpaWinterCapture.date, songpaWinterCapture.exactMinute);
+      return sampleWinterPixel(pixel, coordinate => {
+        const point = data.project(coordinate);
+        return canAnalyze(point) ? sample(point) : undefined;
+      });
+    },
     environmentAt(point: Point) {
       const water = nearestOnLine(point, environment.waters).distance;
       const green = environment.greens.some(shape => inShape(point, shape)) ? 0

@@ -21,7 +21,7 @@ import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment }
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
-import { songpaWinterCapture } from './data/songpa-winter-capture';
+import { songpaWinterCapture, winterPixelSampleCount } from './data/songpa-winter-capture';
 import { songpaArchitecture } from './data/songpa-architecture';
 import { songpaRouteElevation } from './data/songpa-route-elevation';
 import TourLive from './TourLive';
@@ -48,7 +48,8 @@ const directions = [ ['up', '↑', '전진'], ['left', '←', '왼쪽'], ['down'
 const bearings = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
 
 function timeLabel(minute: number) {
-  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+  const elapsed = Math.round(minute * 60_000);
+  return new Date(elapsed).toISOString().slice(11, elapsed % 60_000 === 0 ? 16 : 19);
 }
 
 function duration(minutes: number) {
@@ -126,13 +127,18 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
 function WinterCapture({ world, onCompare, detailsRef }: {
   world: OpoWorld | null; onCompare: () => void; detailsRef: React.RefObject<HTMLDetailsElement | null>;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const capture = songpaWinterCapture;
   const points = useMemo(() => capture.points.map((point, index) => {
     const preset = world?.presets.find(candidate => candidate.id === point.id);
-    const model = preset && world?.lightAt(preset, capture.date, capture.exactMinute);
-    return { ...point, slot: slots[index], model };
-  }), [capture, world]);
-  return <details ref={detailsRef} className="season-compare winter-capture">
+    const model = expanded && preset ? world?.lightAt(preset, capture.date, capture.exactMinute) : undefined;
+    const samples = expanded ? world?.winterPixel(point.pixel) : undefined;
+    return { ...point, slot: slots[index], model, samples };
+  }), [capture, expanded, world]);
+  const statuses = ['sun', 'shade', 'unknown', 'night', 'excluded'] as const;
+  const statusLabels = { ...winterWalkStatus, night: '야간', excluded: '실외 분석 제외' };
+  return <details ref={detailsRef} className="season-compare winter-capture"
+    onToggle={event => setExpanded(event.currentTarget.open)}>
     <summary>겨울 위성영상과 비교</summary>
     <p className="season-caption"><time dateTime={capture.acquiredAt}>{capture.date} {capture.clock} KST</time> · Sentinel-2 · {capture.resolutionM}m 픽셀</p>
     <figure>
@@ -145,14 +151,19 @@ function WinterCapture({ world, onCompare, detailsRef }: {
       </div>)}
     </figure>
     <ul className="winter-observations">
-      {points.map(point => <li key={point.id}>
-        <strong>{point.slot} · {point.label}</strong>
-        <span>{point.appearance}</span>
-        <span>{point.model ? lightStatus(point.model) : '모델 자료 불러오는 중'}</span>
+      {points.map(({ id, slot, label, appearance, model, samples }) => <li key={id}>
+        <strong>{slot} · {label}</strong>
+        <span>영상 · {appearance}</span>
+        <span>모델 중앙점 · {model ? lightStatus(model) : '계산 중'}</span>
+        {samples && <>
+          <span>픽셀 안 모델 표본 {winterPixelSampleCount}개 · {statuses
+            .filter(status => samples.counts[status] > 0).map(status => `${statusLabels[status]} ${samples.counts[status]}개`).join(' · ')}</span>
+          {samples.unknownCauses.length > 0 && <span>미판정 사유 · {samples.unknownCauses.join(' · ')}</span>}
+        </>}
       </li>)}
     </ul>
     <div className="site-actions"><button type="button" disabled={!points.every(point => point.model)} onClick={onCompare}>같은 시각의 3D 일조 보기</button></div>
-    <p>한 차례 촬영한 영상이에요. 픽셀 밝기는 바닥 재질과 수목에도 영향을 받아요. 하루 직사광 시간과 그림자 경계는 추가 관찰이 필요해요.</p>
+    <p>픽셀 안 모델 표본은 지면 위 {observationHeight}m에서 계산해요. 영상은 오전 한 차례 촬영했고 밝기에는 바닥 재질과 수목도 반영돼요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
     <a href={capture.source} target="_blank" rel="noreferrer">촬영 원본과 메타데이터 ↗</a>
     <small>{capture.attribution}</small>
   </details>;
@@ -171,7 +182,7 @@ function Timeline({ report, minute, label, onTime }: {
     {runs.map(run => <span aria-hidden="true" key={run.start} className={`strip-${run.status}`} style={{ flexGrow: run.length }} />)}
     <i aria-hidden="true" style={{ left: `${minute / 14.4}%` }} />
     <input aria-label={label} type="range" min={0} max={1439} step={1}
-      value={minute} aria-valuetext={`${timeLabel(minute)} KST`} onChange={event => onTime(Number(event.target.value))} />
+      value={Math.floor(minute)} aria-valuetext={`${timeLabel(minute)} KST`} onChange={event => onTime(Number(event.target.value))} />
   </div>;
 }
 
@@ -695,7 +706,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     chooseTab('sun');
     showComplexSunMap();
     setDate(songpaWinterCapture.date);
-    setMinute(songpaWinterCapture.minute);
+    setMinute(songpaWinterCapture.exactMinute);
     setPoints({ A: a, B: b });
   }
 
@@ -1011,7 +1022,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </div>
         <div className="time-row">
           <label htmlFor="tour-time">그림자 시각</label><output htmlFor="tour-time">{timeLabel(minute)} <small>KST</small></output>
-          <input id="tour-time" type="range" min={0} max={1439} step={1} value={minute} aria-valuetext={timeLabel(minute)} onChange={event => setMinute(Number(event.target.value))} />
+          <input id="tour-time" type="range" min={0} max={1439} step={1} value={Math.floor(minute)} aria-valuetext={timeLabel(minute)} onChange={event => setMinute(Number(event.target.value))} />
           <div className="time-scale"><span>00시</span><span>06시</span><span>12시</span><span>18시</span><span>24시</span></div>
         </div>
         <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>미판정</span><span><i className="strip-night"/>야간</span></div>
