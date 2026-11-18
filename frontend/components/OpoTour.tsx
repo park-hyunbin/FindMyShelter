@@ -1387,6 +1387,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <h3>주차와 관리</h3>
           <p>{parkingSpaces}면 · 세대당 {(parkingSpaces / songpaFacilities.households).toFixed(2)}면</p>
           <p>지상 {songpaFacilities.surfaceParking}면 · 지하 {songpaFacilities.undergroundParking}면 · 승강기 {songpaFacilities.lifts}대</p>
+          <p>동 사이 지상 주차 구간은 항공영상과 사진을 참고해 일부 재현했어요. 화면의 차량은 주차 공간의 크기를 보여주는 예시예요.</p>
+          <div className="site-actions"><button disabled={!world} onClick={() => visitAtEyeLevel('inner-paving')}>지상 주차 구간 눈높이 보기</button></div>
           <p>{songpaFacilities.sharedFacilities.join(' · ')}</p>
           <p>관리사무소·경로당·자전거보관소 위치와 방문 주차 조건은 현장 확인이 필요해요.</p>
           <div className="basis">

@@ -139,6 +139,17 @@ const songpaEastDriveEdge = [
   [127.1167029, 37.4974014], [127.1167214, 37.4974577], [127.1167679, 37.4975725],
 ] satisfies Coordinate[];
 
+// Approach under the 102 canopy. Use N1L road edges ending in 151 and 142
+// where they flank the drive, and the orthophoto to close the ends.
+const songpaCoveredApproach = [
+  [127.1168018, 37.4978386], [127.1168298, 37.4978641], [127.1169017, 37.4980951],
+  [127.1169149, 37.4981356], [127.1169109, 37.4981665], [127.1168811, 37.4982065],
+  [127.1168232, 37.4982694], [127.1167939, 37.4983069], [127.1167570, 37.4983207],
+  [127.1167102, 37.4982845], [127.1167360, 37.4982462], [127.1167698, 37.4981994],
+  [127.1167958, 37.4981547], [127.1167865, 37.4981122], [127.1167758, 37.4980547],
+  [127.1167917, 37.4979879], [127.1167546, 37.4978737], [127.1167302, 37.4978249],
+] satisfies Coordinate[];
+
 export const songpaGrounds = {
   source: 'https://www.arcgis.com/apps/mapviewer/index.html?source=sd&url=https%3A%2F%2Fserver.arcgisonline.com%2Farcgis%2Frest%2Fservices%2FWorld_Imagery%2FMapServer&center=127.11665,37.49762&level=19',
   captureDate: '2025-10-28',
@@ -148,7 +159,7 @@ export const songpaGrounds = {
   paving: [
     ...songpaStreetEdge.slice(2).reverse(),
     [127.1169502, 37.4977738], [127.1169233, 37.4977930], [127.1168751, 37.4977866],
-    [127.1168375, 37.4977951], [127.1167892, 37.4978036], [127.1167463, 37.4977866],
+    [127.1168375, 37.4977951], ...songpaCoveredApproach, [127.1167463, 37.4977866],
     [127.1166862, 37.4977504], [127.1166766, 37.4977504],
     ...songpaWestDriveEdge, ...songpaEastDriveEdge,
   ] satisfies Coordinate[],
@@ -156,13 +167,19 @@ export const songpaGrounds = {
     { start: [127.1166390, 37.4976291], end: [127.1166900, 37.4976100] },
     { start: [127.1166283, 37.4976802], end: [127.1166900, 37.4977270] },
   ] satisfies { start: Coordinate; end: Coordinate }[],
+  // Reconstruct the visible south parking strip from the aerial and ground views.
+  // The grouped bays and their display cars are a model, not the inventory of 19 spaces.
+  parkingRows: [
+    { aisle: [[127.1165838, 37.4974078], [127.1166429, 37.4975738]], depth: 2.34, side: 1, spaces: 3,
+      orientation: 'parallel', displayCars: [{ space: 1, color: '#516470' }, { space: 2, color: '#d0d4d3' }] },
+  ] satisfies NonNullable<SiteSurfaceLayout['parkingRows']>,
   crowns: [
     [127.1164808, 37.4974142], [127.1164727, 37.4973695], [127.1164995, 37.4974695],
     [127.1167409, 37.4975333], [127.1167248, 37.4974716], [127.1167597, 37.4974014],
     [127.1168134, 37.4976355],
   ] satisfies Coordinate[],
   points: [
-    { id: 'south-paving', name: '포장로 남쪽', coordinate: [127.1165907, 37.4974674], lookAt: [127.1166685, 37.4976248] },
+    { id: 'south-paving', name: '포장로 남쪽', coordinate: [127.1165511, 37.4974674], lookAt: [127.1166685, 37.4976248] },
     { id: 'inner-paving', name: '동 사이 포장 공간', coordinate: [127.1166846, 37.4976632], lookAt: [127.1166176, 37.4975248] },
   ] satisfies { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate }[],
 };
@@ -178,4 +195,5 @@ export const songpaSurfaceLayout = {
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
   crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),
+  parkingRows: songpaGrounds.parkingRows,
 } satisfies SiteSurfaceLayout;

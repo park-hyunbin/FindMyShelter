@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { makeCar } from './opo-vehicle';
 import { buildingCollision, extent, inShape, nearestOnLine, precinct, type OpoData, type Point } from './opo-data';
 import { addCourtyard, courtyard, courtyardGarden, courtyardOpening, inCourtyardRing } from './opo-courtyard';
 import { addOpoEntrance } from './opo-entrance';
@@ -63,44 +63,6 @@ function makePlayer() {
   player.add(torso, head, hat, backpack, ...legs);
   player.traverse(object => { if (object instanceof T.Mesh) object.castShadow = true; });
   return { player, legs };
-}
-
-function makeCar() {
-  const model = new T.Group();
-  const body = new T.MeshStandardMaterial({ color: '#c59b44', roughness: 0.31, metalness: 0.14 });
-  const glass = new T.MeshStandardMaterial({ color: '#405a64', roughness: 0.30, metalness: 0.25 });
-  const rubber = new T.MeshStandardMaterial({ color: '#263334' });
-  const chassis = new T.Mesh(new RoundedBoxGeometry(1.72, 0.55, 3.65, 3, 0.16), body);
-  chassis.position.set(0, 0.55, 0);
-  const cabin = new T.Mesh(new RoundedBoxGeometry(1.41, 0.52, 1.95, 3, 0.2), glass);
-  cabin.position.set(0, 0.995, 0.11);
-  model.add(chassis, cabin);
-  const roof = new T.Mesh(new RoundedBoxGeometry(1.31, 0.12, 1.29, 3, 0.06), body);
-  roof.position.set(0, 1.25, 0.20);
-  model.add(roof);
-  const headlight = new T.MeshStandardMaterial({ color: '#f0e9cd', emissive: '#c7ac65', emissiveIntensity: 0.22 });
-  const taillight = new T.MeshStandardMaterial({ color: '#a74137', emissive: '#b63e2e', emissiveIntensity: 0.22 });
-  for (const x of [-0.57, 0.57]) {
-    const front = new T.Mesh(new RoundedBoxGeometry(0.37, 0.13, 0.08, 2, 0.032), headlight);
-    front.position.set(x, 0.65, -1.79);
-    const rear = new T.Mesh(new RoundedBoxGeometry(0.36, 0.12, 0.08, 2, 0.032), taillight);
-    rear.position.set(x, 0.64, 1.79);
-    const mirror = new T.Mesh(new T.BoxGeometry(0.20, 0.13, 0.22), glass);
-    mirror.position.set(x * 1.52, 1.0, -0.53);
-    model.add(front, rear, mirror);
-  }
-  const bumper = new T.Mesh(new RoundedBoxGeometry(1.54, 0.13, 0.12, 2, 0.04), rubber);
-  bumper.position.set(0, 0.43, 1.78);
-  model.add(bumper);
-  const wheel = new T.CylinderGeometry(0.31, 0.31, 0.2, 12);
-  wheel.rotateZ(Math.PI / 2);
-  for (const x of [-0.8, 0.8]) for (const z of [-1.02, 1.02]) {
-    const tyre = new T.Mesh(wheel, rubber);
-    tyre.position.set(x, 0.32, z);
-    model.add(tyre);
-  }
-  model.traverse(object => { if (object instanceof T.Mesh) object.castShadow = true; });
-  return model;
 }
 
 export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (position: Point, source?: 'sun-grid') => void) {
@@ -183,6 +145,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point))
     || Boolean(entrance?.occupied(point) || garden?.blocked(point));
+  const blockedForMovement = (point: Point) => occupied(point) || site.paving?.parked(point);
   const analysisRadius = isOpo ? Math.min(precinct, data.buildingRadius) : data.buildingRadius;
   const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= analysisRadius;
   const siteSamples = data.siteOutline.length ? sunGridPoints(data.siteOutline, canAnalyze) : [];
@@ -787,7 +750,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       else if (hit?.object === terrain) {
         const goal = { x: hit.point.x, z: hit.point.z };
         const distance = Math.hypot(goal.x - position.x, goal.z - position.z);
-        if (distance >= 0.5 && distance <= 85 && !endOfTile(goal) && !occupied(goal)) {
+        if (distance >= 0.5 && distance <= 85 && !endOfTile(goal) && !blockedForMovement(goal)) {
           walkingTo = goal;
           viewAngle = 0;
           const ground = streets.surface(goal.x, goal.z);
@@ -852,7 +815,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       } else if (Math.abs(speed) > 0.01) {
         const drive = driving ? streets.drive(proposed, driveSegment) : null;
         const next = driving ? drive?.point : proposed;
-        if (next && !endOfTile(next) && !occupied(next)) {
+        if (next && !endOfTile(next) && !blockedForMovement(next)) {
           position = next;
           if (drive) driveSegment = drive.segment;
         } else if (walkingTo) { walkingTo = null; speed = 0; }

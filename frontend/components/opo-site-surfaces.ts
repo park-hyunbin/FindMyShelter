@@ -6,10 +6,19 @@ import { crosswalkFrame, zebraOffsets, type CrosswalkArea } from './opo-crosswal
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
 import { createRoadPaintClipper } from './opo-road-paint';
+import { makeCar } from './opo-vehicle';
 
 type Coordinate = [longitude: number, latitude: number];
 type GateOffset = [across: number, along: number];
 type SiteCrossing = { start: Coordinate; end: Coordinate; depth: number };
+type ParkingRow = {
+  aisle: [Coordinate, Coordinate];
+  depth: number;
+  side: -1 | 1;
+  spaces: number;
+  orientation: 'parallel' | 'perpendicular';
+  displayCars?: { space: number; color: string }[];
+};
 
 export type GateLayout = {
   axis: [Coordinate, Coordinate];
@@ -24,6 +33,7 @@ export type SiteSurfaceLayout = {
   pavedDrive?: Coordinate[];
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   crossings: SiteCrossing[];
+  parkingRows?: ParkingRow[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
 };
 
@@ -78,6 +88,7 @@ export function addSiteSurfaces(
   const asphaltDecks: T.BufferGeometry[] = [];
   const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
   const hits: T.Intersection[] = [];
+  const parkedCars: { center: Point; direction: Point }[] = [];
 
   function material(color: string, texture?: TourSurface) {
     const base = new T.MeshStandardMaterial({ color, roughness: 0.93, side: T.DoubleSide });
@@ -113,18 +124,50 @@ export function addSiteSurfaces(
     return line.getSpacedPoints(Math.ceil(line.getLength() / 1.2));
   }
 
-  function zebra(crossing: CrosswalkArea, clipper: ReturnType<typeof createRoadPaintClipper>) {
-    const at = crosswalkFrame(crossing);
-    const halfDepth = crossing.depth / 2;
-    const stripes = zebraOffsets(crossing.section.width).map(across =>
-      ribbon([at(-halfDepth, across), at(halfDepth, across)], 0.44, () => 0));
-    if (!stripes.length) return;
-    const flat = mergeGeometries(stripes);
-    const fitted = clipper.clip(flat, 0.028);
+  function paintOnDrive(lines: [Point, Point][], width: number, lift: number,
+    clipper: ReturnType<typeof createRoadPaintClipper>) {
+    if (!lines.length) return;
+    const strips = lines.map(line => ribbon(line, width, () => 0));
+    const flat = mergeGeometries(strips);
+    strips.forEach(strip => strip.dispose());
+    const fitted = clipper.clip(flat, lift);
     flat.dispose();
     if (fitted.getAttribute('position').count) add(fitted, paint, undefined, false);
     else fitted.dispose();
-    stripes.forEach(stripe => stripe.dispose());
+  }
+
+  function zebra(crossing: CrosswalkArea, clipper: ReturnType<typeof createRoadPaintClipper>) {
+    const at = crosswalkFrame(crossing);
+    const halfDepth = crossing.depth / 2;
+    paintOnDrive(zebraOffsets(crossing.section.width).map(across =>
+      [at(-halfDepth, across), at(halfDepth, across)]), 0.44, 0.028, clipper);
+  }
+
+  function parking({ aisle, depth, side, spaces, orientation, displayCars }: ParkingRow,
+    clipper: ReturnType<typeof createRoadPaintClipper>) {
+    const axis = axisBetween(data.project(aisle[0]), data.project(aisle[1]));
+    const pitch = axis.length / spaces;
+    const back = depth * side;
+    const outlines: [Point, Point][] = Array.from({ length: spaces + 1 }, (_, index) =>
+      [axis.at(0, index * pitch), axis.at(back, index * pitch)]);
+    outlines.push([axis.at(back, 0), axis.at(back, axis.length)]);
+    const parallel = orientation === 'parallel';
+    if (parallel) outlines.push([axis.at(0, 0), axis.at(0, axis.length)]);
+    paintOnDrive(outlines, 0.115, 0.026, clipper);
+
+    const heading = parallel ? axis.heading : axis.heading + side * Math.PI / 2;
+    const direction = { x: Math.sin(heading), z: Math.cos(heading) };
+    for (const { space, color } of displayCars ?? []) {
+      const center = axis.at(back / 2, (space + 0.5) * pitch);
+      const y = elevation(center);
+      if (y === undefined) continue;
+      const car = makeCar(color, false);
+      car.scale.z = 1.13;
+      car.rotation.y = heading;
+      car.position.set(center.x, y, center.z);
+      scene.add(car);
+      parkedCars.push({ center, direction });
+    }
   }
 
   const drivewayCenterline: Point[] | undefined = layout.drive && curve(layout.drive.points);
@@ -164,11 +207,16 @@ export function addSiteSurfaces(
         (x, z) => grade(x, z) + streetDeckLift + 0.09, 0.8, 1), sidewalk, 'pavers');
     }
   }
-  if (crossings.length) {
+  if (crossings.length || layout.parkingRows?.length) {
     const clipper = createRoadPaintClipper();
     asphaltDecks.forEach(clipper.addSurface);
     for (const crossing of crossings) zebra(crossing, clipper);
+    for (const row of layout.parkingRows ?? []) parking(row, clipper);
     clipper.clear();
   }
-  return { elevation, drivewayGrade, drivewayCenterline, asphaltDecks };
+  const parked = (point: Point) => parkedCars.some(({ center, direction: { x, z } }) => {
+    const dx = point.x - center.x, dz = point.z - center.z;
+    return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
+  });
+  return { elevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked };
 }
