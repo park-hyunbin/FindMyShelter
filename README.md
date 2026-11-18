@@ -4,7 +4,11 @@
 
 송파의 **주거환경 분석 → 임장 체크리스트**에서 14개 항목의 자료 범위와 현장에서 볼 내용을 확인할 수 있습니다. 일조 지도, 방향별 시야, 단지 조감, 학교·상점 위치를 이어서 열 수 있으며 개인 기록은 현재 브라우저에 저장됩니다. 현장에서는 **체크리스트 받기**로 내려받은 텍스트를 볼 수 있습니다.
 
-송파의 **단지 정보**에서 2025-10-28 World Imagery를 참고해 그린 단지 안 포장 구간과 수목을 눈높이로 보고, 두 대표 지점을 겨울 오후 2시의 같은 조건으로 비교할 수 있습니다. 영상에서 읽은 위치와 형상은 근사입니다. 수목 높이와 노면 단차는 추정이며 출입구까지의 연결은 현장 확인이 필요합니다. 일조 계산은 건물과 지형을 기준으로 합니다. [항공영상 메타데이터](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/9/query?objectIds=480339&outFields=SRC_DATE,NICE_DESC,SRC_RES&returnGeometry=false&f=pjson)
+송파의 **단지 정보**에서 103·104동 사이 보행로, 화단, 원형 앉음벽과 어린이놀이터 주변을 눈높이로 볼 수 있습니다. 항공영상에서 보행로와 수관 윤곽을 읽고 지상 사진에서 굽은 포장과 식재 가장자리를 대조했습니다. 놀이터 위치는 항공사진의 표기를 참고했고 104동 앞 원형 앉음벽은 K-apt 조경 공고에서 확인했습니다. 정확한 경계와 치수, 수목 높이는 근사입니다. 일조 비교에서 기존 포장 구간 두 곳의 겨울 오후 2시를 비교할 수 있습니다. [항공영상 메타데이터](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/9/query?objectIds=480339&outFields=SRC_DATE,NICE_DESC,SRC_RES&returnGeometry=false&f=pjson) · [단지 사진](https://hogangnono.com/apt/1Zfb4) · [K-apt 조경 공고](https://www.k-apt.go.kr/bid/bidDetail.do?bidNum=20261112185416423)
+
+**송파 주변 거리**는 GIS 건물 윤곽·높이·층수와 OpenStreetMap 도로 중심선·차로 수·보도 태그에서 생성합니다. 그랜드아파트·예일아파트·삼원빌딩은 이 윤곽 위에 창호와 발코니, 1층 마감을 별도로 모델링했습니다. 로드뷰는 이런 외관과 주변의 외형을 확인하는 참고 자료입니다. 차선은 서울시 T-GIS의 2021-08-09 공개 선형과 표시 종류를 우선 사용하고, 해당 선형이 없는 도로는 지도에 기록된 차로 수로 근사합니다. 횡단보도는 같은 시기에 공개된 면 도형으로 그리고, 2026-08-24 시설 대장에 같은 관리번호가 있는지 대조했습니다. 주변 지형은 서울시 등고선·표고점을 10m 간격으로 보간하고 외곽에서 GEDTM30과 연결합니다. 운영 상태와 정확한 노면 단차는 현장 확인이 필요합니다. [서울시 차선](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [서울시 횡단보도](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do) · [시설 대장](https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do) · [서울시 등고선·표고점](https://data.seoul.go.kr/dataList/OA-22241/F/1/datasetView.do) · [교차로 로드뷰](https://map.kakao.com/link/roadview/37.4979588,127.1171789)
+
+송파 거리 데이터는 `node frontend/scripts/prepare-opo-streets.mjs --songpa`로 다시 추출합니다. 서울시 원본에서 `backend/scripts/prepare_songpa_road_markings.py`로 차선과 횡단보도를, `backend/scripts/prepare_songpa_neighborhood_terrain.py`로 지형을 생성합니다. 각 스크립트는 `--help`에서 입력 파일을 안내합니다.
 
 가락동부센트레빌 101~105동의 위치는 건물 표본과 공개 배치 자료를 대조했습니다. 103동은 세 갈래 주동, 104동은 그 서쪽 일자형 주동입니다. 지상 사진과 항공영상에서 읽은 흰 외벽, 청록색 창호, 원형 옥상 구조를 3D에 반영했습니다. 창호, 동 번호판, 옥상 구조의 세부 위치와 치수는 근사입니다. 일조 계산에는 GIS 윤곽과 높이 표본의 체적을 사용합니다. [공개 배치 참고 지도](https://m.richgo.ai/api/og/danji-map/a9phoJw) · [공개 단지 사진](https://hogangnono.com/apt/1Zfb4)
 

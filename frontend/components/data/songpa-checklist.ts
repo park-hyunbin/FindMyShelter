@@ -1,5 +1,5 @@
 import { songpaComplex } from './regions';
-import { songpaFacilities, songpaGrounds } from './songpa-grounds';
+import { songpaCourtyard, songpaFacilities } from './songpa-grounds';
 import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
 import { floodSource } from './songpa-flood';
@@ -57,10 +57,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'model',
-        finding: '정문에서 보행자가 차량 길을 건너는 지점과 단지 안 포장 구간을 눈높이에서 볼 수 있어요. 어린이놀이터는 등록 자료에서 확인했어요.',
-        followUp: '놀이터의 단지 내 위치와 정문에서 단지 안으로 이어지는 보행로의 단차를 현장에서 확인해 보세요.',
-        views: [{ target: 'entrance', label: '정문과 주차장 입구 보기' }, { target: 'paving', label: '단지 안과 공용시설 보기' }],
-        sources: [{ label: '정문 로드뷰', url: songpaEntrance.main.roadview }, { label: '항공영상', url: songpaGrounds.source },
+        finding: '정문 횡단부를 살펴보고, 103·104동 사이 산책로와 등록된 놀이터 주변을 눈높이에서 둘러볼 수 있어요.',
+        followUp: '놀이기구의 상태와 정문에서 단지 안으로 이어지는 보행로의 단차를 현장에서 확인해 보세요.',
+        views: [{ target: 'entrance', label: '정문과 주차장 입구 보기' }, { target: 'paving', label: '산책로와 놀이터 보기' }],
+        sources: [{ label: '정문 로드뷰', url: songpaEntrance.main.roadview }, { label: '단지 안 보행로 사진', url: songpaCourtyard.groundPhoto },
           { label: '행정안전부 놀이시설 현황', url: songpaFacilities.playground }],
       },
     ],

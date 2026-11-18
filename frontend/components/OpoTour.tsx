@@ -14,8 +14,9 @@ import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaHospital, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
-import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
+import { songpaCourtyard, songpaFacilities, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
+import { songpaStreets } from './data/songpa-streets';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
@@ -833,7 +834,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <p>맑은 하늘을 가정하고 지면에서 1.5m 높이의 지점을 10분 간격으로 계산합니다. 건물과 지형이 태양을 가리는지 검사합니다.</p>
           <p>3D 경로는 관측 지점에서 태양 방향으로 보낸 광선입니다. 그늘일 때 처음 닿은 건물 체적 또는 지형을 표시합니다. 점선은 자료 한계로 판정하지 못한 방향을 표시합니다.</p>
           {buildingRegister && <p>대상 주동은 건축HUB 표제부({buildingRegister.source.dataMonth})의 등록 높이로 건물 체적을 단순화해 계산합니다. 주변 건물은 QGIS 편집본 후보값과 OSM 높이를 사용합니다.</p>}
-          <p>지형은 {world?.sources.terrain.name ?? 'GEDTM30'}의 약 {world?.sources.terrain.resolution ?? 30}m 표고 모델입니다. 수목의 그늘은 현장에서 따로 확인해야 합니다.</p>
+          <p>{world?.sources.localTerrain ? '단지 주변 지형은 서울시 등고선·표고점을 10m 간격으로 보간하고 외곽은 GEDTM30과 연결했어요.' :
+            `지형은 ${world?.sources.terrain.name ?? 'GEDTM30'}의 약 ${world?.sources.terrain.resolution ?? 30}m 표고 모델입니다.`} 수목의 그늘은 현장에서 따로 확인해야 합니다.</p>
           <p>모델 내 최대 건물 높이({world?.sources.referenceHeight.toLocaleString('ko-KR') ?? '—'}m)까지의 차폐를 검토합니다. 햇빛 방향에 높이 미확인 건물이 있거나 건물 표본 밖에서 차폐 가능성이 있으면 해당 시간을 미판정으로 남깁니다.</p>
           <p>막대는 00~24시입니다. 누적 시간은 10분 구간의 중앙 시점으로 계산하고, 시각을 옮길 때의 판정은 화면에 표시된 시각을 사용합니다.</p>
           {world?.sunMap && <p>단지 일조 분포는 지도에 표시된 단지 경계 안의 {sunGridSpacing}m 간격 실외 표본에서 계산합니다. 표본 사이의 값은 추정하지 않으며, 표본 간격과 표고 자료의 해상도는 서로 다릅니다.</p>}
@@ -920,11 +922,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           })}
         </section>
         <details className="basis"><summary>자료와 계산 기준</summary>
-          <p>지형 단면은 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 표시합니다. {world?.sources.terrain.name ?? 'GEDTM30'}을 사용하며 표고 기준은 {world?.sources.terrain.datum ?? 'EGM2008'}입니다. 자료 기준 기간은 {world?.sources.terrain.epoch ?? '2006–2015'}입니다.</p>
+          <p>지형 단면은 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 표시합니다. {world?.sources.localTerrain ?
+            '단지 주변은 서울시 수치지형도에서 보간하고 외곽은 GEDTM30과 연결했어요.' :
+            `${world?.sources.terrain.name ?? 'GEDTM30'}을 사용하며 표고 기준은 ${world?.sources.terrain.datum ?? 'EGM2008'}입니다. 자료 기준 기간은 ${world?.sources.terrain.epoch ?? '2006–2015'}입니다.`}</p>
           <p>차폐각은 선택한 한 방향으로 {horizonRange}m 안의 지형 표본과 모델에 높이가 있는 건물 지붕 중 가장 위에 보이는 각도입니다. 높이 미확인 건물은 별도로 표시합니다. 주변 건물 높이 자료의 범위가 제한되며 수목과 {horizonRange}m 밖의 지형은 별도 확인이 필요합니다.</p>
           <p>예측 산포는 지형 모델의 예측 변동입니다. 보도·옹벽·계단과 현장 표고 오차는 별도 확인이 필요합니다.</p>
           {world?.sources.terrain.relativeDifference != null && <p>기존 90m 자료와 중앙 기준점에 맞춰 비교한 상대 높이의 평균 절대 차이는 {world.sources.terrain.relativeDifference.toFixed(1)}m입니다.</p>}
           <a href={world?.sources.terrain.catalog ?? 'https://zenodo.org/records/15689805'} target="_blank" rel="noreferrer">지형 출처 · Ho &amp; Hengl / CC BY 4.0 ↗</a>
+          {world?.sources.localTerrain && <a href={world.sources.localTerrain.source} target="_blank" rel="noreferrer">서울시 등고선과 표고점 · 공공누리 1유형 ↗</a>}
           <p>녹지와 수계 수치는 OpenStreetMap 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'})에 표시된 가장 가까운 경계·선까지의 직선거리입니다. 접근 가능 여부와 실제 보행 거리는 현장 확인이 필요합니다.</p>
           <p>경로 길이는 OpenStreetMap에서 같은 노드로 이어진 도로·보행로를 따라 계산합니다. 보도 표기와 횡단 구간은 지도 자료이며, 현장 연결과 통행 여건은 별도 확인이 필요합니다.</p>
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap 데이터 ↗</a>
@@ -982,19 +987,31 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <button disabled={!world} onClick={() => { chooseMode('orbit'); world?.locate(); }}>5개 동 조감 보기</button>
             <button disabled={!world} onClick={() => visit('inner-paving')}>동 사이에서 외관 보기</button>
             <button disabled={!world} onClick={() => visit('approach')}>단지 앞 도로 보기</button>
+            {songpaStreets.views.map(stop => <button key={stop.id}
+              disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
           </div>
           <div className="basis">
             <a href={songpaComplex.info} target="_blank" rel="noreferrer">서울시 공동주택 단지 정보 ↗</a>
             <a href={songpaArchitecture.layout} target="_blank" rel="noreferrer">주동 배치 참고 지도 ↗</a>
             <a href={songpaArchitecture.photos} target="_blank" rel="noreferrer">단지 지상 사진 ↗</a>
             <a href={songpaComplex.boundary} target="_blank" rel="noreferrer">OpenStreetMap 단지 경계 ↗</a>
+            <a href={songpaStreets.roadview} target="_blank" rel="noreferrer">양재대로60길 교차로 로드뷰 ↗</a>
+            <a href={world?.sources.streets ?? songpaComplex.road} target="_blank" rel="noreferrer">OpenStreetMap 도로와 차로 수 ↗</a>
+            {world?.sources.roadMarkings && <>
+              <p>도로와 보도는 지도에서 만들고, 차선과 횡단보도는 서울시 {world.sources.roadMarkings.archiveDate} 도형을 우선 사용했어요. {world.sources.roadMarkings.inventoryDate} 대장에 없는 횡단보도는 현재 상태를 확인해야 해요.</p>
+              <a href={world.sources.roadMarkings.lanes} target="_blank" rel="noreferrer">서울시 차선 선형 ↗</a>
+              <a href={world.sources.roadMarkings.crosswalks} target="_blank" rel="noreferrer">서울시 횡단보도 도형 ↗</a>
+              <a href={world.sources.roadMarkings.inventory} target="_blank" rel="noreferrer">서울시 횡단보도 시설 대장 ↗</a>
+            </>}
           </div>
         </article>
         <article className="site-card" data-site-card="paving">
-          <h3>단지 안 포장 공간</h3>
-          <p>영상에 보이는 포장 구간, 줄무늬, 수목을 3D로 표현했어요. 수목 높이와 지면 단차는 추정이며 일조는 건물과 지형을 기준으로 계산해요.</p>
-          <p>포장 구간에서 정문까지 보행로가 어떻게 이어지는지는 현장에서 확인해 보세요.</p>
+          <h3>단지 안 산책로와 놀이터</h3>
+          <p>103·104동 사이를 따라 굽는 보행로, 화단, 원형 앉음벽과 놀이터 공간을 둘러볼 수 있어요.</p>
+          <p>나무에 가려진 보행로와 놀이터 경계, 앉음벽의 정확한 위치·크기는 근사예요. 놀이기구와 노면 단차는 현장에서 확인해 보세요.</p>
           <div className="site-actions">
+            {songpaCourtyard.views.map(stop => <button key={stop.id}
+              disabled={!world?.destinations.some(destination => destination.id === stop.id)} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
             {songpaGrounds.points.map((stop, index) => <button key={stop.id} disabled={!pavingPresets[index]} onClick={() => visit(stop.id)}>{stop.name} 보기</button>)}
             <button disabled={pavingPresets.some(point => !point)} onClick={() => {
               const [south, inner] = pavingPresets;
@@ -1007,6 +1024,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             }}>두 지점의 겨울 오후 일조 비교</button>
           </div>
           <div className="basis">
+            <a href={songpaCourtyard.groundPhoto} target="_blank" rel="noreferrer">103·104동 사이 보행로 사진 ↗</a>
+            <a href={songpaCourtyard.aerialReference} target="_blank" rel="noreferrer">놀이터 표기가 보이는 단지 항공사진 ↗</a>
+            <a href={songpaCourtyard.seatRecord} target="_blank" rel="noreferrer">104동 조경시설 공고 ↗</a>
             <a href={songpaGrounds.source} target="_blank" rel="noreferrer">World Imagery 항공영상 ↗</a>
             <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">{songpaGrounds.captureDate} 촬영 · 영상 메타데이터 ↗</a>
           </div>

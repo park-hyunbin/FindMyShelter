@@ -22,11 +22,13 @@ export const regions = [
   { id: 'opo', name: '오포 롯데캐슬 포레스트', area: '경기 광주시 수레실길 7',
     keywords: '오포 광주 롯데캐슬 능평동', description: '산자락과 단지 사이를 걷는 동네',
     count: 214, radius: 350, terrain: '/opo-terrain.json', environment: '/opo-environment.geojson',
-    places: '/opo-pois.geojson', site: '/opo-site.geojson', surrounding: '/opo-osm-buildings.geojson', streets: '/opo-streets.json' },
+    places: '/opo-pois.geojson', site: '/opo-site.geojson', surrounding: '/opo-osm-buildings.geojson', streets: '/opo-streets.json',
+    roadMarkings: null, neighborhoodTerrain: null },
   { id: 'songpa', name: songpaComplex.name, area: songpaComplex.address,
     keywords: '서울 송파 가락동 송파동 석촌중학교 동부센트레빌', description: '가락동부센트레빌과 주변 생활권',
     count: 752, radius: 600, terrain: '/datasets/regions/songpa/terrain.json',
     environment: '/datasets/regions/songpa/environment.geojson', places: '/datasets/regions/songpa/places.geojson',
-    site: '/datasets/regions/songpa/site.geojson', surrounding: null, streets: null },
+    site: '/datasets/regions/songpa/site.geojson', surrounding: null, streets: '/datasets/regions/songpa/streets.json',
+    roadMarkings: '/datasets/regions/songpa/road-markings.json', neighborhoodTerrain: '/datasets/regions/songpa/neighborhood-terrain.json' },
 ] as const;
 export type RegionId = typeof regions[number]['id'];

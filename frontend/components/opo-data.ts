@@ -1,7 +1,7 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { regions, songpaComplex, type RegionId } from './data/regions';
-import { songpaGrounds } from './data/songpa-grounds';
+import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
 import { songiPark } from './data/songi-park';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
@@ -21,12 +21,20 @@ type BuildingProperties = {
 type StreetProperties = {
   id: number; category: string; nodeIds: number[]; name: string | null; motor: boolean;
   width: number | null; lanes: number | null; surface: string | null; bridge: boolean; unpaved: boolean;
+  forwardLanes?: number; backwardLanes?: number;
   sidewalks: boolean[]; markings: boolean; oneWay: -1 | 0 | 1;
 };
 type StreetPointProperties = { id: string; kind: 'bus' | 'crossing' | 'lamp' | 'signal' | 'tree' | 'bench' | 'place'; name: string | null };
 type StreetFile = {
   metadata: { source: string }; roads: (StreetProperties & { coordinates: Position[] })[];
   points: (StreetPointProperties & { coordinates: Position })[]; parking: { id: number; coordinates: Position[] }[];
+};
+export type StreetPaint = 'yellow' | 'yellow-dash' | 'yellow-double' | 'yellow-combined' | 'blue' | 'blue-dash' | 'white' | 'white-dash' | 'stop';
+type StreetPaintFile = {
+  lanesSource: string; crosswalksSource: string; crosswalkInventory: string;
+  markingsArchiveDate: string; crosswalkInventoryDate: string;
+  lanes: { style: StreetPaint; points: Position[]; edge?: boolean }[];
+  crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][]; stripes: Position[][] }[];
 };
 export type Street = StreetProperties & { points: Point[] };
 export type StreetPoint = StreetPointProperties & { position: Point };
@@ -44,6 +52,11 @@ type TerrainFile = {
   originEPSG5186: [number, number]; extentM: number; spacingM: number; size: number;
   elevation: number[]; spread: number[]; meanRelativeDifferenceFrom90M?: number;
 };
+type TerrainGrid = Pick<TerrainFile, 'extentM' | 'spacingM' | 'size'>;
+type NeighborhoodTerrain = TerrainGrid & {
+  source: string; archivePublished: string; scale: number; originEPSG5186: [number, number];
+  center: [number, number]; elevation: number[];
+};
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
 
 export type Environment = EnvironmentProperties & { lines: Point[][]; shapes: Shape[] };
@@ -58,7 +71,7 @@ async function json<T>(path: string, signal: AbortSignal): Promise<T> {
   return response.json();
 }
 
-export function terrainSample(grid: TerrainFile, values: number[], x: number, z: number) {
+export function terrainSample(grid: TerrainGrid, values: number[], x: number, z: number) {
   const { extentM, size, spacingM } = grid;
   const column = Math.max(0, Math.min(size - 1, (x + extentM) / spacingM));
   const row = Math.max(0, Math.min(size - 1, (z + extentM) / spacingM));
@@ -106,7 +119,7 @@ function regionalStreets(features: Environment[]): Street[] {
 export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo') {
   const area = regions.find(r => r.id === region)!;
   const empty = {type: 'FeatureCollection' as const, features: []};
-  const [source, environment, dem, site, surrounding, poi, neighborhood] = await Promise.all([
+  const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings] = await Promise.all([
     loadBuildingDataset(region, signal),
     json<EnvironmentFile>(area.environment, signal),
     json<TerrainFile>(area.terrain, signal),
@@ -114,6 +127,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     area.surrounding ? json<OsmBuildingFile>(area.surrounding, signal) : Promise.resolve(empty as OsmBuildingFile),
     json<FeatureCollection<import('geojson').Point, Omit<Place, 'point'>>>(area.places, signal),
     area.streets ? json<StreetFile>(area.streets, signal) : Promise.resolve(null),
+    area.neighborhoodTerrain ? json<NeighborhoodTerrain>(area.neighborhoodTerrain, signal) : Promise.resolve(null),
+    area.roadMarkings ? json<StreetPaintFile>(area.roadMarkings, signal) : Promise.resolve(null),
   ]);
   const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
@@ -131,7 +146,16 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   if (region === 'opo' && (treeCover.extentM !== extent || origin.some((value, i) => value !== treeCover.originEPSG5186[i]))) {
     throw new Error('수목 피복과 지형 자료의 범위가 일치하지 않아요.');
   }
-  const elevationAt = (x: number, z: number) => terrainSample(dem, dem.elevation, x, z);
+  if (localTerrain && (localTerrain.spacingM * (localTerrain.size - 1) !== localTerrain.extentM * 2
+    || localTerrain.elevation.length !== localTerrain.size ** 2
+    || origin.some((value, i) => value !== localTerrain.originEPSG5186[i]))) throw new Error('송파 상세 지형의 범위가 일치하지 않아요.');
+  const elevationAt = (x: number, z: number) => {
+    if (localTerrain) {
+      const dx = x - localTerrain.center[0], dz = z - localTerrain.center[1];
+      if (Math.max(Math.abs(dx), Math.abs(dz)) < localTerrain.extentM) return terrainSample(localTerrain, localTerrain.elevation, dx, dz);
+    }
+    return terrainSample(dem, dem.elevation, x, z);
+  };
   const spreadAt = (x: number, z: number) => terrainSample(dem, dem.spread, x, z);
   const base = elevationAt(0, 0);
   const ground = (x: number, z: number) => elevationAt(x, z) - base;
@@ -148,7 +172,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     if (recorded) registerRows.push({ ...recorded, outlineAreaM2: properties.area_m2 ?? outlineArea(shapes) });
     return {
       id: properties.id,
-      label: [properties.name ?? '주변 건물', properties.dong === properties.name ? null : dong ?? properties.dong].filter(Boolean).join(' '),
+      label: [properties.name ?? (region === 'songpa' && properties.id === '55781807' ? '예일아파트' : '주변 건물'),
+        properties.dong === properties.name ? null : dong ?? properties.dong].filter(Boolean).join(' '),
       dong,
       height: recorded?.heightM ?? properties.height_m,
       levels: recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors ?? null,
@@ -195,7 +220,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   }
   const streetPoints: StreetPoint[] = (neighborhood?.points ?? []).map(({ coordinates, ...tags }) => ({ ...tags, position: project(coordinates) }))
     .filter(({ position }) => Math.abs(position.x) < extent && Math.abs(position.z) < extent);
-  if (region === 'songpa') for (const [index, coordinate] of [...songpaGrounds.crowns, ...songiPark.crowns].entries()) {
+  if (region === 'songpa') for (const [index, coordinate] of [...songpaGrounds.crowns, ...songpaCourtyard.crowns, ...songiPark.crowns].entries()) {
     streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
   }
   const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));
@@ -212,6 +237,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     buildingRegister: region === 'opo' ? { ...register, towers: registerRows.sort((a, b) => a.dong.localeCompare(b.dong)) } : null,
     terrainSource: { name: dem.source, catalog: dem.catalog, datum: dem.verticalDatum, resolution: dem.nativeResolutionM,
       epoch: dem.sourceEpoch, relativeDifference: dem.meanRelativeDifferenceFrom90M },
+    localTerrain: localTerrain && { source: localTerrain.source, spacing: localTerrain.spacingM, scale: localTerrain.scale },
+    roadMarkings,
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
 

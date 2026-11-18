@@ -1,21 +1,21 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { extent, type OpoData, type Point, type Street } from './opo-data';
+import { extent, type OpoData, type Point, type Street, type StreetPaint } from './opo-data';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, terrainSurface } from './opo-meshes';
 
-const major = new Set(['trunk', 'primary', 'secondary', 'tertiary']);
+const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 const paths = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
 const streetWidths: Record<string, number> = {
-  trunk: 13, primary: 10, secondary: 8, tertiary: 6.4, residential: 5.3,
+  motorway: 13, trunk: 13, primary: 10, secondary: 8, tertiary: 6.4, residential: 5.3, living_street: 4.8,
   unclassified: 4.8, service: 3.8, track: 3, pedestrian: 3, steps: 1.5, cycleway: 2.3,
 };
 
 export function streetWidth(road: Street) {
   const base = road.category.replace('_link', '');
   const width = road.width ?? (road.lanes ? road.lanes * (major.has(base) ? 3.1 : 2.8) + 0.5 : streetWidths[base] ?? 1.7);
-  return T.MathUtils.clamp(width, 1.2, 26);
+  return T.MathUtils.clamp(width, 1.2, (road.lanes ?? 0) > 8 ? 38 : 26);
 }
 
 type Segment = { road: Street; a: Point; b: Point; aId: number; bId: number; length: number; width: number };
@@ -197,8 +197,68 @@ function lineChunks(points: Point[], run: number, gap: number): Point[][] {
   return chunks;
 }
 
+function leaveJunctionGap(points: Point[], start: number, end: number) {
+  const length = points.slice(1).reduce((sum, point, i) => sum + Math.hypot(point.x - points[i].x, point.z - points[i].z), 0);
+  const remaining: Point[] = [];
+  let walked = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i];
+    const distance = Math.hypot(b.x - a.x, b.z - a.z);
+    const begin = Math.max(walked, start), finish = Math.min(walked + distance, length - end);
+    if (finish - begin > 0.02) {
+      const at = (offset: number) => {
+        const ratio = (offset - walked) / distance;
+        return { x: T.MathUtils.lerp(a.x, b.x, ratio), z: T.MathUtils.lerp(a.z, b.z, ratio) };
+      };
+      if (remaining.length === 0) remaining.push(at(begin));
+      remaining.push(at(finish));
+    }
+    walked += distance;
+  }
+  return remaining;
+}
+
 export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials) {
-  const network = createStreetNetwork(data.streets);
+  const songpa = data.region === 'songpa';
+  const centerlines = createStreetNetwork(data.streets);
+  const survey = data.roadMarkings;
+  const surveyedLines = survey?.lanes.map(lane => ({ ...lane, points: lane.points.map(data.project) })) ?? [];
+  const surveyedWays = new Set<number>();
+  const edgeOffsets = new Map<number, number[]>();
+  for (const { points, edge } of surveyedLines) for (const [index, a] of points.slice(0, -1).entries()) {
+    const b = points[index + 1];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const length = Math.hypot(dx, dz);
+    const samples = Math.max(1, Math.ceil(length / 7));
+    for (let i = 0; i < samples; i++) {
+      const t = (i + 0.5) / samples;
+      const hit = centerlines.nearest({ x: a.x + dx * t, z: a.z + dz * t }, 22);
+      if (!hit) continue;
+      const { segment, distance } = hit;
+      if (distance <= segment.width / 2 + 1.4) surveyedWays.add(segment.road.id);
+      if (!edge || segment.road.width || length < 1 || distance < segment.width / 2 - 0.3 || distance > segment.width / 2 + 1.65) continue;
+      const alignment = Math.abs(dx * (segment.b.x - segment.a.x) + dz * (segment.b.z - segment.a.z)) / (length * segment.length);
+      if (alignment < 0.9) continue;
+      const offsets = edgeOffsets.get(segment.road.id) ?? [];
+      offsets.push(distance);
+      edgeOffsets.set(segment.road.id, offsets);
+    }
+  }
+  const roads = data.streets.map(road => {
+    const offsets = edgeOffsets.get(road.id);
+    if (!offsets || offsets.length < 3) return road;
+    const robustEdge = offsets.sort((a, b) => a - b)[Math.floor((offsets.length - 1) * 0.75)];
+    return { ...road, width: Math.max(streetWidth(road), 2 * (robustEdge + 0.18)) };
+  });
+  const network = edgeOffsets.size ? createStreetNetwork(roads) : centerlines;
+  const crosswalkCenters = survey?.crosswalks.map(crosswalk => data.project(crosswalk.center)) ?? [];
+  const joined = new Map<number, number>();
+  if (songpa) for (const road of roads) {
+    if (road.motor) road.nodeIds.forEach((id, i) => {
+      const edges = i > 0 && i < road.nodeIds.length - 1 ? 2 : 1;
+      joined.set(id, (joined.get(id) ?? 0) + edges);
+    });
+  }
   const grade = (x: number, z: number) => data.ground(x, z) + network.raiseBridge({ x, z });
   const surface = (x: number, z: number) => terrainSurface(data.ground, x, z) + network.raiseBridge({ x, z });
   const layers = new Map<string, { color: string; texture?: TourSurface; geometry: T.BufferGeometry[]; castsShadow: boolean }>();
@@ -217,9 +277,31 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     else layers.set(key, { color, texture, geometry: [geometry], castsShadow });
   }
   function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface) {
-    add(color, ribbon(points, width, (x, z) => surface(x, z) + height), texture);
+    add(color, ribbon(points, width, (x, z) => surface(x, z) + height, songpa ? 1.25 : Infinity), texture);
   }
-  for (const road of data.streets) {
+  function zebra(location: Point) {
+    const road = network.nearest(location, 8);
+    if (!road) return;
+    const { a, b, width, length } = road.segment;
+    const dx = (b.x - a.x) / length, dz = (b.z - a.z) / length;
+    for (let offset = -width / 2 + 0.45; offset <= width / 2 - 0.35; offset += 0.78) {
+      const x = road.point.x + dz * offset, z = road.point.z - dx * offset;
+      strip([{ x: x - dx * 1.08, z: z - dz * 1.08 }, { x: x + dx * 1.08, z: z + dz * 1.08 }], 0.4, 0.545, '#ede8d8');
+    }
+  }
+  function surveyedPaint(points: Point[], style: StreetPaint) {
+    const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0' : '#f2eee3';
+    const double = style === 'yellow-double' || style === 'yellow-combined';
+    const paint = (line: Point[], dashed: boolean) => {
+      const segments = dashed ? lineChunks(line, style === 'yellow-dash' ? 2.7 : 4, 4.5) : [line];
+      for (const segment of segments) strip(segment, style === 'stop' ? 0.31 : 0.14, 0.55, color);
+    };
+    if (double) {
+      paint(offsetLine(points, -0.15), false);
+      paint(offsetLine(points, 0.15), style === 'yellow-combined');
+    } else paint(points, style.endsWith('-dash'));
+  }
+  for (const road of roads) {
     if (finish && (road.id === opoEntranceBridgeId || road.id === opoEntranceTurnId)) continue;
     const width = streetWidth(road);
     const isPath = paths.has(road.category);
@@ -230,7 +312,38 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const color = unpaved ? '#aa9981'
       : isPath ? '#bba994' : isMain ? '#626970' : road.category === 'residential' ? '#737878' : '#858780';
     const texture = unpaved ? 'forest' : isPath ? 'cobble' : 'asphalt';
-    const tint = finish ? (isMain ? '#dfdedd' : '#fffaf3') : color;
+    const tint = finish ? (songpa && texture === 'asphalt' ? '#e2ecf8' : isMain ? '#dfdedd' : '#fffaf3') : color;
+    function songpaPaint(points: Point[], previous: boolean, next: boolean) {
+      const gap = Math.max(3.5, Math.min(width * 0.44, 8));
+      const laneLine = leaveJunctionGap(points, previous ? gap : 0, next ? gap : 0);
+      if (laneLine.length < 2) return;
+      const count = Math.floor(road.lanes ?? 0);
+      const arterial = isMain && count >= 2;
+      const approximatePaint = road.markings && !unpaved && !surveyedWays.has(road.id);
+      if (approximatePaint && count >= 2) {
+        const opposite = road.backwardLanes ?? Math.ceil(count / 2);
+        const spacing = (width - (arterial ? 0.88 : 0.46)) / count;
+        for (let lane = 1; lane < count; lane++) {
+          const offset = spacing * (count / 2 - lane);
+          const axis = offsetLine(laneLine, offset);
+          if (!road.oneWay && lane === opposite) {
+            for (const delta of (count >= 4 ? [-0.14, 0.14] : [0])) {
+              strip(offsetLine(laneLine, offset + delta), 0.13, 0.523, '#e9bd51');
+            }
+          } else {
+            for (const dash of lineChunks(axis, arterial ? 4.5 : 2.7, arterial ? 6.5 : 4.4)) strip(dash, 0.14, 0.525, '#ebe9e0');
+          }
+        }
+      }
+      for (const [index, sign] of [1, -1].entries()) {
+        const edge = width / 2 * sign;
+        if (arterial && approximatePaint) strip(offsetLine(laneLine, edge - sign * 0.32), 0.15, 0.519, '#eeeae2');
+        if (road.sidewalks[index]) {
+          strip(offsetLine(laneLine, edge + sign * 0.89), 1.78, 0.61, '#d4cec2', 'cobble');
+          strip(offsetLine(laneLine, edge + sign * 0.12), 0.19, 0.635, '#a5a4a0');
+        }
+      }
+    }
     const paint = (points: Point[]) => {
       if (points.length < 2) return;
       if (!finish || isPath || road.bridge) {
@@ -238,16 +351,30 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       }
       strip(points, width, 0.47, tint, texture);
       if (!isPath) {
-        for (const point of points) {
+        for (const point of (songpa && width > 12 ? [points[0], points[points.length - 1]] : points)) {
           const cap = new T.CircleGeometry(width / 2, 10);
-          cap.rotateX(-Math.PI / 2).translate(point.x, surface(point.x, point.z) + 0.445, point.z);
+          cap.rotateX(-Math.PI / 2).translate(point.x, 0, point.z);
+          if (songpa) {
+            const positions = cap.getAttribute('position');
+            for (let i = 0; i < positions.count; i++) positions.setY(i, surface(positions.getX(i), positions.getZ(i)) + 0.355);
+          } else cap.translate(0, surface(point.x, point.z) + 0.445, 0);
           add(tint, cap, texture);
         }
       }
-      if (!isPath && road.lanes && road.lanes >= 2 && road.markings && !road.unpaved) {
+      if (songpa && road.motor) {
+        let from = road.points.indexOf(points[0]);
+        const limit = from + points.length - 1;
+        for (let end = from + 1; end <= limit; end++) {
+          if (end !== limit && (joined.get(road.nodeIds[end]) ?? 0) < 3) continue;
+          const startAtJunction = (joined.get(road.nodeIds[from]) ?? 0) > 2;
+          const endAtJunction = (joined.get(road.nodeIds[end]) ?? 0) > 2;
+          songpaPaint(road.points.slice(from, end + 1), startAtJunction, endAtJunction);
+          from = end;
+        }
+      } else if (!isPath && road.lanes && road.lanes >= 2 && road.markings && !road.unpaved) {
         for (const chunk of lineChunks(points, 3.4, 4.8)) strip(chunk, 0.11, 0.52, road.oneWay ? '#e6e4d9' : '#dfb85e');
       }
-      road.sidewalks.forEach((sidewalk, i) => {
+      if (!songpa) road.sidewalks.forEach((sidewalk, i) => {
         if (sidewalk) strip(offsetLine(points, (width / 2 + 0.85) * (i ? -1 : 1)), 1.7, 0.57, '#c2b8a5', 'cobble');
       });
       if (road.bridge) for (const side of [-1, 1]) {
@@ -307,21 +434,21 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (item.kind === 'bus') busStops.push(item.position);
     if (item.kind === 'bench') benches.push(item.position);
     if (item.kind !== 'crossing') continue;
-    const road = network.nearest(item.position, 8);
-    if (!road) continue;
-    const { a, b, width, length } = road.segment;
-    const dx = (b.x - a.x) / length, dz = (b.z - a.z) / length;
-    for (let offset = -width / 2 + 0.45; offset <= width / 2 - 0.35; offset += 0.78) {
-      const x = road.point.x + dz * offset, z = road.point.z - dx * offset;
-      strip([{ x: x - dx * 1.08, z: z - dz * 1.08 }, { x: x + dx * 1.08, z: z + dz * 1.08 }], 0.4, 0.545, '#ede8d8');
-    }
+    if (!crosswalkCenters.some(center => Math.hypot(center.x - item.position.x, center.z - item.position.z) < 7)) zebra(item.position);
+  }
+  for (const { style, points } of surveyedLines) surveyedPaint(points, style);
+  for (const { surfaces, stripes, inventoryMatch } of survey?.crosswalks ?? []) {
+    for (const ring of surfaces) add('#e2ecf8', groundPolygon([ring.map(data.project)], surface, 2, 0.475), 'asphalt');
+    for (const ring of stripes) add(inventoryMatch ? '#eeeee4' : '#dedbd0', groundPolygon([ring.map(data.project)], surface, 1.5, 0.57));
   }
   for (const { color, texture, geometry: geometries, castsShadow } of layers.values()) {
     const geometry = mergeGeometries(geometries);
     geometries.forEach(item => item.dispose());
     if (!geometry) continue;
     const material = new T.MeshStandardMaterial({ color, roughness: 0.91, side: T.DoubleSide });
-    const mesh = new T.Mesh(geometry, texture && finish ? finish(material, texture) : material);
+    if (texture && finish) finish(material, texture);
+    if (songpa && texture === 'asphalt') material.color.multiplyScalar(1.42);
+    const mesh = new T.Mesh(geometry, material);
     mesh.receiveShadow = true;
     mesh.castShadow = castsShadow;
     scene.add(mesh);

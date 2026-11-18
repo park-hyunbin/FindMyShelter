@@ -4,6 +4,7 @@ import { extent, inShape, nearestOnLine, type Building, type OpoData, type Point
 import { riverNormals, surfaceUV, type TourMaterials } from './opo-materials';
 import type { TreeCover } from './opo-tree-cover';
 import { addSongpaTowerExterior, songpaExteriorMaterials } from './opo-songpa-exterior';
+import { songpaStreetExterior } from './opo-songpa-street-exterior';
 import architecture from '../public/opo-architecture.json';
 
 export function shapeFrom(rings: Shape) {
@@ -84,7 +85,7 @@ export function groundPolygon(rings: Shape, ground: OpoData['ground'], maxEdge =
   return geometry;
 }
 
-export function ribbon(points: Point[], width: number, elevation: OpoData['ground']) {
+export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity) {
   const vertices: number[] = [];
   const indexes: number[] = [];
   const walk: Point[] = [];
@@ -97,18 +98,24 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
   }
   if (!walk.length) return new T.BufferGeometry();
   walk.push(points[points.length - 1]);
+  const sections = Math.max(1, Math.ceil(width / crossStep));
+  const rowLength = sections + 1;
   walk.forEach((point, i) => {
     const a = walk[Math.max(0, i - 1)], b = walk[Math.min(walk.length - 1, i + 1)];
     const length = Math.hypot(b.x - a.x, b.z - a.z) || 1;
     const dx = (b.z - a.z) / length * width / 2;
     const dz = (a.x - b.x) / length * width / 2;
-    for (const sign of [1, -1]) {
-      const x = point.x + dx * sign, z = point.z + dz * sign;
+    for (let across = 0; across <= sections; across++) {
+      const fraction = 1 - 2 * across / sections;
+      const x = point.x + dx * fraction, z = point.z + dz * fraction;
       vertices.push(x, elevation(x, z), z);
     }
     if (i) {
-      const k = (i - 1) * 2;
-      indexes.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+      const start = (i - 1) * rowLength;
+      for (let across = 0; across < sections; across++) {
+        const a = start + across, b = a + rowLength;
+        indexes.push(a, b, a + 1, a + 1, b, b + 1);
+      }
     }
   });
   const geometry = new T.BufferGeometry();
@@ -156,8 +163,8 @@ function neighborhoodFacade(wall: string, glass: string, trim: string) {
 }
 
 function buildingStyle(building: Building) {
-  if (/industrial|warehouse|commercial|retail|공장|창고|근린생활/.test(building.category)) return 2;
-  if (/apartments|school|church|hospital|공동주택|학교|다세대/.test(building.category)) return 1;
+  if (/industrial|warehouse|commercial|retail|공장|창고|근린생활|업무시설|사무소/.test(building.category)) return 2;
+  if (/apartments|school|church|hospital|아파트|공동주택|학교|다세대|교회/.test(building.category)) return 1;
   return [...building.id].reduce((hash, c) => (hash * 31 + c.charCodeAt(0)) >>> 0, 0) % 3 === 0 ? 3 : 0;
 }
 
@@ -263,7 +270,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
 
   for (const building of data.buildings) {
     for (const [index, rings] of building.shapes.entries()) {
-      if (!building.height && data.region !== 'opo') {
+      if (!building.height && !building.levels && data.region === 'songpa') {
         scene.add(new T.Mesh(groundPolygon(rings, data.ground), footprints));
         continue;
       }
@@ -277,7 +284,8 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       const geometry = new T.ExtrudeGeometry(shape, { depth: displayHeight + skirt, bevelEnabled: false });
       const roofRise = data.region === 'opo' && building.dong && building.height ? architecture.roofRiseM : 0;
       const wallHeight = displayHeight - roofRise;
-      const floorHeight = building.dong && building.levels && building.levels > 0 ? wallHeight / building.levels : 3.1;
+      const floorHeight = (building.dong || data.region === 'songpa') && building.levels && building.levels > 0
+        ? wallHeight / building.levels : 3.1;
       if (!roofRise) {
         const uv = geometry.getAttribute('uv');
         for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3.25, (uv.getY(i) - skirt) / floorHeight);
@@ -291,7 +299,9 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
         geometry.dispose();
         continue;
       }
-      const mesh = new T.Mesh(geometry, building.dong ? [apartmentRoof, facade] : [roofMaterials[roofStyle], facadeMaterials[style]]);
+      const streetExterior = data.region === 'songpa' && index === 0 && !building.dong
+        ? songpaStreetExterior(building, data, rings[0], verticalBase, displayHeight, scene) : null;
+      const mesh = new T.Mesh(geometry, streetExterior ?? (building.dong ? [apartmentRoof, facade] : [roofMaterials[roofStyle], facadeMaterials[style]]));
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.name = data.region === 'opo' && building.dong ? `오포 포레스트 ${building.dong}` : building.label;
       scene.add(mesh);

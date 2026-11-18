@@ -1,13 +1,15 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const bounds = [127.1497, 37.3392, 127.1788, 37.3624];
+const [firstArg, snapshotArg] = process.argv.slice(2);
+const songpa = firstArg === '--songpa';
+const bounds = songpa ? [127.1024, 37.4862, 127.1313, 37.5094] : [127.1497, 37.3392, 127.1788, 37.3624];
 const source = `https://www.openstreetmap.org/api/0.6/map.json?bbox=${bounds.join(',')}`;
-const suppliedSnapshot = process.argv[2];
+const suppliedSnapshot = songpa ? snapshotArg : firstArg;
 const raw = suppliedSnapshot ? JSON.parse(await readFile(suppliedSnapshot, 'utf8')) : await download();
 
 async function download() {
   const response = await fetch(source, {
-    headers: { 'User-Agent': 'FindMyShelter-OpoResearch/0.2 (neighborhood street geometry)' },
+    headers: { 'User-Agent': 'FindMyShelter/1.0 (neighborhood street geometry)' },
     signal: AbortSignal.timeout(30000),
   });
   if (!response.ok) throw new Error(`OpenStreetMap returned ${response.status}`);
@@ -16,6 +18,7 @@ async function download() {
 
 const motorClasses = new Set(['trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary',
   'tertiary_link', 'unclassified', 'residential', 'living_street', 'service', 'track']);
+if (songpa) for (const category of ['motorway', 'motorway_link']) motorClasses.add(category);
 const walkingClasses = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
 const nodes = new Map(raw.elements.filter(element => element.type === 'node').map(element => [element.id, element]));
 const roads = [], points = [], parking = [], buildings = [];
@@ -30,7 +33,8 @@ const numericTag = tag => {
 
 function kindOf(tags) {
   if (tags.highway === 'bus_stop') return 'bus';
-  if (tags.highway === 'crossing' && tags.crossing !== 'unmarked' && tags['crossing:markings'] !== 'no') return 'crossing';
+  if (tags.highway === 'crossing' && tags.crossing !== 'unmarked' && tags['crossing:markings'] !== 'no'
+    && (!songpa || tags['crossing:markings'] || ['marked', 'traffic_signals'].includes(tags.crossing))) return 'crossing';
   if (tags.highway === 'street_lamp') return 'lamp';
   if (tags.highway === 'traffic_signals') return 'signal';
   if (tags.natural === 'tree') return 'tree';
@@ -45,7 +49,7 @@ for (const item of raw.elements) {
   if (!tags) continue;
   const kind = kindOf(tags);
   if (item.type === 'node') {
-    if (kind) points.push({ id: `n${item.id}`, kind, name: tags.name ?? null, coordinates: [item.lon, item.lat] });
+    if (kind && (!songpa || kind !== 'place')) points.push({ id: `n${item.id}`, kind, name: tags.name ?? null, coordinates: [item.lon, item.lat] });
     continue;
   }
   if (item.type !== 'way' || !item.nodes || item.nodes.length < 2) continue;
@@ -61,7 +65,7 @@ for (const item of raw.elements) {
   if (closed && tags.amenity === 'parking' && !['underground', 'multi-storey'].includes(tags.parking)) {
     parking.push({ id: item.id, coordinates });
   }
-  if (closed && kind === 'place') {
+  if (!songpa && closed && kind === 'place') {
     const ring = coordinates.slice(0, -1);
     const center = ring.reduce((sum, point) => [sum[0] + point[0] / ring.length, sum[1] + point[1] / ring.length], [0, 0]);
     points.push({ id: `w${item.id}`, kind, name: tags.name, coordinates: center });
@@ -73,26 +77,30 @@ for (const item of raw.elements) {
   const sidewalk = (side) => {
     const specific = tags[`sidewalk:${side}`] ?? tags['sidewalk:both'];
     if (specific) return specific === 'yes';
-    return tags.sidewalk === 'both' || tags.sidewalk === side;
+    return ['both', side].includes(tags.sidewalk) || (songpa && tags.sidewalk === 'yes');
   };
   const access = tags.motor_vehicle ?? tags.motorcar ?? tags.vehicle ?? tags.access;
+  const forward = songpa ? numericTag(tags['lanes:forward']) : null;
+  const backward = songpa ? numericTag(tags['lanes:backward']) : null;
   roads.push({
     id: item.id, category, coordinates, nodeIds: item.nodes, name: tags.name ?? null,
     motor: motor && !['no', 'private', 'agricultural', 'forestry'].includes(access),
-    width: numericTag(tags.width), lanes: numericTag(tags.lanes), surface: tags.surface ?? null,
+    width: numericTag(tags.width), lanes: numericTag(tags.lanes) ?? (forward && backward ? forward + backward : null), surface: tags.surface ?? null,
+    ...(forward ? { forwardLanes: forward } : {}), ...(backward ? { backwardLanes: backward } : {}),
     bridge: Boolean(tags.bridge && tags.bridge !== 'no'), unpaved: ['unpaved','dirt','gravel','ground','fine_gravel','sand'].includes(tags.surface),
     sidewalks: [sidewalk('left'), sidewalk('right')], markings: tags.lane_markings !== 'no',
-    oneWay: tags.oneway === '-1' ? -1 : tags.oneway === 'yes' || tags.junction === 'roundabout' ? 1 : 0,
+    oneWay: tags.oneway === '-1' ? -1 : tags.oneway === 'yes' || tags.junction === 'roundabout'
+      || (songpa && category === 'motorway' && tags.oneway !== 'no') ? 1 : 0,
   });
 }
 
 const metadata = { bounds, source, attribution: '© OpenStreetMap contributors', license: 'https://www.openstreetmap.org/copyright' };
-const coreWays = [836821229, 835658906, 835665646, 835665645, 835658907, 835658913, 835658914];
-if (buildings.length < 500 || roads.length < 100 || !coreWays.every(id => roads.some(road => road.id === id))) {
-  throw new Error('The snapshot is missing the Opo neighborhood or the mapped complex approach.');
+const coreWays = songpa ? [169916276, 169916279, 1175929595] : [836821229, 835658906, 835665646, 835665645, 835658907, 835658913, 835658914];
+if ((!songpa && buildings.length < 500) || roads.length < 100 || !coreWays.every(id => roads.some(road => road.id === id))) {
+  throw new Error('The snapshot is missing neighborhood roads or the mapped complex approach.');
 }
-await Promise.all([
-  writeFile(new URL('../public/opo-streets.json', import.meta.url), JSON.stringify({ metadata, roads, points, parking }) + '\n'),
-  writeFile(new URL('../public/opo-osm-buildings.geojson', import.meta.url), JSON.stringify({ type: 'FeatureCollection', features: buildings, metadata }) + '\n'),
-]);
+const streetFile = songpa ? '../public/datasets/regions/songpa/streets.json' : '../public/opo-streets.json';
+await writeFile(new URL(streetFile, import.meta.url), JSON.stringify({ metadata, roads, points, parking }) + '\n');
+if (!songpa) await writeFile(new URL('../public/opo-osm-buildings.geojson', import.meta.url),
+  JSON.stringify({ type: 'FeatureCollection', features: buildings, metadata }) + '\n');
 console.log(`${roads.length} road/path ways, ${points.length} mapped points, ${parking.length} parking polygons, ${buildings.length} building outlines.`);
