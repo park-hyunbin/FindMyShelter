@@ -345,6 +345,15 @@ h1, h2, p { margin: 0; }
 .ambient-readings thead th { font-size: 10px; color: var(--muted); }
 .ambient-readings tbody th { color: var(--glow); }
 .ambient-readings small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
+.building-label.school-map-label { border-color: #bacbff; background: #263350; color: #e8eeff; }
+.building-label.school-map-site { border-color: #70ead1; background: #183f41; color: #cbfff3; }
+.school-zone-card h3 { margin: 0; font-size: 16px; color: var(--moon); }
+.school-zone-card > span { color: var(--muted); font-size: 10px; }
+.school-zone-card .site-actions { margin: 2px 0; }
+.school-zone-card button[aria-pressed='true'] { border-color: var(--glow); background: var(--glow); }
+.school-legend { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: 10px; }
+.school-legend span::before { content: ''; display: inline-block; width: 11px; margin-right: 4px; border-top: 2px solid #bacbff; vertical-align: 3px; }
+.school-legend span + span::before { border-color: #70ead1; }
 .building-label.flood-map-label { border-color: #f1b96d; background: #342a24; color: #ffebcd; }
 .building-label.flood-map-label[data-kind='water'] { border-color: #8fe4ff; background: #1a3847; color: #d1f5ff; }
 .flood-panel { display: grid; gap: 8px; }

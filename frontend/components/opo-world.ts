@@ -11,7 +11,7 @@ import { createTourMaterials, detailGround } from './opo-materials';
 import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
 import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
-import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, approach, playgroundReference } from './opo-site';
+import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, addSongpaSchoolMap, approach, playgroundReference } from './opo-site';
 import { addSongpaFloodMap } from './opo-flood';
 import type { FloodView } from './data/songpa-flood';
 import { addStreets } from './opo-streets';
@@ -20,6 +20,7 @@ import { readTreeCover } from './opo-tree-cover';
 import { createStreetOcclusion } from './opo-contact-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
+import { songpaSchool } from './data/songpa-school';
 import { songpaGrounds } from './data/songpa-grounds';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
@@ -146,9 +147,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const site = addSiteDetails(data, scene, streets.surface, finish);
   const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);
   const floodMap = isOpo ? undefined : addSongpaFloodMap(data, scene, streets.surface);
+  const schoolMap = isOpo ? undefined : addSongpaSchoolMap(data, scene, streets.surface);
   const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   const greenAccess = addGreenAccess(data, scene);
+  const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   scene.updateMatrixWorld(true);
   const analysis = createLightAnalyzer(data, terrain, occluders, streets.grade);
   const lightPath = createLightPath(scene, [terrain, ...occluders]);
@@ -345,6 +348,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const comparisonMarkers = new T.Group();
   scene.add(comparisonMarkers);
   let ambientInspection = false;
+  const analysisMapVisible = () => ambientMap?.group.visible || floodMap?.group.visible || schoolMap?.group.visible;
+  const updateComparisonMarkers = () => { comparisonMarkers.visible = !ambientInspection && !analysisMapVisible(); };
   const markers = Object.fromEntries((['A', 'B'] as const).map((slot, index) => {
     const group = new T.Group();
     const color = index === 0 ? '#e5ae45' : '#407b7b';
@@ -370,7 +375,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.className = 'building-label';
     element.textContent = building.dong;
     host.appendChild(element);
-    return { point, element, enabled: () => !ambientMap?.group.visible && !floodMap?.group.visible };
+    return { point, element, enabled: () => !analysisMapVisible() };
   });
   for (const label of ambientMap?.labels ?? []) {
     const element = document.createElement('span');
@@ -388,6 +393,14 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.hidden = true;
     host.appendChild(element);
     labels.push({ point: label.point, element, enabled: () => Boolean(floodMap?.group.visible && label.enabled()), keepInFrame: true });
+  }
+  for (const label of schoolMap?.labels ?? []) {
+    const element = document.createElement('span');
+    element.className = `building-label school-map-label school-map-${label.kind}`;
+    element.textContent = label.text;
+    element.hidden = true;
+    host.appendChild(element);
+    labels.push({ point: label.point, element, enabled: () => Boolean(schoolMap?.group.visible), keepInFrame: true });
   }
   for (const stop of pavingStops) {
     const element = document.createElement('span');
@@ -456,7 +469,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.hidden = true;
     host.appendChild(element);
     labels.push({point: pin.position.clone().add(new T.Vector3(0, 12, 0)), element,
-      enabled: () => placeCategories.includes(place.category)});
+      enabled: () => placeGroup.visible && placeCategories.includes(place.category)});
   }
   const pinLabels = (['A', 'B'] as const).map(slot => {
     const element = document.createElement('span');
@@ -915,9 +928,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const paving = mode === 'walk' ? pavingStops.find(stop => Math.hypot(position.x - stop.position.x, position.z - stop.position.z) < 11) : undefined;
       const roadside = ambientMap?.stops[0];
       const nearRoadside = mode === 'walk' && roadside && Math.hypot(position.x - roadside.position.x, position.z - roadside.position.z) < 11;
+      const nearSchoolCrossing = mode === 'walk' && schoolCrossing
+        && Math.hypot(position.x - schoolCrossing.position.x, position.z - schoolCrossing.position.z) < 11;
       const onSongpaStartRoad = !isOpo && nearest?.id === roadSpawn.segment.road.id;
       const streetName = onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name;
-      return { name: nearRoadside ? roadside.name : paving?.name ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
+      const namedPoint = nearSchoolCrossing ? '송이로 횡단보도' : nearRoadside ? roadside.name : paving?.name;
+      return { name: namedPoint ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
         speed: Math.round(travelSpeed * 3.6), touring: tripIndex > 0 };
     },
     toggleTrip() {
@@ -959,13 +975,24 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       camera.position.copy(controls.target).add(new T.Vector3(100, 350, 450));
       controls.update();
     },
+    showSchoolZone(enabled: boolean) {
+      if (!schoolMap) return;
+      schoolMap.group.visible = enabled;
+      placeGroup.visible = !enabled;
+      updateComparisonMarkers();
+      if (!enabled) return;
+      const bounds = new T.Box3().setFromPoints(schoolMap.regionPoints);
+      const { x, z } = bounds.getSize(new T.Vector3());
+      const scale = Math.max(x, z);
+      frameSurface(schoolMap.regionPoints, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.10, scale * 0.17), true);
+    },
     showSiteDetails(enabled: boolean) { site.overlay.visible = enabled; },
     ambientScene: ambientMap && { stops: ambientMap.stops.filter(stop => canAnalyze(stop.position)), stationDistancesM: ambientMap.stationDistancesM },
     showAmbient(active: boolean, map: boolean) {
       if (!ambientMap) return;
       ambientInspection = active;
-      comparisonMarkers.visible = !active && !floodMap?.group.visible;
       ambientMap.group.visible = map;
+      updateComparisonMarkers();
       if (!map) return;
       const bounds = new T.Box3().setFromPoints(ambientMap.frames);
       const scale = bounds.getSize(new T.Vector3()).length();
@@ -974,14 +1001,14 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     showFlood(year: string | null, view: FloodView) {
       if (!floodMap) return;
       const points = floodMap.show(year, view);
-      comparisonMarkers.visible = !ambientInspection && !floodMap.group.visible;
+      updateComparisonMarkers();
       if (!points.length) return;
       const bounds = new T.Box3().setFromPoints(points);
       const { x, z } = bounds.getSize(new T.Vector3());
       const scale = Math.max(160, x, z);
       frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
     },
-    greenAccessProfiles: greenAccess.layers.map(layer => ({ id: layer.id, profile: layer.profile })),
+    greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView }) => ({ id, profile, crossingView })),
     markGreenAccess(id: string | null, index: number) {
       greenAccess.mark(id, index);
       const sample = greenAccess.layers.find(layer => layer.id === id)?.profile.samples[index];

@@ -17,6 +17,7 @@ import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
+import { songpaSchool } from './data/songpa-school';
 import TourLive from './TourLive';
 import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
@@ -214,6 +215,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [open, setOpen] = useState(false);
   const [placeCategory, setPlaceCategory] = useState('all');
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [schoolZoneVisible, setSchoolZoneVisible] = useState(false);
   const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : 'sun');
   const [accessId, setAccessId] = useState<string | null>(null);
   const [accessSample, setAccessSample] = useState(0);
@@ -296,6 +298,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world?.showSiteDetails(open && tab === 'site');
     world?.showPlaces(open && tab === 'places' ? (placeCategory === 'all' ? ['beauty','convenience','school'] : [placeCategory]) : []);
   }, [world, open, tab, placeCategory]);
+
+  useEffect(() => {
+    world?.showSchoolZone(open && tab === 'places' && mode === 'orbit' && schoolZoneVisible);
+  }, [world, open, tab, mode, schoolZoneVisible]);
 
   useEffect(() => {
     const active = tab === 'ambient';
@@ -384,6 +390,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     }
     if (next !== tab) analysisPanel.current?.scrollTo(0, 0);
     if (next !== 'ambient') setAmbientViewing(false);
+    if (next !== 'places') setSchoolZoneVisible(false);
     if (next !== tab && (next === 'ambient' || next === 'flood')) chooseMode('orbit');
     setTab(next);
   }
@@ -396,6 +403,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }
 
   function selectPlace(id: string) {
+    setSchoolZoneVisible(false);
     setSelectedPlaceId(id);
     world?.focusPlace(id);
     setMode('orbit');
@@ -426,6 +434,21 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       setMode('orbit');
     }
     world.showGreenAccess(next);
+  }
+
+  function lookAtRoutePoint(point: Pick<RouteTerrainSample, 'position' | 'bearing'>) {
+    if (!world) return;
+    setSelectedSlot(null);
+    setStatus('');
+    hideTreeCover();
+    world.lookFrom(point.position, point.bearing, 0);
+    setMode('walk');
+    if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
+  function openSchoolRoute() {
+    chooseTab('nature');
+    showAccessRoute(songpaSchool.routeId);
   }
 
   function choosePoint(slot: Slot, point: SitePoint) {
@@ -536,11 +559,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         chooseTab('nature');
         showAccessRoute(target === 'station-route' ? 'songpa-station' : 'songi-park');
         break;
+      case 'school-route':
+        openSchoolRoute();
+        break;
       case 'school':
       case 'places':
         setPlaceCategory(target === 'school' ? 'school' : 'all');
         setSelectedPlaceId(null);
         chooseTab('places');
+        setSchoolZoneVisible(target === 'school');
+        if (target === 'school') chooseMode('orbit');
         break;
     }
   }
@@ -765,11 +793,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </>}
         </>}
         <section className="green-access" aria-label="주변 접근 경로">
-          <h3>{region === 'songpa' ? '역·공원 방향 경로' : '공원 인근 도로 연결'}</h3>
+          <h3>{region === 'songpa' ? '역·공원·학교 방향 경로' : '공원 인근 도로 연결'}</h3>
           <p>{access.startLabel} 출발 · 실선은 지도에 보행로·보도가 표시된 구간, 점선은 보도 미확인 구간이에요.</p>
           {access.retrieved && <p>지도 확인 {access.retrieved} · 노란 고리는 지도상 횡단 구간이에요. 단지 출입구와 신호 대기는 현장에서 확인해 주세요.</p>}
           {access.routes.map(route => {
-            const profile = world?.greenAccessProfiles.find(item => item.id === route.id)?.profile;
+            const accessDetails = world?.greenAccessProfiles.find(item => item.id === route.id);
+            const profile = accessDetails?.profile;
+            const crossing = accessDetails?.crossingView;
             const selected = accessId === route.id;
             const routeVisible = selected && mode === 'orbit';
             return <div key={route.id} ref={selected ? activeAccessCard : undefined} className="site-card access-card">
@@ -779,16 +809,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               {route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
               <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : '경로 보기'}</button>
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
+              {selected && crossing && <>
+                <div className="site-actions"><button onClick={() => lookAtRoutePoint(crossing)}>송이로 횡단보도 눈높이 보기</button></div>
+                <p>횡단보도 줄무늬 폭은 화면용 근사예요.</p>
+              </>}
               {selected && profile && <RouteTerrain profile={profile} selected={accessSample} startLabel={access.startLabel} onSelect={setAccessSample}
-                onLook={sample => {
-                  if (!world) return;
-                  setSelectedSlot(null);
-                  setStatus('');
-                  hideTreeCover();
-                  world.lookFrom(sample.position, sample.bearing, 0);
-                  setMode('walk');
-                  if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
-                }} />}
+                onLook={lookAtRoutePoint} />}
             </div>;
           })}
         </section>
@@ -810,6 +836,28 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       </>}
 
       {tab === 'places' && <div className="place-explorer">
+        {region === 'songpa' && <article className="place-note school-zone-card" aria-label="공식 초등학교 통학구역">
+          <span>초등학교 통학구역 · {songpaSchool.referenceDate}</span>
+          <h3>{songpaSchool.school}</h3>
+          <p>지도상 가락동부센트레빌 경계 전체가 {songpaSchool.zoneName}에 들어가요.</p>
+          {schoolZoneVisible && mode === 'orbit' && <div className="school-legend"><span>통학구역 경계</span><span>지도상 단지 경계</span></div>}
+          <div className="site-actions">
+            <button aria-pressed={schoolZoneVisible && mode === 'orbit'} disabled={!world} onClick={() => {
+              const next = !schoolZoneVisible || mode !== 'orbit';
+              setSchoolZoneVisible(next);
+              setSelectedPlaceId(null);
+              if (next) chooseMode('orbit');
+            }}>통학구역 지도</button>
+            <button disabled={!world} onClick={openSchoolRoute}>통학 방향 경로</button>
+          </div>
+          <details className="basis">
+            <summary>공식 자료 확인</summary>
+            <p>취학·전학 시점의 통학구역은 {songpaSchool.districtOffice} 안내에서 확인할 수 있어요.</p>
+            <a href={songpaSchool.zoneSource} target="_blank" rel="noreferrer">한국교육시설안전원 통학구역 원본 ↗</a>
+            <a href={songpaSchool.associationSource} target="_blank" rel="noreferrer">학교·학구도 연계 자료 ↗</a>
+            <a href={songpaSchool.schoolSource} target="_blank" rel="noreferrer">서울신가초 찾아오시는 길 ↗</a>
+          </details>
+        </article>}
         <div className="place-explorer-heading"><span>동네 탐색</span><p>아래 장소를 선택해 지도에서 위치를 확인하세요.</p></div>
         <div className="place-filters" aria-label="장소 종류">{[['all','전체'],['beauty','올리브영'],['convenience','편의점'],['school','학교']].map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => { setPlaceCategory(id); setSelectedPlaceId(null); }}>{label}</button>)}</div>
         <div className="place-list" aria-label="주변 장소 목록">{world?.places.filter(p => placeCategory === 'all' || p.category === placeCategory).map(p => <button className="place-row" aria-pressed={selectedPlaceId === p.id} key={p.id} onClick={() => selectPlace(p.id)}><span className={`place-kind place-kind-${p.category}`} aria-hidden="true">{p.category === 'school' ? '학' : p.category === 'beauty' ? '영' : '편'}</span><strong>{p.name}</strong><small>직선 {p.distance_m.toLocaleString()}m</small></button>)}</div>
@@ -818,7 +866,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <h3>{selectedPlace.name}</h3>
           <p>{placeOrigin}에서 직선 약 {selectedPlace.distance_m.toLocaleString()}m 지점입니다.</p>
         </section>}
-        <div className="place-note"><strong>학교 위치와 통학구역은 달라요</strong><p>현재는 학교 위치만 표시합니다. 배정 학교와 학군 경계는 공식 자료를 연결한 뒤 별도 레이어로 제공합니다.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>
+        {region === 'opo' && <div className="place-note"><strong>공식 통학구역</strong><p>취학 주소의 통학구역은 학구도에서 확인할 수 있어요.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>}
         <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 2026-11-15 지도 스냅샷. 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
       </div>}
 

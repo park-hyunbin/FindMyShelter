@@ -13,6 +13,7 @@ type AccessRoute = {
   walkwayM: number;
   gapM: number | null;
   crossings?: { wayId: number; coordinate: number[] }[];
+  crossingView?: { position: number[]; toward: number[] };
   stepWays?: number;
 };
 

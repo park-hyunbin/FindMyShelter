@@ -2,19 +2,92 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { nearestOnLine, type OpoData } from './opo-data';
+import { nearestOnLine, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
 import { visitRoutes } from './data/visit-routes';
 import { songpaGrounds } from './data/songpa-grounds';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
+import { songpaSchool } from './data/songpa-school';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
 
+function addSingaCrosswalk(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
+  const crossing = visitRoutes.songpa.routes.find(route => route.id === songpaSchool.routeId)?.crossingView;
+  if (!crossing) return;
+  const a = data.project(crossing.position);
+  const b = data.project(crossing.toward);
+  const length = Math.hypot(b.x - a.x, b.z - a.z);
+  const dx = (b.x - a.x) / length;
+  const dz = (b.z - a.z) / length;
+  const fromStart = (distance: number) => ({ x: a.x + dx * distance, z: a.z + dz * distance });
+  const crossingPavement = ribbon([fromStart(1.3), fromStart(length - 1.3)], 4.8, (x, z) => grade(x, z) + 0.51);
+  const asphalt = new T.MeshStandardMaterial({ color: '#fffaf3', roughness: 0.92, side: T.DoubleSide });
+  surfaceUV(crossingPavement, 'asphalt');
+  const surface = new T.Mesh(crossingPavement, finish(asphalt, 'asphalt'));
+  surface.receiveShadow = true;
+  scene.add(surface);
+  const paint = new T.MeshStandardMaterial({ color: '#f3ead9', roughness: 0.9, side: T.DoubleSide });
+  for (let distance = 1.9; distance < length - 1.9; distance += 1.15) {
+    const point = fromStart(distance);
+    const stripe = new T.Mesh(ribbon([
+      { x: point.x - dz * 2.1, z: point.z + dx * 2.1 },
+      { x: point.x + dz * 2.1, z: point.z - dx * 2.1 },
+    ], 0.58, (x, z) => grade(x, z) + 0.56), paint);
+    stripe.receiveShadow = true;
+    scene.add(stripe);
+  }
+}
+
+export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
+  const group = new T.Group();
+  group.visible = false;
+  scene.add(group);
+  const pointAt = ({ x, z }: Point, lift = 2) => new T.Vector3(x, grade(x, z) + lift, z);
+  const zoneStroke = new LineMaterial({ color: '#bacbff', linewidth: 3.4, depthTest: false, depthWrite: false });
+  const siteStroke = new LineMaterial({ color: '#70ead1', linewidth: 4.1, depthTest: false, depthWrite: false });
+  const fill = new T.MeshBasicMaterial({ color: '#697cb6', opacity: 0.16, transparent: true,
+    depthTest: false, depthWrite: false, side: T.DoubleSide });
+  function outline(points: T.Vector3[], material: LineMaterial) {
+    const line = new Line2(new LineGeometry().setPositions(points.flatMap(p => p.toArray())), material);
+    line.renderOrder = 13;
+    group.add(line);
+  }
+
+  const geometry = songpaSchool.geometry;
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+  const regionPoints = polygons.flatMap(polygon => {
+    const rings = polygon.map(ring => ring.slice(0, -1).map(data.project));
+    const mesh = new T.Mesh(groundPolygon(rings, grade, 32, 1.2), fill);
+    mesh.renderOrder = 12;
+    group.add(mesh);
+    return rings.flatMap(ring => {
+      const points = [...ring, ring[0]].map(p => pointAt(p));
+      outline(points, zoneStroke);
+      return points;
+    });
+  });
+  const sitePoints = data.siteOutline.map(p => pointAt(p));
+  outline(sitePoints, siteStroke);
+  const siteCenter = new T.Box3().setFromPoints(sitePoints).getCenter(new T.Vector3());
+  const labels = [{ point: siteCenter.add(new T.Vector3(0, 25, 0)), text: data.area.name, kind: 'site' }];
+  const school = data.places.find(place => place.id === songpaSchool.placeId);
+  if (school) {
+    const pin = new T.Mesh(new T.SphereGeometry(7, 12, 9),
+      new T.MeshBasicMaterial({ color: '#bacbff', depthTest: false, depthWrite: false }));
+    pin.position.copy(pointAt(school.point, 28));
+    pin.renderOrder = 14;
+    group.add(pin);
+    labels.push({ point: pin.position.clone().add(new T.Vector3(0, 15, 0)), text: songpaSchool.school, kind: 'school' });
+  }
+  return { group, labels, regionPoints };
+}
+
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   if (data.region === 'songpa') {
+    addSingaCrosswalk(data, scene, grade, finish);
     const pavement = new T.MeshStandardMaterial({ color: '#807771', roughness: 0.96, side: T.DoubleSide });
     const paint = new T.MeshStandardMaterial({ color: '#dedbd0', roughness: 0.92, side: T.DoubleSide });
     const paving = groundPolygon([songpaGrounds.paving.map(data.project)], grade, 3, 0.12);
@@ -135,7 +208,15 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
     }
     scene.add(group);
     const endpoint = data.project(route.end);
-    return { id: route.id, name: route.name, group, bounds, endpoint, routePoints, profile };
+    const crossing = route.crossingView && {
+      position: data.project(route.crossingView.position), toward: data.project(route.crossingView.toward),
+    };
+    const crossingView = crossing && {
+      position: crossing.position,
+      bearing: T.MathUtils.radToDeg(Math.atan2(crossing.toward.x - crossing.position.x,
+        crossing.position.z - crossing.toward.z) - data.northOffset),
+    };
+    return { id: route.id, name: route.name, group, bounds, endpoint, routePoints, profile, crossingView };
   });
   const marker = new T.Group();
   marker.visible = false;

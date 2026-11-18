@@ -30,6 +30,11 @@ const destinations = [
     endLabel: '공원 남쪽 지도상 보행로',
     referenceSource: 'https://www.openstreetmap.org/way/1145100664',
   },
+  {
+    id: 'singa-school', name: '서울신가초 방향', node: 5260056163, approachCrossing: 544143915,
+    endLabel: '송이로 횡단보도 학교 쪽 보행로 · 교문까지의 연결은 현장 확인',
+    referenceSource: 'https://www.openstreetmap.org/way/544143915',
+  },
 ];
 if (!ways.get(169916279)?.nodes.includes(start) || !ways.get(169916276)?.nodes.includes(start)) {
   throw new Error('The public-road junction is missing from the map extract');
@@ -42,6 +47,12 @@ const park = ways.get(destinations[1].park);
 if (park?.tags?.name !== '송이공원' || ways.get(1145100664)?.tags?.highway !== 'footway'
     || !ways.get(1145100664).nodes.includes(destinations[1].node)) {
   throw new Error('The park or its mapped southern footway is missing');
+}
+const schoolCrossing = ways.get(destinations[2].approachCrossing);
+if (ways.get(418397238)?.tags?.amenity !== 'school' || schoolCrossing?.tags?.footway !== 'crossing'
+    || !schoolCrossing.nodes.includes(destinations[2].node) || !schoolCrossing.nodes.includes(10926471872)
+    || ways.get(1175929591)?.tags?.name !== '송이로' || !ways.get(1175929591).nodes.includes(10926471872)) {
+  throw new Error('The school or the mapped Songi-ro crossing has changed');
 }
 
 const pedestrian = new Set(['footway', 'path', 'pedestrian', 'steps']);
@@ -93,7 +104,7 @@ while (pending.size && wanted.size) {
   }
 }
 
-const routes = destinations.map(({ node, reference, park, ...destination }) => {
+const routes = destinations.map(({ node, reference, park, approachCrossing, ...destination }) => {
   if (!previous.has(node) || wanted.has(node)) throw new Error(`No mapped connection to ${destination.name}`);
   const edges = [];
   for (let next = node; next !== start;) {
@@ -112,12 +123,17 @@ const routes = destinations.map(({ node, reference, park, ...destination }) => {
       crossings.set(edge.id, { wayId: edge.id, coordinate: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] });
     }
   }
+  const crossingEdges = approachCrossing ? edges.filter(edge => edge.id === approachCrossing && edge.crossing) : [];
+  if (approachCrossing && !crossingEdges.length) throw new Error('The school route missed the named crossing');
   return {
     ...destination, end: nodes.get(node), segments,
     lengthM: Math.round(edges.reduce((sum, edge) => sum + edge.length, 0)),
     walkwayM: Math.round(edges.filter(edge => edge.mappedWalkway).reduce((sum, edge) => sum + edge.length, 0)),
     gapM: reference ? Math.round(distance(projected.get(node), projected.get(reference))) : null,
     crossings: [...crossings.values()],
+    ...(crossingEdges.length && {
+      crossingView: { position: nodes.get(crossingEdges[0].from), toward: nodes.get(crossingEdges.at(-1).to) },
+    }),
     stepWays: new Set(edges.filter(edge => edge.steps).map(edge => edge.id)).size,
     wayIds: [...new Set(edges.map(edge => edge.id))],
   };

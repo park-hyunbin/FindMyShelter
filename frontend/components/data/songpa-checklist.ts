@@ -2,9 +2,10 @@ import { songpaComplex } from './regions';
 import { songpaFacilities, songpaGrounds } from './songpa-grounds';
 import { ambientSources } from './songpa-ambient';
 import { floodSource } from './songpa-flood';
+import { songpaSchool } from './songpa-school';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'paving' | 'parking' | 'ambient' | 'flood';
+export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'paving' | 'parking' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -82,11 +83,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         followUp: '실제로 이용할 동 출입구부터 단지 밖 목적지까지 끊김 없이 이어지는지 살펴보세요.',
       },
       {
-        id: 'school', title: '통학·통원', evidence: 'model',
-        finding: '3D에서 주변 학교 위치를 찾을 수 있어요. 학구도에서 주소로 배정 구역을 확인하고, 학교나 통원 시설의 실제 출입구가 어디인지 살펴보세요.',
-        followUp: '통학할 시간에 큰길 횡단, 차가 드나드는 곳과 보도 연결을 확인해 보세요.',
-        views: [{ target: 'school', label: '학교 위치 보기' }],
-        sources: [{ label: '공식 학구도 안내', url: 'https://schoolzone.emac.kr/' }],
+        id: 'school', title: '통학·통원', evidence: 'document',
+        finding: '공식 학구도에서 단지 전체가 서울신가초 통학구역에 들어가요. 학교 방향으로 이어지는 보행로와 송이로 횡단보도를 3D에서 볼 수 있어요.',
+        followUp: '등교 시간 신호 대기와 교문까지의 보도 연결, 이용할 병원 출입구를 확인해 보세요.',
+        views: [{ target: 'school', label: '공식 통학구역 보기' }, { target: 'school-route', label: '통학 방향 경로 보기' }],
+        sources: [{ label: '한국교육시설안전원 통학구역 원본', url: songpaSchool.zoneSource }],
       },
       {
         id: 'services', title: '장보기·병원·공원', evidence: 'model',
