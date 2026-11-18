@@ -8,7 +8,7 @@ import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
 import { songpaHomeLinks, songpaHospital, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
-import { songpaCourtyard, songpaGrounds } from './data/songpa-grounds';
+import { songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
@@ -140,7 +140,8 @@ export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoDat
   return { group, stops, labels, frames };
 }
 
-export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
+export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['ground'],
+  paving?: ReturnType<typeof addSiteSurfaces>) {
   const recorded = new LineMaterial({ color: data.region === 'songpa' ? '#148b80' : '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
   const aerialTrace = data.region === 'songpa' ? new LineMaterial({ color: '#8e69d5', linewidth: 4.3 }) : null;
@@ -165,45 +166,58 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     const profile = surveyedEntrance ? undefined : routeTerrainProfile(data, projected, survey);
     const group = new T.Group();
     const lines = new T.Group();
+    const pavingGuides = new T.Group();
     const bounds = new T.Box3();
     const routePoints: T.Vector3[] = [];
     group.visible = false;
-    group.add(lines);
-    function addLine(points: Point[], style: LineMaterial) {
+    group.add(lines, pavingGuides);
+    function addLine(points: Point[], style: LineMaterial, surface?: (point: Point) => number) {
       const vertices: number[] = [];
       function vertex(x: number, z: number) {
-        const y = grade(x, z) + 0.76;
+        const y = surface ? surface({ x, z }) : grade(x, z) + 0.76;
         const position = new T.Vector3(x, y, z);
         bounds.expandByPoint(position);
         routePoints.push(position);
         vertices.push(x, y, z);
       }
       vertex(points[0].x, points[0].z);
+      const spacing = surface ? 0.5 : 4;
       for (let i = 1; i < points.length; i++) {
         const a = points[i - 1], b = points[i];
-        const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 4));
+        const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / spacing));
         for (let j = 1; j <= count; j++) vertex(a.x + (b.x - a.x) * j / count, a.z + (b.z - a.z) * j / count);
       }
       const line = new Line2(new LineGeometry().setPositions(vertices), style);
       line.computeLineDistances();
-      lines.add(line);
+      (surface ? pavingGuides : lines).add(line);
       return line;
     }
     route.segments.forEach((segment, index) => addLine(projected[index], segment.mappedWalkway ? recorded : unconfirmed));
     if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection);
-    const homeWalk = aerialTrace && shortConnection && (route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId) ? (() => {
+    const driveway = paving?.drivewayCenterline;
+    const homeWalk = aerialTrace && shortConnection && paving && driveway && driveway.length >= 2
+      && (route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId) ? (() => {
       const nearStation = songpaHomeLinks.stationExit.coordinates.map(data.project);
       const nearGate = songpaHomeLinks.gateApproach.coordinates.map(data.project);
       const inner = songpaGrounds.points.find(point => point.id === 'inner-paving');
       if (!inner) return null;
       const arrival = data.project(inner.coordinate);
-      const apron = songpaCourtyard.apron.map(data.project);
-      const join = apron.slice(1).map((end, index) => ({ index, ...nearestOnLine(arrival, [[apron[index], end]]) }))
-        .sort((a, b) => a.distance - b.distance)[0];
-      const inside = [nearGate.at(-1)!, ...apron.slice(0, join.index + 1), join.point, arrival];
+      // Follow the same sampled curve used for the visible driveway.
+      const join = driveway.slice(1).reduce((best, end, index) => {
+        const candidate = nearestOnLine(arrival, [[driveway[index], end]]);
+        return candidate.distance < best.distance ? { index, ...candidate } : best;
+      }, { index: 0, point: driveway[0], distance: Infinity });
+      const gate = nearGate.at(-1)!;
+      const inside = [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
+      const traceLift = 0.10;
+      const surfaceGuide = ({ x, z }: Point) => (paving.elevation({ x, z }) ?? grade(x, z)) + traceLift;
+      const gateLift = surfaceGuide(gate) - grade(gate.x, gate.z);
       addLine(nearStation, shortConnection);
-      addLine(nearGate, shortConnection);
-      addLine(inside, aerialTrace);
+      addLine(nearGate, shortConnection, ({ x, z }) => {
+        const blend = T.MathUtils.smoothstep(Math.hypot(x - gate.x, z - gate.z), 0, 5);
+        return grade(x, z) + T.MathUtils.lerp(gateLift, 0.66, blend);
+      });
+      addLine(inside, aerialTrace, surfaceGuide);
       const at = (id: string, name: string, evidence: string, position: Point, toward: Point) => ({
         id, name, evidence, position,
         bearing: bearingTo(position, toward),
@@ -260,7 +274,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       routePoints.push(entranceLabel);
     }
     scene.add(group);
-    return { id: route.id, name: route.name, group, lines, bounds, endpoint, entranceLabel, entranceView, routePoints, profile,
+    return { id: route.id, name: route.name, group, lines, pavingGuides, bounds, endpoint, entranceLabel, entranceView, routePoints, profile,
       crossingView: viewPose(route.crossingView), stopView: viewPose(route.stopView), homeWalk };
   });
   const marker = new T.Group();

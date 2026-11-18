@@ -107,7 +107,8 @@ export function addSiteSurfaces(
     stripes.forEach(stripe => stripe.dispose());
   }
 
-  if (layout.drive) add(ribbon(curve(layout.drive.points), layout.drive.width,
+  const drivewayCenterline: Point[] | undefined = layout.drive && curve(layout.drive.points);
+  if (layout.drive && drivewayCenterline) add(ribbon(drivewayCenterline, layout.drive.width,
     (x, z) => drivewayGrade(x, z) + 0.026, 0.8, 1), asphalt, 'asphalt');
   for (const { width, points } of layout.paths) {
     const line = curve(points);
@@ -137,5 +138,5 @@ export function addSiteSurfaces(
     const { at, length } = axisBetween(data.project(start), data.project(end));
     zebra((across, along) => at(along, across + length / 2), length, -depth / 2, depth / 2);
   }
-  return { elevation, drivewayGrade };
+  return { elevation, drivewayGrade, drivewayCenterline };
 }

@@ -167,7 +167,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
     return paved;
   }
-  const greenAccess = addGreenAccess(data, scene, streets.surface);
+  const greenAccess = addGreenAccess(data, scene, streets.surface, site.paving);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   const parkViews = isOpo ? [] : songiPark.views.map(({ name, coordinate, toward }) => {
     const position = data.project(coordinate);
@@ -1106,6 +1106,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       for (const layer of greenAccess.layers) {
         const active = guidedWalk && layer.id === id;
         layer.lines.visible = mode === 'orbit' || active;
+        layer.pavingGuides.visible = layer.lines.visible;
         layer.lines.position.y = active ? -0.10 : 0;
       }
     },
