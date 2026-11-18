@@ -1,7 +1,7 @@
 import { songpaComplex } from './regions';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'street' | 'sun' | 'horizon' | 'school' | 'places';
+export type ChecklistView = 'complex' | 'street' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -53,8 +53,9 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     title: '평소 오가는 길',
     checks: [
       {
-        id: 'transit', title: '역·정류장까지 걷기', evidence: 'visit',
-        finding: '단지 출입구에서 역 출입구나 정류장까지 이어지는 보행 구간은 확인 중이에요.',
+        id: 'transit', title: '역·정류장까지 걷기', evidence: 'model',
+        finding: '단지 앞 교차점에서 송파역 2번 출구 인근까지 지도에 이어진 길과 횡단 구간을 볼 수 있어요. 단지 출입구 연결, 출구까지 마지막 구간과 버스정류장 경로는 현장 확인이 필요해요.',
+        views: [{ target: 'station-route', label: '송파역 방향 경로 보기' }],
         followUp: '출근할 시간에 횡단보도, 신호 대기, 계단과 실제 걸린 시간을 기록해 보세요.',
         sources: [walkingNetwork],
       },
@@ -62,11 +63,12 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'slope', title: '언덕길과 귀갓길', evidence: 'model',
         finding: '눈높이 관측 지점에서 방향별 지형 단면을 볼 수 있어요. 원본 표고 자료의 해상도는 약 30m예요.',
         followUp: '귀갓길의 가장 가파른 구간은 실제 보도나 경사로에서 확인해 보세요.',
-        views: [{ target: 'horizon', label: '지형 단면 열기' }], sources: [terrainGrade],
+        views: [{ target: 'park-route', label: '송이공원 방향 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }], sources: [terrainGrade],
       },
       {
         id: 'alternatives', title: '완만한 길·계단 우회', evidence: 'visit',
-        finding: '계단을 피할 수 있는 길과 엘리베이터 연결은 구간별 확인이 필요해요.',
+        finding: '표시한 경로의 지도상 계단 태그와 모델 지형 단면을 볼 수 있어요. 실제 계단·승강기와 이용 가능한 우회로는 구간별 확인이 필요해요.',
+        views: [{ target: 'station-route', label: '역 방향 경로에서 확인' }],
         followUp: '출입구와 횡단 지점을 바꿔 보면서 완만한 길과 걸린 시간을 기록해 보세요.',
         sources: [walkingNetwork],
       },
@@ -84,9 +86,9 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'services', title: '장보기·병원·공원', evidence: 'model',
-        finding: '주변 상점 위치와 녹지 경계까지의 직선거리를 볼 수 있어요. 병원 출입구·공원 입구와 보행 연결은 확인 중이에요.',
+        finding: '주변 상점 위치와 송이공원 남쪽 보행로까지 지도에 이어진 길을 볼 수 있어요. 병원 출입구와 공원의 실제 개방 상태는 현장 확인이 필요해요.',
         followUp: '자주 이용할 시설의 위치, 이용 시간, 큰길을 건너는지 확인해 보세요.',
-        views: [{ target: 'places', label: '생활시설 지도 열기' }], sources: [siteBoundary],
+        views: [{ target: 'park-route', label: '송이공원 방향 경로 보기' }, { target: 'places', label: '생활시설 지도 열기' }], sources: [siteBoundary],
       },
     ],
   },

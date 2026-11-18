@@ -447,11 +447,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   for (const layer of greenAccess.layers) {
     const element = document.createElement('span');
     element.className = 'building-label access-label';
-    element.textContent = `${layer.name} 인근`;
+    element.textContent = data.region === 'songpa' ? layer.name : `${layer.name} 인근`;
     element.hidden = true;
     host.appendChild(element);
     const { x, z } = layer.endpoint;
-    labels.push({ point: new T.Vector3(x, data.ground(x, z) + 5, z), element, enabled: () => layer.group.visible, keepInFrame: true });
+    labels.push({ point: new T.Vector3(x, data.ground(x, z) + 5, z), element,
+      enabled: () => layer.group.visible && (!greenAccess.marker.visible
+        || Math.hypot(greenAccess.marker.position.x - x, greenAccess.marker.position.z - z) > 15), keepInFrame: true });
   }
   const routeTerrainLabel = document.createElement('span');
   routeTerrainLabel.className = 'building-label route-terrain-label';

@@ -5,7 +5,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import type { OpoData } from './opo-data';
 import { ribbon } from './opo-meshes';
 import { routeTerrainProfile } from './opo-route-profile';
-import greenAccess from '../public/opo-green-access.json';
+import { visitRoutes } from './data/visit-routes';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
@@ -31,9 +31,13 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
 }
 
 export function addGreenAccess(data: OpoData, scene: T.Scene) {
-  const recorded = new LineMaterial({ color: '#286e58', linewidth: 4.3 });
+  const recorded = new LineMaterial({ color: data.region === 'songpa' ? '#148b80' : '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
-  const layers = (data.region === 'opo' ? greenAccess.routes : []).map(route => {
+  const routes = visitRoutes[data.region].routes;
+  const crossingGeometry = routes.some(route => route.crossings?.length)
+    ? new T.RingGeometry(2.6, 3.9, 18).rotateX(-Math.PI / 2) : null;
+  const crossingMaterial = crossingGeometry ? new T.MeshBasicMaterial({ color: '#f6dc94', side: T.DoubleSide }) : null;
+  const layers = routes.map(route => {
     const projected = route.segments.map(segment => segment.coordinates.map(data.project));
     const profile = routeTerrainProfile(data, projected);
     const group = new T.Group();
@@ -59,6 +63,12 @@ export function addGreenAccess(data: OpoData, scene: T.Scene) {
       const line = new Line2(new LineGeometry().setPositions(vertices), segment.mappedWalkway ? recorded : unconfirmed);
       line.computeLineDistances();
       group.add(line);
+    }
+    for (const crossing of route.crossings ?? []) {
+      const { x, z } = data.project(crossing.coordinate);
+      const ring = new T.Mesh(crossingGeometry!, crossingMaterial!);
+      ring.position.set(x, data.ground(x, z) + 2, z);
+      group.add(ring);
     }
     scene.add(group);
     const endpoint = data.project(route.end);

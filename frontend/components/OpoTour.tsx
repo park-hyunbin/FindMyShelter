@@ -11,7 +11,7 @@ import { observationHeight, type LightReport, type LightSample } from './opo-sun
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
-import greenAccess from '../public/opo-green-access.json';
+import { visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import TourLive from './TourLive';
@@ -140,8 +140,8 @@ function TerrainSection({ profiles, onLook }: {
   </div>;
 }
 
-function RouteTerrain({ profile, selected, onSelect, onLook }: {
-  profile: RouteTerrainProfile; selected: number; onSelect: (index: number) => void;
+function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
+  profile: RouteTerrainProfile; selected: number; startLabel: string; onSelect: (index: number) => void;
   onLook: (sample: RouteTerrainSample) => void;
 }) {
   const sample = profile.samples[selected];
@@ -153,6 +153,9 @@ function RouteTerrain({ profile, selected, onSelect, onLook }: {
   const y = (height: number) => 67 - (height - minimum) / span * 52;
   const line = profile.samples.map(point => `${x(point.distance)},${y(point.elevation)}`).join(' ');
   const difference = profile.samples.at(-1)!.elevation - profile.samples[0].elevation;
+  const change = profile.samples.slice(1).map((point, index) => point.elevation - profile.samples[index].elevation);
+  const outboundAscent = change.reduce((sum, value) => sum + Math.max(0, value), 0);
+  const returnAscent = change.reduce((sum, value) => sum + Math.max(0, -value), 0);
   return <div className="route-terrain">
     <strong>경로 주변 지형 단면</strong>
     <div className="route-terrain-scale"><span>표고 약 {Math.round(maximum)}m</span><span>{routeTerrainStep}m 간격 표본</span></div>
@@ -162,9 +165,9 @@ function RouteTerrain({ profile, selected, onSelect, onLook }: {
       <line x1={x(sample.distance)} x2={x(sample.distance)} y1="5" y2="75" />
       <circle cx={x(sample.distance)} cy={y(sample.elevation)} r="3.3" />
     </svg>
-    <div className="route-terrain-scale"><span>단지 진입부 · 0m</span><span>종점 · {Math.round(profile.length).toLocaleString()}m</span></div>
+    <div className="route-terrain-scale"><span>{startLabel} · 0m</span><span>종점 · {Math.round(profile.length).toLocaleString()}m</span></div>
     <label>단면에서 위치 선택
-      <input aria-label="공원 인근 경로의 지형 표본 선택" type="range" min={0} max={profile.samples.length - 1} step={1}
+      <input aria-label="경로의 지형 표본 선택" type="range" min={0} max={profile.samples.length - 1} step={1}
         value={selected} aria-valuetext={`출발에서 ${Math.round(sample.distance)}m, 모델 표고 약 ${Math.round(sample.elevation)}m`}
         onChange={event => onSelect(Number(event.target.value))} />
     </label>
@@ -174,6 +177,7 @@ function RouteTerrain({ profile, selected, onSelect, onLook }: {
       {sample.gradient !== null && <div><dt>약 {Math.round(sample.gradientDistance)}m 구간 지형 변화율</dt>
         <dd>{sample.gradient > 0 ? '+' : ''}{sample.gradient.toFixed(1)}%</dd></div>}
       <div><dt>지형 예측 산포</dt><dd>{sample.spread.toFixed(1)}m</dd></div>
+      <div><dt>모델 누적 상승</dt><dd>가는 길 약 {Math.round(outboundAscent)}m · 오는 길 약 {Math.round(returnAscent)}m</dd></div>
     </dl>
     <p>종점 지형은 출발 지형보다 약 {Math.round(Math.abs(difference))}m {difference >= 0 ? '높아요' : '낮아요'}.</p>
     <button className="route-look" onClick={() => onLook(sample)}>선택 위치 눈높이로 보기 ↗</button>
@@ -183,9 +187,11 @@ function RouteTerrain({ profile, selected, onSelect, onLook }: {
 
 export default function OpoTour({region = 'opo', onChangeRegion}: {region?: RegionId; onChangeRegion?: () => void}) {
   const area = regions.find(r => r.id === region)!;
+  const access = visitRoutes[region];
   const host = useRef<HTMLDivElement>(null);
   const pickSlot = useRef<Slot | null>(null);
   const analysisPanel = useRef<HTMLElement>(null);
+  const activeAccessCard = useRef<HTMLDivElement>(null);
   const [world, setWorld] = useState<OpoWorld | null>(null);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
@@ -282,7 +288,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   useEffect(() => {
     world?.markGreenAccess(accessId, accessSample);
-  }, [world, accessId, accessSample]);
+  }, [world, accessId, accessSample, mode]);
+
+  useEffect(() => {
+    if (open && tab === 'nature' && accessId) activeAccessCard.current?.scrollIntoView({ block: 'nearest' });
+  }, [accessId, open, tab]);
 
   const lightPoint = lightSlot ? points[lightSlot] : undefined;
   useEffect(() => {
@@ -371,11 +381,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world.showTreeCover(enabled);
   }
 
-  function toggleGreenAccess(id: string) {
+  function showAccessRoute(next: string | null) {
     if (!world) return;
-    const next = accessId === id ? null : id;
     setAccessId(next);
-    setAccessSample(0);
+    if (next !== accessId) setAccessSample(0);
     setSelectedSlot(null);
     setStatus('');
     if (next) {
@@ -477,6 +486,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'horizon':
         chooseTab('nature');
+        break;
+      case 'station-route':
+      case 'park-route':
+        chooseTab('nature');
+        showAccessRoute(target === 'station-route' ? 'songpa-station' : 'songi-park');
         break;
       case 'school':
       case 'places':
@@ -689,17 +703,23 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <i aria-hidden="true" /> 연두색은 위성 자료에서 나무가 덮인 곳으로 분류된 영역이에요.
           </p>}
         </>}
-        <div className="green-access">
-          <h3>공원 인근 도로 연결</h3>
-          <p>단지 진입부 출발 · 점선은 보도 연결 미확인 구간이에요.</p>
-          {greenAccess.routes.map(route => {
+        </>}
+        <section className="green-access" aria-label="주변 접근 경로">
+          <h3>{region === 'songpa' ? '역·공원 방향 경로' : '공원 인근 도로 연결'}</h3>
+          <p>{access.startLabel} 출발 · 실선은 지도에 보행로·보도가 표시된 구간, 점선은 보도 미확인 구간이에요.</p>
+          {access.retrieved && <p>지도 확인 {access.retrieved} · 노란 고리는 지도상 횡단 구간이에요. 단지 출입구와 신호 대기는 현장에서 확인해 주세요.</p>}
+          {access.routes.map(route => {
             const profile = world?.greenAccessProfiles.find(item => item.id === route.id)?.profile;
-            return <div key={route.id} className="site-card access-card">
-              <div className="access-heading"><strong>{route.name}</strong><span>{meters(route.lengthM)}</span></div>
+            const selected = accessId === route.id;
+            const routeVisible = selected && mode === 'orbit';
+            return <div key={route.id} ref={selected ? activeAccessCard : undefined} className="site-card access-card">
+              <div className="access-heading"><strong>{route.name}</strong><span>{access.retrieved ? `${route.lengthM.toLocaleString()}m` : meters(route.lengthM)}</span></div>
               <p>{route.endLabel}{route.gapM !== null && ` · 등록 위치까지 직선 약 ${route.gapM}m`}</p>
-              <button disabled={!world} aria-pressed={accessId === route.id} onClick={() => toggleGreenAccess(route.id)}>{accessId === route.id ? '경로 숨기기' : '경로 보기'}</button>
+              {route.crossings && <p>보행로·보도 표기 약 {route.walkwayM.toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
+              {route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
+              <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : '경로 보기'}</button>
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
-              {accessId === route.id && profile && <RouteTerrain profile={profile} selected={accessSample} onSelect={setAccessSample}
+              {selected && profile && <RouteTerrain profile={profile} selected={accessSample} startLabel={access.startLabel} onSelect={setAccessSample}
                 onLook={sample => {
                   if (!world) return;
                   setSelectedSlot(null);
@@ -711,7 +731,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 }} />}
             </div>;
           })}
-        </div></>}
+        </section>
         <details className="basis"><summary>자료와 계산 기준</summary>
           <p>지형 단면은 출발 지면을 0m로 두고 {horizonRange}m까지 50m 간격으로 표시합니다. {world?.sources.terrain.name ?? 'GEDTM30'}을 사용하며 표고 기준은 {world?.sources.terrain.datum ?? 'EGM2008'}입니다. 자료 기준 기간은 {world?.sources.terrain.epoch ?? '2006–2015'}입니다.</p>
           <p>차폐각은 선택한 한 방향으로 {horizonRange}m 안의 지형 표본과 모델에 높이가 있는 건물 지붕 중 가장 위에 보이는 각도입니다. 높이 미확인 건물은 별도로 표시합니다. 주변 건물 높이 자료의 범위가 제한되며 수목과 {horizonRange}m 밖의 지형은 별도 확인이 필요합니다.</p>
@@ -719,7 +739,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           {world?.sources.terrain.relativeDifference != null && <p>기존 90m 자료와 중앙 기준점에 맞춰 비교한 상대 높이의 평균 절대 차이는 {world.sources.terrain.relativeDifference.toFixed(1)}m입니다.</p>}
           <a href={world?.sources.terrain.catalog ?? 'https://zenodo.org/records/15689805'} target="_blank" rel="noreferrer">지형 출처 · Ho &amp; Hengl / CC BY 4.0 ↗</a>
           <p>녹지와 수계 수치는 OpenStreetMap 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'})에 표시된 가장 가까운 경계·선까지의 직선거리입니다. 접근 가능 여부와 실제 보행 거리는 현장 확인이 필요합니다.</p>
-          {region === 'opo' && <p>공원 인근 경로는 OpenStreetMap에서 같은 노드로 이어진 도로의 길이입니다. 보도가 지도에 표시된 구간은 실선으로 그립니다. 공원 출입구와 전체 보행 경로는 확인 중입니다.</p>}
+          <p>경로 길이는 OpenStreetMap에서 같은 노드로 이어진 도로·보행로를 따라 계산합니다. 보도 표기와 횡단 구간은 지도 자료이며, 현장 연결과 통행 여건은 별도 확인이 필요합니다.</p>
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap 데이터 ↗</a>
           {world?.sources.treeCover && <>
             <p>수목 피복은 {world.sources.treeCover.year}년 Sentinel‑2 기반 {world.sources.treeCover.resolution}m 토지피복의 나무 분류입니다. 3D 나무는 이 범위 안에 모형으로 배치했으며 개별 위치·수종·높이는 추정입니다. 일조와 시야 계산은 지형과 건물 자료를 사용합니다.</p>
