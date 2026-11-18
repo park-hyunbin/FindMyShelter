@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import sirv from 'sirv';
 import { WebSocket, WebSocketServer } from 'ws';
+import { chatCooldown, readChat, readPose, roomCapacity, tourRegions, visitorName } from '../worker/tour-protocol.mjs';
 
 const output = fileURLToPath(new URL('../out/', import.meta.url));
 if (!existsSync(new URL('../out/index.html', import.meta.url))) {
@@ -14,7 +15,7 @@ const port = Number(process.env.PORT ?? 4295);
 const host = process.env.TOUR_HOST ?? '127.0.0.1';
 const origins = new Set((process.env.TOUR_ORIGINS ?? `http://localhost:${port},http://127.0.0.1:${port}`)
   .split(',').map(origin => origin.trim()));
-const rooms = new Map([['opo', new Map()], ['songpa', new Map()]]);
+const rooms = new Map(Array.from(tourRegions, region => [region, new Map()]));
 const files = sirv(output);
 const server = createServer((request, response) => {
   if (request.url === '/tour-live' && request.method === 'HEAD') {
@@ -38,22 +39,15 @@ function broadcast(room, packet, except) {
   for (const socket of room.keys()) if (socket !== except) send(socket, packet);
 }
 
-function readPose(message) {
-  const { x, z, heading, driving } = message;
-  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 1250 || Math.abs(z) > 1250
-      || !Number.isFinite(heading) || Math.abs(heading) > 2 * Math.PI || typeof driving !== 'boolean') return;
-  return { x, z, heading, driving };
-}
-
 server.on('upgrade', (request, socket, head) => {
   const room = rooms.get(/^\/tour-live\?region=(opo|songpa)$/.exec(request.url ?? '')?.[1]);
-  if (!room || !origins.has(request.headers.origin) || room.size >= 24) {
+  if (!room || !origins.has(request.headers.origin) || room.size >= roomCapacity) {
     socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
     return;
   }
   sockets.handleUpgrade(request, socket, head, client => {
     const id = randomUUID();
-    const name = `임장객 ${id.slice(0, 6).toUpperCase()}`;
+    const name = visitorName(id);
     const peer = { id, name, pose: null };
     room.set(client, peer);
     let lastPose = -Infinity;
@@ -81,9 +75,9 @@ server.on('upgrade', (request, socket, head) => {
         lastPose = now;
         broadcast(room, { type: 'peer', peer }, client);
       }
-      if (message.type === 'chat' && now - lastChat >= 800 && typeof message.text === 'string') {
-        const text = message.text.replace(/[\u0000-\u001f\u007f]/g, '').trim();
-        if (!text || text.length > 180) return;
+      if (message.type === 'chat' && now - lastChat >= chatCooldown) {
+        const text = readChat(message.text);
+        if (!text) return;
         lastChat = now;
         broadcast(room, { type: 'chat', id: randomUUID(), sender: id, name, text });
       }

@@ -15,7 +15,7 @@ npm --prefix frontend run dev
 npm --prefix frontend run build
 ```
 
-같은 지역에서 아바타와 채팅을 공유하는 **함께 임장**은 프로덕션 빌드 후 WebSocket 서버로 실행합니다.
+로컬에서 같은 지역의 아바타와 채팅을 공유하려면 프로덕션 빌드 후 WebSocket 서버를 실행합니다.
 
 ```sh
 npm --prefix frontend run serve:tour
@@ -23,7 +23,9 @@ npm --prefix frontend run serve:tour
 
 브라우저 두 탭에서 http://127.0.0.1:4295 를 열고 같은 지역에 입장합니다. 각 탭에서 **함께 임장 → 함께 임장 입장**을 선택하면 접속 인원과 다른 참가자의 걷기·운전 상태를 볼 수 있습니다. 메시지는 접속한 방으로 전송하며 서버에 기록하지 않습니다. 오포와 송파는 별도 방입니다. [ws](https://github.com/websockets/ws) · [sirv](https://github.com/lukeed/sirv)
 
-공개 환경에서 활성화하려면 같은 HTTPS 주소에서 정적 페이지와 `/tour-live` WebSocket 업그레이드를 제공해야 합니다. Node 서버는 기본적으로 루프백에서 실행하며, 배포 환경의 바인딩 주소와 포트는 `TOUR_HOST`, `PORT`로 지정합니다. `TOUR_ORIGINS`에는 허용할 HTTPS 출처를 쉼표로 구분해 지정합니다. 정적 Sites 배포는 현재 혼자 입장하는 임장을 제공합니다.
+Sites용 빌드는 `frontend/dist`에 브라우저 파일과 동행 Worker를 생성합니다. Worker는 D1과 같은 출처의 HTTPS 요청을 사용합니다. 지역 방은 최대 24명이 참여할 수 있으며, 연결이 끊긴 참가자는 마지막 업데이트 후 약 25초 뒤 목록에서 빠집니다. 방에 입장한 뒤에 도착한 채팅만 표시합니다.
+
+Node WebSocket 서버를 따로 배포할 경우 `TOUR_HOST`와 `PORT`로 바인딩 주소와 포트를, `TOUR_ORIGINS`로 허용할 HTTPS 출처를 지정합니다.
 
 ## 오포 데이터와 계산
 

@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { RegionId } from './data/regions';
 import type { OpoWorld } from './opo-world';
+import { openLiveTourHttp } from './tour-live-http';
 import type { TourChat, TourPacket } from './tour-live-types';
 
 export default function TourLive({ world, region }: { world: OpoWorld; region: RegionId }) {
-  const [available, setAvailable] = useState(false);
+  const [transport, setTransport] = useState<'socket' | 'poll' | null>(null);
   const [open, setOpen] = useState(false);
   const [joined, setJoined] = useState(false);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
@@ -15,46 +16,34 @@ export default function TourLive({ world, region }: { world: OpoWorld; region: R
   const [messages, setMessages] = useState<TourChat[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const socketRef = useRef<WebSocket | null>(null);
+  const sendChatRef = useRef<((text: string) => boolean) | null>(null);
   const messageList = useRef<HTMLDivElement>(null);
   const chatCooldown = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const controller = new AbortController();
     fetch('/tour-live', { method: 'HEAD', cache: 'no-store', signal: controller.signal })
-      .then(response => { if (!controller.signal.aborted) setAvailable(response.headers.get('X-Tour-Live') === '1'); })
+      .then(response => {
+        if (controller.signal.aborted || !response.ok) return;
+        const type = response.headers.get('X-Tour-Live');
+        setTransport(type === 'poll' ? 'poll' : type === '1' ? 'socket' : null);
+      })
       .catch(() => {});
     return () => controller.abort();
   }, []);
 
   useEffect(() => {
-    if (!joined) return;
+    if (!joined || !transport) return;
     const url = new URL('/tour-live', window.location.href);
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     url.searchParams.set('region', region);
-    const socket = new WebSocket(url);
-    socketRef.current = socket;
     const participants = new Set<string>();
-    let lastPose = '';
-    const updatePose = () => {
-      if (socket.readyState !== WebSocket.OPEN || socket.bufferedAmount > 4096) return;
-      const pose = JSON.stringify({ ...world.tourPose(), type: 'pose' });
-      if (pose === lastPose) return;
-      socket.send(pose);
-      lastPose = pose;
-    };
-    const interval = window.setInterval(updatePose, 100);
-    const deadline = window.setTimeout(() => socket.close(), 8000);
-    socket.onmessage = event => {
-      const packet = JSON.parse(event.data) as TourPacket;
+    const onPacket = (packet: TourPacket) => {
       if (packet.type === 'welcome') {
-        window.clearTimeout(deadline);
         setMe({ id: packet.id, name: packet.name });
         for (const peer of packet.peers) {
           participants.add(peer.id);
           world.showPeer(peer);
         }
-        updatePose();
       } else if (packet.type === 'peer') {
         participants.add(packet.peer.id);
         world.showPeer(packet.peer);
@@ -66,20 +55,56 @@ export default function TourLive({ world, region }: { world: OpoWorld; region: R
       }
       if (packet.type !== 'chat') setCount(participants.size + 1);
     };
-    socket.onclose = () => {
+    const onFailure = () => {
       setFailed(true);
       leave();
     };
+    const cleanup = () => {
+      window.clearTimeout(chatCooldown.current);
+      sendChatRef.current = null;
+      world.clearPeers();
+    };
+    if (transport === 'poll') {
+      const connection = openLiveTourHttp(url, () => world.tourPose(), onPacket, onFailure);
+      sendChatRef.current = connection.sendChat;
+      return () => { connection.dispose(); cleanup(); };
+    }
+
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(url);
+    const writable = () => socket.readyState === WebSocket.OPEN && socket.bufferedAmount < 4096;
+    let lastPose = '';
+    const updatePose = () => {
+      if (!writable()) return;
+      const pose = JSON.stringify({ ...world.tourPose(), type: 'pose' });
+      if (pose === lastPose) return;
+      socket.send(pose);
+      lastPose = pose;
+    };
+    sendChatRef.current = text => {
+      if (!writable()) return false;
+      socket.send(JSON.stringify({ type: 'chat', text }));
+      return true;
+    };
+    const interval = window.setInterval(updatePose, 100);
+    const deadline = window.setTimeout(() => socket.close(), 8000);
+    socket.onmessage = event => {
+      const packet = JSON.parse(event.data) as TourPacket;
+      onPacket(packet);
+      if (packet.type === 'welcome') {
+        window.clearTimeout(deadline);
+        updatePose();
+      }
+    };
+    socket.onclose = onFailure;
     return () => {
       window.clearTimeout(deadline);
       window.clearInterval(interval);
-      window.clearTimeout(chatCooldown.current);
       socket.onclose = socket.onmessage = null;
       socket.close();
-      socketRef.current = null;
-      world.clearPeers();
+      cleanup();
     };
-  }, [world, region, joined]);
+  }, [world, region, joined, transport]);
 
   useEffect(() => {
     if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight;
@@ -96,16 +121,14 @@ export default function TourLive({ world, region }: { world: OpoWorld; region: R
 
   function sendChat(event: FormEvent) {
     event.preventDefault();
-    const socket = socketRef.current;
     const text = draft.trim();
-    if (!text || sending || socket?.readyState !== WebSocket.OPEN || socket.bufferedAmount > 4096) return;
-    socket.send(JSON.stringify({ type: 'chat', text }));
+    if (!text || sending || !sendChatRef.current?.(text)) return;
     setDraft('');
     setSending(true);
     chatCooldown.current = window.setTimeout(() => setSending(false), 850);
   }
 
-  if (!available) return null;
+  if (!transport) return null;
   return <>
     <button className="tour-live-toggle" onClick={() => setOpen(value => !value)} aria-expanded={open}
       aria-controls="tour-live-panel">함께 임장{me ? ` · ${count}명` : ''}</button>
