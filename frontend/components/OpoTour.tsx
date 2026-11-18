@@ -18,6 +18,12 @@ import TourLive from './TourLive';
 
 const slots: Slot[] = ['A', 'B'];
 const initialDate = '2026-12-21';
+const seasonDates = [
+  { label: '봄', day: '03-21' },
+  { label: '여름', day: '06-21' },
+  { label: '가을', day: '09-23' },
+  { label: '겨울', day: '12-21' },
+];
 const capture = new Date(Date.parse(satelliteMetadata.acquired_at) + 9 * 3600000);
 const captureMinute = capture.getUTCHours() * 60 + capture.getUTCMinutes();
 type Points = Partial<Record<Slot, SitePoint>>;
@@ -45,8 +51,8 @@ function lightStatus(sample: LightSample) {
   return `${sample.status === 'shade' ? '모델상 그늘' : '미판정'} · ${sample.cause}`;
 }
 
-function Timeline({ report, minute, slot, onTime }: {
-  report: LightReport; minute: number; slot: Slot; onTime: (minute: number) => void;
+function Timeline({ report, minute, label, onTime }: {
+  report: LightReport; minute: number; label: string; onTime: (minute: number) => void;
 }) {
   const runs: { status: string; length: number; start: number }[] = [];
   report.samples.forEach((sample, i) => {
@@ -57,9 +63,52 @@ function Timeline({ report, minute, slot, onTime }: {
   return <div className="timeline">
     {runs.map(run => <span aria-hidden="true" key={run.start} className={`strip-${run.status}`} style={{ flexGrow: run.length }} />)}
     <i aria-hidden="true" style={{ left: `${minute / 14.4}%` }} />
-    <input aria-label={`지점 ${slot} 일조 시간 선택`} type="range" min={0} max={1439} step={1}
+    <input aria-label={label} type="range" min={0} max={1439} step={1}
       value={minute} aria-valuetext={`${timeLabel(minute)} KST`} onChange={event => onTime(Number(event.target.value))} />
   </div>;
+}
+
+function SeasonalSunlight({ world, point, year, minute, onTime, onPreview }: {
+  world: OpoWorld; point: SitePoint; year: string; minute: number;
+  onTime: (minute: number) => void; onPreview: (date: string) => void;
+}) {
+  const [reports, setReports] = useState<Partial<Record<string, LightReport>>>({});
+
+  useEffect(() => {
+    let index = 0;
+    let frame: number;
+    function nextDay() {
+      const { day } = seasonDates[index++];
+      const date = `${year}-${day}`;
+      const report = world.report(point, date);
+      setReports(previous => ({ ...previous, [date]: report }));
+      if (index < seasonDates.length) frame = requestAnimationFrame(nextDay);
+    }
+    frame = requestAnimationFrame(nextDay);
+    return () => cancelAnimationFrame(frame);
+  }, [world, point, year]);
+
+  return <ol className="season-days" aria-label="같은 지점의 계절별 일조 결과">
+    {seasonDates.map(({ label, day }) => {
+      const date = `${year}-${day}`;
+      const report = reports[date];
+      const sample = report && world.lightAt(point, date, minute);
+      return <li key={date} className="site-card season-day">
+        <div className="season-day-heading"><strong>{label}</strong><time dateTime={date}>{day.replace('-', '.')}</time>
+          {report && <b>{duration(report.sunMinutes)} 직사광</b>}
+        </div>
+        {report && sample ? <>
+          <Timeline report={report} minute={minute} label={`${label} 비교 시각`} onTime={onTime} />
+          <p>{timeLabel(minute)} KST · {lightStatus(sample)}</p>
+          <div className="season-day-footer">
+            <small>하루 중 미판정 {duration(report.unclassifiedMinutes)}</small>
+            <button type="button" className="light-trace" aria-label={`${label} 일조를 3D에서 보기`}
+              disabled={sample.status === 'night'} onClick={() => onPreview(date)}>3D에서 보기 ↗</button>
+          </div>
+        </> : <p>계산 중…</p>}
+      </li>;
+    })}
+  </ol>;
 }
 
 function TerrainSection({ profiles, onLook }: {
@@ -138,6 +187,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [mode, setMode] = useState<ViewMode>(region === 'opo' ? 'walk' : 'orbit');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(region === 'opo');
   const [date, setDate] = useState(initialDate);
+  const [seasonOpen, setSeasonOpen] = useState(false);
+  const [seasonSlot, setSeasonSlot] = useState<Slot>('A');
   const [minute, setMinute] = useState(840);
   const [points, setPoints] = useState<Points>({});
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -335,10 +386,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setStatus('');
   }
 
-  function inspectLight(slot: Slot) {
-    const point = points[slot];
-    if (!world || !point) return;
-    if (lightSlot === slot) { setLightSlot(null); return; }
+  function inspectLight(slot: Slot, previewDate?: string) {
+    if (!world || !points[slot]) return;
+    if (!previewDate && lightSlot === slot) { setLightSlot(null); return; }
+    if (previewDate) setDate(previewDate);
     setShowSunMap(false);
     setLightSlot(slot);
     setSelectedSlot(null);
@@ -405,6 +456,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
   }
 
+  const seasonYear = date.slice(0, 4) || initialDate.slice(0, 4);
+  const seasonPoint = points[seasonSlot];
   const buildingRegister = world?.sources.register;
   const selectedPlace = world?.places.find(place => place.id === selectedPlaceId);
   const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
@@ -431,7 +484,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     {world && <TourLive world={world} region={region} />}
 
     {lightSlot && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
-      <div><strong>{lightSlot} 지점 · {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>
+      <div><strong>{lightSlot} 지점 · {date} {timeLabel(minute)} KST</strong><p>{lightStatus(moment[lightSlot])}</p></div>
       <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
     </section>}
 
@@ -482,6 +535,23 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <input id="tour-time" type="range" min={0} max={1439} step={1} value={minute} aria-valuetext={timeLabel(minute)} onChange={event => setMinute(Number(event.target.value))} />
           <div className="time-scale"><span>00시</span><span>06시</span><span>12시</span><span>18시</span><span>24시</span></div>
         </div>
+        <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>미판정</span><span><i className="strip-night"/>야간</span></div>
+        <details className="season-compare" open={seasonOpen} onToggle={event => setSeasonOpen(event.currentTarget.open)}>
+          <summary>같은 지점의 계절별 일조</summary>
+          {seasonOpen && <>
+            <label className="season-point">
+              <span>비교 지점</span>
+              <select aria-label="계절 비교 지점" value={seasonSlot} onChange={event => setSeasonSlot(event.target.value as Slot)}>
+                {slots.map(slot => <option key={slot} value={slot} disabled={!points[slot]}>{slot} · {points[slot]?.label ?? '지점 미선택'}</option>)}
+              </select>
+            </label>
+            <p className="season-caption">{seasonYear}년 계절 대표일 · 관측 높이 {observationHeight}m<br/>일조 막대를 눌러 공통 시각을 바꿀 수 있어요.</p>
+            {world && seasonPoint && <SeasonalSunlight
+              key={`${seasonSlot}-${seasonPoint.x}-${seasonPoint.z}-${seasonYear}`}
+              world={world} point={seasonPoint} year={seasonYear} minute={minute} onTime={setMinute}
+              onPreview={nextDate => inspectLight(seasonSlot, nextDate)} />}
+          </>}
+        </details>
         {world?.sunMap && <section className="sun-map-control" aria-label="단지 일조 분포">
           <button aria-pressed={showSunMap} disabled={!date} onClick={toggleSunMap}>단지 일조 분포</button>
           {showSunMap && (date ? mapCounts ? <>
@@ -520,7 +590,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             </div>
             {tab === 'sun' && report && sample && <>
               <div className="sun-total"><strong>{duration(report.sunMinutes)}</strong><span>모델상 직사광</span></div>
-              <Timeline report={report} minute={minute} slot={slot} onTime={setMinute} />
+              <Timeline report={report} minute={minute} label={`지점 ${slot} 일조 시간 선택`} onTime={setMinute} />
               <p className="site-status">{lightStatus(sample)}</p>
               {sample.obstruction && <p className="site-status">차폐 지점까지 광선 거리 약 {Math.round(sample.obstruction.distance)}m</p>}
               <button className="light-trace" aria-label={`${slot} 지점 ${sample.status === 'shade' ? '그늘 원인 보기' : '햇빛 방향 보기'}`}
@@ -539,8 +609,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       </div>}
 
       {tab === 'sun' ? <>
-        <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>자료 한계</span></div>
-        <details className="basis"><summary>계산 기준과 자료</summary>
+       <details className="basis"><summary>계산 기준과 자료</summary>
           <p>맑은 하늘을 가정하고 지면에서 1.5m 높이의 지점을 10분 간격으로 계산합니다. 건물과 지형이 태양을 가리는지 검사합니다.</p>
           <p>3D 경로는 관측 지점에서 태양 방향으로 보낸 광선입니다. 그늘일 때 처음 닿은 건물 체적 또는 지형을 표시합니다. 점선은 자료 한계로 판정하지 못한 방향을 표시합니다.</p>
           {buildingRegister && <p>대상 주동은 건축HUB 표제부({buildingRegister.source.dataMonth})의 등록 높이로 건물 체적을 단순화해 계산합니다. 주변 건물은 QGIS 편집본 후보값과 OSM 높이를 사용합니다.</p>}

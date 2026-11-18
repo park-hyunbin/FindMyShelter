@@ -116,6 +116,22 @@ h1, h2, p { margin: 0; }
 .time-row output small { color: var(--muted); font-size: 9px; }
 .time-row input { grid-column: 1 / -1; width: 100%; margin: 0; height: 21px; accent-color: #427064; }
 .time-scale { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); font-weight: 550; }
+.season-compare { margin-bottom: 9px; padding: 0 10px; border: 1px solid #63748d; border-radius: 9px; background: #23334b; }
+.season-compare summary { padding: 11px 0; cursor: pointer; font-weight: 750; }
+.season-point { display: flex; align-items: center; gap: 8px; }
+.season-point span { flex: none; color: var(--lilac); font-size: 11px; }
+.season-point select { min-width: 0; width: 100%; min-height: 34px; padding: 4px 6px; border: 1px solid #70829a; border-radius: 6px; color: var(--moon); background: var(--night); }
+.season-caption { margin: 7px 0 9px; color: var(--muted); font-size: 10px; }
+.season-days { display: grid; gap: 5px; margin: 0 0 9px; padding: 0; list-style: none; }
+.season-days .season-day { padding: 7px 8px; background: #17243a; }
+.season-day-heading, .season-day-footer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 7px; }
+.season-day-heading time { color: var(--muted); font-size: 10px; }
+.season-day-heading b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.season-day .timeline { margin-top: 1px; }
+.season-day p { font-size: 11px; line-height: 1.45; }
+.season-day-footer { justify-content: space-between; align-items: center; }
+.season-day-footer small { color: var(--muted); }
+.season-day-footer button { width: auto; margin-top: 4px; }
 .sun-map-control { display: grid; gap: 7px; margin-bottom: 9px; padding: 9px 10px; border: 1px solid #63748d; border-radius: 9px; background: #23334b; }
 .sun-map-control button { min-height: 36px; padding: 5px 10px; color: var(--moon); background: #17243a; border: 1px solid #70829a; border-radius: 6px; text-align: left; font-weight: 750; }
 .sun-map-control button[aria-pressed=true] { background: var(--glow); border-color: var(--glow); color: var(--night); }
