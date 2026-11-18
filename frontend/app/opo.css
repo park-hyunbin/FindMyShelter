@@ -123,6 +123,19 @@ h1, h2, p { margin: 0; }
 .season-point span { flex: none; color: var(--lilac); font-size: 11px; }
 .season-point select { min-width: 0; width: 100%; min-height: 34px; padding: 4px 6px; border: 1px solid #70829a; border-radius: 6px; color: var(--moon); background: var(--night); }
 .season-caption { margin: 7px 0 9px; color: var(--muted); font-size: 10px; }
+.winter-capture figure { position: relative; margin: 0; }
+.winter-capture img { display: block; width: 100%; height: auto; border-radius: 5px; image-rendering: pixelated; }
+.winter-cell { position: absolute; outline: 2px solid currentColor; color: #efce91; }
+.winter-cell.site-B { color: #badbd5; }
+.winter-cell .slot { position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); }
+.winter-observations { display: grid; gap: 6px; margin: 8px 0; padding: 0; list-style: none; }
+.winter-observations li { display: grid; gap: 2px; padding: 6px 8px; border-radius: 5px; background: #17243a; }
+.winter-observations span, .winter-capture > p, .winter-capture small { color: var(--muted); line-height: 1.5; }
+.winter-capture > a { display: inline-block; margin-block: 6px; text-decoration: underline; }
+.winter-capture small { display: block; margin-bottom: 8px; }
+@media (max-width: 780px) {
+  .winter-capture figure { max-width: 210px; margin-inline: auto; }
+}
 .season-days { display: grid; gap: 5px; margin: 0 0 9px; padding: 0; list-style: none; }
 .season-days .season-day { padding: 7px 8px; background: #17243a; }
 .season-day-heading, .season-day-footer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 7px; }

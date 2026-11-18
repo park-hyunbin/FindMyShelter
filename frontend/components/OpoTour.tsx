@@ -19,6 +19,7 @@ import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment }
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
+import { songpaWinterCapture } from './data/songpa-winter-capture';
 import TourLive from './TourLive';
 import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
@@ -58,6 +59,41 @@ function lightStatus(sample: LightSample) {
   if (sample.status === 'sun') return '모델상 직사광';
   if (sample.status === 'night') return '태양이 지평선 아래에 있어요';
   return `${sample.status === 'shade' ? '모델상 그늘' : '미판정'} · ${sample.cause}`;
+}
+
+function WinterCapture({ world, onCompare, detailsRef }: {
+  world: OpoWorld | null; onCompare: () => void; detailsRef: React.RefObject<HTMLDetailsElement | null>;
+}) {
+  const capture = songpaWinterCapture;
+  const points = useMemo(() => capture.points.map((point, index) => {
+    const preset = world?.presets.find(candidate => candidate.id === point.id);
+    const model = preset && world?.lightAt(preset, capture.date, capture.exactMinute);
+    return { ...point, slot: slots[index], model };
+  }), [capture, world]);
+  return <details ref={detailsRef} className="season-compare winter-capture">
+    <summary>겨울 위성영상과 비교</summary>
+    <p className="season-caption"><time dateTime={capture.acquiredAt}>{capture.date} {capture.clock} KST</time> · Sentinel-2 · {capture.resolutionM}m 픽셀</p>
+    <figure>
+      <img src={capture.image} width={capture.width} height={capture.height}
+        alt="가락동부센트레빌의 겨울 위성영상. A는 어두운 실외 구역, B는 상대적으로 밝은 중앙 포장로." loading="lazy" />
+      {points.map(({ id, slot, pixel: [x, y] }) => <div key={id} className={`winter-cell site-${slot}`} aria-hidden="true"
+        style={{ left: `${x / capture.width * 100}%`, top: `${y / capture.height * 100}%`,
+          width: `${100 / capture.width}%`, height: `${100 / capture.height}%` }}>
+        <span className="slot">{slot}</span>
+      </div>)}
+    </figure>
+    <ul className="winter-observations">
+      {points.map(point => <li key={point.id}>
+        <strong>{point.slot} · {point.label}</strong>
+        <span>{point.appearance}</span>
+        <span>{point.model ? lightStatus(point.model) : '모델 자료 불러오는 중'}</span>
+      </li>)}
+    </ul>
+    <div className="site-actions"><button type="button" disabled={!points.every(point => point.model)} onClick={onCompare}>같은 시각의 3D 일조 보기</button></div>
+    <p>한 차례 촬영한 영상이에요. 픽셀 밝기는 바닥 재질과 수목에도 영향을 받아요. 하루 직사광 시간과 그림자 경계는 추가 관찰이 필요해요.</p>
+    <a href={capture.source} target="_blank" rel="noreferrer">촬영 원본과 메타데이터 ↗</a>
+    <small>{capture.attribution}</small>
+  </details>;
 }
 
 function Timeline({ report, minute, label, onTime }: {
@@ -200,6 +236,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const analysisPanel = useRef<HTMLElement>(null);
   const activeAccessCard = useRef<HTMLDivElement>(null);
   const pendingSiteCard = useRef<'paving' | 'parking' | null>(null);
+  const winterDetails = useRef<HTMLDetailsElement>(null);
+  const [showWinterEvidence, setShowWinterEvidence] = useState(false);
   const [world, setWorld] = useState<OpoWorld | null>(null);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
@@ -320,6 +358,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   useEffect(() => {
     if (open && tab === 'nature' && accessId) activeAccessCard.current?.scrollIntoView({ block: 'nearest' });
   }, [accessId, open, tab]);
+
+  useEffect(() => {
+    if (!showWinterEvidence || tab !== 'sun' || !winterDetails.current) return;
+    winterDetails.current.open = true;
+    winterDetails.current.scrollIntoView({ block: 'start' });
+    setShowWinterEvidence(false);
+  }, [showWinterEvidence, tab]);
 
   useEffect(() => {
     if (tab !== 'site' || !pendingSiteCard.current) return;
@@ -485,6 +530,17 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setShowSunMap(true);
   }
 
+  function compareWinterCapture() {
+    if (!world?.sunMap) return;
+    const [a, b] = songpaWinterCapture.points.map(point => world.presets.find(preset => preset.id === point.id));
+    if (!a || !b) return;
+    chooseTab('sun');
+    showComplexSunMap();
+    setDate(songpaWinterCapture.date);
+    setMinute(songpaWinterCapture.minute);
+    setPoints({ A: a, B: b });
+  }
+
   function useCurrentPosition() {
     if (!world || !selectedSlot) return;
     const position = world.position();
@@ -545,6 +601,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       case 'sun':
         chooseTab('sun');
         showComplexSunMap();
+        break;
+      case 'winter-capture':
+        compareWinterCapture();
+        setShowWinterEvidence(true);
         break;
       case 'horizon':
         chooseTab('nature');
@@ -675,6 +735,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <div className="time-scale"><span>00시</span><span>06시</span><span>12시</span><span>18시</span><span>24시</span></div>
         </div>
         <div className="legend"><span><i className="strip-sun"/>직사광</span><span><i className="strip-shade"/>그늘</span><span><i className="strip-unknown"/>미판정</span><span><i className="strip-night"/>야간</span></div>
+        {region === 'songpa' && <WinterCapture world={world} onCompare={compareWinterCapture} detailsRef={winterDetails} />}
         <details className="season-compare" open={seasonOpen} onToggle={event => setSeasonOpen(event.currentTarget.open)}>
           <summary>같은 지점의 계절별 일조</summary>
           {seasonOpen && <>

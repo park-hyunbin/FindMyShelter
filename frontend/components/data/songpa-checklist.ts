@@ -5,9 +5,10 @@ import { floodSource } from './songpa-flood';
 import { songpaSchool } from './songpa-school';
 import { songpaHospital } from './visit-routes';
 import { songiPark } from './songi-park';
+import { songpaWinterCapture } from './songpa-winter-capture';
 
 type Source = { label: string; url: string };
-export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'ambient' | 'flood';
+export type ChecklistView = 'complex' | 'sun' | 'winter-capture' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -45,8 +46,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       {
         id: 'sunlight', title: '실외 일조와 시야', evidence: 'model',
         finding: '단지 안 실외 점의 직사광·그늘을 날짜와 시간별로 비교해요. 차폐 건물과 지형을 찾고 원하는 방향의 눈높이에서 시야를 살펴볼 수 있어요.',
-        followUp: '맑은 날 모델이에요. 수목 그늘과 실제 시야는 같은 장소와 시각에 대조해 보세요.',
-        views: [{ target: 'sun', label: '일조 지도 열기' }, { target: 'horizon', label: '방향별 시야 보기' }],
+        followUp: '겨울 촬영 영상으로 두 지점의 밝기 차이를 비교할 수 있어요. 겨울 오후의 그늘 경계와 수목 영향을 확인하려면 같은 장소와 시각의 지상 관찰이 필요해요.',
+        views: [{ target: 'sun', label: '일조 지도 열기' }, { target: 'winter-capture', label: '겨울 위성영상과 비교' },
+          { target: 'horizon', label: '방향별 시야 보기' }],
+        sources: [{ label: 'Sentinel-2 겨울 촬영 원본', url: songpaWinterCapture.source }],
       },
       {
         id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'model',

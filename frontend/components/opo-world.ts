@@ -22,6 +22,7 @@ import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
+import { songpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaGrounds } from './data/songpa-grounds';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
@@ -563,6 +564,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
   }
   presets.push(...pavingStops.map(stop => ({ ...stop.position, id: stop.id, label: stop.name })));
+  if (!isOpo) for (const { id, label, coordinate } of songpaWinterCapture.points) {
+    const point = data.project(coordinate);
+    if (canAnalyze(point) && inShape(point, [data.siteOutline])) presets.push({ ...point, id, label });
+  }
 
   function setMode(next: ViewMode) {
     if (mode === next && !eyeLevel) return;

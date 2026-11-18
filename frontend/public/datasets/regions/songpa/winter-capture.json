@@ -1,0 +1,47 @@
+{
+  "acquiredAt": "2025-12-22T02:27:11.319000Z",
+  "resolutionM": 10,
+  "projection": "EPSG:32652",
+  "bounds": [
+    333410,
+    4151680,
+    333610,
+    4151870
+  ],
+  "width": 20,
+  "height": 19,
+  "source": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2B_52SCG_20251222_0_L2A",
+  "raster": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/52/S/CG/2025/12/S2B_52SCG_20251222_0_L2A/TCI.tif",
+  "sceneMask": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/52/S/CG/2025/12/S2B_52SCG_20251222_0_L2A/SCL.tif",
+  "attribution": "Contains modified Copernicus Sentinel data 2025",
+  "points": [
+    {
+      "id": "winter-capture-a",
+      "label": "101동 남서쪽 실외",
+      "pixel": [
+        7,
+        6
+      ],
+      "appearance": "영상에서 어두운 구역",
+      "sceneClass": 5,
+      "coordinate": [
+        127.11626930357953,
+        37.49817053093203
+      ]
+    },
+    {
+      "id": "winter-capture-b",
+      "label": "단지 중앙 포장로",
+      "pixel": [
+        10,
+        13
+      ],
+      "appearance": "영상에서 상대적으로 밝은 구역",
+      "sceneClass": 5,
+      "coordinate": [
+        127.11662435940659,
+        37.49754532621772
+      ]
+    }
+  ]
+}
