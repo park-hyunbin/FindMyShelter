@@ -67,6 +67,11 @@ function lightStatus(sample: LightSample) {
   return `${sample.status === 'shade' ? '모델상 그늘' : '미판정'} · ${sample.cause}`;
 }
 
+function differentFloorLight(world: OpoWorld, point: Point, date: string, eye: LightSample) {
+  const floor = world.lightNearSurface(point, date, eye.minute);
+  return floor.status === eye.status ? undefined : lightStatus(floor);
+}
+
 const winterWalkStops = [
   { id: 'west-garden', shortName: '동 사이 산책로' },
   { id: 'playground-edge', shortName: '놀이터 옆' },
@@ -78,7 +83,7 @@ const winterEnd = winterWalkHours[winterWalkHours.length - 1] * 60;
 const winterMinutes = Array.from({ length: (winterEnd - winterStart) / interval + 1 }, (_, i) => winterStart + i * interval);
 const winterWalkStatus = { sun: '직사광', shade: '그늘', unknown: '미판정', night: '일몰 후' };
 type WinterWalkSelection = { id: string; hour: number };
-type WalkLight = { date: string; minute: number; status: LightSample['status'] | 'outside'; text: string };
+type WalkLight = { date: string; minute: number; status: LightSample['status'] | 'outside'; text: string; floor?: string };
 
 function winterSampleRanges(samples: LightSample[]) {
   const ranges: { first: number; last: number; status: LightSample['status'] }[] = [];
@@ -105,11 +110,13 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
   const stop = data.find(item => item.id === selection.id);
   const sample = stop?.samples.find(result => result.minute === selection.hour * 60);
   const selectedPoint = stop?.point;
+  const floor = useMemo(() => world && selectedPoint && sample ? differentFloorLight(world, selectedPoint, date, sample) : undefined,
+    [world, selectedPoint, date, sample]);
 
   return <details ref={detailsRef} className="season-compare winter-walk" open={expanded}
     onToggle={event => onToggle(event.currentTarget.open)}>
     <summary>겨울 오후 산책 비교</summary>
-    <p className="season-caption">{date} · 한국 시간 · 지면 위 {observationHeight}m · 맑은 날 모델</p>
+    <p className="season-caption">{date} · 한국 시간 · 보행면 위 {observationHeight}m · 맑은 날 모델</p>
     <table aria-label="겨울 오후 세 지점 모델 일조">
       <thead><tr><th scope="col">시각</th>{data.map(item => <th key={item.id} scope="col">{item.shortName}</th>)}</tr></thead>
       <tbody>{winterWalkHours.map(hour => <tr key={hour}>
@@ -127,6 +134,7 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
     {sample && selectedPoint && stop && <div className="winter-walk-result">
       <strong>{selectedPoint.label} · {timeLabel(sample.minute)}</strong>
       <p>{lightStatus(sample)}</p>
+      {floor && <p>발밑 · {floor}</p>}
       <p>{interval}분 간격 모델 표본</p>
       <ul className="winter-sample-ranges" aria-label="오후 일조 변화">
         {winterSampleRanges(stop.samples).map(({ first, last, status }) => <li key={first} data-status={status}>
@@ -142,7 +150,7 @@ function WinterWalk({ world, date, detailsRef, expanded, selection, onToggle, on
         <button type="button" onClick={() => onSave(selectedPoint, date, sample)}>현장 메모에 담기</button>
       </div>
     </div>}
-    <p className="season-caption">일조표와 산책 장면은 같은 건물·지형 자료를 사용해요. 수목·구름의 영향과 실제 그늘 경계는 현장에서 확인해 주세요.</p>
+    <p className="season-caption">눈높이와 판정이 다른 때는 발밑도 표시해요. 수목·구름의 영향과 실제 그늘 경계는 현장에서 확인해 주세요.</p>
   </details>;
 }
 
@@ -190,7 +198,7 @@ function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef 
       </li>)}
     </ul>
     <div className="site-actions"><button type="button" disabled={!points.every(point => point.model)} onClick={onCompare}>같은 시각의 3D 일조 보기</button></div>
-    <p>두 오전의 같은 픽셀을 비교해요. 영상 밝기는 RGB 표시값으로, 바닥 재질과 수목의 영향도 받아요. 모델 표본의 높이는 지면 위 {observationHeight}m예요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
+    <p>두 오전의 같은 픽셀을 비교해요. 영상 밝기는 RGB 표시값으로, 바닥 재질과 수목의 영향도 받아요. 모델 표본의 높이는 3D 바닥 위 {observationHeight}m예요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
     <a href={capture.source} target="_blank" rel="noreferrer">촬영 원본과 메타데이터 ↗</a>
     <small>{capture.attribution}</small>
   </details>;
@@ -473,8 +481,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       const sample = world.canAnalyze(position) ? world.lightAt(position, date, minute) : null;
       const status = sample?.status ?? 'outside';
       const text = sample ? lightStatus(sample) : '일조 분석 범위 밖';
-      setWalkLight(old => old?.date === date && old.minute === minute && old.status === status && old.text === text
-        ? old : { date, minute, status, text });
+      const floor = sample ? differentFloorLight(world, position, date, sample) : undefined;
+      setWalkLight(old => old?.date === date && old.minute === minute && old.status === status && old.text === text && old.floor === floor
+        ? old : { date, minute, status, text, floor });
     }
     refresh();
     const clock = window.setInterval(refresh, 210);
@@ -810,7 +819,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     choosePoint('A', point);
     if (!trace) {
       const sample = world.lightAt(point, winterDate, at);
-      setWalkLight({ date: winterDate, minute: at, status: sample.status, text: lightStatus(sample) });
+      setWalkLight({ date: winterDate, minute: at, status: sample.status, text: lightStatus(sample),
+        floor: differentFloorLight(world, point, winterDate, sample) });
       visitAtEyeLevel(point.id, point);
       return;
     }
@@ -1004,9 +1014,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
     </section>}
     {winterStreet && <section className="light-inspection" aria-label="겨울 일조 산책 시각">
-      <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자 · 지면 위 {observationHeight}m</p>
-        {walkLight?.date === date && walkLight.minute === minute &&
-          <p className="walking-light" data-status={walkLight.status} aria-live="polite">현재 위치 · {walkLight.text}</p>}
+      <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자 · 보행면 위 {observationHeight}m</p>
+        {walkLight?.date === date && walkLight.minute === minute && <div aria-live="polite">
+          <p className="walking-light" data-status={walkLight.status}>현재 위치 · {walkLight.text}</p>
+          {walkLight.floor && <p>발밑 · {walkLight.floor}</p>}
+        </div>}
       </div>
     </section>}
     {ambientStop && <section className="light-inspection walk-preview" aria-label="소음·야간 3D 장면">
@@ -1172,6 +1184,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
        <details className="basis"><summary>계산 기준과 자료</summary>
           <p>맑은 하늘을 가정하고 지면에서 1.5m 높이의 지점을 10분 간격으로 계산합니다. 건물과 지형이 태양을 가리는지 검사합니다.</p>
           <p>3D 경로는 관측 지점에서 태양 방향으로 보낸 광선입니다. 그늘일 때 처음 닿은 건물 체적 또는 지형을 표시합니다. 점선은 자료 한계로 판정하지 못한 방향을 표시합니다.</p>
+          {region === 'songpa' && <p>눈높이는 포장과 보도를 포함한 모델 바닥 위 {observationHeight}m입니다. 겨울 산책에서 발밑 판정은 같은 바닥 위 5cm에서 계산합니다.</p>}
           {buildingRegister && <p>대상 주동은 건축HUB 표제부({buildingRegister.source.dataMonth})의 등록 높이로 건물 체적을 단순화해 계산합니다. 주변 건물은 QGIS 편집본 후보값과 OSM 높이를 사용합니다.</p>}
           <p>{world?.sources.localTerrain ? '단지 주변 지형은 서울시 등고선·표고점을 10m 간격으로 보간하고 외곽은 GEDTM30과 연결했어요.' :
             `지형은 ${world?.sources.terrain.name ?? 'GEDTM30'}의 약 ${world?.sources.terrain.resolution ?? 30}m 표고 모델입니다.`} 수목의 그늘은 현장에서 따로 확인해야 합니다.</p>

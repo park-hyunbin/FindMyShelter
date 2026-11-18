@@ -10,7 +10,7 @@ import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
 import { addEnvironment, buildMeshes, makeGround, streetDeckLift } from './opo-meshes';
 import { createTourSky } from './opo-sky';
-import { createLightAnalyzer, observationHeight, sunAt } from './opo-sunlight';
+import { createLightAnalyzer, nearSurfaceHeight, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, addSongpaSchoolMap, approach, playgroundReference } from './opo-site';
 import { addSongpaFloodMap } from './opo-flood';
 import type { FloodView } from './data/songpa-flood';
@@ -133,6 +133,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   function walkFloor(point: Point, ground: number) {
     return isOpo ? modeledElevation(point) : walkDeck(point, ground);
   }
+  function observationSurface(x: number, z: number) {
+    const ground = streets.surface(x, z);
+    return isOpo ? ground : walkFloor({ x, z }, ground) ?? ground;
+  }
   const greenAccess = addGreenAccess(data, scene, streets.surface, site.paving);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   const parkViews = isOpo ? [] : songiPark.views.map(({ name, coordinate, toward }) => {
@@ -141,7 +145,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     return { name, position, bearing };
   });
   scene.updateMatrixWorld(true);
-  const analysis = createLightAnalyzer(data, terrain, occluders, streets.surface);
+  const analysis = createLightAnalyzer(data, terrain, occluders, observationSurface);
   const lightPath = createLightPath(scene, [terrain, ...occluders]);
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
@@ -151,7 +155,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const analysisRadius = isOpo ? Math.min(precinct, data.buildingRadius) : data.buildingRadius;
   const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= analysisRadius;
   const siteSamples = data.siteOutline.length ? sunGridPoints(data.siteOutline, canAnalyze) : [];
-  const sunMap = siteSamples.length ? createSunMap(scene, data.siteOutline, siteSamples, streets.surface) : undefined;
+  const sunMap = siteSamples.length ? createSunMap(scene, data.siteOutline, siteSamples, observationSurface) : undefined;
   const roadSpawn = streets.nearest(data.project(isOpo ? roadEntry : songpaComplex.roadside), 64);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
   const spawn = roadSpawn.point;
@@ -658,7 +662,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       return;
     }
     const sample = analysis.at(location, date, minute);
-    const origin = new T.Vector3(location.x, streets.surface(location.x, location.z) + observationHeight, location.z);
+    const origin = new T.Vector3(location.x, observationSurface(location.x, location.z) + observationHeight, location.z);
     const { direction } = sunAt(data, date, minute);
     lightPath.update(sample, origin, direction, slot);
     updateComparisonMarkers();
@@ -840,8 +844,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
       const angle = heading + viewAngle;
       if (firstPerson()) {
-        const base = studyingSunlight || (eyeLevel && (isOpo || modeledFloor === undefined))
-          ? surfaceHeight : isOpo ? undefined : modeledFloor;
+        const renderedFloor = isOpo ? undefined : modeledFloor;
+        const base = renderedFloor ?? (eyeLevel || studyingSunlight ? surfaceHeight : undefined);
         const eye = base === undefined ? actor.position.y + 1.6 : base + observationHeight;
         camera.position.set(position.x, eye, position.z);
         const tilt = (0.17 - pitch) * Math.PI / 2;
@@ -1131,7 +1135,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     clearPeers() { for (const id of peers.keys()) removePeer(id); },
     canAnalyze,
     place(slot: Slot, location: Point) {
-      const y = streets.surface(location.x, location.z);
+      const y = observationSurface(location.x, location.z);
       markers[slot].visible = true;
       markers[slot].position.set(location.x, y, location.z);
       pinLabels.find(label => label.slot === slot)?.point.set(location.x, y + 3.2, location.z);
@@ -1156,6 +1160,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     },
     report: analysis.day,
     lightAt: analysis.at,
+    lightNearSurface: (point: Point, date: string, minute: number) => analysis.at(point, date, minute, nearSurfaceHeight),
     winterPixel(pixel: number[], date: string, minute: number) {
       const sample = analysis.sampleAtTime(date, minute);
       return sampleWinterPixel(pixel, coordinate => {
@@ -1170,9 +1175,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       return { water, green, elevation: data.elevationAt(point.x, point.z), spread: data.spreadAt(point.x, point.z) };
     },
     directionProfile(point: Point, bearing: number) {
-      const ground = streets.surface(point.x, point.z);
-      const base = isOpo ? ground : walkFloor(point, ground) ?? ground;
-      return directionProfile(data, roofs, base, point, bearing);
+      return directionProfile(data, roofs, observationSurface(point.x, point.z), point, bearing);
     },
     showTreeCover(enabled: boolean) {
       if (!treeCoverOverlay || treeCoverOverlay.visible === enabled) return;

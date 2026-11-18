@@ -4,6 +4,7 @@ import { distanceToBuildingCoverage, extent, type OpoData, type Point } from './
 
 export const interval = 10;
 export const observationHeight = 1.5;
+export const nearSurfaceHeight = 0.05;
 export type LightSample = {
   minute: number; status: 'night' | 'sun' | 'shade' | 'unknown'; cause?: string;
   obstruction?: {
@@ -65,9 +66,9 @@ export function createLightAnalyzer(data: OpoData, terrain: Mesh, buildings: Mes
 
   function sampleAtTime(date: string, minute: number) {
     const { altitude, direction } = sunAt(data, date, minute);
-    return (location: Point): LightSample => {
+    return (location: Point, height = observationHeight, base?: number): LightSample => {
       if (altitude <= 0) return { minute, status: 'night' };
-      origin.set(location.x, surface(location.x, location.z) + observationHeight, location.z);
+      origin.set(location.x, (base ?? surface(location.x, location.z)) + height, location.z);
       ray.set(origin, direction);
       hits.length = 0;
       const hit = ray.intersectObjects(objects, false, hits)[0];
@@ -81,12 +82,13 @@ export function createLightAnalyzer(data: OpoData, terrain: Mesh, buildings: Mes
     };
   }
 
-  const at = (location: Point, date: string, minute: number) => sampleAtTime(date, minute)(location);
+  const at = (location: Point, date: string, minute: number, height = observationHeight) => sampleAtTime(date, minute)(location, height);
   function day(location: Point, date: string): LightReport {
     const samples: LightSample[] = [];
+    const base = surface(location.x, location.z);
     let sunMinutes = 0, unclassifiedMinutes = 0;
     for (let minute = interval / 2; minute < 1440; minute += interval) {
-      const sample = at(location, date, minute);
+      const sample = sampleAtTime(date, minute)(location, observationHeight, base);
       samples.push(sample);
       if (sample.status === 'sun') sunMinutes += interval;
       if (sample.status === 'unknown') unclassifiedMinutes += interval;
