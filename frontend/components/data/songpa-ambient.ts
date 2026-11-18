@@ -31,7 +31,7 @@ export const yangjaeRoad: Coordinate[] = [
 
 export const ambientStops = [
   { id: 'yangjae-footway', name: '양재대로 옆 보행로', coordinate: [127.1161724, 37.49858545], lookAt: [127.116483, 37.49899] },
-  { id: 'ambient-inner', name: '단지 안 포장 공간', coordinate: songpaGrounds.points[1].coordinate, lookAt: [127.1161724, 37.49858545] },
+  { id: 'ambient-inner', name: songpaGrounds.points[1].name, coordinate: songpaGrounds.points[1].coordinate, lookAt: [127.1161724, 37.49858545] },
 ] satisfies { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate }[];
 
 export function ambientTime(hour: number) {

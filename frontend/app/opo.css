@@ -92,10 +92,10 @@ h1, h2, p { margin: 0; }
   max-width: min(390px, calc(100% - 56px)); padding: 10px 10px 10px 13px; color: var(--moon);
   border: 1px solid #b79f68; border-radius: 9px; background: #17243aeb; font-size: 12px; }
 .light-inspection p { margin-top: 4px; color: var(--lilac); font-size: 11px; line-height: 1.5; }
-.light-inspection.home-walk-control { display: grid; gap: 6px; max-width: min(335px, calc(100% - 30px)); }
-.home-walk-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.light-inspection .home-walk-actions button { width: auto; min-width: 45px; min-height: 36px; padding: 0 9px; font-size: 11px; }
-.home-walk-actions button:disabled { opacity: 0.46; cursor: default; }
+.light-inspection.walk-preview { display: grid; gap: 6px; max-width: min(335px, calc(100% - 30px)); }
+.walk-preview-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.light-inspection .walk-preview-actions button { width: auto; min-width: 45px; min-height: 36px; padding: 0 9px; font-size: 11px; }
+.walk-preview-actions button:disabled { opacity: 0.46; cursor: default; }
 .light-inspection button { flex: none; width: 36px; height: 36px; border: 1px solid #70829a; border-radius: 6px;
   color: var(--moon); background: var(--slate); font-size: 20px; }
 .light-trace { width: 100%; min-height: 36px; margin-top: 7px; padding: 5px 8px; border: 1px solid #809d9d;
@@ -376,6 +376,7 @@ h1, h2, p { margin: 0; }
 .ambient-stops button { min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 6px;
   padding: 4px 9px; border: 1px solid #c8cebc; border-radius: 6px; color: var(--night); background: #edf0e4; font-weight: 700; text-align: left; }
 .ambient-stops button b { white-space: nowrap; font-variant-numeric: tabular-nums; color: #3a5e4c; }
+.ambient-stops button[aria-pressed='true'] { background: var(--glow); border-color: var(--glow); }
 .ambient-date { display: flex; align-items: center; gap: 10px; font-weight: 700; margin: 10px 0 0; }
 .ambient-date select { flex: 1; min-width: 0; min-height: 36px; padding: 4px 7px; border: 1px solid #809d9d;
   border-radius: 6px; color: var(--moon); background: var(--night); }

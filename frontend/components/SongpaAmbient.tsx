@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { ambientArchive, ambientDays, ambientSources, ambientTime, type AmbientMoment } from './data/songpa-ambient';
+import type { OpoWorld } from './opo-world';
 
 const localDay = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' });
 
@@ -8,30 +9,18 @@ type Props = {
   onTime: (moment: AmbientMoment) => void;
   onMap: () => void;
   onVisit: (id: string) => void;
-  scene?: {
-    stops: { id: string; name: string; roadDistanceM: number }[];
-    stationDistancesM: number[];
-  };
+  activeStopId: string | null;
+  scene?: OpoWorld['ambientScene'];
 };
 
-export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene }: Props) {
+export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene, activeStopId }: Props) {
   const slider = useId();
   const time = ambientTime(moment.hour);
+  const reference = scene?.stops.find(stop => stop.id === activeStopId) ?? scene?.stops.at(-1);
   return <section className="ambient-panel" aria-label="소음과 야간 환경">
     <article className="site-card">
       <h3>양재대로 쪽과 단지 안쪽</h3>
-      <p>양재대로 중심선까지의 직선거리예요. 두 곳을 같은 관측 시각으로 열 수 있어요.</p>
-      <div className="ambient-stops">
-        {scene?.stops.map(stop => <button key={stop.id} onClick={() => onVisit(stop.id)}>
-          <span>{stop.name} 보기</span><b>약 {Math.round(stop.roadDistanceM)}m</b>
-        </button>)}
-        <button disabled={!scene} onClick={onMap}>도로와 센서 위치 지도</button>
-      </div>
-      <p>3D 밝기는 시각에 따른 연출이에요. 조명과 단지 안 소음은 현장에서 확인해요.</p>
-    </article>
-    <article className="site-card">
-      <h3>주변 센서 관측</h3>
-      <p>서울시 S-DoT · {ambientArchive.start}~{ambientArchive.end}. 거리는 단지 안 비교점에서 센서까지의 직선거리예요.</p>
+      <p>같은 시각에 두 곳을 눈높이에서 비교해요. 버튼의 거리는 양재대로 중심선까지의 직선거리예요.</p>
       <label className="ambient-date">관측 날짜 <select value={moment.day} onChange={event => onTime({ ...moment, day: event.target.value })}>
         {ambientDays.map(day => <option key={day} value={day}>{localDay.format(new Date(day))}</option>)}
       </select></label>
@@ -42,12 +31,24 @@ export default function SongpaAmbient({ moment, onTime, onMap, onVisit, scene }:
           onChange={event => onTime({ ...moment, hour: Number(event.target.value) })} />
         <div className="time-scale"><span>00시</span><span>06시</span><span>12시</span><span>18시</span><span>23시</span></div>
       </div>
+      <div className="ambient-stops">
+        {scene?.stops.map(stop => <button key={stop.id} aria-pressed={stop.id === activeStopId} onClick={() => onVisit(stop.id)}>
+          <span>{stop.name} 보기</span><b>약 {Math.round(stop.roadDistanceM)}m</b>
+        </button>)}
+        <button disabled={!scene} onClick={onMap}>도로와 센서 위치 지도</button>
+      </div>
+      <p>3D는 하늘과 주변광의 변화를 표현해요. 조명과 단지 안 소음은 현장에서 확인해요.</p>
+    </article>
+    <article className="site-card">
+      <h3>주변 센서 관측</h3>
+      <p>서울시 S-DoT · {ambientArchive.start}~{ambientArchive.end}</p>
+      {reference && <p>센서까지의 직선거리 · {reference.name} 기준</p>}
       <div aria-live="polite">
         <table className="ambient-readings" aria-label={`${moment.day} ${time} KST 서울시 센서 기록`}>
           <thead><tr><th scope="col">측정 위치</th><th scope="col">평균 소음</th><th scope="col">평균 조도</th></tr></thead>
-          <tbody>{ambientArchive.stations.map((station, index) => {
+          <tbody>{ambientArchive.stations.map(station => {
             const reading = station.days[moment.day]?.[moment.hour];
-            const distance = scene?.stationDistancesM[index];
+            const distance = reference?.stationDistancesM[station.serial];
             return <tr key={station.serial}>
               <th scope="row">{station.address}{distance !== undefined && <small>약 {Math.round(distance / 10) * 10}m</small>}</th>
               <td>{reading?.[0] == null ? '미기록' : `${reading[0]} dB`}</td>

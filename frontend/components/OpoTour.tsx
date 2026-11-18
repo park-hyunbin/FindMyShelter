@@ -354,11 +354,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const [ambientMoment, setAmbientMoment] = useState<AmbientMoment>(defaultAmbientMoment);
-  const [ambientViewing, setAmbientViewing] = useState(false);
+  const [ambientStopId, setAmbientStopId] = useState<string | null>(null);
   const [floodYear, setFloodYear] = useState(latestLocalFloodYear);
   const [floodView, setFloodView] = useState<FloodView>('closest');
-  const sceneDate = ambientViewing ? ambientMoment.day : date;
-  const sceneMinute = ambientViewing ? ambientMoment.hour * 60 + ambientArchive.minute : minute;
+  const ambientStop = world?.ambientScene?.stops.find(stop => stop.id === ambientStopId);
+  const otherAmbientStop = ambientStop && world?.ambientScene?.stops.find(stop => stop.id !== ambientStop.id);
+  const sceneDate = ambientStop ? ambientMoment.day : date;
+  const sceneMinute = ambientStop ? ambientMoment.hour * 60 + ambientArchive.minute : minute;
   const winterStreet = winterViewing && tab === 'sun' && mode === 'walk';
 
   const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : songpaComplex.roadName, speed: 0, touring: false });
@@ -442,8 +444,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   useEffect(() => {
     const active = tab === 'ambient';
-    world?.showAmbient(active && (open || ambientViewing), active && open && mode === 'orbit');
-  }, [world, open, tab, mode, ambientViewing]);
+    world?.showAmbient(active && (open || Boolean(ambientStop)), active && open && mode === 'orbit');
+  }, [world, open, tab, mode, ambientStop]);
 
   useEffect(() => {
     world?.showFlood(open && tab === 'flood' && mode === 'orbit' ? floodYear : null, floodView);
@@ -529,6 +531,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function chooseMode(next: ViewMode) {
     setWinterViewing(false);
+    setAmbientStopId(null);
     setHomeStep(null);
     setShowSunMap(false);
     setLightSlot(null);
@@ -557,7 +560,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       world?.showGreenAccess(null);
     }
     if (next !== tab) analysisPanel.current?.scrollTo(0, 0);
-    if (next !== 'ambient') setAmbientViewing(false);
+    if (next !== 'ambient') setAmbientStopId(null);
     if (next !== 'places') setSchoolZoneVisible(false);
     if (next !== tab && (next === 'ambient' || next === 'flood')) chooseMode('orbit');
     setTab(next);
@@ -619,6 +622,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function lookAtRoutePoint(point: Pick<RouteTerrainSample, 'position' | 'bearing'>) {
     lookFromPoint(point.position, point.bearing);
+  }
+
+  function visitAmbientStop(id: string) {
+    const stop = world?.ambientScene?.stops.find(stop => stop.id === id);
+    if (!world || !stop) return;
+    setAmbientStopId(stop.id);
+    lookFromPoint(stop.position, stop.bearing);
+    world.focus();
   }
 
   function viewHomeStop(routeId: string, index: number) {
@@ -770,6 +781,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     const next = world.goTo(id);
     if (!next) return;
     setWinterViewing(withStudyLighting);
+    setAmbientStopId(null);
     hideTreeCover();
     setShowSunMap(false);
     setLightSlot(null);
@@ -884,10 +896,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       </div>}
     </header>
 
-    {homeWalk && currentHomeStop && accessId && homeStep !== null && <section className="light-inspection home-walk-control" aria-label="귀갓길 체험">
+    {homeWalk && currentHomeStop && accessId && homeStep !== null && <section className="light-inspection walk-preview" aria-label="귀갓길 체험">
       <div aria-live="polite"><strong>{homeStep + 1}/{homeWalk.stops.length} · {currentHomeStop.name}</strong>
         <p>{currentHomeStop.evidence}</p></div>
-      <div className="home-walk-actions">
+      <div className="walk-preview-actions">
         <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
         <button type="button" disabled={homeStep === homeWalk.stops.length - 1} onClick={() => viewHomeStop(accessId, homeStep + 1)}>다음</button>
         <button type="button" onClick={() => { showAccessRoute(accessId); setOpen(true); }}>경로 지도</button>
@@ -910,9 +922,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     {winterStreet && <section className="light-inspection" aria-label="겨울 일조 산책 시각">
       <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자{walkingAtEyeLevel && ' · 눈높이 1.5m'}</p></div>
     </section>}
-    {ambientViewing && <section className="light-inspection" aria-label="3D 장면 시각">
-      <div><strong>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST</strong><p>하늘과 주변광을 시각에 맞춰 표현했어요.</p></div>
-      <button aria-label="관측 시각 미리보기 닫기" onClick={() => setAmbientViewing(false)}>×</button>
+    {ambientStop && <section className="light-inspection walk-preview" aria-label="소음·야간 3D 장면">
+      <div aria-live="polite"><strong>{ambientStop.name}</strong>
+        <p>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST · 하늘과 주변광 모형</p></div>
+      <div className="walk-preview-actions">
+        {!open && otherAmbientStop && <button type="button" onClick={() => visitAmbientStop(otherAmbientStop.id)}>{otherAmbientStop.name} 보기</button>}
+        <button type="button" aria-label="관측 시각 미리보기 닫기" onClick={() => setAmbientStopId(null)}>닫기</button>
+      </div>
     </section>}
 
     <nav className="view-controls" aria-label="3D 탐색 모드">
@@ -923,7 +939,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         world.setWalkingCamera(!walkingAtEyeLevel);
         world.focus();
       }}>눈높이</button>}
-      <button className="recenter" aria-label="시작 위치로 돌아가기" title="시작 위치로 돌아가기" disabled={!world} onClick={() => world?.locate()}>⌖</button>
+      <button className="recenter" aria-label="시작 위치로 돌아가기" title="시작 위치로 돌아가기" disabled={!world} onClick={() => {
+        setAmbientStopId(null);
+        world?.locate();
+      }}>⌖</button>
     </nav>
     {Boolean(world?.tripLength) && <button className="street-trip" aria-pressed={street.touring}
       title={`단지 입구에서 수레실 정류장을 거쳐 능평도서관까지 약 ${world?.tripLength}m`} onClick={() => {
@@ -958,8 +977,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       {region === 'songpa' && tab === 'checklist' && <SongpaChecklist onView={openChecklistView} sceneReady={Boolean(world)}
         field={field} onOpenField={openFieldVisit} onShowField={openVisitPlan} />}
       {region === 'songpa' && tab === 'ambient' && <SongpaAmbient moment={ambientMoment} onTime={setAmbientMoment} scene={world?.ambientScene}
-        onVisit={id => { if (visit(id)) setAmbientViewing(true); }} onMap={() => {
-          setAmbientViewing(false);
+        activeStopId={ambientStopId} onVisit={visitAmbientStop} onMap={() => {
           chooseMode('orbit');
           world?.showAmbient(true, true);
         }} />}

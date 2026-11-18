@@ -1042,7 +1042,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       frameSurface(schoolMap.regionPoints, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.10, scale * 0.17), true);
     },
     showSiteDetails(enabled: boolean) { site.overlay.visible = enabled; },
-    ambientScene: ambientMap && { stops: ambientMap.stops.filter(stop => canAnalyze(stop.position)), stationDistancesM: ambientMap.stationDistancesM },
+    ambientScene: ambientMap && {
+      stops: ambientMap.stops.filter(stop => canAnalyze(stop.position)).map(stop => ({
+        ...stop, bearing: T.MathUtils.radToDeg(headingTo(stop.position, stop.lookAt) - data.northOffset),
+      })),
+    },
     showAmbient(active: boolean, map: boolean) {
       if (!ambientMap) return;
       ambientInspection = active;
