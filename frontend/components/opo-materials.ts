@@ -1,11 +1,14 @@
 import * as T from 'three';
 
+export const graniteTileM = 1.8;
+
 const surfaces = {
   asphalt: { tile: 2, relief: 0.32 },
   cobble: { tile: 2.6, relief: 0.5 },
   forest: { tile: 3.8, relief: 0.58 },
   grass: { tile: 4.2, relief: 0.55 },
   stonewall: { tile: 2.8, relief: 0.65 },
+  granite: { tile: graniteTileM, relief: 0.41 },
   planks: { tile: 2.2, relief: 0.46 },
   water: { tile: 5.2, relief: 0.32 },
 };
@@ -45,6 +48,8 @@ export function createTourMaterials(anisotropy: number, fullDetail: boolean) {
     material.map = texture(`${surface}_diff`, true);
     // The source is fresh racing tarmac. Raise the albedo for weathered local roads.
     if (surface === 'asphalt') material.color.multiplyScalar(6);
+    // Keep the pale gate tint when multiplying by the dark photographic granite albedo.
+    if (surface === 'granite') material.color.multiplyScalar(7.2);
     if (fullDetail) {
       material.normalMap = texture(`${surface}_nor`, false);
       material.normalScale.setScalar(surfaces[surface].relief);

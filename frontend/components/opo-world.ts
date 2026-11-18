@@ -15,6 +15,7 @@ import { addGreenAccess, addSiteDetails, approach, playgroundReference } from '.
 import { addStreets } from './opo-streets';
 import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
+import { createStreetOcclusion } from './opo-contact-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
@@ -109,6 +110,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   host.appendChild(renderer.domElement);
 
   const smallScreen = window.innerWidth < 720;
+  const streetOcclusion = isOpo && !smallScreen ? createStreetOcclusion(renderer, scene, camera) : undefined;
   const finish = isOpo ? createTourMaterials(Math.min(renderer.capabilities.getMaxAnisotropy(), 8), !smallScreen) : undefined;
   const sky = isOpo ? createTourSky(scene) : undefined;
   const fog = scene.fog as T.FogExp2;
@@ -323,6 +325,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     camera.aspect = host.clientWidth / Math.max(host.clientHeight, 1);
     camera.updateProjectionMatrix();
     renderer.setSize(host.clientWidth, host.clientHeight);
+    streetOcclusion?.resize(host.clientWidth, host.clientHeight);
   }
   const observer = new ResizeObserver(resize);
   observer.observe(host);
@@ -779,7 +782,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     environment.waterNormal?.offset.set(now * 0.000018, -now * 0.000033);
     fog.density = mode === 'orbit'
       ? Math.min(fogDensity, 0.62 / Math.max(1, controls.getDistance())) : fogDensity;
-    renderer.render(scene, camera);
+    if (streetOcclusion && mode !== 'orbit' && !showingSatellite) streetOcclusion.render();
+    else renderer.render(scene, camera);
   });
 
   return {
@@ -1023,6 +1027,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         treeCoverOverlay?.material.map]) if (texture) textures.add(texture);
       for (const texture of textures) texture.dispose();
       sun.shadow.dispose();
+      streetOcclusion?.dispose();
       renderer.dispose();
       canvas.remove();
       labels.forEach(({ element }) => element.remove());

@@ -7,6 +7,9 @@ https://github.com/freak419/walkable-city
 The asphalt maps come from Poly Haven's Asphalt Track by Dimitrios Savva.
 https://polyhaven.com/a/asphalt_track
 
+The entrance stone uses Granite Tile 03 by Charlotte Baglioni (CC0 1.0).
+https://polyhaven.com/a/granite_tile_03
+
 The other photo textures come from Poly Haven via Walkable City:
 https://github.com/freak419/walkable-city/blob/main/CREDITS.md
 cobble: cobblestone_floor_08

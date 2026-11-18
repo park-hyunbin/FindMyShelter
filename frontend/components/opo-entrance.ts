@@ -1,7 +1,8 @@
 import * as T from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { OpoData, Point } from './opo-data';
 import { ribbon } from './opo-meshes';
-import { surfaceUV, type TourMaterials } from './opo-materials';
+import { graniteTileM, surfaceUV, type TourMaterials } from './opo-materials';
 
 export const opoEntranceBridgeId = 835665646;
 export const opoEntranceTurnId = 835658906;
@@ -9,6 +10,20 @@ export const opoEntranceDrivewayId = 835665645;
 export const entranceRoadView = 'https://map.kakao.com/link/roadview/37.351201,127.165458';
 export const entranceRoadViewDate = '2025년 12월';
 const crossing = [127.1654576, 37.3512126];
+
+function tileGraniteFaces(geometry: T.BufferGeometry) {
+  const positions = geometry.getAttribute('position');
+  const normals = geometry.getAttribute('normal');
+  const uv = geometry.getAttribute('uv');
+  for (let i = 0; i < positions.count; i++) {
+    const x = Math.abs(normals.getX(i)), y = Math.abs(normals.getY(i)), z = Math.abs(normals.getZ(i));
+    const horizontal = y >= Math.max(x, z);
+    const u = !horizontal && x > z ? positions.getZ(i) : positions.getX(i);
+    const v = horizontal ? -positions.getZ(i) : positions.getY(i);
+    uv.setXY(i, u / graniteTileM, v / graniteTileM);
+  }
+  return geometry;
+}
 
 function gateLettering(y: number) {
   const canvas = document.createElement('canvas');
@@ -66,7 +81,10 @@ export function addOpoEntrance(data: OpoData, scene: T.Scene, surface: OpoData['
   frame.rotation.y = Math.atan2(dx, dz);
   group.add(frame);
   const material = (color: string) => new T.MeshStandardMaterial({ color, roughness: 0.9, side: T.DoubleSide });
-  const stone = material('#bcb4a5'), light = material('#dcd2ba'), plinth = material('#a49b87');
+  const stone = finish(material('#c9bfad'), 'granite');
+  const light = finish(material('#ded6c5'), 'granite');
+  const plinth = finish(material('#a8a08c'), 'granite');
+  const stoneMaterials = new Set<T.Material>([stone, light, plinth]);
   const joint = material('#9b917f'), inset = material('#aaa291'), glass = material('#3c4b4d');
   glass.roughness = 0.32;
   const rail = material('#d8dad1'), edge = material('#8d8b7e'), asphalt = finish(material('#faf4ec'), 'asphalt');
@@ -89,6 +107,7 @@ export function addOpoEntrance(data: OpoData, scene: T.Scene, surface: OpoData['
       depth, curveSegments: 18, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1,
     });
     geometry.translate(0, 0, z);
+    if (stoneMaterials.has(mat)) tileGraniteFaces(geometry);
     const mesh = new T.Mesh(geometry, mat);
     mesh.castShadow = mesh.receiveShadow = true;
     frame.add(mesh);
@@ -214,11 +233,23 @@ export function addOpoEntrance(data: OpoData, scene: T.Scene, surface: OpoData['
   }
 
   for (const [mat, batch] of boxes) {
-    const mesh = new T.InstancedMesh(unitBox, mat, batch.length);
-    batch.forEach((transform, index) => {
-      transform.updateMatrix();
-      mesh.setMatrixAt(index, transform.matrix);
-    });
+    let mesh: T.Mesh;
+    if (stoneMaterials.has(mat)) {
+      const slabs = batch.map(transform => {
+        transform.updateMatrix();
+        return tileGraniteFaces(unitBox.clone().applyMatrix4(transform.matrix));
+      });
+      const geometry = mergeGeometries(slabs)!;
+      slabs.forEach(slab => slab.dispose());
+      mesh = new T.Mesh(geometry, mat);
+    } else {
+      const instances = new T.InstancedMesh(unitBox, mat, batch.length);
+      batch.forEach((transform, index) => {
+        transform.updateMatrix();
+        instances.setMatrixAt(index, transform.matrix);
+      });
+      mesh = instances;
+    }
     mesh.castShadow = mesh.receiveShadow = true;
     frame.add(mesh);
   }
