@@ -1,12 +1,13 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { OpoData, Point } from './opo-data';
-import { zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
+import { crosswalkFrame, zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
 
 type Coordinate = [longitude: number, latitude: number];
 type GateOffset = [across: number, along: number];
+type SiteCrossing = { start: Coordinate; end: Coordinate; depth: number };
 
 export type GateLayout = {
   axis: [Coordinate, Coordinate];
@@ -19,8 +20,8 @@ export type GateLayout = {
 export type SiteSurfaceLayout = {
   drive?: { width: number; points: Coordinate[] };
   paths: { width: number; points: Coordinate[] }[];
-  plaza?: Coordinate[];
-  crossings: { start: Coordinate; end: Coordinate; depth: number }[];
+  pavedDrive?: Coordinate[];
+  crossings: SiteCrossing[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
 };
 
@@ -42,24 +43,27 @@ export function gateCrosswalkArea(project: OpoData['project'], gate: GateLayout)
   return { center: at(0, (start + end) / 2), depth: end - start, direction, section: { width: gate.width } };
 }
 
+export function siteCrosswalkArea(project: OpoData['project'], { start, end, depth }: SiteCrossing): CrosswalkArea {
+  const { at, length, direction } = axisBetween(project(start), project(end));
+  return { center: at(0, length / 2), depth, direction: { x: direction.z, z: -direction.x }, section: { width: length } };
+}
+
 export function addSiteSurfaces(
   data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
-  layout: SiteSurfaceLayout, gate?: GateLayout,
+  layout: SiteSurfaceLayout, roadClearance: (point: Point) => number, gate?: GateLayout,
 ) {
   const asphalt = material('#e2ecf8', 'asphalt');
   asphalt.color.multiplyScalar(1.42);
   const paving = material('#c8c1b8', 'pavers');
   const edging = material('#aaa59a');
   const paint = material('#eeeae0');
-  const plaza = material('#c2bcaf', 'pavers');
   const frame = gate && axisBetween(data.project(gate.axis[0]), data.project(gate.axis[1]));
-  const join = gate && frame?.at(0, (gate.crossing[0] + gate.crossing[1]) / 2);
-  const innerDeckLift = 0.15;
+  const roadBlendWidth = 2.5;
   const drivewayGrade = (x: number, z: number) => {
-    const blend = gate && join
-      ? T.MathUtils.smoothstep(Math.hypot(x - join.x, z - join.z), gate.width * 0.6, gate.width * 1.35)
-      : 1;
-    return grade(x, z) + T.MathUtils.lerp(streetDeckLift + 0.02, innerDeckLift, blend);
+    const clearance = roadClearance({ x, z });
+    const blend = T.MathUtils.smoothstep(clearance, 0, roadBlendWidth);
+    // A traced drive can meet the mapped street anywhere along its edge.
+    return grade(x, z) + T.MathUtils.lerp(streetDeckLift + 0.02, 0.15, blend);
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
   const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
@@ -98,10 +102,12 @@ export function addSiteSurfaces(
     return line.getSpacedPoints(Math.ceil(line.getLength() / 1.2));
   }
 
-  function zebra(at: ReturnType<typeof axisBetween>['at'], width: number, start: number, end: number) {
+  function zebra(crossing: CrosswalkArea) {
+    const at = crosswalkFrame(crossing);
+    const halfDepth = crossing.depth / 2;
     const markingsGrade = (x: number, z: number) => (elevation({ x, z }) ?? grade(x, z)) + 0.028;
-    const stripes = zebraOffsets(width).map(across =>
-      ribbon([at(across, start), at(across, end)], 0.44, markingsGrade, 0.11, 0.11));
+    const stripes = zebraOffsets(crossing.section.width).map(across =>
+      ribbon([at(-halfDepth, across), at(halfDepth, across)], 0.44, markingsGrade, 0.11, 0.11));
     if (!stripes.length) return;
     add(mergeGeometries(stripes), paint, undefined, false);
     stripes.forEach(stripe => stripe.dispose());
@@ -123,7 +129,9 @@ export function addSiteSurfaces(
     add(groundPolygon([playRing], grade, 3, 0.25), playFloor, surface);
     add(ribbon([...playRing, playRing[0]], 0.23, (x, z) => grade(x, z) + 0.28), edging);
   }
-  if (layout.plaza) add(groundPolygon([layout.plaza.map(data.project)], drivewayGrade, 1.2, 0), plaza, 'pavers');
+  if (layout.pavedDrive) {
+    add(groundPolygon([layout.pavedDrive.map(data.project)], drivewayGrade, 0.65, 0), asphalt, 'asphalt');
+  }
   if (gate && frame) {
     const { at, length } = frame;
     const [before, after] = gate.roadOverhang;
@@ -133,11 +141,8 @@ export function addSiteSurfaces(
       add(ribbon(line.map(([across, along]) => at(across, along)), gate.sidewalks.width,
         (x, z) => grade(x, z) + streetDeckLift + 0.09, 0.8, 1), sidewalk, 'pavers');
     }
-    zebra(at, gate.width, ...gate.crossing);
+    zebra(gateCrosswalkArea(data.project, gate));
   }
-  for (const { start, end, depth } of layout.crossings) {
-    const { at, length } = axisBetween(data.project(start), data.project(end));
-    zebra((across, along) => at(along, across + length / 2), length, -depth / 2, depth / 2);
-  }
+  for (const crossing of layout.crossings) zebra(siteCrosswalkArea(data.project, crossing));
   return { elevation, drivewayGrade, drivewayCenterline };
 }

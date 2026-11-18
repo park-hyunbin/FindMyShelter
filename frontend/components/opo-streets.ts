@@ -1,12 +1,12 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { extent, type OpoData, type Point, type Street, type StreetPaint } from './opo-data';
+import { extent, inShape, type OpoData, type Point, type Street, type StreetPaint } from './opo-data';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface } from './opo-meshes';
 import { crossingOutline, crosswalkFrame, fitCrosswalk, leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type Crosswalk } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
-import { gateCrosswalkArea } from './opo-site-surfaces';
+import { gateCrosswalkArea, siteCrosswalkArea } from './opo-site-surfaces';
 
 const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 const paths = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
@@ -254,6 +254,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     return { ...road, width: Math.max(streetWidth(road), 2 * (robustEdge + 0.18)) };
   });
   const network = edgeOffsets.size ? createStreetNetwork(roads) : centerlines;
+  const site = siteSurfaces[data.region];
+  const tracedDrive = site?.layout.pavedDrive?.map(data.project);
+  const siteCrossings = site?.layout.crossings.map(crossing => siteCrosswalkArea(data.project, crossing)) ?? [];
+  if (site?.gate) siteCrossings.push(gateCrosswalkArea(data.project, site.gate));
   const crossings: Crosswalk[] = [];
   const crossingsByRoad = new Map<number, Crosswalk[]>();
   function addCrossing(outline: Point[], center: Point, confirmed: boolean) {
@@ -273,6 +277,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       for (const ring of record.surfaces) {
         const outline = ring.map(data.project);
         const center = outline.reduce((sum, point) => ({ x: sum.x + point.x / outline.length, z: sum.z + point.z / outline.length }), { x: 0, z: 0 });
+        // Inside a reviewed drive, use the site markings instead of fitting unverified paint to a nearby street.
+        if (!confirmed && site?.layout.crossings.length && tracedDrive && inShape(center, [tracedDrive])) continue;
         addCrossing(outline, center, confirmed);
       }
     }
@@ -283,8 +289,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   for (const item of data.streetPoints) if (item.kind === 'crossing') addCrossing([], item.position, true);
   surveyedCrossings(false);
-  const gate = siteSurfaces[data.region]?.gate;
-  const paintCrossings = gate ? [...crossings, gateCrosswalkArea(data.project, gate)] : crossings;
+  const paintCrossings = [...crossings, ...siteCrossings];
   const joined = new Map<number, number>();
   if (songpa) for (const road of roads) {
     if (road.motor) road.nodeIds.forEach((id, i) => {
@@ -352,7 +357,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   for (const road of roads) {
     if (finish && (road.id === opoEntranceBridgeId || road.id === opoEntranceTurnId)) continue;
     const width = streetWidth(road);
-    const roadCrossings = crossingsByRoad.get(road.id) ?? [];
+    const roadCrossings = [...(crossingsByRoad.get(road.id) ?? []), ...siteCrossings];
     const isPath = paths.has(road.category);
     const isMain = major.has(road.category.replace('_link', ''));
     const within = (p: Point) => Math.max(Math.abs(p.x), Math.abs(p.z)) <= extent + 28;
@@ -515,5 +520,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   markers(new T.BoxGeometry(0.4, 0.6, 0.14), '#307a75', busStops, 2.57);
   markers(new T.BoxGeometry(1.45, 0.16, 0.48), '#88725a', benches, 0.62);
   markers(new T.BoxGeometry(1.15, 0.48, 0.12), '#53615b', benches, 0.31);
-  return { ...network, surface };
+  const roadClearance = (point: Point) => network.nearby(point, 24)
+    .reduce((clearance, hit) => Math.min(clearance, hit.distance - hit.segment.width / 2), Infinity);
+  return { ...network, surface, roadClearance };
 }

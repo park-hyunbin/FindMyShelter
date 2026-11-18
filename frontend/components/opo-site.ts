@@ -81,9 +81,10 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
   return { group, labels, regionPoints };
 }
 
-export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
+export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
+  roadClearance: (point: Point) => number) {
   const surfaces = siteSurfaces[data.region];
-  const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, surfaces.gate);
+  const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, surfaces.gate);
   if (data.region === 'songpa') {
     addSongpaEntrance(data, scene, grade, paving?.drivewayGrade ?? grade, finish);
     addSongpaCourtyard(data, scene, grade, finish);

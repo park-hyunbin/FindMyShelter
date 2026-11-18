@@ -14,7 +14,7 @@ export type CrosswalkArea = Pick<Crosswalk, 'center' | 'direction' | 'depth'> & 
 const dot = (a: Point, b: Point) => a.x * b.x + a.z * b.z;
 const relative = (a: Point, b: Point) => ({ x: a.x - b.x, z: a.z - b.z });
 
-export function crosswalkFrame(crosswalk: Crosswalk) {
+export function crosswalkFrame(crosswalk: CrosswalkArea) {
   const { center, direction } = crosswalk;
   return (along: number, across: number): Point => ({
     x: center.x + direction.x * along + direction.z * across,

@@ -159,6 +159,6 @@ export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
   paths: songpaCourtyard.paths,
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
-  plaza: songpaGrounds.paving,
+  pavedDrive: songpaGrounds.paving,
   crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),
 } satisfies SiteSurfaceLayout;
