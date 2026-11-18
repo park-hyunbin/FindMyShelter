@@ -2,6 +2,7 @@ import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaGrounds } from './data/songpa-grounds';
+import { songiPark } from './data/songi-park';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
@@ -183,9 +184,18 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const streets: Street[] = neighborhood
     ? neighborhood.roads.map(({ coordinates, ...tags }) => ({ ...tags, points: coordinates.map(project) }))
     : regionalStreets(features);
+  if (region === 'songpa') {
+    const [entrance, innerPath] = songiPark.views.map(view => project(view.coordinate));
+    const near = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z) < 1;
+    // The vector tile rounds the original footway nodes by a fraction of a metre.
+    const parkApproach = streets.find(road => road.category === 'footway' && road.points.length === 2
+      && ((near(road.points[0], entrance) && near(road.points[1], innerPath))
+        || (near(road.points[1], entrance) && near(road.points[0], innerPath))));
+    if (parkApproach) parkApproach.width = songiPark.approachWidthM;
+  }
   const streetPoints: StreetPoint[] = (neighborhood?.points ?? []).map(({ coordinates, ...tags }) => ({ ...tags, position: project(coordinates) }))
     .filter(({ position }) => Math.abs(position.x) < extent && Math.abs(position.z) < extent);
-  if (region === 'songpa') for (const [index, coordinate] of songpaGrounds.crowns.entries()) {
+  if (region === 'songpa') for (const [index, coordinate] of [...songpaGrounds.crowns, ...songiPark.crowns].entries()) {
     streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
   }
   const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));

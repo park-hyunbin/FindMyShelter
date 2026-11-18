@@ -27,8 +27,8 @@ const destinations = [
     referenceSource: 'https://www.openstreetmap.org/node/3401171608',
   },
   {
-    id: 'songi-park', name: '송이공원', node: 10657507155, park: 169803431,
-    endLabel: '공원 남쪽 지도상 보행로',
+    id: 'songi-park', name: '송이공원', node: 10657507155, park: 169803431, entrance: 5260056644,
+    endLabel: '공원 남쪽 진입부를 지나 공원 안 보행로까지',
     referenceSource: 'https://www.openstreetmap.org/way/1145100664',
   },
   {
@@ -50,8 +50,9 @@ if (station?.tags?.railway !== 'subway_entrance' || station.tags.ref !== '2') {
   throw new Error('Expected the mapped Songpa station exit 2');
 }
 const park = ways.get(destinations[1].park);
-if (park?.tags?.name !== '송이공원' || ways.get(1145100664)?.tags?.highway !== 'footway'
-    || !ways.get(1145100664).nodes.includes(destinations[1].node)) {
+const parkFootway = ways.get(1145100664);
+if (park?.tags?.name !== '송이공원' || parkFootway?.tags?.highway !== 'footway'
+    || parkFootway.nodes[0] !== destinations[1].entrance || parkFootway.nodes[1] !== destinations[1].node) {
   throw new Error('The park or its mapped southern footway is missing');
 }
 const schoolCrossing = ways.get(destinations[2].approachCrossing);
@@ -114,7 +115,7 @@ while (pending.size && wanted.size) {
   }
 }
 
-const routes = destinations.map(({ node, reference, park, approachCrossing, ...destination }) => {
+const routes = destinations.map(({ node, reference, park, entrance, approachCrossing, ...destination }) => {
   if (!previous.has(node) || wanted.has(node)) throw new Error(`No mapped connection to ${destination.name}`);
   const edges = [];
   for (let next = node; next !== start;) {
@@ -139,15 +140,23 @@ const routes = destinations.map(({ node, reference, park, approachCrossing, ...d
   }
   const crossingEdges = approachCrossing ? edges.filter(edge => edge.id === approachCrossing && edge.crossing) : [];
   if (approachCrossing && !crossingEdges.length) throw new Error('The school route missed the named crossing');
+  const lastEdge = edges.at(-1);
+  if (entrance && (lastEdge?.from !== entrance || lastEdge.id !== parkFootway.id)) {
+    throw new Error('The park route must follow the documented last leg through the south entrance');
+  }
+  const length = edges.reduce((sum, edge) => sum + edge.length, 0);
   return {
     ...destination, end: nodes.get(node), segments,
-    lengthM: Math.round(edges.reduce((sum, edge) => sum + edge.length, 0)),
+    lengthM: Math.round(length),
     walkwayM: Math.round(edges.filter(edge => edge.mappedWalkway).reduce((sum, edge) => sum + edge.length, 0)),
     gapM: hospitalRoute ? Math.round(distance(projected.get(node), project.forward(hospital.coordinate)))
       : reference ? Math.round(distance(projected.get(node), projected.get(reference))) : null,
     crossings: [...crossings.values()],
     ...(crossingEdges.length && {
       crossingView: { position: nodes.get(crossingEdges[0].from), toward: nodes.get(crossingEdges.at(-1).to) },
+    }),
+    ...(entrance && {
+      parkEntrance: { routeM: Math.round(length - lastEdge.length), directM: Math.round(distance(projected.get(start), projected.get(entrance))) },
     }),
     stepWays: new Set(edges.filter(edge => edge.steps).map(edge => edge.id)).size,
     wayIds: [...new Set(edges.map(edge => edge.id))],

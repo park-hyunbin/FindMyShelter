@@ -21,6 +21,7 @@ import { createStreetOcclusion } from './opo-contact-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
+import { songiPark } from './data/songi-park';
 import { songpaGrounds } from './data/songpa-grounds';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
@@ -152,6 +153,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   const greenAccess = addGreenAccess(data, scene);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
+  const parkViews = isOpo ? [] : songiPark.views.map(({ name, coordinate, toward }) => {
+    const position = data.project(coordinate);
+    const bearing = T.MathUtils.radToDeg(headingTo(position, data.project(toward)) - data.northOffset);
+    return { name, position, bearing };
+  });
   scene.updateMatrixWorld(true);
   const analysis = createLightAnalyzer(data, terrain, occluders, streets.grade);
   const lightPath = createLightPath(scene, [terrain, ...occluders]);
@@ -933,7 +939,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         && Math.hypot(position.x - schoolCrossing.position.x, position.z - schoolCrossing.position.z) < 11;
       const onSongpaStartRoad = !isOpo && nearest?.id === roadSpawn.segment.road.id;
       const streetName = onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name;
-      const namedPoint = nearSchoolCrossing ? '송이로 횡단보도' : nearRoadside ? roadside.name : paving?.name;
+      const parkView = mode === 'walk' ? parkViews.find(view => Math.hypot(position.x - view.position.x, position.z - view.position.z) < 12) : undefined;
+      const namedPoint = nearSchoolCrossing ? '송이로 횡단보도' : nearRoadside ? roadside.name : (paving?.name ?? parkView?.name);
       return { name: namedPoint ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
         speed: Math.round(travelSpeed * 3.6), touring: tripIndex > 0 };
     },
@@ -1010,6 +1017,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
     },
     greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView }) => ({ id, profile, crossingView })),
+    parkViews,
     markGreenAccess(id: string | null, index: number) {
       greenAccess.mark(id, index);
       const sample = greenAccess.layers.find(layer => layer.id === id)?.profile?.samples[index];

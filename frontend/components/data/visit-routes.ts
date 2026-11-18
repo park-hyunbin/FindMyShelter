@@ -17,6 +17,7 @@ type AccessRoute = {
   gapM: number | null;
   crossings?: { wayId: number; coordinate: number[] }[];
   crossingView?: { position: number[]; toward: number[] };
+  parkEntrance?: { routeM: number; directM: number };
   stepWays?: number;
 };
 

@@ -18,6 +18,7 @@ import { songpaFacilities, songpaGrounds } from './data/songpa-grounds';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
+import { songiPark } from './data/songi-park';
 import TourLive from './TourLive';
 import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
@@ -556,7 +557,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'station-route':
       case 'park-route':
-        openAccessRoute(target === 'station-route' ? 'songpa-station' : 'songi-park');
+        openAccessRoute(target === 'station-route' ? 'songpa-station' : songiPark.routeId);
         break;
       case 'school-route':
         openAccessRoute(songpaSchool.routeId);
@@ -809,6 +810,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               <div className="access-heading"><strong>{route.name}</strong><span>{access.retrieved ? `${route.lengthM.toLocaleString()}m` : meters(route.lengthM)}</span></div>
               <p>{route.endLabel}{route.gapM !== null && ` · ${hospital ? '조사 출입구' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
               {route.crossings && <p>보행로·보도 표기 약 {route.walkwayM.toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
+              {route.parkEntrance && <p>같은 출발점에서 남쪽 진입부까지 경로 약 {route.parkEntrance.routeM}m · 직선 약 {route.parkEntrance.directM}m</p>}
               {!hospital && route.stepWays !== undefined && <p>지도상 계단 태그 {route.stepWays ? `${route.stepWays}개` : '없음'} · 실제 턱·계단은 현장 확인</p>}
               <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : hospital ? '도로 연결과 출입구 보기' : '경로 보기'}</button>
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
@@ -822,6 +824,15 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <div className="site-actions"><button onClick={() => lookAtRoutePoint(crossing)}>송이로 횡단보도 눈높이 보기</button></div>
                 <p>횡단보도 줄무늬 폭은 화면용 근사예요.</p>
               </>}
+              {selected && route.parkEntrance && <div className="route-terrain">
+                <strong>송이공원 안에서 보기</strong>
+                <div className="site-actions">
+                  {world?.parkViews.map(view => <button key={view.name} onClick={() => lookAtRoutePoint(view)}>{view.name} 눈높이 보기</button>)}
+                </div>
+                <p>{songiPark.aerialDate} 항공영상과 지상 사진을 참고해 진입부 포장, 산책로 일부와 수목을 표현했어요. 길의 폭과 수목 높이는 근사예요. 현재 개방 여부와 계단·노면 경사는 현장에서 확인해 주세요.</p>
+                <a href={songiPark.aerialMetadata} target="_blank" rel="noreferrer">항공영상 촬영 정보 ↗</a>
+                <a href={songiPark.groundPhotos} target="_blank" rel="noreferrer">공원 지상 사진 ↗</a>
+              </div>}
               {selected && profile && <RouteTerrain profile={profile} selected={accessSample} startLabel={access.startLabel} onSelect={setAccessSample}
                 onLook={lookAtRoutePoint} />}
             </div>;

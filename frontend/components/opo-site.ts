@@ -10,9 +10,25 @@ import { songpaHospital, visitRoutes } from './data/visit-routes';
 import { songpaGrounds } from './data/songpa-grounds';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
+import { songiPark } from './data/songi-park';
 
 export const approach = [127.165458, 37.351201];
 export const playgroundReference = [127.1650128, 37.350598];
+
+function addSongiPark(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
+  const pavers = finish(new T.MeshStandardMaterial({ color: '#b2ada1', roughness: 0.95, side: T.DoubleSide }), 'cobble');
+  const ground = new T.MeshStandardMaterial({ color: '#b4a083', roughness: 0.98, side: T.DoubleSide });
+  const surfaces = [
+    { geometry: groundPolygon([songiPark.plaza.map(data.project)], grade, 3, 0.22), material: pavers },
+    { geometry: groundPolygon([songiPark.clearing.map(data.project)], grade, 4, 0.17), material: ground },
+  ];
+  for (const { geometry, material } of surfaces) {
+    if (material === pavers) surfaceUV(geometry, 'cobble');
+    const path = new T.Mesh(geometry, material);
+    path.receiveShadow = true;
+    scene.add(path);
+  }
+}
 
 function addSingaCrosswalk(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   const crossing = visitRoutes.songpa.routes.find(route => route.id === songpaSchool.routeId)?.crossingView;
@@ -88,6 +104,7 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials) {
   if (data.region === 'songpa') {
     addSingaCrosswalk(data, scene, grade, finish);
+    addSongiPark(data, scene, grade, finish);
     const pavement = new T.MeshStandardMaterial({ color: '#807771', roughness: 0.96, side: T.DoubleSide });
     const paint = new T.MeshStandardMaterial({ color: '#dedbd0', roughness: 0.92, side: T.DoubleSide });
     const paving = groundPolygon([songpaGrounds.paving.map(data.project)], grade, 3, 0.12);

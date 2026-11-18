@@ -4,6 +4,7 @@ import { ambientSources } from './songpa-ambient';
 import { floodSource } from './songpa-flood';
 import { songpaSchool } from './songpa-school';
 import { songpaHospital } from './visit-routes';
+import { songiPark } from './songi-park';
 
 type Source = { label: string; url: string };
 export type ChecklistView = 'complex' | 'sun' | 'horizon' | 'school' | 'places' | 'station-route' | 'park-route' | 'school-route' | 'hospital-route' | 'paving' | 'parking' | 'ambient' | 'flood';
@@ -95,9 +96,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'services', title: '장보기·병원·공원', evidence: 'model',
-        finding: '주변 상점 위치와 송이공원 남쪽 보행로까지 지도에 이어진 길을 볼 수 있어요. 병원 출입구와 공원의 실제 개방 상태는 현장 확인이 필요해요.',
-        followUp: '자주 이용할 시설의 위치, 이용 시간, 큰길을 건너는지 확인해 보세요.',
-        views: [{ target: 'park-route', label: '송이공원 방향 경로 보기' }, { target: 'places', label: '생활시설 지도 열기' }], sources: [siteBoundary],
+        finding: '송이공원 남쪽 진입부까지의 길을 보고, 공원 안 산책로와 솔숲을 눈높이에서 살펴볼 수 있어요. 주변 상점은 생활시설 지도에서 찾아요.',
+        followUp: '공원의 현재 개방 여부와 계단·턱, 자주 이용할 시설의 운영 시간을 확인해 보세요.',
+        views: [{ target: 'park-route', label: '송이공원 진입부와 산책로 보기' }, { target: 'places', label: '생활시설 지도 열기' }],
+        sources: [{ label: '송파구의 송이공원 소개', url: songiPark.parkSource }, { label: '공원 항공영상 촬영 정보', url: songiPark.aerialMetadata }],
       },
     ],
   },
