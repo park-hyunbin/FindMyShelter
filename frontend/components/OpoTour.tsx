@@ -171,6 +171,7 @@ function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef 
   return <details ref={detailsRef} className="season-compare winter-capture"
     onToggle={event => setExpanded(event.currentTarget.open)}>
     <summary>겨울 위성영상과 비교</summary>
+    <p>비교에 사용한 세 장면은 모두 오전 11시대에 촬영됐어요. 겨울 오후의 그늘 경계는 같은 시각의 관찰 자료가 필요해요.</p>
     <label className="winter-capture-date">촬영일
       <select value={capture.date} onChange={event => onCaptureChange(event.target.value)}>
         {songpaWinterCaptures.map(item => <option key={item.date} value={item.date}>{item.date}</option>)}
@@ -189,7 +190,7 @@ function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef 
     <ul className="winter-observations">
       {points.map(({ id, slot, label, displayBrightness, model, samples }) => <li key={id}>
         <strong>{slot} · {label}</strong>
-        <span>영상 밝기 · {displayBrightness} / 255</span>
+        <span>영상 표시 밝기 · {displayBrightness} / 255</span>
         <span>바닥 모델 중앙점 · {model ? lightStatus(model) : '계산 중'}</span>
         {samples && <>
           <div className="winter-pixel-grid" style={{ gridTemplateColumns: `repeat(${winterPixelGridSize}, 1fr)` }} aria-hidden="true">
@@ -201,8 +202,9 @@ function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef 
         </>}
       </li>)}
     </ul>
-    <div className="site-actions"><button type="button" disabled={!points.every(point => point.model)} onClick={onCompare}>같은 시각의 3D 일조 보기</button></div>
-    <p>촬영일별로 같은 픽셀을 비교해요. 영상 밝기는 바닥 재질과 수목의 영향도 받는 RGB 표시값이에요. 픽셀 안의 모델 표본은 바닥 위 {nearSurfaceHeight * 100}cm, 3D 일조 화면은 눈높이 {observationHeight}m 기준이에요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
+    <div className="site-actions"><button type="button" disabled={!points.every(point => point.model)} onClick={onCompare}>같은 촬영 시각의 눈높이 일조 보기</button></div>
+    <p>같은 10m 픽셀을 사용했고, 두 위치의 20m 장면분류는 비식생(등급 5)이에요. RGB 표시 밝기에는 바닥 재질과 수목의 영향이 섞여 있어요.</p>
+    <p>픽셀 안의 모델 표본은 바닥 위 {nearSurfaceHeight * 100}cm, 3D 일조 화면은 눈높이 {observationHeight}m에서 계산해요.</p>
     <a href={capture.source} target="_blank" rel="noreferrer">촬영 원본과 메타데이터 ↗</a>
     <small>{capture.attribution}</small>
   </details>;

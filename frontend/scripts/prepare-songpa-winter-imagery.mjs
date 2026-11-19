@@ -1,4 +1,5 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { isDeepStrictEqual, parseArgs } from 'node:util';
 import { fromUrl } from 'geotiff';
 import { PNG } from 'pngjs';
 import proj4 from 'proj4';
@@ -6,7 +7,9 @@ import proj4 from 'proj4';
 const sources = [
   ['S2B_52SCG_20251222_0_L2A', 'winter-capture.png'],
   ['S2C_52SCG_20260106_0_L2A', 'winter-capture-2026-01-06.png'],
+  ['S2B_52SCG_20260220_0_L2A', 'winter-capture-2026-02-20.png'],
 ];
+const { values: { check } } = parseArgs({ options: { check: { type: 'boolean' } } });
 const root = new URL('../public/datasets/regions/songpa/', import.meta.url);
 const projection = 'EPSG:32652';
 const resolutionM = 10;
@@ -34,10 +37,10 @@ async function readCapture([itemId, image]) {
 
   const raster = item.assets.visual.href;
   const sceneMask = item.assets.scl.href;
-  const [tci, scl] = await Promise.all([
-    fromUrl(raster, { allowFullFile: false }).then(file => file.getImage()),
-    fromUrl(sceneMask, { allowFullFile: false }).then(file => file.getImage()),
-  ]);
+  const [tci, scl] = await Promise.all([raster, sceneMask].map(async url => {
+    const file = await fromUrl(url, { allowFullFile: false, blockSize: 65_536, maxRanges: 0 });
+    return file.getImage();
+  }));
   const [east, north] = tci.getOrigin();
   const [cellX, cellY] = tci.getResolution();
   const [maskEast, maskNorth] = scl.getOrigin();
@@ -66,7 +69,7 @@ async function readCapture([itemId, image]) {
     const maskColumn = Math.floor((left + x) / 2) - maskLeft;
     const maskRow = Math.floor((top + y) / 2) - maskTop;
     const sceneClass = classification[maskRow * (maskRight - maskLeft) + maskColumn];
-    if (sceneClass !== 5) throw new Error(`Expected bare land at ${id} for ${itemId}; found ${sceneClass}`);
+    if (sceneClass !== 5) throw new Error(`Expected the non-vegetated class at ${id} for ${itemId}; found ${sceneClass}`);
     const index = (y * width + x) * 3;
     return [id, { sceneClass, rgb: Array.from(rgb.subarray(index, index + 3)) }];
   }));
@@ -77,8 +80,20 @@ async function readCapture([itemId, image]) {
 
 const prepared = await Promise.all(sources.map(readCapture));
 const result = { resolutionM, projection, bounds, width, height, points, captures: prepared.map(item => item.capture) };
-await Promise.all([
-  ...prepared.map(({ capture, png }) => writeFile(new URL(capture.image, root), png)),
-  writeFile(new URL('winter-capture.json', root), JSON.stringify(result, null, 2) + '\n'),
-]);
-console.log(`Wrote ${width}×${height} native RGB crops for ${prepared.length} dates with the same sample coordinates.`);
+const manifest = new URL('winter-capture.json', root);
+if (check) {
+  const current = JSON.parse(await readFile(manifest, 'utf8'));
+  if (!isDeepStrictEqual(current, result)) throw new Error('Winter capture metadata or sample colors differ from the source.');
+  await Promise.all(prepared.map(async ({ capture, png }) => {
+    const path = new URL(capture.image, root);
+    const actual = PNG.sync.read(await readFile(path));
+    const expected = PNG.sync.read(png);
+    if (actual.width !== expected.width || actual.height !== expected.height || !actual.data.equals(expected.data)) {
+      throw new Error(`Winter capture pixels differ from the source: ${capture.image}`);
+    }
+  }));
+} else {
+  await Promise.all(prepared.map(({ capture, png }) => writeFile(new URL(capture.image, root), png)));
+  await writeFile(manifest, JSON.stringify(result, null, 2) + '\n');
+}
+console.log(`${check ? 'Verified' : 'Wrote'} ${width}×${height} native RGB crops for ${prepared.length} dates with the same sample coordinates.`);
