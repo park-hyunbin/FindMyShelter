@@ -320,7 +320,7 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
   const parkEntry = survey?.entranceSample === undefined ? undefined : profile.samples[survey.entranceSample];
   const parkRise = parkEntry ? profile.samples.at(-1)!.elevation - parkEntry.elevation : undefined;
   const step = survey ? songpaRouteElevation.routeStepM : routeTerrainStep;
-  return <div className="route-terrain">
+  return <div className="route-terrain" data-route-section="profile" tabIndex={-1}>
     <strong>경로 주변 지형 단면{survey ? ' · 서울시 수치지형도' : ''}</strong>
     <div className="route-terrain-scale"><span>표고 약 {Math.round(maximum)}m</span><span>{step}m 간격 표본</span></div>
     <svg viewBox="0 0 300 80" aria-hidden="true">
@@ -372,8 +372,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const pickSlot = useRef<Slot | null>(null);
   const analysisPanel = useRef<HTMLElement>(null);
   const activeAccessCard = useRef<HTMLDivElement>(null);
-  const pendingSiteCard = useRef<'paving' | 'parking' | 'entrance' | null>(null);
-  const returnChecklistItem = useRef<string | null>(null);
+  const pendingAnalysisSection = useRef<{ tab: AnalysisTab; selector: string } | null>(null);
+  const [returnChecklistItem, setReturnChecklistItem] = useState<string | null>(null);
   const winterDetails = useRef<HTMLDetailsElement>(null);
   const winterWalkDetails = useRef<HTMLDetailsElement>(null);
   const [showWinterEvidence, setShowWinterEvidence] = useState(false);
@@ -537,40 +537,48 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, guidedAccessId]);
 
   useEffect(() => {
-    if (open && tab === 'nature' && accessId) activeAccessCard.current?.scrollIntoView({ block: 'nearest' });
+    if (open && tab === 'nature' && accessId && !pendingAnalysisSection.current) {
+      activeAccessCard.current?.scrollIntoView({ block: 'nearest' });
+    }
   }, [accessId, open, tab]);
 
   useEffect(() => {
-    if (!showWinterEvidence || tab !== 'sun' || !winterDetails.current) return;
+    if (!showWinterEvidence || !open || tab !== 'sun' || !winterDetails.current) return;
     winterDetails.current.open = true;
     winterDetails.current.scrollIntoView({ block: 'start' });
+    winterDetails.current.querySelector('summary')?.focus({ preventScroll: true });
     setShowWinterEvidence(false);
-  }, [showWinterEvidence, tab]);
+  }, [showWinterEvidence, open, tab]);
 
   useEffect(() => {
     if (!showWinterWalk || !open || tab !== 'sun' || !winterWalkDetails.current) return;
     winterWalkDetails.current.scrollIntoView({ block: 'start' });
+    winterWalkDetails.current.querySelector('summary')?.focus({ preventScroll: true });
     setShowWinterWalk(false);
   }, [showWinterWalk, open, tab]);
 
   useEffect(() => {
     if (!open || tab !== 'checklist') return;
-    const checkId = showVisitPlan ? 'visit-plan' : returnChecklistItem.current;
+    const checkId = showVisitPlan ? 'visit-plan' : returnChecklistItem;
     if (!checkId) return;
     const item = analysisPanel.current?.querySelector<HTMLDetailsElement>(`[data-check-id="${checkId}"]`);
     if (!item) return;
     item.open = true;
     item.scrollIntoView({ block: 'start' });
     item.querySelector('summary')?.focus({ preventScroll: true });
-    returnChecklistItem.current = null;
+    setReturnChecklistItem(null);
     if (showVisitPlan) setShowVisitPlan(false);
-  }, [showVisitPlan, open, tab]);
+  }, [showVisitPlan, open, tab, returnChecklistItem]);
 
   useEffect(() => {
-    if (!open || tab !== 'site' || !pendingSiteCard.current) return;
-    analysisPanel.current?.querySelector(`[data-site-card="${pendingSiteCard.current}"]`)?.scrollIntoView({ block: 'nearest' });
-    pendingSiteCard.current = null;
-  }, [open, tab]);
+    const pending = pendingAnalysisSection.current;
+    if (!open || pending?.tab !== tab) return;
+    const section = analysisPanel.current?.querySelector<HTMLElement>(pending.selector);
+    if (!section) return;
+    pendingAnalysisSection.current = null;
+    section.scrollIntoView({ block: 'start' });
+    section.focus({ preventScroll: true });
+  }, [open, tab, accessId, placeCategory]);
 
   const lightPoint = lightSlot ? points[lightSlot] : undefined;
   useEffect(() => {
@@ -628,6 +636,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }
 
   function chooseTab(next: AnalysisTab) {
+    if (pendingAnalysisSection.current?.tab !== next) pendingAnalysisSection.current = null;
     if (next !== 'sun') {
       setShowSunMap(false);
       setWinterViewing(false);
@@ -801,14 +810,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       const stops = world.greenAccessProfiles.find(route => route.id === scene.routeId)?.homeWalk?.stops;
       const index = stops?.findIndex(stop => stop.id === scene.stopId) ?? -1;
       if (index < 0) return false;
-      returnChecklistItem.current = 'visit-plan';
+      setReturnChecklistItem('visit-plan');
       chooseTab('nature');
       viewHomeStop(scene.routeId, index);
       return true;
     }
     const point = world.presets.find(item => item.id === scene.pointId);
     if (!point || !world.destinations.some(item => item.id === point.id)) return false;
-    returnChecklistItem.current = 'visit-plan';
+    setReturnChecklistItem('visit-plan');
     openWinterWalk();
     setWinterWalkSelection({ id: point.id, hour: scene.minute / 60 });
     viewWinterWalk(point, scene.date, scene.minute, false);
@@ -891,7 +900,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function openChecklistView(target: ChecklistView, checkId: string) {
     if (!world) return;
-    returnChecklistItem.current = checkId;
+    setReturnChecklistItem(checkId);
     switch (target) {
       case 'complex':
         chooseTab('site');
@@ -900,16 +909,17 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'paving':
       case 'parking':
-        pendingSiteCard.current = target;
+        pendingAnalysisSection.current = { tab: 'site', selector: `[data-site-card="${target}"]` };
         chooseTab('site');
         break;
       case 'entrance':
       case 'garage':
-        pendingSiteCard.current = 'entrance';
+        pendingAnalysisSection.current = { tab: 'site', selector: '[data-site-card="entrance"]' };
         chooseTab('site');
         visitAtEyeLevel(target === 'garage' ? songpaEntrance.garage.id : songpaEntrance.main.id);
         break;
       case 'sun':
+        pendingAnalysisSection.current = { tab: 'sun', selector: '.sun-map-control' };
         chooseTab('sun');
         showComplexSunMap();
         break;
@@ -921,6 +931,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         setShowWinterEvidence(true);
         break;
       case 'horizon':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '.terrain-heading' };
         chooseTab('nature');
         break;
       case 'ambient':
@@ -935,24 +946,42 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'station-route':
       case 'park-route':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-selected] .route-comparison' };
         openAccessRoute(target === 'station-route' ? songpaStationRouteId : songiPark.routeId);
         break;
+      case 'station-access':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '.return-walk' };
+        openAccessRoute(songpaStationRouteId);
+        break;
+      case 'park-entry':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-section="park-entry"]' };
+        openAccessRoute(songiPark.routeId);
+        break;
+      case 'park-profile':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-section="profile"]' };
+        openAccessRoute(songiPark.routeId);
+        break;
+      case 'hospital-route':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-section="hospital-entry"]' };
+        openAccessRoute(songpaHospital.routeId);
+        break;
       case 'bus-route':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-section="bus-stop"]' };
         openAccessRoute(songpaBusStop.routeId);
         break;
       case 'school-route':
+        pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-section="school-crossing"]' };
         openAccessRoute(songpaSchool.routeId);
-        break;
-      case 'hospital-route':
-        openAccessRoute(songpaHospital.routeId);
         break;
       case 'school':
       case 'places':
+        if (target === 'places') pendingAnalysisSection.current = { tab: 'places', selector: '.place-list' };
         setPlaceCategory(target === 'school' ? 'school' : 'all');
         setSelectedPlaceId(null);
         chooseTab('places');
         setSchoolZoneVisible(target === 'school');
-        if (target === 'school') chooseMode('orbit');
+        chooseMode('orbit');
+        if (target === 'places') world.locate();
         break;
     }
   }
@@ -1067,6 +1096,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     }}>{open ? '분석 접기' : '주거환경 분석'}</button>
     {open && <aside id="analysis-panel" ref={analysisPanel} className="analysis" aria-label="주거환경 분석">
       <div className="analysis-heading"><h2>주거환경 분석</h2><button aria-label="분석 접기" onClick={() => setOpen(false)}>−</button></div>
+      {returnChecklistItem && tab !== 'checklist' && <button className="checklist-return" type="button"
+        onClick={() => chooseTab('checklist')}>체크리스트 항목으로 돌아가기</button>}
       <div className="analysis-tabs" aria-label="분석 항목">
         {region === 'songpa' && <button className="checklist-tab" aria-pressed={tab === 'checklist'} onClick={() => chooseTab('checklist')}>임장 체크리스트</button>}
         <button aria-pressed={tab === 'sun'} onClick={() => chooseTab('sun')}>일조 비교</button>
@@ -1127,7 +1158,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               onPreview={nextDate => inspectLight(seasonSlot, nextDate)} />}
           </>}
         </details>
-        {world?.sunMap && <section className="sun-map-control" aria-label="단지 일조 분포">
+        {world?.sunMap && <section className="sun-map-control" tabIndex={-1} aria-label="단지 일조 분포">
           <button aria-pressed={showSunMap} disabled={!date} onClick={() => showSunMap ? setShowSunMap(false) : showComplexSunMap()}>단지 일조 분포</button>
           {showSunMap && (date ? mapCounts ? <>
             <p role="status">{timeLabel(minute)} · {Object.values(mapCounts).reduce((sum, count) => sum + count, 0)}개 실외 표본</p>
@@ -1198,7 +1229,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           {buildingRegister && <a href={buildingRegister.source.url} target="_blank" rel="noreferrer">주동 등록 높이 · 국토교통부 건축HUB ↗</a>}
         </details>
       </> : tab === 'nature' && <>
-        <div className="terrain-heading"><h3>방향별 시야와 지형 단면</h3>
+        <div className="terrain-heading" tabIndex={-1}><h3>방향별 시야와 지형 단면</h3>
           <select aria-label="시야와 지형 단면 방향" value={bearing} onChange={event => setBearing(Number(event.target.value))}>
             {bearings.map((label, i) => <option key={label} value={i * 45}>{label}쪽</option>)}
           </select>
@@ -1247,9 +1278,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const home = accessDetails?.homeWalk;
             const selected = accessId === route.id;
             const routeVisible = selected && mode === 'orbit';
-            return <div key={primary.id} ref={selected ? activeAccessCard : undefined} className="site-card access-card">
+            return <div key={primary.id} ref={selected ? activeAccessCard : undefined}
+              data-route-selected={selected || undefined} className="site-card access-card">
               <div className="access-heading"><strong>{route.name}</strong><span>{access.retrieved ? `${route.lengthM.toLocaleString()}m` : meters(route.lengthM)}</span></div>
-              {alternative && <table className="route-comparison">
+              {alternative && <table className="route-comparison" tabIndex={-1}>
                 <caption>같은 출발점과 종점 · 모델 누적 상승</caption>
                 <thead><tr><th scope="col">경로</th><th scope="col">거리</th><th scope="col">가는 길 ↑</th><th scope="col">오는 길 ↑</th></tr></thead>
                 <tbody>{[primary, alternative].map(option => {
@@ -1270,7 +1302,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               {!hospital && route.stepWays !== undefined && <p>지도상 보행 경로의 계단 기록 {route.stepWays ? `${route.stepWays}개` : '없음'} · {home ? '역 출구 계단은 아래 참고' : '실제 턱·계단은 현장 확인'}</p>}
               <button disabled={!world} aria-pressed={routeVisible} onClick={() => showAccessRoute(routeVisible ? null : route.id)}>{routeVisible ? '경로 숨기기' : hospital ? '도로 연결과 출입구 보기' : '경로 보기'}</button>
               <a href={route.referenceSource} target="_blank" rel="noreferrer">위치 출처 ↗</a>
-              {home && <section className="route-terrain return-walk" aria-label="송파역에서 단지로 돌아오는 길">
+              {home && <section className="route-terrain return-walk" tabIndex={-1} aria-label="송파역에서 단지로 돌아오는 길">
                 <strong>송파역에서 정문과 단지 안까지</strong>
                 <p><b>{songpaStationAccess.exit}</b>는 체험 시작점이에요. 서울교통공사 안내도에 계단과 자전거 경사로가 표시돼 있어요.</p>
                 <p><b>엘리베이터</b>는 {songpaStationAccess.elevator}에 있어요. {songpaStationAccess.elevatorFloors}을 연결해요. 현재 가동 여부와 지상 보도 연결은 현장에서 확인해 주세요.</p>
@@ -1286,7 +1318,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={songpaHomeLinks.gateApproach.source} target="_blank" rel="noreferrer">정문 앞 도로 원본 ↗</a>
                 <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">단지 항공영상 촬영 정보 ↗</a>
               </section>}
-              {selected && busView && <div className="route-terrain">
+              {selected && busView && <div className="route-terrain" data-route-section="bus-stop" tabIndex={-1}>
                 <strong>정류소 {songpaBusStop.ars} · 서울시 {songpaBusStop.referenceDate} 자료</strong>
                 <p>주황 점선으로 표시한 정문 앞 약 {songpaHomeLinks.gateApproach.lengthM}m는 보도 연결이 미확인된 구간이에요.</p>
                 <div className="site-actions"><button type="button" onClick={() => {
@@ -1296,7 +1328,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                   world?.focus();
                 }}>정류소 앞 눈높이 보기</button></div>
               </div>}
-              {selected && hospital && <div className="route-terrain">
+              {selected && hospital && <div className="route-terrain" data-route-section="hospital-entry" tabIndex={-1}>
                 <strong>보조출입구 조사 · {hospital.referenceDate}</strong>
                 <p>{hospital.address} · 경사로 설치, 조사 기준 5° 이하 경사, 문폭 1m 이상, 문 하부 단차 없음.</p>
                 <p>보라색 점선은 도로 종점과 조사 출입구 사이의 직선거리예요. 보도 연결과 현재 개방 여부는 현장에서 확인해 주세요.</p>
@@ -1309,11 +1341,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 }}>도로 종점에서 출입구 방향 보기</button></div>}
                 <a href={hospital.source} target="_blank" rel="noreferrer">서울시 보행자 출입구 조사 ↗</a>
               </div>}
-              {selected && crossing && <>
+              {selected && crossing && <div data-route-section="school-crossing" tabIndex={-1}>
                 <div className="site-actions"><button onClick={() => lookAtRoutePoint(crossing)}>송이로 횡단보도 눈높이 보기</button></div>
                 <p>경로는 횡단보도 건너 학교 쪽 보행로까지 이어져요. 줄무늬 폭은 근사이며, 교문까지의 연결은 현장에서 확인해 주세요.</p>
-              </>}
-              {selected && route.parkEntrance && <div className="route-terrain">
+              </div>}
+              {selected && route.parkEntrance && <div className="route-terrain" data-route-section="park-entry" tabIndex={-1}>
                 <strong>송이공원 진입부와 산책로</strong>
                 <div className="site-actions">
                   {world?.parkViews.map(view => <button key={view.name} onClick={() => lookAtRoutePoint(view)}>{view.name} 눈높이 보기</button>)}
@@ -1375,7 +1407,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </article>}
         <div className="place-explorer-heading"><span>동네 탐색</span><p>아래 장소를 선택해 지도에서 위치를 확인하세요.</p></div>
         <div className="place-filters" aria-label="장소 종류">{[['all','전체'],['beauty','올리브영'],['convenience','편의점'],['school','학교']].map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => { setPlaceCategory(id); setSelectedPlaceId(null); }}>{label}</button>)}</div>
-        <div className="place-list" aria-label="주변 장소 목록">{world?.places.filter(p => placeCategory === 'all' || p.category === placeCategory).map(p => <button className="place-row" aria-pressed={selectedPlaceId === p.id} key={p.id} onClick={() => selectPlace(p.id)}><span className={`place-kind place-kind-${p.category}`} aria-hidden="true">{p.category === 'school' ? '학' : p.category === 'beauty' ? '영' : '편'}</span><strong>{p.name}</strong><small>직선 {p.distance_m.toLocaleString()}m</small></button>)}</div>
+        <div className="place-list" tabIndex={-1} aria-label="주변 장소 목록">{world?.places.filter(p => placeCategory === 'all' || p.category === placeCategory).map(p => <button className="place-row" aria-pressed={selectedPlaceId === p.id} key={p.id} onClick={() => selectPlace(p.id)}><span className={`place-kind place-kind-${p.category}`} aria-hidden="true">{p.category === 'school' ? '학' : p.category === 'beauty' ? '영' : '편'}</span><strong>{p.name}</strong><small>직선 {p.distance_m.toLocaleString()}m</small></button>)}</div>
         {selectedPlace && <section className="place-detail">
           <span>{selectedPlace.category === 'school' ? '학교' : selectedPlace.category === 'beauty' ? '생활용품' : '편의점'}</span>
           <h3>{selectedPlace.name}</h3>
@@ -1414,7 +1446,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             </>}
           </div>
         </article>
-        <article className="site-card" data-site-card="paving">
+        <article className="site-card" data-site-card="paving" tabIndex={-1}>
           <h3>단지 안 산책로와 놀이터</h3>
           <p>103·104동 사이 보행로와 화단, 원형 앉음벽을 지나 조합놀이대와 그네를 볼 수 있어요.</p>
           <p>103동 앞 포장 연결과 현관 외관은 공개 사진을 참고해 재현했어요. 현관의 정확한 위치와 단차는 현장에서 확인해 보세요.</p>
@@ -1436,7 +1468,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">{songpaGrounds.captureDate} 촬영 · 영상 메타데이터 ↗</a>
           </div>
         </article>
-        <article className="site-card" data-site-card="entrance" aria-label="정문과 지하주차장 입구">
+        <article className="site-card" data-site-card="entrance" tabIndex={-1} aria-label="정문과 지하주차장 입구">
           <h3>정문과 지하주차장 입구</h3>
           <p>송파대로32길 정문 접근로와 102동 옆 주차장 덮개를 둘러볼 수 있어요. 덮개 외곽은 항공영상에서 읽었고, 102동 쪽 시점은 양재대로60길 서쪽 보도 위에 있어요.</p>
           <p>양재대로60길 교차로의 횡단보도 세 곳과 정문 차도 경계는 서울시 수치지형도와 항공영상을 대조했어요. 보도 단차, 덮개 아래 실제 경사와 차수시설, 방문차량 입차 조건은 현장 확인이 필요해요.</p>
@@ -1456,7 +1488,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <a href={songpaEntrance.record} target="_blank" rel="noreferrer">송파구 102동 지하주차장 입구 위치 기록 ↗</a>
           </div>
         </article>
-        <article className="site-card" data-site-card="parking" aria-label="주차와 관리 공시">
+        <article className="site-card" data-site-card="parking" tabIndex={-1} aria-label="주차와 관리 공시">
           <h3>주차와 관리</h3>
           <p>{parkingSpaces}면 · 세대당 {(parkingSpaces / songpaFacilities.households).toFixed(2)}면</p>
           <p>지상 {songpaFacilities.surfaceParking}면 · 지하 {songpaFacilities.undergroundParking}면 · 승강기 {songpaFacilities.lifts}대</p>

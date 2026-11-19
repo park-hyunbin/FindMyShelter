@@ -12,7 +12,8 @@ import { songpaRouteElevation } from './songpa-route-elevation';
 
 type Source = { label: string; url: string };
 export type ChecklistView = 'complex' | 'sun' | 'winter-walk' | 'winter-capture' | 'horizon' | 'school' | 'places'
-  | 'station-home' | 'station-route' | 'bus-route' | 'park-route' | 'school-route' | 'hospital-route'
+  | 'station-home' | 'station-route' | 'station-access' | 'bus-route' | 'park-route' | 'park-profile' | 'park-entry'
+  | 'school-route' | 'hospital-route'
   | 'paving' | 'parking' | 'entrance' | 'garage' | 'ambient' | 'flood';
 type Evidence = 'model' | 'document' | 'visit';
 
@@ -82,7 +83,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'slope', title: '언덕길과 귀갓길', evidence: 'model',
         finding: '서울시 수치지형도로 송이공원·송파역·서울신가초 방향의 누적 오르막과 왕복에서 가장 가파른 30m 구간을 볼 수 있어요.',
         followUp: '귀갓길의 가장 가파른 구간은 실제 보도나 경사로에서 확인해 보세요.',
-        views: [{ target: 'park-route', label: '송이공원 방향 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }],
+        views: [{ target: 'park-profile', label: '송이공원 방향 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }],
         sources: [{ label: '서울시 등고선·표고점', url: songpaRouteElevation.source }, terrainGrade],
       },
       {
@@ -96,7 +97,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'accessibility', title: '유모차·휠체어 동선', evidence: 'document',
         finding: `송파역 ${songpaStationAccess.exit}에는 계단이 있고, 지상 엘리베이터는 ${songpaStationAccess.elevator}에 있어요. 뉴스타트병원은 2022년 서울시 조사에서 보조출입구에 경사로가 기록됐어요.`,
         followUp: '엘리베이터 가동 여부, 지상에서 보도까지 연결, 단지까지 보도 폭과 턱, 병원 경사로 개방 여부를 확인해 보세요.',
-        views: [{ target: 'station-route', label: '송파역 계단·엘리베이터 확인' }, { target: 'hospital-route', label: '병원 방향과 조사 출입구 보기' }],
+        views: [{ target: 'station-access', label: '송파역 계단·엘리베이터 확인' }, { target: 'hospital-route', label: '병원 방향과 조사 출입구 보기' }],
         sources: [{ label: '서울교통공사 송파역 안내도', url: songpaStationAccess.guide },
           { label: '국가철도공단 엘리베이터 목록', url: songpaStationAccess.elevatorSource }, hospitalEntrances],
       },
@@ -112,7 +113,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'services', title: '장보기·병원·공원', evidence: 'model',
         finding: '송이공원 남쪽 진입부까지의 길을 보고, 공원 안 산책로와 솔숲을 눈높이에서 살펴볼 수 있어요. 주변 상점은 생활시설 지도에서 찾아요.',
         followUp: '공원의 현재 개방 여부와 계단·턱, 자주 이용할 시설의 운영 시간을 확인해 보세요.',
-        views: [{ target: 'park-route', label: '송이공원 진입부와 산책로 보기' }, { target: 'places', label: '생활시설 지도 열기' }],
+        views: [{ target: 'park-entry', label: '송이공원 진입부와 산책로 보기' }, { target: 'places', label: '생활시설 지도 열기' }],
         sources: [{ label: '송파구의 송이공원 소개', url: songiPark.parkSource }, { label: '공원 항공영상 촬영 정보', url: songiPark.aerialMetadata }],
       },
     ],

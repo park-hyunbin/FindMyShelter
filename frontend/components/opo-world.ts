@@ -72,7 +72,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   scene.background = new T.Color('#354D65');
   const fogDensity = isOpo ? 0.00112 : 0.00025;
   scene.fog = new T.FogExp2('#354D65', fogDensity);
-  const camera = new T.PerspectiveCamera(49, 1, 0.25, 8000);
+  const streetNear = 0.25;
+  // Give near-coplanar terrain and pavement more depth precision in the aerial view.
+  const orbitNear = isOpo ? streetNear : 4;
+  const camera = new T.PerspectiveCamera(49, 1, orbitNear, 8000);
   const renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65));
   renderer.shadowMap.enabled = true;
@@ -619,6 +622,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       if (!occupied(roadside)) position = roadside;
     }
     mode = next;
+    camera.near = next === 'orbit' ? orbitNear : streetNear;
+    camera.updateProjectionMatrix();
     eyeLevel = false;
     tripIndex = 0;
     walkingTo = null;
