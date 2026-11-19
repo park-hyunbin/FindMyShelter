@@ -66,6 +66,11 @@ type NeighborhoodTerrain = TerrainGrid & {
   center: [number, number]; elevation: number[]; edgeFeatherM?: number;
 };
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
+type PavementFile = {
+  roads: Position[][][];
+  sidewalks: Position[][][];
+  coveredSegments: [roadId: number, startNode: number, intervals: [from: number, to: number][]][];
+};
 
 export type Environment = EnvironmentProperties & { lines: Point[][]; shapes: Shape[] };
 export type OpoData = Awaited<ReturnType<typeof loadOpoData>>;
@@ -128,7 +133,7 @@ function regionalStreets(features: Environment[]): Street[] {
 export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo') {
   const area = regions.find(r => r.id === region)!;
   const empty = {type: 'FeatureCollection' as const, features: []};
-  const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings] = await Promise.all([
+  const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings, pavement] = await Promise.all([
     loadBuildingDataset(region, signal),
     json<EnvironmentFile>(area.environment, signal),
     json<TerrainFile>(area.terrain, signal),
@@ -138,6 +143,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     area.streets ? json<StreetFile>(area.streets, signal) : Promise.resolve(null),
     area.neighborhoodTerrain ? json<NeighborhoodTerrain>(area.neighborhoodTerrain, signal) : Promise.resolve(null),
     area.roadMarkings ? json<StreetPaintFile>(area.roadMarkings, signal) : Promise.resolve(null),
+    area.pavement ? json<PavementFile>(area.pavement, signal) : Promise.resolve(null),
   ]);
   const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
@@ -276,6 +282,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     localTerrain: localTerrain && { source: localTerrain.source, spacing: localTerrain.spacingM, scale: localTerrain.scale,
       edgeFeatherM: localTerrain.edgeFeatherM },
     roadMarkings, crossingWays: neighborhood?.crossingWays?.map(([a, b]) => [project(a), project(b)] as const) ?? [],
+    pavement: pavement && { roads: pavement.roads.map(toShape), sidewalks: pavement.sidewalks.map(toShape),
+      coveredSegments: pavement.coveredSegments },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
 

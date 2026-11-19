@@ -46,6 +46,16 @@ function clipEdge(polygon: Point[], a: Point, b: Point) {
   return out;
 }
 
+function fits(a: Bounds, b: Bounds) {
+  return a.east >= b.west && a.west <= b.east && a.south >= b.north && a.north <= b.south;
+}
+
+function polygonArea(polygon: Point[]) {
+  let doubled = 0;
+  for (let i = 2; i < polygon.length; i++) doubled += side(polygon[0], polygon[i - 1], polygon[i]);
+  return Math.abs(doubled);
+}
+
 export function createSurfaceClipper(cellSize = 10) {
   const cells = new Map<string, SurfaceTriangle[]>();
 
@@ -69,33 +79,70 @@ export function createSurfaceClipper(cellSize = 10) {
     });
   }
 
-  function clip(mask: T.BufferGeometry, lift: number) {
-    const vertices: number[] = [];
-    forTriangles(mask, triangle => {
-      const bounds = boundsOf(triangle);
-      const nearby = new Set<SurfaceTriangle>();
-      eachCell(bounds, key => cells.get(key)?.forEach(surface => nearby.add(surface)));
-      for (const { points: [a, b, c], bounds: surface, area } of nearby) {
-        if (bounds.east < surface.west || bounds.west > surface.east || bounds.south < surface.north || bounds.north > surface.south) continue;
-        let polygon: Point[] = triangle;
-        for (const [start, end] of [[a, b], [b, c], [c, a]]) {
-          polygon = clipEdge(polygon, start, end);
-          if (polygon.length < 3) break;
-        }
-        for (let i = 1; i + 1 < polygon.length; i++) {
-          const triangle = [polygon[0], polygon[i], polygon[i + 1]];
-          if (Math.abs(side(triangle[0], triangle[1], triangle[2])) < epsilon) continue;
-          for (const point of triangle) {
-            const y = (a.y * side(b, c, point) + b.y * side(c, a, point) + c.y * side(a, b, point)) / area;
-            vertices.push(point.x, y + lift, point.z);
-          }
-        }
+  function nearbySurfaces(bounds: Bounds) {
+    const nearby = new Set<SurfaceTriangle>();
+    eachCell(bounds, key => cells.get(key)?.forEach(surface => {
+      if (fits(bounds, surface.bounds)) nearby.add(surface);
+    }));
+    return nearby;
+  }
+
+  function trianglesOnSurface(vertices: number[], polygon: Point[], [a, b, c]: Triangle, area: number, lift = 0) {
+    for (let i = 1; i + 1 < polygon.length; i++) {
+      const triangle = [polygon[0], polygon[i], polygon[i + 1]];
+      if (Math.abs(side(triangle[0], triangle[1], triangle[2])) < epsilon) continue;
+      for (const point of triangle) {
+        const y = (a.y * side(b, c, point) + b.y * side(c, a, point) + c.y * side(a, b, point)) / area;
+        vertices.push(point.x, y + lift, point.z);
       }
-    });
+    }
+  }
+
+  function toGeometry(vertices: number[]) {
     const geometry = new T.BufferGeometry();
     geometry.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
     geometry.computeVertexNormals();
     return geometry;
   }
-  return { addSurface, clip, clear: () => cells.clear() };
+
+  function clip(mask: T.BufferGeometry, lift: number) {
+    const vertices: number[] = [];
+    forTriangles(mask, triangle => {
+      const bounds = boundsOf(triangle);
+      for (const { points, area } of nearbySurfaces(bounds)) {
+        const [a, b, c] = points;
+        let polygon: Point[] = triangle;
+        for (const [start, end] of [[a, b], [b, c], [c, a]]) {
+          polygon = clipEdge(polygon, start, end);
+          if (polygon.length < 3) break;
+        }
+        trianglesOnSurface(vertices, polygon, points, area, lift);
+      }
+    });
+    return toGeometry(vertices);
+  }
+
+  function subtract(mask: T.BufferGeometry) {
+    const vertices: number[] = [];
+    forTriangles(mask, triangle => {
+      const area = side(triangle[0], triangle[1], triangle[2]);
+      if (Math.abs(area) < epsilon) return;
+      let outside: Point[][] = [triangle];
+      for (const { points: [a, b, c] } of nearbySurfaces(boundsOf(triangle))) {
+        outside = outside.flatMap(polygon => {
+          // A convex cutter partitions its subject into an inner polygon and at most three outer pieces.
+          const ab = clipEdge(polygon, a, b);
+          if (ab.length < 3) return [polygon];
+          const bc = clipEdge(ab, b, c);
+          if (bc.length < 3 || polygonArea(clipEdge(bc, c, a)) < epsilon) return [polygon];
+          return [clipEdge(polygon, b, a), clipEdge(ab, c, b), clipEdge(bc, a, c)]
+            .filter(piece => polygonArea(piece) >= epsilon);
+        });
+        if (!outside.length) break;
+      }
+      for (const polygon of outside) trianglesOnSurface(vertices, polygon, triangle, area);
+    });
+    return toGeometry(vertices);
+  }
+  return { addSurface, clip, subtract, clear: () => cells.clear() };
 }

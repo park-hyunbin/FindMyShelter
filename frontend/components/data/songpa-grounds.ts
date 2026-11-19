@@ -72,6 +72,27 @@ export const songpaCourtyard = {
   groundPhoto: 'https://image.hogangnono.com/image/nowatermark/original/review/20251129172655_7a3aFmvY5EjhBA7uKX?q=100&s=720x180&t=outside',
   aerialReference: 'https://image.hogangnono.com/image/nowatermark/original/review/20240901230639_4UtsX4MKcHDSO5yekl?q=100&s=720x180&t=outside',
   seatRecord: 'https://www.k-apt.go.kr/bid/bidDetail.do?bidNum=20261112185416423',
+  // Visible vegetation in the 2025-10-28 orthophoto. Gaps under opaque shadows remain unclassified.
+  plantedGround: [
+    [
+      [127.1159497, 37.4981994], [127.1159953, 37.4982824], [127.1160731, 37.4983207],
+      [127.1161401, 37.4982909], [127.1160892, 37.4982356], [127.1160516, 37.4981611],
+      [127.1160033, 37.4980973], [127.1159309, 37.4980356], [127.1158719, 37.4980121],
+      [127.1158934, 37.4980973],
+    ], [
+      [127.1157914, 37.4973503], [127.1158719, 37.4974142], [127.1159738, 37.4973971],
+      [127.1160489, 37.4974333], [127.1161616, 37.4973908], [127.1162394, 37.4974035],
+      [127.1163011, 37.4973631], [127.1163654, 37.4973780], [127.1164593, 37.4973908],
+      [127.1165103, 37.4974014], [127.1164969, 37.4973525], [127.1163869, 37.4973418],
+      [127.1162823, 37.4973333], [127.1161589, 37.4973291], [127.1160623, 37.4973205],
+      [127.1159309, 37.4973142], [127.1158075, 37.4973120],
+    ], [
+      [127.1168858, 37.4976632], [127.1169582, 37.4977121], [127.1170360, 37.4976568],
+      [127.1170709, 37.4976036], [127.1170011, 37.4975738], [127.1169287, 37.4975121],
+      [127.1169046, 37.4974610], [127.1168187, 37.4974440], [127.1167839, 37.4974865],
+      [127.1168053, 37.4975589],
+    ],
+  ] satisfies Coordinate[][],
   paths: [
     { width: 2.8, points: [
       [127.1158907, 37.4978121], [127.1159631, 37.4977653], [127.1160007, 37.4977164],
@@ -465,7 +486,7 @@ export const songpaSurfaceLayout = {
   },
   paths: songpaCourtyard.paths,
   plantingBeds: songpaFrontage.beds,
-  plantedGround: songpaFrontage.plantedGround,
+  plantedGround: [...songpaFrontage.plantedGround, ...songpaCourtyard.plantedGround],
   ironFences: [...songpaFrontage.ironFences.map(points => ({ points })), ...playgroundFences],
   // The pavers and entrance style are photo references. The door placement and dimensions are illustrative.
   buildingEntries: [
