@@ -6,7 +6,7 @@ import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface } from './opo-meshes';
 import { crossingOutline, crosswalkFrame, fitCrosswalk, fitCrosswalkDeck, leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type Crosswalk } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
-import { gateCrosswalkArea, siteCrosswalkArea } from './opo-site-surfaces';
+import { projectSiteCrossing } from './opo-site-surfaces';
 import { createRoadPaintClipper } from './opo-road-paint';
 
 const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
@@ -292,13 +292,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   });
   const streetPavements = [...surveyedPavements.filter(patch => !patch.siteDriveway), ...junctionPavements];
   const sitePavement = surveyedPavements.find(patch => patch.siteDriveway);
-  const exactCrossings = (site?.layout.surveyedCrossings ?? []).map(({ outline, ...axis }) => {
-    const ring = outline.map(data.project);
-    const area = siteCrosswalkArea(data.project, { ...axis, depth: 0 });
-    const across = ring.map(point => (point.x - area.center.x) * area.direction.x + (point.z - area.center.z) * area.direction.z);
-    area.depth = 2 * Math.max(...across.map(Math.abs));
-    return { area, ring, boundary: [...ring, ring[0]] };
-  });
+  const exactCrossings = (site?.layout.surveyedCrossings ?? []).map(crossing => projectSiteCrossing(data.project, crossing));
   function hasSurvey(roadId: number, startNode: number) {
     return surveyedPavements.some(patch => patch.roadId === roadId && patch.coveredNodes.has(startNode));
   }
@@ -316,9 +310,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     return result;
   }
   const tracedDrive = site?.layout.pavedDrive?.map(data.project);
-  const siteCrossings = [...(site?.layout.crossings.map(crossing => siteCrosswalkArea(data.project, crossing)) ?? []),
-    ...exactCrossings.map(crossing => crossing.area)];
-  if (site?.gate) siteCrossings.push(gateCrosswalkArea(data.project, site.gate));
+  const siteCrossings = exactCrossings.map(crossing => crossing.area);
   const crossings: Crosswalk[] = [];
   const crossingsByRoad = new Map<number, Crosswalk[]>();
   const crossingSurveys = new Set<Crosswalk>();
@@ -345,7 +337,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const outline = ring.map(data.project);
         const center = outline.reduce((sum, point) => ({ x: sum.x + point.x / outline.length, z: sum.z + point.z / outline.length }), { x: 0, z: 0 });
         // Inside a reviewed drive, use the site markings instead of fitting unverified paint to a nearby street.
-        if (!confirmed && site?.layout.crossings.length && tracedDrive && inShape(center, [tracedDrive])) continue;
+        if (!confirmed && tracedDrive && inShape(center, [tracedDrive])) continue;
         addCrossing(outline, center, confirmed);
       }
     }

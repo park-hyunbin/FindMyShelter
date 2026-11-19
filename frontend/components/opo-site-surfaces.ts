@@ -2,7 +2,7 @@ import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
 import { curbWalk, sidewalkFascia } from './opo-curb-walk';
-import { crosswalkFrame, zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
+import type { CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
 import { createRoadPaintClipper } from './opo-road-paint';
@@ -11,7 +11,7 @@ import { buildingEntry, type BuildingEntryLayout } from './opo-building-entry';
 import { addShrubPlanting, type ShrubPlacement } from './opo-vegetation';
 
 type Coordinate = [longitude: number, latitude: number];
-type SiteCrossing = { start: Coordinate; end: Coordinate; depth: number };
+type SiteCrossing = { start: Coordinate; end: Coordinate; outline: Coordinate[] };
 type ParkingRow = {
   aisle: [Coordinate, Coordinate];
   depth: number;
@@ -19,14 +19,6 @@ type ParkingRow = {
   spaces: number;
   orientation: 'parallel' | 'perpendicular';
   displayCars?: { space: number; color: string }[];
-};
-
-export type GateLayout = {
-  axis: [Coordinate, Coordinate];
-  width: number;
-  crossing: [start: number, end: number];
-  sidewalks: { extension: number; rampWidth: number };
-  guards?: { inset: number; span: [start: number, end: number] };
 };
 
 export type SurveyedWalk = {
@@ -51,14 +43,14 @@ export type SiteSurfaceLayout = {
   ironFences?: Coordinate[][];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
+  drivewayFinishes?: { outline: Coordinate[]; color: string }[];
   drivewayRoad?: Omit<SurveyedRoad, 'outline'>;
   drivewayJoin?: Coordinate[];
   roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   surveyedWalks?: SurveyedWalk[];
   surveyedRoads?: SurveyedRoad[];
   surveyedJunctions?: Coordinate[][];
-  surveyedCrossings?: { start: Coordinate; end: Coordinate; outline: Coordinate[] }[];
-  crossings: SiteCrossing[];
+  surveyedCrossings?: SiteCrossing[];
   parkingRows?: ParkingRow[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
 };
@@ -75,23 +67,14 @@ export function axisBetween(start: Point, end: Point) {
   };
 }
 
-export function gateCrosswalkArea(project: OpoData['project'], gate: GateLayout): CrosswalkArea {
-  const { at, direction } = axisBetween(project(gate.axis[0]), project(gate.axis[1]));
-  const [start, end] = gate.crossing;
-  return { center: at(0, (start + end) / 2), depth: end - start, direction, section: { width: gate.width } };
-}
-
-export function gateGuardRuns(gate: GateLayout) {
-  if (!gate.guards) return [];
-  const [start, end] = gate.guards.span;
-  const [openingStart, openingEnd] = gate.crossing;
-  const approaches: [number, number][] = [[start, Math.min(end, openingStart - 0.1)], [Math.max(start, openingEnd + 0.1), end]];
-  return approaches.filter(([a, b]) => b - a >= 0.3);
-}
-
-export function siteCrosswalkArea(project: OpoData['project'], { start, end, depth }: SiteCrossing): CrosswalkArea {
+export function projectSiteCrossing(project: OpoData['project'], { start, end, outline }: SiteCrossing) {
   const { at, length, direction } = axisBetween(project(start), project(end));
-  return { center: at(0, length / 2), depth, direction: { x: direction.z, z: -direction.x }, section: { width: length } };
+  const ring = outline.map(project);
+  const center = at(0, length / 2);
+  const alongRoad = { x: direction.z, z: -direction.x };
+  const depth = 2 * Math.max(...ring.map(point => Math.abs((point.x - center.x) * alongRoad.x + (point.z - center.z) * alongRoad.z)));
+  const area: CrosswalkArea = { center, depth, direction: alongRoad, section: { width: length } };
+  return { area, ring, boundary: [...ring, ring[0]] };
 }
 
 function ironFence(lines: Point[][], grade: OpoData['ground']) {
@@ -135,7 +118,7 @@ function ironFence(lines: Point[][], grade: OpoData['ground']) {
 
 export function addSiteSurfaces(
   data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
-  layout: SiteSurfaceLayout, roadClearance: (point: Point) => number, gate?: GateLayout, insideBuilding?: (point: Point) => boolean,
+  layout: SiteSurfaceLayout, roadClearance: (point: Point) => number, insideBuilding?: (point: Point) => boolean,
 ) {
   const asphalt = material('#e2ecf8', 'asphalt');
   asphalt.color.multiplyScalar(1.42);
@@ -143,24 +126,14 @@ export function addSiteSurfaces(
   const edging = material('#aaa59a');
   const plantedEdge = material('#b4a685', 'forest');
   const paint = material('#eeeae0');
-  const frame = gate && axisBetween(data.project(gate.axis[0]), data.project(gate.axis[1]));
-  const gateCrossing = gate && gateCrosswalkArea(data.project, gate);
-  const crossings = layout.crossings.map(crossing => siteCrosswalkArea(data.project, crossing));
-  if (gateCrossing) crossings.push(gateCrossing);
+  const crossings = (layout.surveyedCrossings ?? []).map(crossing => projectSiteCrossing(data.project, crossing).area);
   const roadBlendWidth = 2.5;
   const drivewayGrade = (x: number, z: number) => {
-    const crossingClearance = gateCrossing
-      ? Math.hypot(x - gateCrossing.center.x, z - gateCrossing.center.z) - (gateCrossing.section.width / 2 + 0.8)
-      : Infinity;
-    const clearance = Math.min(roadClearance({ x, z }), crossingClearance);
-    const blend = T.MathUtils.smoothstep(clearance, 0, roadBlendWidth);
-    // Hold the whole crossing at street-deck grade before transitioning to the courtyard.
+    const blend = T.MathUtils.smoothstep(roadClearance({ x, z }), 0, roadBlendWidth);
     return grade(x, z) + T.MathUtils.lerp(streetDeckLift, 0.15, blend);
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
   const drivewayDecks: typeof decks = [];
-  const pedestrianDecks: typeof decks = [];
-  const gateLandings: typeof decks = [];
   const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
   const hits: T.Intersection[] = [];
   const parkedCars: { center: Point; direction: Point }[] = [];
@@ -181,10 +154,19 @@ export function addSiteSurfaces(
         const deck = { mesh, bounds: geometry.boundingBox };
         decks.push(deck);
         if (texture === 'asphalt') drivewayDecks.push(deck);
-        if (texture === 'pavers') pedestrianDecks.push(deck);
-        return deck;
       }
     }
+  }
+
+  function featherEdge(geometry: T.BufferGeometry, ring: Point[], width: number) {
+    const boundary = [[...ring, ring[0]]];
+    const vertices = geometry.getAttribute('position');
+    const colors = new Float32Array(vertices.count * 4).fill(1);
+    for (let i = 0; i < vertices.count; i++) {
+      const point = { x: vertices.getX(i), z: vertices.getZ(i) };
+      colors[i * 4 + 3] = T.MathUtils.smoothstep(nearestOnLine(point, boundary).distance, 0.03, width);
+    }
+    geometry.setAttribute('color', new T.BufferAttribute(colors, 4));
   }
 
   function surfaceHeight({ x, z }: Point, surfaces: typeof decks) {
@@ -216,13 +198,6 @@ export function addSiteSurfaces(
     flat.dispose();
     if (fitted.getAttribute('position').count) add(fitted, paint, undefined, false);
     else fitted.dispose();
-  }
-
-  function zebra(crossing: CrosswalkArea, clipper: ReturnType<typeof createRoadPaintClipper>) {
-    const at = crosswalkFrame(crossing);
-    const halfDepth = crossing.depth / 2;
-    paintOnDrive(zebraOffsets(crossing.section.width).map(across =>
-      [at(-halfDepth, across), at(halfDepth, across)]), 0.44, 0.028, clipper);
   }
 
   function parking({ aisle, depth, side, spaces, orientation, displayCars }: ParkingRow,
@@ -299,32 +274,6 @@ export function addSiteSurfaces(
     add(groundPolygon([playRing], grade, 3, 0.25), playFloor, surface);
     add(ribbon([...playRing, playRing[0]], 0.23, (x, z) => grade(x, z) + 0.28), edging);
   }
-  if (gate && frame && gateCrossing) {
-    const { at } = frame;
-    const { extension, rampWidth } = gate.sidewalks;
-    const along = (gate.crossing[0] + gate.crossing[1]) / 2;
-    const { center, direction, depth } = gateCrossing;
-    const edge = gate.width / 2;
-    const approaches = pedestrianDecks.slice();
-    for (const side of [-1, 1]) {
-      const end = at(side * (edge + extension), along);
-      const approachHeight = (point: Point) => {
-        const height = surfaceHeight(point, approaches);
-        return height !== undefined && height > (drivewayElevation(point) ?? -Infinity) ? height : undefined;
-      };
-      const endHeight = approachHeight(end);
-      // A landing belongs to a connected pedestrian surface, not an isolated strip on the carriageway.
-      if (endHeight === undefined || gate.crossing.some(offset => approachHeight(at(side * (edge + extension), offset)) === undefined)) continue;
-      const endLift = endHeight - drivewayGrade(end.x, end.z) + 0.004;
-      const points = [edge, edge + rampWidth, edge + extension].map(across => at(side * across, along));
-      const deck = add(ribbon(points, depth, (x, z) => {
-        const across = (x - center.x) * direction.z - (z - center.z) * direction.x;
-        const lift = T.MathUtils.lerp(0.015, endLift, T.MathUtils.smoothstep(Math.abs(across) - edge, 0, extension));
-        return drivewayGrade(x, z) + lift;
-      }, 0.25, 0.25), paving, 'pavers');
-      if (deck) gateLandings.push(deck);
-    }
-  }
   const fenceLines = (layout.ironFences ?? []).map(line => line.map(data.project));
   const fenceGeometry = ironFence(fenceLines, (x, z) => elevation({ x, z }) ?? grade(x, z));
   if (fenceGeometry) {
@@ -340,15 +289,8 @@ export function addSiteSurfaces(
     groundCover.depthWrite = false;
     for (const outline of layout.plantedGround) {
       const ring = outline.map(data.project);
-      const boundary = [[...ring, ring[0]]];
       const ground = groundPolygon([ring], grade, 0.7, 0.04);
-      const vertices = ground.getAttribute('position');
-      const colors = new Float32Array(vertices.count * 4).fill(1);
-      for (let i = 0; i < vertices.count; i++) {
-        const point = { x: vertices.getX(i), z: vertices.getZ(i) };
-        colors[i * 4 + 3] = T.MathUtils.smoothstep(nearestOnLine(point, boundary).distance, 0.03, 0.65);
-      }
-      ground.setAttribute('color', new T.BufferAttribute(colors, 4));
+      featherEdge(ground, ring, 0.65);
       add(ground, groundCover, 'forest', false);
     }
   }
@@ -369,10 +311,22 @@ export function addSiteSurfaces(
     addShrubPlanting(scene, shrubs, '정문 주변 관목');
   }
   const asphaltDecks = drivewayDecks.map(({ mesh }) => mesh.geometry);
-  if (crossings.length || layout.parkingRows?.length) {
+  if (layout.parkingRows?.length || layout.drivewayFinishes?.length) {
     const clipper = createRoadPaintClipper();
     asphaltDecks.forEach(clipper.addSurface);
-    for (const crossing of crossings) zebra(crossing, clipper);
+    for (const { outline, color } of layout.drivewayFinishes ?? []) {
+      const ring = outline.map(data.project);
+      const mask = groundPolygon([ring], () => 0, Infinity, 0);
+      const patch = clipper.clip(mask, 0.006);
+      mask.dispose();
+      if (!patch.getAttribute('position').count) { patch.dispose(); continue; }
+      const tint = material(color, 'asphalt');
+      tint.color.multiplyScalar(1.42);
+      tint.vertexColors = tint.transparent = true;
+      tint.depthWrite = false;
+      featherEdge(patch, ring, 1.2);
+      add(patch, tint, 'asphalt', false);
+    }
     for (const row of layout.parkingRows ?? []) parking(row, clipper);
     clipper.clear();
   }
@@ -381,7 +335,6 @@ export function addSiteSurfaces(
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
   const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
-  const hasGateLanding = (point: Point) => surfaceHeight(point, gateLandings) !== undefined;
-  return { elevation, drivewayElevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked, fenced, hasGateLanding };
+  return { elevation, drivewayElevation, drivewayCenterline, asphaltDecks, parked, fenced };
 }
   const pathLift = 0.24;

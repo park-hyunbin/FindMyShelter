@@ -14,7 +14,7 @@ import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient
 import { songpaSchool } from './data/songpa-school';
 import { songiPark, songiParkApproach, songiParkSurvey } from './data/songi-park';
 import { surveyedRoute } from './data/songpa-route-elevation';
-import { addSongpaEntrance } from './opo-songpa-entrance';
+import { addSongpaParkingCanopy } from './opo-songpa-entrance';
 import { addSongpaCourtyard } from './opo-songpa-courtyard';
 import { addSiteSurfaces } from './opo-site-surfaces';
 import { addPlayground } from './opo-playground';
@@ -84,9 +84,9 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
   roadClearance: (point: Point) => number, insideBuilding: (point: Point) => boolean) {
   const surfaces = siteSurfaces[data.region];
-  const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, surfaces.gate, insideBuilding);
+  const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, insideBuilding);
   if (data.region === 'songpa') {
-    if (paving) addSongpaEntrance(data, scene, grade, paving.drivewayGrade, paving.elevation, paving.hasGateLanding, finish);
+    addSongpaParkingCanopy(data, scene, grade, finish);
     addSongpaCourtyard(data, scene, grade, finish);
     addPlayground(data, scene, (x, z) => paving?.elevation({ x, z }) ?? grade(x, z), songpaPlayground.layout);
     addSongiPark(data, scene, grade, finish);
@@ -298,7 +298,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
             position: uphillSample.position, bearing: uphillSample.bearing + 180,
           }] : []),
           at('front-junction', '단지 앞 교차점', `정문 방향 약 ${songpaHomeLinks.gateApproach.lengthM}m · 지도에 보도 연결 표시 없음`, nearGate[0], nearGate[1]),
-          at('main-gate', '단지 정문 횡단부', '정문과 횡단부 위치 참고 · 보행 연결과 개방 여부는 현장 확인',
+          at('main-gate', '정문 접근로', '항공영상의 진입 포장선 참고 · 실제 보행 연결과 개방 여부는 현장 확인',
             data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
           at(inner.id, inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',
             arrival, data.project(inner.lookAt)),

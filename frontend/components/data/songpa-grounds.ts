@@ -131,15 +131,24 @@ export const songpaCourtyard = {
   ] satisfies SongpaGroundView[],
 };
 
-// Use the same traced points for the asphalt edge and the adjoining curb.
+// The visible west apron and the drive use the same edge. The bend follows the lighter paving in the orthophoto.
 const songpaWestDriveEdge = [
-  [127.1166310, 37.4977227], [127.1166068, 37.4976568], [127.1166256, 37.4976206],
+  [127.1166862, 37.4977504], [127.1166739, 37.4977355], [127.1166605, 37.4977249],
+  [127.1166444, 37.4977078], [127.1166283, 37.4976866], [127.1166176, 37.4976674],
+  [127.1166068, 37.4976568], [127.1166256, 37.4976206],
   [127.1166041, 37.4975759], [127.1165559, 37.4974567], [127.1165451, 37.4973993],
 ] satisfies Coordinate[];
 // Continue the surveyed east boundary south of the gate. The first point is
 // interpolated on the same UFID as songpaStreetEdge, at the end of the traced court.
 const songpaEastDriveEdge = [
   [127.1167029, 37.4974014], [127.1167214, 37.4974577], [127.1167679, 37.4975725],
+] satisfies Coordinate[];
+// The short recessed edge at the parking strip meets the visible landscaped verge.
+const songpaParkingVerge = [
+  songpaEastDriveEdge.at(-1)!,
+  [127.1167302, 37.4975844], [127.1167248, 37.4976078],
+  [127.1167436, 37.4976227], [127.1167812, 37.4976376],
+  songpaStreetEdge.at(-1)!,
 ] satisfies Coordinate[];
 // N1L_A0010000, UFID ending in 216, continuing the east edge to Yangjae-daero 60-gil.
 const songpaApproachEast = [
@@ -198,13 +207,32 @@ export const songpaGrounds = {
     ...songpaStreetEdge.slice(2).reverse(),
     ...songpaApproachEast.slice().reverse(), ...songpaApproachWest,
     [127.1168375, 37.4977951], ...songpaCoveredApproach, [127.1167463, 37.4977866],
-    [127.1166862, 37.4977504], [127.1166766, 37.4977504],
-    ...songpaWestDriveEdge, ...songpaEastDriveEdge,
+    ...songpaWestDriveEdge, ...songpaEastDriveEdge, ...songpaParkingVerge.slice(1, -1),
   ] satisfies Coordinate[],
-  markings: [
-    { start: [127.1166390, 37.4976291], end: [127.1166900, 37.4976100] },
-    { start: [127.1166283, 37.4976802], end: [127.1166900, 37.4977270] },
-  ] satisfies { start: Coordinate; end: Coordinate }[],
+  // The white bands are visible in the 2025-10-28 World Imagery capture.
+  // Trace their visible extent; the image does not identify ramps or the legal crossing type.
+  markings: [{
+    start: [127.1166819, 37.4977206], end: [127.1166310, 37.4976568],
+    outline: [
+      [127.1166712, 37.4977291], [127.1166953, 37.4977185],
+      [127.1166444, 37.4976504], [127.1166202, 37.4976610],
+    ],
+  }, {
+    start: [127.1166417, 37.4976185], end: [127.1166846, 37.4976057],
+    outline: [
+      [127.1166497, 37.4976312], [127.1166927, 37.4976185],
+      [127.1166793, 37.4975908], [127.1166337, 37.4976036],
+    ],
+  }] satisfies SiteSurfaceLayout['surveyedCrossings'],
+  courtFinish: {
+    color: '#fffaf0',
+    outline: [
+      [127.1166578, 37.4977440], [127.1167141, 37.4977461], [127.1167570, 37.4977312],
+      [127.1167704, 37.4977036], [127.1167570, 37.4976780], [127.1167275, 37.4976632],
+      [127.1167168, 37.4976483], [127.1166766, 37.4976334], [127.1166471, 37.4976376],
+      [127.1166068, 37.4976525], [127.1166283, 37.4976993],
+    ],
+  } satisfies NonNullable<SiteSurfaceLayout['drivewayFinishes']>[number],
   // Reconstruct the visible south parking strip from the aerial and ground views.
   // The grouped bays and their display cars are a model, not the inventory of 19 spaces.
   parkingRows: [
@@ -218,7 +246,8 @@ export const songpaGrounds = {
   ] satisfies Coordinate[],
   points: [
     { id: 'south-paving', name: '포장로 남쪽', coordinate: [127.1165511, 37.4974674], lookAt: [127.1166685, 37.4976248] },
-    { id: 'inner-paving', name: '동 사이 포장 공간', coordinate: [127.1166846, 37.4976632], lookAt: [127.1166176, 37.4975248] },
+    { id: 'inner-paving', name: '동 사이 포장 공간', coordinate: [127.1166846, 37.4976632],
+      viewFrom: [127.1166363, 37.4977121], lookAt: [127.1166685, 37.4976227] },
   ] satisfies SongpaGroundView[],
 };
 // The beds follow canopy edges visible in the 2025-10-28 orthophoto. Crown centers are
@@ -228,6 +257,11 @@ export const songpaFrontage = {
   treeSource: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1P_D0030000.zip',
   // Continuous planted ground interpreted from the 2025-10-28 orthophoto.
   plantedGround: [
+    [
+      ...songpaParkingVerge,
+      [127.1168268, 37.4976227], [127.1168402, 37.4975929],
+      [127.1168295, 37.4975674], [127.1167839, 37.4975546],
+    ],
     [
       [127.1169823, 37.4981185], ...songpaApproachWest.slice(1, -1), [127.1168751, 37.4978036],
       [127.1168268, 37.4978376], [127.1168590, 37.4978972], [127.1168804, 37.4979802],
@@ -350,7 +384,7 @@ export const songpaSurfaceLayout = {
     ],
   }],
   surveyedJunctions: songiParkSurvey.pavement,
-  surveyedCrossings: [...songiParkSurvey.crosswalks, ...songpaJunction.crossings],
+  surveyedCrossings: [...songiParkSurvey.crosswalks, ...songpaJunction.crossings, ...songpaGrounds.markings],
   surveyedWalks: [...songiParkSurvey.sidewalks, {
     roadId: 169916276,
     side: -1,
@@ -392,7 +426,7 @@ export const songpaSurfaceLayout = {
   }],
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
+  drivewayFinishes: [songpaGrounds.courtFinish],
   drivewayJoin: songpaDrivewayJoin,
-  crossings: songpaGrounds.markings.map(marking => ({ ...marking, depth: 2.2 })),
   parkingRows: songpaGrounds.parkingRows,
 } satisfies SiteSurfaceLayout;

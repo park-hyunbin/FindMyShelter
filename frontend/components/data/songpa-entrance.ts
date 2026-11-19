@@ -1,5 +1,3 @@
-import type { GateLayout } from '../opo-site-surfaces';
-
 type Coordinate = [longitude: number, latitude: number];
 
 export const songpaEntrance = {
@@ -9,9 +7,9 @@ export const songpaEntrance = {
   sidewalkGeometry: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0033320.zip',
   roadGeometryLabel: '서울특별시 에스맵-오픈랩 데이터',
   main: {
-    id: 'main-crossing', name: '정문 횡단부',
+    id: 'main-crossing', name: '정문 접근로',
     position: [127.1169555, 37.4977610] as Coordinate,
-    lookAt: [127.1168402, 37.4977419] as Coordinate,
+    lookAt: [127.1166793, 37.4977057] as Coordinate,
     roadview: 'https://map.kakao.com/link/roadview/37.4977292,127.1169071',
   },
   garage: {
@@ -22,15 +20,6 @@ export const songpaEntrance = {
     roadview: 'https://map.kakao.com/link/roadview/37.4981654,127.1170467',
   },
 };
-
-// Approximate dimensions reviewed against the aerial image and entrance reference.
-export const songpaGateLayout = {
-  axis: [[127.1168670, 37.4977227], [127.1168053, 37.4977823]],
-  width: 9.4,
-  crossing: [0.15, 2.05],
-  sidewalks: { extension: 2.5, rampWidth: 0.85 },
-  guards: { inset: 0.32, span: [0, 3.6] },
-} satisfies GateLayout;
 
 // East boundary from Seoul OpenLab N1L_A0010000, UFID 1000377090304A00110000000000000216.
 // The adjoining walk-facing strip is inferred from aerial and street references.
