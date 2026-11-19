@@ -1175,7 +1175,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const sample = analysis.sampleAtTime(date, minute);
       return sampleWinterPixel(pixel, coordinate => {
         const point = data.project(coordinate);
-        return canAnalyze(point) ? sample(point) : undefined;
+        return canAnalyze(point) ? sample(point, nearSurfaceHeight) : undefined;
       });
     },
     environmentAt(point: Point) {

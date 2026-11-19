@@ -24,8 +24,8 @@ export const songpaWinterCaptures = evidence.captures.map(capture => {
 });
 export type SongpaWinterCapture = (typeof songpaWinterCaptures)[number];
 
-const gridSize = 5;
-export const winterPixelSampleCount = gridSize ** 2;
+export const winterPixelGridSize = 5;
+export const winterPixelSampleCount = winterPixelGridSize ** 2;
 const wgs84 = proj4(evidence.projection, 'WGS84');
 
 export function sampleWinterPixel(
@@ -33,14 +33,17 @@ export function sampleWinterPixel(
   classify: (coordinate: number[]) => LightSample | undefined,
 ) {
   const counts = { sun: 0, shade: 0, unknown: 0, night: 0, excluded: 0 };
+  const cells: (keyof typeof counts)[] = [];
   const unknownCauses = new Set<string>();
   const [west, , , north] = evidence.bounds;
-  for (let y = 0; y < gridSize; y++) for (let x = 0; x < gridSize; x++) {
-    const east = west + (column + (x + 0.5) / gridSize) * evidence.resolutionM;
-    const northing = north - (row + (y + 0.5) / gridSize) * evidence.resolutionM;
+  for (let y = 0; y < winterPixelGridSize; y++) for (let x = 0; x < winterPixelGridSize; x++) {
+    const east = west + (column + (x + 0.5) / winterPixelGridSize) * evidence.resolutionM;
+    const northing = north - (row + (y + 0.5) / winterPixelGridSize) * evidence.resolutionM;
     const sample = classify(wgs84.forward([east, northing]));
-    counts[sample?.status ?? 'excluded']++;
+    const status = sample?.status ?? 'excluded';
+    cells.push(status);
+    counts[status]++;
     if (sample?.status === 'unknown' && sample.cause) unknownCauses.add(sample.cause);
   }
-  return { counts, unknownCauses: [...unknownCauses] };
+  return { counts, cells, unknownCauses: [...unknownCauses] };
 }

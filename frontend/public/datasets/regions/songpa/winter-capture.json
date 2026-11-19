@@ -87,6 +87,32 @@
           ]
         }
       }
+    },
+    {
+      "acquiredAt": "2026-02-20T02:27:09.329000Z",
+      "source": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2B_52SCG_20260220_0_L2A",
+      "raster": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/52/S/CG/2026/2/S2B_52SCG_20260220_0_L2A/TCI.tif",
+      "sceneMask": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/52/S/CG/2026/2/S2B_52SCG_20260220_0_L2A/SCL.tif",
+      "image": "winter-capture-2026-02-20.png",
+      "attribution": "Contains modified Copernicus Sentinel data 2026",
+      "observations": {
+        "winter-capture-a": {
+          "sceneClass": 5,
+          "rgb": [
+            60,
+            73,
+            70
+          ]
+        },
+        "winter-capture-b": {
+          "sceneClass": 5,
+          "rgb": [
+            98,
+            99,
+            85
+          ]
+        }
+      }
     }
   ]
 }

@@ -7,7 +7,7 @@ import { loadOpoData, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonChartStep, horizonRange, type DirectionProfile } from './opo-horizon';
 import { routeAscent, routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
-import { interval, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
+import { interval, nearSurfaceHeight, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import satelliteMetadata from '../public/opo-sentinel.json';
@@ -21,7 +21,7 @@ import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment }
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark, songiParkSurvey } from './data/songi-park';
-import { songpaWinterCaptures, winterPixelSampleCount, type SongpaWinterCapture } from './data/songpa-winter-capture';
+import { songpaWinterCaptures, winterPixelGridSize, winterPixelSampleCount, type SongpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaArchitecture } from './data/songpa-architecture';
 import { songpaRouteElevation } from './data/songpa-route-elevation';
 import TourLive from './TourLive';
@@ -161,7 +161,7 @@ function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef 
   const [expanded, setExpanded] = useState(false);
   const points = useMemo(() => capture.points.map((point, index) => {
     const preset = world?.presets.find(candidate => candidate.id === point.id);
-    const model = expanded && preset ? world?.lightAt(preset, capture.date, capture.exactMinute) : undefined;
+    const model = expanded && preset ? world?.lightNearSurface(preset, capture.date, capture.exactMinute) : undefined;
     const samples = expanded ? world?.winterPixel(point.pixel, capture.date, capture.exactMinute) : undefined;
     return { ...point, slot: slots[index], model, samples };
   }), [capture, expanded, world]);
@@ -189,8 +189,11 @@ function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef 
       {points.map(({ id, slot, label, displayBrightness, model, samples }) => <li key={id}>
         <strong>{slot} · {label}</strong>
         <span>영상 밝기 · {displayBrightness} / 255</span>
-        <span>모델 중앙점 · {model ? lightStatus(model) : '계산 중'}</span>
+        <span>바닥 모델 중앙점 · {model ? lightStatus(model) : '계산 중'}</span>
         {samples && <>
+          <div className="winter-pixel-grid" style={{ gridTemplateColumns: `repeat(${winterPixelGridSize}, 1fr)` }} aria-hidden="true">
+            {samples.cells.map((status, index) => <i key={index} data-status={status} />)}
+          </div>
           <span>픽셀 안 모델 표본 {winterPixelSampleCount}개 · {statuses
             .filter(status => samples.counts[status] > 0).map(status => `${statusLabels[status]} ${samples.counts[status]}개`).join(' · ')}</span>
           {samples.unknownCauses.length > 0 && <span>미판정 사유 · {samples.unknownCauses.join(' · ')}</span>}
@@ -198,7 +201,7 @@ function WinterCapture({ world, capture, onCaptureChange, onCompare, detailsRef 
       </li>)}
     </ul>
     <div className="site-actions"><button type="button" disabled={!points.every(point => point.model)} onClick={onCompare}>같은 시각의 3D 일조 보기</button></div>
-    <p>두 오전의 같은 픽셀을 비교해요. 영상 밝기는 RGB 표시값으로, 바닥 재질과 수목의 영향도 받아요. 모델 표본의 높이는 3D 바닥 위 {observationHeight}m예요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
+    <p>촬영일별로 같은 픽셀을 비교해요. 영상 밝기는 바닥 재질과 수목의 영향도 받는 RGB 표시값이에요. 픽셀 안의 모델 표본은 바닥 위 {nearSurfaceHeight * 100}cm, 3D 일조 화면은 눈높이 {observationHeight}m 기준이에요. 겨울 오후의 그늘 경계는 같은 시각의 현장 관찰이 필요해요.</p>
     <a href={capture.source} target="_blank" rel="noreferrer">촬영 원본과 메타데이터 ↗</a>
     <small>{capture.attribution}</small>
   </details>;
