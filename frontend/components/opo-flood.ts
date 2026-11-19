@@ -2,7 +2,7 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { floodDistance, floodHistory, type FloodView } from './data/songpa-flood';
+import { floodDepth, floodDistance, floodForecast, floodHistory, type FloodView } from './data/songpa-flood';
 import type { OpoData, Point } from './opo-data';
 import { groundPolygon } from './opo-meshes';
 
@@ -50,6 +50,35 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   }));
 
   const pinGeometry = new T.SphereGeometry(4, 12, 9);
+  const forecastLayer = new T.Group();
+  forecastLayer.visible = false;
+  group.add(forecastLayer);
+  for (const { stage, polygons } of floodForecast.stages) {
+    const { color } = floodDepth[stage - 1];
+    const fill = new T.MeshBasicMaterial({ color, opacity: 0.42, transparent: true, side: T.DoubleSide, depthWrite: false });
+    const outline = new LineMaterial({ color, linewidth: 2, depthWrite: false });
+    for (const polygon of polygons) {
+      const rings = polygon.map(ring => ring.slice(0, -1).map(data.project));
+      const mesh = new T.Mesh(groundPolygon(rings, grade, 8, 0.69), fill);
+      mesh.renderOrder = 11 + stage / 10;
+      forecastLayer.add(mesh);
+      for (const ring of rings) drawOutline(forecastLayer, [...ring, ring[0]], outline, 12);
+    }
+  }
+  const forecastDepth = floodDepth[floodForecast.nearest.stage - 1];
+  const forecastMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({
+    color: forecastDepth.color, depthTest: false, depthWrite: false,
+  }));
+  forecastMarker.position.copy(pointAt(data.project(floodForecast.nearest.point)));
+  forecastMarker.scale.setScalar(0.6);
+  forecastMarker.renderOrder = 14;
+  forecastLayer.add(forecastMarker);
+  const forecastLabel = {
+    text: `100mm/시간 가정 · ${forecastDepth.label}`,
+    point: forecastMarker.position.clone().add(new T.Vector3(0, 7, 0)),
+    kind: 'forecast',
+    enabled: () => forecastLayer.visible,
+  };
   const nearestMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({ color: '#f7bf66', depthTest: false, depthWrite: false }));
   nearestMarker.scale.setScalar(0.65);
   nearestMarker.renderOrder = 14;
@@ -76,6 +105,7 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   const traceLabel = { text: '가장 가까운 침수 기록', point: labelPoint, kind: 'trace', enabled: () => nearestMarker.visible };
   const labels = [
     traceLabel,
+    forecastLabel,
     ...Object.values(water).map(({ layer, pin, text }) => ({
       text,
       point: pin.position.clone().add(new T.Vector3(0, 9, 0)), kind: 'water', enabled: () => layer.visible,
@@ -87,15 +117,18 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
     show(year: string | null, view: FloodView) {
       group.visible = year !== null;
       const traceView = view === 'closest' || view === 'area';
+      const forecastView = view === 'forecast';
+      forecastLayer.visible = year !== null && forecastView;
       for (const [value, layer] of years) layer.traces.visible = traceView && year === value;
       for (const [key, { layer }] of Object.entries(water)) layer.visible = year !== null && view === key;
       const selected = year === null ? undefined : years.get(year);
       const nearest = selected?.nearest;
-      const boundary = traceView ? selected?.boundary : water[view].boundary;
+      const boundary = traceView ? selected?.boundary : forecastView ? null : water[view].boundary;
       boundaryMarker.visible = year !== null && Boolean(boundary);
       if (boundary) boundaryMarker.position.copy(boundary);
       nearestMarker.visible = traceView && Boolean(nearest);
       if (!selected) return [];
+      if (forecastView) return [...site, forecastLabel.point];
       if (nearest && traceView) {
         nearestMarker.position.copy(nearest);
         labelPoint.copy(nearestMarker.position).add(new T.Vector3(0, 10, 0));

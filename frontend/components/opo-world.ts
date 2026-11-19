@@ -1104,7 +1104,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const bounds = new T.Box3().setFromPoints(points);
       const { x, z } = bounds.getSize(new T.Vector3());
       const scale = Math.max(160, x, z);
-      frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.3, scale * 0.25), true);
+      const offset = view === 'forecast' ? new T.Vector3(-0.25, 1.55, -0.27) : new T.Vector3(0.06, 1.3, 0.25);
+      frameSurface(points, bounds.getCenter(new T.Vector3()), offset.multiplyScalar(scale), true);
     },
     greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, entranceView, stopView, homeWalk }) =>
       ({ id, profile, crossingView, entranceView, stopView, homeWalk })),

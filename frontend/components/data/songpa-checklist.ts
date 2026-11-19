@@ -2,7 +2,7 @@ import { songpaComplex } from './regions';
 import { songpaCourtyard, songpaFacilities, songpaManagementFees, songpaPlayground } from './songpa-grounds';
 import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
-import { floodSource } from './songpa-flood';
+import { floodForecast, floodSource } from './songpa-flood';
 import { songpaSchool } from './songpa-school';
 import { songpaBusStop, songpaHospital, songpaStationAccess } from './visit-routes';
 import { songiPark } from './songi-park';
@@ -141,10 +141,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'drainage', title: '물길·침수·배수', evidence: 'document',
-        finding: '서울시 공개 침수흔적과 단지 경계를 대조하고, 주변 연못과 하천의 위치를 지도에서 볼 수 있어요.',
+        finding: '서울시 과거 침수흔적과 한 시간 100mm 강우를 가정한 예상 영역을 각각 단지 경계와 비교할 수 있어요. 주변 연못과 하천도 지도에서 볼 수 있어요.',
         followUp: '비가 그친 뒤 물이 모인 곳, 빗물받이와 지하주차장 차수 시설을 확인해 보세요.',
         views: [{ target: 'flood', label: '침수 기록과 물길 보기' }],
-        sources: [{ label: '서울시 침수흔적도 원본', url: floodSource }],
+        sources: [{ label: '서울시 침수흔적도 원본', url: floodSource }, { label: '서울시 침수예상도 원본', url: floodForecast.source }],
       },
       {
         id: 'interior', title: '세대 내부', evidence: 'visit',
