@@ -51,6 +51,7 @@ type SurveyedRoad = {
 export type SiteSurfaceLayout = {
   drive?: { width: number; points: Coordinate[] };
   paths: { width: number; points: Coordinate[] }[];
+  walkAreas?: Coordinate[][];
   plantingBeds?: { outline: Coordinate[]; hedge: Coordinate[]; width: number; height: number }[];
   plantedGround?: Coordinate[][];
   ironFences?: IronFence[];
@@ -327,15 +328,30 @@ export function addSiteSurfaces(
   } else if (layout.drive && drivewayCenterline) {
     add(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1), asphalt, 'asphalt');
   }
+  const walkAreas = (layout.walkAreas ?? []).map(outline => outline.map(data.project));
+  const walkMask = walkAreas.length ? createSurfaceClipper() : undefined;
+  for (const ring of walkAreas) {
+    const top = groundPolygon([ring], pathGrade, 0.8, 0);
+    walkMask?.addSurface(top);
+    add(top, paving, 'pavers');
+    add(sidewalkFascia(ring, grade, pathGrade), edging, undefined, false);
+  }
+  function outsideWalkAreas(geometry: T.BufferGeometry) {
+    if (!walkMask) return geometry;
+    const visible = walkMask.subtract(geometry);
+    geometry.dispose();
+    return visible;
+  }
   for (const { width, points } of layout.paths) {
     const line = curve(points);
     const borderGrade = (x: number, z: number) => pathGrade(x, z) - 0.018;
     const border = ribbon(line, width + 0.18, borderGrade, Infinity, 0.6);
     if (!border.getAttribute('position')) continue;
     add(sidewalkFascia(ribbonBoundary(border), grade, borderGrade), edging, undefined, false);
-    add(border, edging);
-    add(ribbon(line, width, pathGrade, Infinity, 0.6), paving, 'pavers');
+    add(outsideWalkAreas(border), edging);
+    add(outsideWalkAreas(ribbon(line, width, pathGrade, Infinity, 0.6)), paving, 'pavers');
   }
+  walkMask?.clear();
   for (const entry of layout.buildingEntries ?? []) {
     const facade = buildingEntry(data, entry, grade, pathRise);
     if (!facade) continue;

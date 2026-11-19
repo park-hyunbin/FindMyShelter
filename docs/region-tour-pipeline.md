@@ -78,6 +78,8 @@ node frontend/scripts/prepare-region.mjs --region songpa --refresh
 - 송파 단지 경계에서 250m 안의 도로면 141개와 보도면 58개를 `pavement.json`으로 추출합니다. 자료를 EPSG:5186에서 합치고 도로면에 포함된 보도를 분리해 차도와 보도가 같은 경계를 쓰도록 합니다. 검수한 정문·교차로의 윤곽은 우선 적용합니다. 새 도형은 같은 지형 삼각면을 따르며, OSM 중심선 포장은 시 도형과 연결되지 않는 구간에 이어 붙입니다. 차도면은 도색과 차량 이동에 쓰고 보도면은 걷기 높이에도 사용합니다. 실제 연석 높이와 턱 낮춤 위치는 현장 확인 항목입니다. `uv run --with pyshp --with pyproj --with shapely python backend/scripts/prepare_neighborhood_pavement.py songpa <도로면 ZIP> <보도면 ZIP>`으로 다시 추출할 수 있습니다. [서울시 도로면 원본](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0010000.zip) · [서울시 보도면 원본](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0033320.zip)
 - 단지 안쪽의 보행로 옆, 남쪽 경계와 105동 앞의 식재 지면은 2025-10-28 항공영상에서 수목이 이어지는 범위를 읽어 기존 공통 식재면으로 그립니다. 포장보다 낮은 높이에 배치하며, 수관에 가려진 바닥의 세부 마감과 실제 단차는 추정입니다. [항공영상 출처](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)
 
+- 놀이터에서 101·102동 방향으로 굽는 길과 103·104동 사이의 좁은 연결부는 서울시 부지안도로 `N1L_A0010000`의 UFID 끝자리 150·156·165 양쪽 선을 사용합니다. 2025-10-28 항공영상과 대조한 구간을 면으로 만들고, 기존 보행로와 겹치는 곳은 실측 윤곽을 우선합니다. 같은 면을 보행 높이와 좌표 관측에 사용합니다. 좁은 연결부 양끝은 기존 보행로의 방향과 폭에 맞춰 이었습니다. 굽은 길 안쪽의 식재 지면은 항공영상에서 식생이 식별되는 범위로 제한했습니다. 접속부의 실제 폭과 턱 높이, 수관 아래 마감은 모형의 근사입니다. `uv run --with pyshp --with pyproj --with shapely python backend/scripts/prepare_songpa_courtyard_walks.py <부지안도로 ZIP>`으로 보행면을 다시 만들 수 있습니다. [서울시 부지안도로 원본](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1L_A0010000.zip) · [항공영상 출처](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)
+
 ## 송파에서 서울로 확장하는 데이터 설계
 
 2026년 11월 18일 기준 확보 경로를 확인했다. **새 단지에 주소와 단지 코드를 등록하면 공통 데이터로 주변 기본 3D가 생성되고, 확인한 출입구·보행로·시설만 단지 데이터로 추가되는 구조**를 목표로 한다. 같은 동네의 건물·지형·도로는 인접 단지가 재사용한다. 아래는 목표 설계이며, 송파 이외 구역의 원본과 실제 제공 범위는 아직 확보·검증이 필요하다.

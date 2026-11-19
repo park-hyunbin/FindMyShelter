@@ -3,6 +3,7 @@ import type { PlaygroundLayout } from '../opo-playground';
 import { songpaEntrance, songpaStreetEdge } from './songpa-entrance';
 import { songiParkSurvey } from './songi-park';
 import streetTreeArchive from '../../public/datasets/regions/songpa/street-trees.json';
+import courtyardWalkArchive from '../../public/datasets/regions/songpa/courtyard-walks.json';
 
 export const songpaFacilities = {
   checkedOn: '2026-11-18',
@@ -68,6 +69,8 @@ export const songpaPlayground = {
 
 // Clearings and route traces are interpreted against the apartment boundary and orthophoto.
 // The ground photo corroborates the curved pavers and raised beds between 103 and 104.
+const [courtyardNorthJoin, courtyardSouthJoin] =
+  courtyardWalkArchive.connectorJoins.map(([lng, lat]): Coordinate => [lng, lat]);
 export const songpaCourtyard = {
   groundPhoto: 'https://image.hogangnono.com/image/nowatermark/original/review/20251129172655_7a3aFmvY5EjhBA7uKX?q=100&s=720x180&t=outside',
   aerialReference: 'https://image.hogangnono.com/image/nowatermark/original/review/20240901230639_4UtsX4MKcHDSO5yekl?q=100&s=720x180&t=outside',
@@ -91,19 +94,23 @@ export const songpaCourtyard = {
       [127.1170709, 37.4976036], [127.1170011, 37.4975738], [127.1169287, 37.4975121],
       [127.1169046, 37.4974610], [127.1168187, 37.4974440], [127.1167839, 37.4974865],
       [127.1168053, 37.4975589],
+    ], [
+      // Tree cover distinguishable in the orthophoto inside the 101–102 curved footway.
+      [127.1160007, 37.4981185], [127.1160731, 37.4981675], [127.1161616, 37.4981739],
+      [127.1162313, 37.4981420], [127.1162957, 37.4981164], [127.1163225, 37.4980547],
+      [127.1163064, 37.4979738], [127.1162581, 37.4979100], [127.1161804, 37.4978632],
+      [127.1160865, 37.4978738], [127.1160409, 37.4979079], [127.1160114, 37.4979611],
+      [127.1159846, 37.4980356],
     ],
   ] satisfies Coordinate[][],
   paths: [
     { width: 2.8, points: [
-      [127.1158907, 37.4978121], [127.1159631, 37.4977653], [127.1160007, 37.4977164],
-      [127.1160409, 37.4976483], [127.1160489, 37.4975908], [127.1160731, 37.4975248],
+      [127.1158907, 37.4978121], [127.1159631, 37.4977653], courtyardNorthJoin,
+    ] },
+    { width: 2.8, points: [
+      courtyardSouthJoin,
       [127.1161267, 37.4974823], [127.1162125, 37.4974376], [127.1163306, 37.4974035],
       [127.1164674, 37.4974184], [127.1165586, 37.4974567],
-    ] },
-    { width: 2.15, points: [
-      // The mapped fence crosses the former last few metres of the interpreted line.
-      [127.1159604, 37.4980100], [127.1160167, 37.4980675],
-      [127.1160758, 37.4981377], [127.1161267, 37.4982015], [127.1161965, 37.4982356],
     ] },
     { width: 1.75, points: [
       [127.1159711, 37.4977653], [127.1160677, 37.4977844], [127.1161723, 37.4978185],
@@ -145,7 +152,9 @@ export const songpaCourtyard = {
       [127.1165173, 37.4974801], [127.1164727, 37.4974610], [127.1164513, 37.4975142],
     ],
     [
-      [127.1162474, 37.4980994], [127.1163413, 37.4980845], [127.1163574, 37.4980015],
+      // The garden bed stays inside the surveyed path edge, including the modeled curb.
+      [127.1162474, 37.4980994], [127.1163413, 37.4980845], [127.11635277, 37.49802537],
+      [127.11635052, 37.49800424], [127.11634377, 37.49798400], [127.11634044, 37.49797713],
       [127.1163011, 37.4979206], [127.1162286, 37.4979547], [127.1161938, 37.4980292],
     ],
   ] satisfies Coordinate[][],
@@ -485,6 +494,7 @@ export const songpaSurfaceLayout = {
     ],
   },
   paths: songpaCourtyard.paths,
+  walkAreas: courtyardWalkArchive.walks.map(({ outline }) => outline.map(([lng, lat]): Coordinate => [lng, lat])),
   plantingBeds: songpaFrontage.beds,
   plantedGround: [...songpaFrontage.plantedGround, ...songpaCourtyard.plantedGround],
   ironFences: [...songpaFrontage.ironFences.map(points => ({ points })), ...playgroundFences],
