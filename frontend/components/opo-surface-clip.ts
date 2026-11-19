@@ -4,9 +4,8 @@ import type { Point } from './opo-data';
 type Vertex = Point & { y: number };
 type Triangle = [Vertex, Vertex, Vertex];
 type Bounds = { west: number; east: number; north: number; south: number };
-type Deck = { points: Triangle; bounds: Bounds; area: number };
+type SurfaceTriangle = { points: Triangle; bounds: Bounds; area: number };
 
-const cellSize = 10;
 const epsilon = 1e-6;
 const side = (a: Point, b: Point, p: Point) => (b.x - a.x) * (p.z - a.z) - (b.z - a.z) * (p.x - a.x);
 
@@ -47,8 +46,8 @@ function clipEdge(polygon: Point[], a: Point, b: Point) {
   return out;
 }
 
-export function createRoadPaintClipper() {
-  const cells = new Map<string, Deck[]>();
+export function createSurfaceClipper(cellSize = 10) {
+  const cells = new Map<string, SurfaceTriangle[]>();
 
   function eachCell(bounds: Bounds, visit: (key: string) => void) {
     const west = Math.floor(bounds.west / cellSize), east = Math.floor(bounds.east / cellSize);
@@ -61,23 +60,23 @@ export function createRoadPaintClipper() {
       const [a, b, c] = points;
       const area = side(a, b, c);
       if (Math.abs(area) < epsilon) return;
-      const deck: Deck = { points: area > 0 ? points : [a, c, b], bounds: boundsOf(points), area: Math.abs(area) };
-      eachCell(deck.bounds, key => {
+      const surface: SurfaceTriangle = { points: area > 0 ? points : [a, c, b], bounds: boundsOf(points), area: Math.abs(area) };
+      eachCell(surface.bounds, key => {
         const group = cells.get(key);
-        if (group) group.push(deck);
-        else cells.set(key, [deck]);
+        if (group) group.push(surface);
+        else cells.set(key, [surface]);
       });
     });
   }
 
-  function clip(marking: T.BufferGeometry, lift: number) {
+  function clip(mask: T.BufferGeometry, lift: number) {
     const vertices: number[] = [];
-    forTriangles(marking, triangle => {
+    forTriangles(mask, triangle => {
       const bounds = boundsOf(triangle);
-      const nearby = new Set<Deck>();
-      eachCell(bounds, key => cells.get(key)?.forEach(deck => nearby.add(deck)));
-      for (const { points: [a, b, c], bounds: deck, area } of nearby) {
-        if (bounds.east < deck.west || bounds.west > deck.east || bounds.south < deck.north || bounds.north > deck.south) continue;
+      const nearby = new Set<SurfaceTriangle>();
+      eachCell(bounds, key => cells.get(key)?.forEach(surface => nearby.add(surface)));
+      for (const { points: [a, b, c], bounds: surface, area } of nearby) {
+        if (bounds.east < surface.west || bounds.west > surface.east || bounds.south < surface.north || bounds.north > surface.south) continue;
         let polygon: Point[] = triangle;
         for (const [start, end] of [[a, b], [b, c], [c, a]]) {
           polygon = clipEdge(polygon, start, end);

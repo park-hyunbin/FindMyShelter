@@ -5,7 +5,7 @@ import { curbWalk, sidewalkFascia } from './opo-curb-walk';
 import type { CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
-import { createRoadPaintClipper } from './opo-road-paint';
+import { createSurfaceClipper } from './opo-surface-clip';
 import { makeCar } from './opo-vehicle';
 import { buildingEntry, type BuildingEntryLayout } from './opo-building-entry';
 import { addShrubPlanting, type ShrubPlacement } from './opo-vegetation';
@@ -222,7 +222,7 @@ export function addSiteSurfaces(
   }
 
   function paintOnDrive(lines: [Point, Point][], width: number, lift: number,
-    clipper: ReturnType<typeof createRoadPaintClipper>) {
+    clipper: ReturnType<typeof createSurfaceClipper>) {
     if (!lines.length) return;
     const strips = lines.map(line => ribbon(line, width, () => 0));
     const flat = mergeGeometries(strips);
@@ -234,7 +234,7 @@ export function addSiteSurfaces(
   }
 
   function parking({ aisle, depth, side, spaces, orientation, displayCars }: ParkingRow,
-    clipper: ReturnType<typeof createRoadPaintClipper>) {
+    clipper: ReturnType<typeof createSurfaceClipper>) {
     const axis = axisBetween(data.project(aisle[0]), data.project(aisle[1]));
     const pitch = axis.length / spaces;
     const back = depth * side;
@@ -353,7 +353,7 @@ export function addSiteSurfaces(
   }
   const asphaltDecks = drivewayDecks.map(({ mesh }) => mesh.geometry);
   if (layout.parkingRows?.length || layout.drivewayFinishes?.length) {
-    const clipper = createRoadPaintClipper();
+    const clipper = createSurfaceClipper();
     asphaltDecks.forEach(clipper.addSurface);
     for (const { outline, color } of layout.drivewayFinishes ?? []) {
       const ring = outline.map(data.project);

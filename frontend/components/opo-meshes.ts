@@ -9,6 +9,7 @@ import { buildingAppearance } from './data/building-appearance';
 import { buildingProfile, buildingProfiles, type BuildingUse } from './data/building-profile';
 import { facadeUV, neighborhoodFacade } from './opo-neighborhood-facade';
 import { addLandscapeTrees, type LandscapePoint } from './opo-vegetation';
+import { createSurfaceClipper } from './opo-surface-clip';
 
 export function shapeFrom(rings: Shape) {
   const path = (ring: Point[]) => ring.map(({ x, z }) => new T.Vector2(x, -z));
@@ -406,7 +407,7 @@ function addReeds(group: T.Group, locations: Point[], surface: OpoData['ground']
   group.add(reeds);
 }
 
-export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMaterials, paved?: (p: Point) => boolean,
+export function addEnvironment(data: OpoData, scene: T.Scene, terrain: T.BufferGeometry, finish?: TourMaterials, paved?: (p: Point) => boolean,
     forest?: TreeCover) {
   const colors = {
     wood: '#6d845d', grass: '#a6b587', farmland: '#b7ad7c', water: '#719c9c',
@@ -445,19 +446,32 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
   surfaceOverlays.add(landCoverOverlays);
   scene.add(surfaceOverlays, vegetation);
   const surface = (x: number, z: number) => terrainSurface(data.ground, x, z);
+  const terrainClipper = data.region === 'songpa' ? createSurfaceClipper(terrainSpacing * 1.5) : undefined;
+  terrainClipper?.addSurface(terrain);
+  const flat = () => 0;
+  function terrainCover(shape: Shape) {
+    if (!terrainClipper) return groundPolygon(shape, surface);
+    // Keep the vector boundary and split it along the actual terrain triangles.
+    const mask = groundPolygon(shape, flat, terrainSpacing * 3, 0);
+    const cover = terrainClipper.clip(mask, 0.024);
+    mask.dispose();
+    return cover;
+  }
   let seed = 48961;
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   for (const feature of data.features) {
     if (feature.brunnel === 'tunnel' || feature.kind === 'road') continue;
     const key = feature.kind === 'green' ? feature.category as 'wood' | 'grass' | 'farmland' : feature.kind;
     for (const shape of feature.shapes) {
-      const drapeCover = data.region === 'songpa' && (feature.kind === 'green' || feature.kind === 'facility');
-      const geometry = drapeCover ? groundPolygon(shape, surface, 8, 0.024) : groundPolygon(shape, surface);
-      if (finish && (key === 'wood' || key === 'grass' || key === 'farmland')) surfaceUV(geometry, landCover[key]);
-      if (waterNormal && key === 'water') surfaceUV(geometry, 'water');
-      const mesh = new T.Mesh(geometry, materials[key]);
-      mesh.receiveShadow = true;
-      (feature.kind === 'green' ? landCoverOverlays : surfaceOverlays).add(mesh);
+      const groundCover = feature.kind === 'green' || feature.kind === 'facility';
+      const geometry = groundCover ? terrainCover(shape) : groundPolygon(shape, surface);
+      if (geometry.getAttribute('position').count) {
+        if (finish && (key === 'wood' || key === 'grass' || key === 'farmland')) surfaceUV(geometry, landCover[key]);
+        if (waterNormal && key === 'water') surfaceUV(geometry, 'water');
+        const mesh = new T.Mesh(geometry, materials[key]);
+        mesh.receiveShadow = true;
+        (feature.kind === 'green' ? landCoverOverlays : surfaceOverlays).add(mesh);
+      } else geometry.dispose();
       if (feature.kind === 'water') waters.push([...shape[0], shape[0][0]]);
       if (feature.kind === 'green' && feature.category !== 'farmland') greens.push(shape);
       if (key !== 'wood' || forest) continue;
@@ -500,6 +514,7 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
       if (feature.kind === 'stream') waters.push(points);
     }
   }
+  terrainClipper?.clear();
   if (forest) {
     const inComplex = data.siteOutline.length ? [data.siteOutline] : null;
     trees.push(...forest.placements(random, point => !canPlant(point) || Boolean(inComplex && inShape(point, inComplex))));

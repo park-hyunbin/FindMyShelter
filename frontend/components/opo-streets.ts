@@ -7,7 +7,7 @@ import { groundPolygon, ribbon, streetDeckLift, terrainSurface } from './opo-mes
 import { crossingOutline, crosswalkFrame, fitCrosswalk, fitCrosswalkDeck, leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type Crosswalk } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
 import { projectSiteCrossing } from './opo-site-surfaces';
-import { createRoadPaintClipper } from './opo-road-paint';
+import { createSurfaceClipper } from './opo-surface-clip';
 
 const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 const paths = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
@@ -242,7 +242,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const centerlines = createStreetNetwork(centerlineRoads);
   const survey = data.roadMarkings;
   const surveyedLines = survey?.lanes.map(lane => ({ ...lane, points: lane.points.map(data.project) })) ?? [];
-  const roadPaint = surveyedLines.length || site?.layout.surveyedCrossings?.length ? createRoadPaintClipper() : undefined;
+  const roadPaint = surveyedLines.length || site?.layout.surveyedCrossings?.length ? createSurfaceClipper() : undefined;
   const surveyedWays = new Set<number>();
   const edgeOffsets = new Map<number, number[]>();
   for (const { points, edge } of surveyedLines) for (const [index, a] of points.slice(0, -1).entries()) {
@@ -423,7 +423,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       strip([position(-rampDepth, at(1.34)), position(rampDepth, at(1.34))], 0.88, sidewalkLift + 0.004, '#d4cec2', paving);
     });
   }
-  function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createRoadPaintClipper>) {
+  function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createSurfaceClipper>) {
     const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0' : '#f2eee3';
     const double = style === 'yellow-double' || style === 'yellow-combined';
     const paint = (line: Point[], dashed: boolean) => {
@@ -626,7 +626,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     for (const deck of asphaltDecks) roadPaint.addSurface(deck);
     for (const { area, ring } of exactCrossings) {
       const mask = groundPolygon([ring], () => 0, Infinity, 0);
-      const clipper = createRoadPaintClipper();
+      const clipper = createSurfaceClipper();
       clipper.addSurface(mask);
       const at = crosswalkFrame(area);
       const depth = area.depth / 2;
