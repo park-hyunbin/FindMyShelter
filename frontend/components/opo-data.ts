@@ -8,6 +8,7 @@ import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Poly
 import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
 import songpaBusStop from '../public/datasets/regions/songpa/bus-stop.json';
+import songpaStreetTrees from '../public/datasets/regions/songpa/street-trees.json';
 
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
@@ -44,7 +45,7 @@ type StreetPaintFile = {
   };
 };
 export type Street = StreetProperties & { points: Point[] };
-export type StreetPoint = StreetPointProperties & { position: Point; treeForm?: 'broadleaf' | 'pine' };
+export type StreetPoint = StreetPointProperties & { position: Point; treeForm?: 'broadleaf' | 'pine'; surveyedTree?: boolean };
 type BuildingFile = FeatureCollection<Polygon | MultiPolygon, BuildingProperties> & {
   metadata: { center_lnglat: [number, number]; local_origin_xy: [number, number]; radius_m: number };
 };
@@ -245,10 +246,13 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   if (region === 'songpa') for (const [index, coordinate] of [...songpaGrounds.crowns, ...songpaCourtyard.crowns, ...songiPark.crowns].entries()) {
     streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
   }
-  if (region === 'songpa') for (const [index, coordinate] of [...songpaFrontage.crowns, ...songpaFrontage.streetTrees].entries()) {
+  if (region === 'songpa') for (const [index, coordinate] of songpaFrontage.crowns.entries()) {
     streetPoints.push({
       id: `songpa-frontage-crown-${index}`, kind: 'tree', name: null, position: project(coordinate), treeForm: 'broadleaf',
     });
+  }
+  if (region === 'songpa') for (const { id, coordinate } of songpaStreetTrees.trees) {
+    streetPoints.push({ id, kind: 'tree', name: null, position: project(coordinate), treeForm: 'broadleaf', surveyedTree: true });
   }
   const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));
   const date = environment.metadata.tile_source.match(/\/(\d{4})(\d{2})(\d{2})_/);

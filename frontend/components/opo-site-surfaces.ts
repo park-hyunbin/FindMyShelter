@@ -344,12 +344,57 @@ export function addSiteSurfaces(
     scene.add(facade.exterior);
   }
   const sidewalkCenterlines = new Map<string, Point[]>();
+  const sidewalkTreeHeights = new Map<string, number>();
+  const surveyedTrees = data.streetPoints.filter(point => point.surveyedTree);
+  const treeWellFrames: T.BufferGeometry[] = [];
+  const treeWellGround: T.BufferGeometry[] = [];
   for (const { id, outline, centerline } of layout.surveyedWalks ?? []) {
     const ring = outline.map(data.project);
     const walkGrade = (x: number, z: number) => streetGrade(x, z) + 0.13;
-    add(groundPolygon([ring], walkGrade, 0.8, 0), paving, 'pavers');
+    const walkingSurface = groundPolygon([ring], walkGrade, 0.8, 0);
+    add(walkingSurface, paving, 'pavers');
     add(sidewalkFascia(ring, grade, walkGrade), edging, undefined, false);
     if (id && centerline?.length) sidewalkCenterlines.set(id, centerline.map(data.project));
+    const wells = surveyedTrees.filter(({ id, position }) =>
+      !sidewalkTreeHeights.has(id) && inShape(position, [ring]) && roadClearance(position) > 0.15
+      && !insideBuilding?.(position) && drivewayElevation(position) === undefined);
+    if (!wells.length) continue;
+
+    const clipper = createSurfaceClipper();
+    clipper.addSurface(walkingSurface);
+    const edges = ring.map((a, index) => [a, ring[(index + 1) % ring.length]])
+      .filter(([a, b]) => a.x !== b.x || a.z !== b.z);
+    for (const { id, position } of wells) {
+      const height = elevation(position);
+      if (height === undefined) continue;
+      sidewalkTreeHeights.set(id, height);
+      const closest = edges.reduce((best, edge) => {
+        const { distance } = nearestOnLine(position, [edge]);
+        return distance < best.distance ? { edge, distance } : best;
+      }, { edge: edges[0], distance: Infinity });
+      const half = Math.min(0.49, closest.distance - 0.025);
+      if (half < 0.17) continue;
+      const [a, b] = closest.edge;
+      const direction = axisBetween(a, b).direction;
+      const square = (radius: number) => [[-radius, -radius], [radius, -radius], [radius, radius], [-radius, radius]].map(([u, v]) => ({
+        x: position.x + direction.x * u + direction.z * v,
+        z: position.z + direction.z * u - direction.x * v,
+      }));
+      const rim = groundPolygon([square(half)], () => 0, Infinity, 0);
+      const soil = groundPolygon([square(half - 0.07)], () => 0, Infinity, 0);
+      treeWellFrames.push(clipper.clip(rim, 0.013));
+      treeWellGround.push(clipper.clip(soil, 0.016));
+      rim.dispose();
+      soil.dispose();
+    }
+    clipper.clear();
+  }
+  if (treeWellFrames.length) {
+    const frame = mergeGeometries(treeWellFrames);
+    const fill = mergeGeometries(treeWellGround);
+    [...treeWellFrames, ...treeWellGround].forEach(item => item.dispose());
+    if (frame) add(frame, material('#555853'), undefined, false);
+    if (fill) add(fill, material('#807463', 'forest'), 'forest', false);
   }
   for (const { id, curb, outward, width, beside, finish: edgeFinish, flushEndM } of layout.roadsideWalks ?? []) {
     const edge = curb.map(data.project);
@@ -443,5 +488,5 @@ export function addSiteSurfaces(
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
   const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
-  return { elevation, drivewayElevation, drivewayCenterline, sidewalkCenterlines, asphaltDecks, parked, fenced };
+  return { elevation, drivewayElevation, drivewayCenterline, sidewalkCenterlines, sidewalkTreeHeights, asphaltDecks, parked, fenced };
 }

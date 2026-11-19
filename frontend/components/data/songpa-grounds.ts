@@ -2,6 +2,7 @@ import type { SiteSurfaceLayout } from '../opo-site-surfaces';
 import type { PlaygroundLayout } from '../opo-playground';
 import { songpaEntrance, songpaStreetEdge } from './songpa-entrance';
 import { songiParkSurvey } from './songi-park';
+import streetTreeArchive from '../../public/datasets/regions/songpa/street-trees.json';
 
 export const songpaFacilities = {
   checkedOn: '2026-11-18',
@@ -378,7 +379,7 @@ export const songpaGrounds = {
 // interpreted from the imagery; the shrubs and broadleaf tree models are representative.
 export const songpaFrontage = {
   fenceSource: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1L_B0020000.zip',
-  treeSource: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1P_D0030000.zip',
+  treeSource: streetTreeArchive.source,
   // Continuous planted ground interpreted from the 2025-10-28 orthophoto.
   plantedGround: [
     [
@@ -448,12 +449,6 @@ export const songpaFrontage = {
     [127.1169421, 37.4976887], [127.1168938, 37.4976121],
     [127.1169904, 37.4978760], [127.1169823, 37.4978504],
     [127.1170360, 37.4977696], [127.1171057, 37.4978249], [127.1171862, 37.4978653],
-  ] satisfies Coordinate[],
-  // N1P_D0030000 public street trees. Sizes are not populated in the source.
-  streetTrees: [
-    [127.1171339, 37.4983542], [127.1170831, 37.4983302], [127.1172762, 37.4984292],
-    [127.1173388, 37.4984631], [127.1173986, 37.4984965], [127.1174579, 37.4985277],
-    [127.1172061, 37.4983903],
   ] satisfies Coordinate[],
 };
 

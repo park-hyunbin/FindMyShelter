@@ -424,7 +424,7 @@ function addReeds(group: T.Group, locations: Point[], surface: OpoData['ground']
 
 export function addEnvironment(data: OpoData, scene: T.Scene, terrain: ReturnType<typeof createTerrainProjection> | undefined,
     finish?: TourMaterials, paved?: (p: Point) => boolean,
-    forest?: TreeCover) {
+    forest?: TreeCover, sidewalkTrees?: ReadonlyMap<string, number>) {
   const colors = {
     wood: '#6d845d', grass: '#a6b587', farmland: '#b7ad7c', water: '#719c9c',
     stream: '#729eab', facility: '#aca17e',
@@ -453,8 +453,9 @@ export function addEnvironment(data: OpoData, scene: T.Scene, terrain: ReturnTyp
   const waterAreas = data.features.filter(feature => feature.kind === 'water').flatMap(feature => feature.shapes);
   const waterways = data.features.filter(feature => feature.kind === 'stream' && feature.brunnel !== 'tunnel')
     .flatMap(feature => feature.lines.map(points => ({ points, width: feature.category === 'river' ? 8 : 1.8 })));
-  const canPlant = (point: Point) => !paved?.(point) && !waterAreas.some(shape => inShape(point, shape))
+  const clearOfWater = (point: Point) => !waterAreas.some(shape => inShape(point, shape))
     && !waterways.some(({ points, width }) => nearestOnLine(point, [points]).distance <= width / 2);
+  const canPlant = (point: Point) => !paved?.(point) && clearOfWater(point);
   const riverbanks: Point[] = [];
   const surfaceOverlays = new T.Group();
   const landCoverOverlays = new T.Group();
@@ -524,7 +525,11 @@ export function addEnvironment(data: OpoData, scene: T.Scene, terrain: ReturnTyp
     trees.push(...forest.placements(random, point => !canPlant(point) || Boolean(inComplex && inShape(point, inComplex))));
   }
   for (const point of data.streetPoints) {
-    if (point.kind === 'tree' && canPlant(point.position)) trees.push({ ...point.position, mapped: true, form: point.treeForm });
+    if (point.kind !== 'tree') continue;
+    const sidewalkHeight = sidewalkTrees?.get(point.id);
+    if (sidewalkHeight === undefined ? canPlant(point.position) : clearOfWater(point.position)) {
+      trees.push({ ...point.position, mapped: true, form: point.treeForm, sidewalkHeight });
+    }
   }
   addLandscapeTrees(vegetation, trees, surface, Boolean(finish), Boolean(forest));
   addReeds(surfaceOverlays, riverbanks, surface, random);

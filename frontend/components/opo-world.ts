@@ -122,7 +122,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const road = streets.nearest(point, 14);
     return entrance?.paved(point) || site.paving?.elevation(point) !== undefined || insideBuilding(point)
       || (isOpo ? road !== undefined && road.distance <= road.segment.width / 2 + 0.4 : streets.roadClearance(point) <= 0.4);
-  }, treeCover ?? undefined);
+  }, treeCover ?? undefined, site.paving?.sidewalkTreeHeights);
   terrainProjection?.clear();
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
   const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);

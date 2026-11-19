@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { OpoData, Point } from './opo-data';
 
 type XYZ = [number, number, number];
-export type LandscapePoint = Point & { mapped?: boolean; form?: 'broadleaf' | 'pine' };
+export type LandscapePoint = Point & { mapped?: boolean; form?: 'broadleaf' | 'pine'; sidewalkHeight?: number };
 export type ShrubPlacement = Point & { y: number; scale: XYZ };
 
 function sampler(seed: number) {
@@ -96,7 +96,7 @@ function mergeGeometriesAndDispose(parts: T.BufferGeometry[]) {
 
 export function addLandscapeTrees(group: T.Group, trees: LandscapePoint[], surface: OpoData['ground'], finished: boolean, forest: boolean) {
   if (!trees.length) return;
-  const groups = { broadleaf: [] as Point[], pine: [] as Point[], distant: [] as Point[] };
+  const groups = { broadleaf: [] as LandscapePoint[], pine: [] as LandscapePoint[], distant: [] as LandscapePoint[] };
   for (const tree of trees) {
     const random = sampler(Math.imul(Math.round(tree.x * 100), 73428767) ^ Math.round(tree.z * 100));
     const detailed = finished && (tree.mapped || Math.hypot(tree.x, tree.z) <= 430);
@@ -120,10 +120,11 @@ export function addLandscapeTrees(group: T.Group, trees: LandscapePoint[], surfa
     foliage.name = `주변 수목 · ${type}`;
     trunks.castShadow = foliage.castShadow = !distant;
     trunks.receiveShadow = foliage.receiveShadow = true;
-    points.forEach(({ x, z }, index) => {
+    points.forEach(({ x, z, sidewalkHeight }, index) => {
       const random = sampler(Math.imul(Math.round(x * 100), 73856093) ^ Math.imul(Math.round(z * 100), 19349663));
-      const height = forest ? 6.3 + random() * 6.5 : 4.1 + random() * 5.2;
-      transform.position.set(x, surface(x, z), z);
+      const size = random();
+      const height = sidewalkHeight !== undefined ? 6.2 + size * 4.2 : forest ? 6.3 + size * 6.5 : 4.1 + size * 5.2;
+      transform.position.set(x, sidewalkHeight ?? surface(x, z), z);
       transform.scale.set(height * (0.86 + random() * 0.29), height, height * (0.86 + random() * 0.29));
       transform.rotation.y = random() * Math.PI * 2;
       transform.updateMatrix();
