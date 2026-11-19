@@ -60,8 +60,8 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'facilities', title: '정문·놀이터·공용시설', evidence: 'model',
-        finding: '정문 접근로와 단지 안의 흰 도색 두 곳, 103·104동 사이 산책로와 놀이터를 눈높이에서 둘러볼 수 있어요.',
-        followUp: '놀이터 기구 배치는 근사예요. 현재 기구 상태와 정문에서 단지 안으로 이어지는 보행로의 단차를 확인해 보세요.',
+        finding: '정문 앞 횡단 표시와 차량 차단기, 103·104동 사이 산책로와 놀이터를 눈높이에서 둘러볼 수 있어요.',
+        followUp: '정문 표시와 시설, 놀이터 기구 배치는 근사예요. 현재 차량 출입 조건과 보행로 단차, 놀이터 상태를 확인해 보세요.',
         views: [{ target: 'entrance', label: '정문 접근로 눈높이 보기' }, { target: 'paving', label: '산책로와 놀이터 지점 고르기' }],
         sources: [{ label: '정문 로드뷰', url: songpaEntrance.main.roadview }, { label: '2025-10-28 항공영상 촬영 정보', url: songpaGrounds.metadata },
           { label: '단지 안 보행로 사진', url: songpaCourtyard.groundPhoto },

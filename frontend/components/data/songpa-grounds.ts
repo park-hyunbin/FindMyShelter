@@ -295,6 +295,25 @@ const songpaCoveredApproachFinish = {
   ],
 } satisfies NonNullable<SiteSurfaceLayout['drivewayFinishes']>[number];
 
+// The June 2026 road view shows the white bands on the street side of
+// the block-paved gate apron. Fit their limits to the driveway footprint.
+const songpaGateMarking = {
+  start: [127.1168450, 37.4977850], end: [127.1167570, 37.4977160],
+  outline: [
+    [127.1168360, 37.4977930], [127.1168540, 37.4977770],
+    [127.1167660, 37.4977080], [127.1167480, 37.4977240],
+  ],
+} satisfies NonNullable<SiteSurfaceLayout['surveyedCrossings']>[number];
+const songpaGateFinish = {
+  surface: 'pavers',
+  color: '#e4ddd2',
+  outline: [
+    [127.1168380, 37.4977940], [127.1167490, 37.4977230],
+    [127.1167090, 37.4977360], [127.1167240, 37.4977790],
+    [127.1167560, 37.4978020], [127.1167950, 37.4978240],
+  ],
+} satisfies NonNullable<SiteSurfaceLayout['drivewayFinishes']>[number];
+
 export const songpaGrounds = {
   source: 'https://www.arcgis.com/apps/mapviewer/index.html?source=sd&url=https%3A%2F%2Fserver.arcgisonline.com%2Farcgis%2Frest%2Fservices%2FWorld_Imagery%2FMapServer&center=127.11665,37.49762&level=19',
   captureDate: '2025-10-28',
@@ -485,7 +504,7 @@ export const songpaSurfaceLayout = {
     ],
   }, songpaJunction.branch],
   surveyedJunctions: songiParkSurvey.pavement,
-  surveyedCrossings: [...songiParkSurvey.crosswalks, ...songpaJunction.crossings, ...songpaGrounds.markings],
+  surveyedCrossings: [...songiParkSurvey.crosswalks, ...songpaJunction.crossings, songpaGateMarking, ...songpaGrounds.markings],
   surveyedWalks: [...songiParkSurvey.sidewalks, ...songpaJunction.branchSidewalks, {
     id: songpaEntrance.frontage.surveyedWalkId,
     roadId: 169916276,
@@ -528,7 +547,8 @@ export const songpaSurfaceLayout = {
   }],
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
-  drivewayFinishes: [songpaGrounds.courtFinish, songpaCoveredApproachFinish],
+  drivewayFinishes: [songpaGrounds.courtFinish, songpaCoveredApproachFinish, songpaGateFinish],
   drivewayJoin: songpaDrivewayJoin,
   parkingRows: songpaGrounds.parkingRows,
+  vehicleGates: [songpaEntrance.main.island],
 } satisfies SiteSurfaceLayout;

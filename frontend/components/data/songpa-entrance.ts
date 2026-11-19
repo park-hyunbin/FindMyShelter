@@ -1,6 +1,18 @@
 import type { ParkingCanopyLayout } from '../opo-songpa-entrance';
+import type { VehicleGateLayout } from '../opo-site-surfaces';
 
 type Coordinate = [longitude: number, latitude: number];
+
+// The June 2026 street view shows the island and the arms. Their position
+// and dimensions are fitted to the mapped paving rather than measured.
+const mainGateIsland = {
+  axis: [[127.1167785, 37.4977710], [127.1167485, 37.4977968]],
+  width: 0.58,
+  arms: [
+    { atM: 0.58, side: 1, lengthM: 2.65, raised: true },
+    { atM: 3.2, side: -1, lengthM: 2.65, raised: false },
+  ],
+} satisfies VehicleGateLayout;
 
 export const songpaEntrance = {
   capturedIn: '2026년 6월',
@@ -16,7 +28,8 @@ export const songpaEntrance = {
   main: {
     id: 'main-crossing', name: '정문 접근로',
     position: [127.1169555, 37.4977610] as Coordinate,
-    lookAt: [127.1166793, 37.4977057] as Coordinate,
+    lookAt: mainGateIsland.axis[0],
+    island: mainGateIsland,
     roadview: 'https://map.kakao.com/link/roadview/37.4977292,127.1169071',
   },
   garage: {

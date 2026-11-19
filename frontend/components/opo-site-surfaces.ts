@@ -27,6 +27,12 @@ type ParkingRow = {
   displayCars?: { space: number; color: string }[];
 };
 
+export type VehicleGateLayout = {
+  axis: [Coordinate, Coordinate];
+  width: number;
+  arms: { atM: number; side: -1 | 1; lengthM: number; raised: boolean }[];
+};
+
 export type SurveyedWalk = {
   id?: string;
   roadId: number;
@@ -50,7 +56,7 @@ export type SiteSurfaceLayout = {
   ironFences?: IronFence[];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
-  drivewayFinishes?: { outline: Coordinate[]; color: string }[];
+  drivewayFinishes?: { outline: Coordinate[]; color: string; surface?: 'asphalt' | 'pavers' }[];
   drivewayRoad?: Omit<SurveyedRoad, 'outline'>;
   drivewayJoin?: Coordinate[];
   roadsideWalks?: { id?: string; curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
@@ -59,6 +65,7 @@ export type SiteSurfaceLayout = {
   surveyedJunctions?: Coordinate[][];
   surveyedCrossings?: SiteCrossing[];
   parkingRows?: ParkingRow[];
+  vehicleGates?: VehicleGateLayout[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
 };
 
@@ -265,6 +272,47 @@ export function addSiteSurfaces(
     }
   }
 
+  function vehicleGate({ axis: [start, end], width, arms }: VehicleGateLayout) {
+    const axis = axisBetween(data.project(start), data.project(end));
+    const divisions = Math.ceil(axis.length / 0.40);
+    if (divisions < 2) return;
+    const bay = axis.length / divisions;
+    const beds = Array.from({ length: divisions }, (_, i) => axis.at(0, (i + 0.5) * bay));
+    const floors = beds.map(drivewayElevation);
+    if (floors.some(y => y === undefined)) return;
+
+    const group = new T.Group();
+    group.name = '차량 차단기';
+    const curb = [material('#edbb41'), material('#343637')];
+    const cabinet = material('#818b8c');
+    const armColors = [material('#e6675e'), material('#f2ece4')];
+    function box(point: Point, centerY: number, size: [number, number, number], mat: T.Material) {
+      const mesh = new T.Mesh(new T.BoxGeometry(...size), mat);
+      mesh.position.set(point.x, centerY, point.z);
+      mesh.rotation.y = axis.heading;
+      mesh.castShadow = mesh.receiveShadow = true;
+      group.add(mesh);
+    }
+    const rise = 0.16;
+    beds.forEach((point, i) => box(point, floors[i]! + rise / 2 - 0.015, [width, rise + 0.03, bay], curb[i % 2]));
+    for (const { atM, side, lengthM, raised } of arms) {
+      const point = axis.at(0, atM);
+      const floor = drivewayElevation(point);
+      if (floor === undefined) continue;
+      const base = floor + rise;
+      box(point, base + 0.43, [0.27, 0.86, 0.38], cabinet);
+      const sections = Math.ceil(lengthM / 0.53);
+      const length = lengthM / sections;
+      for (let i = 0; i < sections; i++) {
+        const center = (i + 0.5) * length;
+        const arm = raised ? point : axis.at(side * (width * 0.30 + center), atM);
+        const y = base + 0.81 + (raised ? center : 0);
+        box(arm, y, raised ? [0.082, length, 0.055] : [length, 0.082, 0.055], armColors[i % 2]);
+      }
+    }
+    scene.add(group);
+  }
+
   const drivewayCenterline: Point[] | undefined = layout.drive && curve(layout.drive.points);
   if (layout.pavedDrive) {
     add(groundPolygon([layout.pavedDrive.map(data.project)], drivewayGrade, 0.65, 0), asphalt, 'asphalt');
@@ -368,22 +416,25 @@ export function addSiteSurfaces(
   if (layout.parkingRows?.length || layout.drivewayFinishes?.length) {
     const clipper = createSurfaceClipper();
     asphaltDecks.forEach(clipper.addSurface);
-    for (const { outline, color } of layout.drivewayFinishes ?? []) {
+    for (const { outline, color, surface = 'asphalt' } of layout.drivewayFinishes ?? []) {
       const ring = outline.map(data.project);
       const mask = groundPolygon([ring], () => 0, Infinity, 0);
-      const patch = clipper.clip(mask, 0.006);
+      const patch = clipper.clip(mask, surface === 'asphalt' ? 0.006 : 0.010);
       mask.dispose();
       if (!patch.getAttribute('position').count) { patch.dispose(); continue; }
-      const tint = material(color, 'asphalt');
-      tint.color.multiplyScalar(1.42);
-      tint.vertexColors = tint.transparent = true;
-      tint.depthWrite = false;
-      featherEdge(patch, ring, 1.2);
-      add(patch, tint, 'asphalt', false);
+      const tint = material(color, surface);
+      if (surface === 'asphalt') {
+        tint.color.multiplyScalar(1.42);
+        tint.vertexColors = tint.transparent = true;
+        tint.depthWrite = false;
+        featherEdge(patch, ring, 1.2);
+      }
+      add(patch, tint, surface, false);
     }
     for (const row of layout.parkingRows ?? []) parking(row, clipper);
     clipper.clear();
   }
+  for (const gate of layout.vehicleGates ?? []) vehicleGate(gate);
   const parked = (point: Point) => parkedCars.some(({ center, direction: { x, z } }) => {
     const dx = point.x - center.x, dz = point.z - center.z;
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
