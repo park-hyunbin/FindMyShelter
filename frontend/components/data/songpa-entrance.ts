@@ -23,6 +23,8 @@ export const songpaEntrance = {
   frontage: {
     id: 'songpa-west-frontage',
     surveyedWalkId: 'yangjae-west-sidewalk',
+    walkStart: [127.1169820, 37.4978590] as Coordinate,
+    gateView: [127.1169240, 37.4978250] as Coordinate,
     roadview: 'https://map.kakao.com/link/roadview/37.4981015,127.1170004',
   },
   main: {

@@ -23,7 +23,7 @@ export function sidewalkFascia(outline: Point[], ground: OpoData['ground'], top:
 
 export function curbWalk(
   edge: Point[], width: number, outward: -1 | 1, ground: OpoData['ground'], road: OpoData['ground'],
-  crossings: CrosswalkArea[],
+  crossings: CrosswalkArea[], flushEndM = 0,
 ) {
   const curbWidth = Math.min(0.16, width / 3);
   const curbHeight = 0.12;
@@ -42,7 +42,7 @@ export function curbWalk(
     return { x: (before.x + after.x) / miter, z: (before.z + after.z) / miter };
   });
 
-  function section(x: number, z: number, nx: number, nz: number) {
+  function section(x: number, z: number, nx: number, nz: number, remaining: number) {
     const groundAtEdge = ground(x, z);
     const roadAtEdge = road(x, z);
     let clearance = Infinity;
@@ -56,9 +56,11 @@ export function curbWalk(
     }
     // Drop the curb to the paved deck at a crossing, with a grade transition on either side.
     const lift = T.MathUtils.lerp(0.014, curbHeight, T.MathUtils.smoothstep(clearance, 0.25, 1.65));
+    const raised = flushEndM > 0 ? T.MathUtils.smoothstep(remaining, 0, flushEndM) : 1;
     function top(offset: number) {
       const px = x + nx * offset, pz = z + nz * offset;
-      return new T.Vector3(px, roadAtEdge + lift + ground(px, pz) - groundAtEdge, pz);
+      const y = roadAtEdge + lift + ground(px, pz) - groundAtEdge;
+      return new T.Vector3(px, raised === 1 ? y : T.MathUtils.lerp(road(px, pz) + 0.008, y, raised), pz);
     }
     const outside = top(width);
     sections.push([
@@ -67,6 +69,7 @@ export function curbWalk(
     ]);
   }
 
+  let remaining = offsets.reduce((distance, offset) => distance + offset.length, 0);
   for (const [i, { length }] of offsets.entries()) {
     const a = edge[i], b = edge[i + 1];
     const start = corners[i], end = corners[i + 1];
@@ -74,11 +77,12 @@ export function curbWalk(
     for (let step = 0; step < steps; step++) {
       const t = step / steps;
       section(T.MathUtils.lerp(a.x, b.x, t), T.MathUtils.lerp(a.z, b.z, t),
-        T.MathUtils.lerp(start.x, end.x, t), T.MathUtils.lerp(start.z, end.z, t));
+        T.MathUtils.lerp(start.x, end.x, t), T.MathUtils.lerp(start.z, end.z, t), remaining - length * t);
     }
+    remaining -= length;
   }
   const end = edge[edge.length - 1], direction = corners[corners.length - 1];
-  section(end.x, end.z, direction.x, direction.z);
+  section(end.x, end.z, direction.x, direction.z, 0);
 
   const strips = (pairs: [number, number][], closeEnds = false) => {
     const positions: number[] = [];

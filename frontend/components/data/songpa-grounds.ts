@@ -187,6 +187,8 @@ const songpaApproachWest = [
   [127.1170011, 37.4979355], [127.1170199, 37.4978972], [127.1170470, 37.4978800],
   [127.1169980, 37.4978510], [127.1169270, 37.4978150], [127.1168751, 37.4977866],
 ] satisfies Coordinate[];
+const songpaGateNorthCorner: Coordinate = [127.1168375, 37.4977951];
+const songpaGateWalkMerge: Coordinate = [127.1168253, 37.4977977];
 // Start at the end of the surveyed sidewalk, then follow the driveway boundary.
 // June 2026 street imagery shows pavers on the west side.
 const songpaPublicWalkJoin: Coordinate = [127.1170050, 37.4981051];
@@ -308,9 +310,10 @@ const songpaGateFinish = {
   surface: 'pavers',
   color: '#e4ddd2',
   outline: [
-    [127.1168380, 37.4977940], [127.1167490, 37.4977230],
+    songpaGateNorthCorner, [127.1167490, 37.4977230],
     [127.1167090, 37.4977360], [127.1167240, 37.4977790],
-    [127.1167560, 37.4978020], [127.1167950, 37.4978240],
+    [127.1167560, 37.4978020], [127.1167810, 37.4978330],
+    [127.1168050, 37.4978310], [127.1168310, 37.4978040],
   ],
 } satisfies NonNullable<SiteSurfaceLayout['drivewayFinishes']>[number];
 
@@ -318,12 +321,17 @@ export const songpaGrounds = {
   source: 'https://www.arcgis.com/apps/mapviewer/index.html?source=sd&url=https%3A%2F%2Fserver.arcgisonline.com%2Farcgis%2Frest%2Fservices%2FWorld_Imagery%2FMapServer&center=127.11665,37.49762&level=19',
   captureDate: '2025-10-28',
   metadata: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/9/query?objectIds=480339&outFields=SRC_DATE,NICE_DESC,SRC_RES&returnGeometry=false&f=pjson',
+  // The view shows shared paving beside the island. The pedestrian line within it is approximate.
+  gateWalkLink: [
+    [127.1167860, 37.4978220], [127.1167650, 37.4978270], [127.1167490, 37.4978020],
+    [127.1167550, 37.4977780], [127.1167100, 37.4977230],
+  ] satisfies Coordinate[],
   // One continuous footprint from the street mouth to the inner court.
   // Use the OpenLab road edge at the curb and trace the remaining pavement in World Imagery.
   paving: [
     ...songpaStreetEdge.slice(2).reverse(),
     ...songpaApproachEast.slice().reverse(), ...songpaApproachWest,
-    [127.1168375, 37.4977951], ...songpaCoveredApproach, [127.1167463, 37.4977866],
+    songpaGateNorthCorner, ...songpaCoveredApproach, [127.1167463, 37.4977866],
     ...songpaWestDriveEdge, ...songpaEastDriveEdge, ...songpaParkingVerge.slice(1, -1),
   ] satisfies Coordinate[],
   // The white bands are visible in the 2025-10-28 World Imagery capture.
@@ -470,9 +478,11 @@ export const songpaSurfaceLayout = {
     { buildingId: '55765541', wall: [127.1160945, 37.4976121], path: [127.1160462, 37.4976100], width: 3.10 },
   ],
   roadsideWalks: [
-    { id: songpaEntrance.frontage.id, curb: [songpaPublicWalkJoin, songpaPublicWalkEnd, ...songpaApproachWest.slice(1, 7)],
-      outward: -1, width: 1.55, beside: 'driveway' },
-    { curb: songpaStreetEdge, outward: 1, width: 1.55, beside: 'driveway' },
+    // The June 2026 imagery shows the west sidewalk rounding the planting bed to the gate apron.
+    { id: songpaEntrance.frontage.id,
+      curb: [songpaPublicWalkJoin, songpaPublicWalkEnd, ...songpaApproachWest.slice(1), songpaGateNorthCorner, songpaGateWalkMerge],
+      outward: -1, width: 1.55, beside: 'driveway', flushEndM: 2.2 },
+    { curb: [...songpaApproachEast, ...songpaStreetEdge.slice(2)], outward: 1, width: 1.55, beside: 'driveway' },
     { curb: songpaWestDriveEdge, outward: -1, width: 1.32, beside: 'driveway' },
     { curb: songpaEastDriveEdge, outward: -1, width: 0.88, beside: 'driveway', finish: 'planted' },
   ],

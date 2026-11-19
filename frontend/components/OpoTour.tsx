@@ -1324,8 +1324,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={songpaStationAccess.elevatorSource} target="_blank" rel="noreferrer">국가철도공단 설치 목록 ({songpaStationAccess.elevatorDate}) ↗</a>
                 <ul className="walk-legend">
                   <li><i className="walk-mapped" aria-hidden="true" />지도상 보도 경로 {route.walkwayM}m · 양재대로60길 일부는 서울시 보도면을 따라 표시</li>
-                  {home.frontageM !== null && <li><i className="walk-aerial" aria-hidden="true" />정문 방향 서쪽 보도 약 {home.frontageM}m · {songpaEntrance.capturedIn} 로드뷰 대조 · 폭과 턱 높이는 근사</li>}
-                  <li><i className="walk-gap" aria-hidden="true" />출구와 보도 끝부분의 연결 미확인{home.frontageM !== null ? ` · 보도 모형 끝에서 정문 앞까지 직선 약 ${home.gateLinkM}m` : ` · 정문 방향 약 ${home.gateLinkM}m`}</li>
+                  {home.frontageM !== null && <li><i className="walk-aerial" aria-hidden="true" />정문 블록 포장까지 서쪽 보도 약 {home.frontageM}m · {songpaEntrance.capturedIn} 로드뷰 대조 · 폭과 턱 높이는 근사</li>}
+                  <li><i className="walk-gap" aria-hidden="true" />역 출구 쪽과 정문 {home.frontageM !== null ? `차단기 옆 약 ${home.gateLinkM}m 구간의 실제 보행 연결 미확인` : `방향 약 ${home.gateLinkM}m의 연결 미확인`}</li>
                   <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>
                 </ul>
                 <div className="site-actions"><button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button></div>
@@ -1534,7 +1534,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </article>
         <article className="site-card" data-site-card="entrance" tabIndex={-1} aria-label="정문과 지하주차장 입구">
           <h3>정문과 지하주차장 입구</h3>
-          <p>송파대로32길 정문 접근로와 102동 옆 주차장 덮개를 둘러볼 수 있어요. 덮개 외곽은 항공영상에서 읽었고, 102동 쪽 시점은 양재대로60길 서쪽 보도 위에 있어요.</p>
+          <p>송파대로32길 서쪽 보도를 따라 정문을 볼 수 있어요. 보도 끝 높이는 차단기 옆 블록 포장에 맞췄어요. 102동 쪽 시점은 양재대로60길 서쪽 보도 위에 있어요.</p>
           <p>양재대로60길 교차로의 횡단보도 세 곳과 정문 차도 경계는 서울시 수치지형도와 항공영상을 대조했어요. 보도 단차, 덮개 아래 실제 경사와 차수시설, 방문차량 입차 조건은 현장 확인이 필요해요.</p>
           <p>{songpaEntrance.capturedIn} 로드뷰에서 확인한 정문 앞 흰색 횡단 표시와 블록 포장, 차량 차단기를 도로 경계에 맞춰 그렸어요. 배치와 치수는 근사이며 차단기 모습은 촬영 당시를 참고했어요.</p>
           <p>102·105동 앞 철책과 일부 가로수는 서울시 지형도 위치를 사용했어요. 식재 범위는 항공영상으로 추정했으며 철책 높이, 수종, 계절별 시야 차폐는 현장 확인이 필요해요.</p>

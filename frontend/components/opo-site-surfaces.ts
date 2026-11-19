@@ -59,7 +59,10 @@ export type SiteSurfaceLayout = {
   drivewayFinishes?: { outline: Coordinate[]; color: string; surface?: 'asphalt' | 'pavers' }[];
   drivewayRoad?: Omit<SurveyedRoad, 'outline'>;
   drivewayJoin?: Coordinate[];
-  roadsideWalks?: { id?: string; curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
+  roadsideWalks?: {
+    id?: string; curb: Coordinate[]; outward: -1 | 1; width: number;
+    beside?: 'driveway'; finish?: 'planted'; flushEndM?: number;
+  }[];
   surveyedWalks?: SurveyedWalk[];
   surveyedRoads?: SurveyedRoad[];
   surveyedJunctions?: Coordinate[][];
@@ -348,10 +351,10 @@ export function addSiteSurfaces(
     add(sidewalkFascia(ring, grade, walkGrade), edging, undefined, false);
     if (id && centerline?.length) sidewalkCenterlines.set(id, centerline.map(data.project));
   }
-  for (const { id, curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
+  for (const { id, curb, outward, width, beside, finish: edgeFinish, flushEndM } of layout.roadsideWalks ?? []) {
     const edge = curb.map(data.project);
     const { top, curb: curbGeometry, fascia, centerline } = curbWalk(edge, width, outward, grade,
-      beside === 'driveway' ? drivewayGrade : streetGrade, crossings);
+      beside === 'driveway' ? drivewayGrade : streetGrade, crossings, flushEndM);
     const planted = edgeFinish === 'planted';
     add(top, planted ? plantedEdge : paving, planted ? 'forest' : 'pavers');
     add(curbGeometry, edging);

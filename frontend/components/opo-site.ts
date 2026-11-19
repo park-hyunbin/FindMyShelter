@@ -109,7 +109,9 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
     overlay.add(new T.Mesh(ribbon(road.points, 1.05, (x, z) => grade(x, z) + 0.66), routeMaterial));
   }
 
-  return { overlay, paving };
+  const frontage = paving?.sidewalkCenterlines.get(songpaEntrance.frontage.id);
+  const gateView = frontage?.length ? nearestOnLine(data.project(songpaEntrance.frontage.gateView), [frontage]).point : undefined;
+  return { overlay, paving, frontage, gateView };
 }
 
 export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
@@ -175,15 +177,15 @@ export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoDat
 }
 
 export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['ground'],
-  paving?: ReturnType<typeof addSiteSurfaces>, standingSurface?: OpoData['ground']) {
+  site: ReturnType<typeof addSiteDetails>, standingSurface?: OpoData['ground']) {
   const recorded = new LineMaterial({ color: data.region === 'songpa' ? '#148b80' : '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
   const aerialTrace = data.region === 'songpa' ? new LineMaterial({ color: '#8e69d5', linewidth: 4.3 }) : null;
   const shortConnection = data.region === 'songpa'
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
   const routes = visitRoutes[data.region].routes;
-  const surveyedWalk = paving?.sidewalkCenterlines.get(songpaEntrance.frontage.surveyedWalkId);
-  const frontageWalk = paving?.sidewalkCenterlines.get(songpaEntrance.frontage.id);
+  const surveyedWalk = site.paving?.sidewalkCenterlines.get(songpaEntrance.frontage.surveyedWalkId);
+  const frontageWalk = site.frontage;
   const frontage = surveyedWalk?.length && frontageWalk?.length ? [surveyedWalk[0], ...frontageWalk] : null;
   const lengthOf = (points: Point[]) => points.slice(1).reduce((sum, point, i) =>
     sum + Math.hypot(point.x - points[i].x, point.z - points[i].z), 0);
@@ -262,8 +264,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       addLine(end.after, style);
     });
     if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection, surfaceGuide);
-    const driveway = paving?.drivewayCenterline;
-    const homeWalk = aerialTrace && shortConnection && paving && driveway && driveway.length >= 2
+    const driveway = site.paving?.drivewayCenterline;
+    const homeWalk = aerialTrace && shortConnection && driveway && driveway.length >= 2
       && stationRoute ? (() => {
       const nearStation = songpaHomeLinks.stationExit.coordinates.map(data.project);
       const nearGate = songpaHomeLinks.gateApproach.coordinates.map(data.project);
@@ -275,9 +277,9 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         const candidate = nearestOnLine(arrival, [[driveway[index], end]]);
         return candidate.distance < best.distance ? { index, ...candidate } : best;
       }, { index: 0, point: driveway[0], distance: Infinity });
-      const gate = nearGate.at(-1)!;
-      const inside = [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
-      const gateLink = frontage ? [frontage.at(-1)!, gate] : nearGate;
+      const gateLink = frontage ? [frontage.at(-1)!, ...songpaGrounds.gateWalkLink.map(data.project)] : nearGate;
+      const gate = gateLink.at(-1)!;
+      const inside = frontage ? [gate, arrival] : [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
       const gateLinkM = Math.round(lengthOf(gateLink));
       const frontageFocus = frontage?.find(point => Math.hypot(point.x - frontage[0].x, point.z - frontage[0].z) >= 4);
       addLine(nearStation, shortConnection);
@@ -302,11 +304,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
             position: uphillSample.position, bearing: uphillSample.bearing + 180,
           }] : []),
           frontage ? at('front-junction', '단지 앞 교차점 보도',
-            `${songpaEntrance.capturedIn} 로드뷰에 정문 방향 보도 확인 · 모형 끝에서 정문 앞까지 직선 약 ${gateLinkM}m의 연결과 실제 단차는 확인 필요`,
+            `${songpaEntrance.capturedIn} 로드뷰에서 정문 블록 포장까지 보도 확인 · 실제 폭과 턱 높이는 현장 확인`,
             frontage[0], frontageFocus ?? frontage.at(-1)!)
             : at('front-junction', '단지 앞 교차점', `정문 방향 약 ${gateLinkM}m · 보도 연결과 단차 미확인`, nearGate[0], nearGate[1]),
-          at('main-gate', '정문 접근로', '항공영상의 진입 포장선 참고 · 실제 보행 연결과 개방 여부는 현장 확인',
-            data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
+          at('main-gate', '정문 접근로', '차단기 옆 포장은 영상으로 확인했어요. 실제 보행 동선과 개방 여부는 현장 확인이 필요해요.',
+            site.gateView ?? data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
           at(inner.id, inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',
             arrival, data.project(inner.lookAt)),
         ],
