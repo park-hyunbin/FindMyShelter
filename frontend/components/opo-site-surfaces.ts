@@ -118,15 +118,17 @@ function ironFence(line: Point[], grade: OpoData['ground'], height: number) {
   return geometry;
 }
 
+function ribbonBoundary(top: T.BufferGeometry) {
+  const vertices = top.getAttribute('position');
+  const edges = Array.from({ length: vertices.count / 2 }, (_, i) => i * 2);
+  return [...edges, ...edges.slice().reverse().map(i => i + 1)]
+    .map(i => ({ x: vertices.getX(i), z: vertices.getZ(i) }));
+}
+
 function fencePlinth(line: Point[], ground: OpoData['ground'], width: number, height: number) {
   const top = ribbon(line, width, (x, z) => ground(x, z) + height, Infinity, 0.6);
   if (!top.getAttribute('position')) return top;
-  const vertices = top.getAttribute('position');
-  // An uncrossed ribbon has two vertices per station. Close the sides down to the adjacent surface.
-  const edges = Array.from({ length: vertices.count / 2 }, (_, i) => i * 2);
-  const ring = [...edges, ...edges.slice().reverse().map(i => i + 1)]
-    .map(i => ({ x: vertices.getX(i), z: vertices.getZ(i) }));
-  const sides = sidewalkFascia(ring, ground, (x, z) => ground(x, z) + height);
+  const sides = sidewalkFascia(ribbonBoundary(top), ground, (x, z) => ground(x, z) + height);
   const cap = top.toNonIndexed();
   cap.deleteAttribute('uv');
   const joined = mergeGeometries([cap, sides]);
@@ -160,6 +162,8 @@ export function addSiteSurfaces(
   const crossings = (layout.surveyedCrossings ?? []).map(crossing => projectSiteCrossing(data.project, crossing).area);
   const deckLift = streetDeckLift(data.region);
   const streetGrade = (x: number, z: number) => grade(x, z) + deckLift;
+  const pathRise = 0.12;
+  const pathGrade = (x: number, z: number) => grade(x, z) + pathRise;
   const roadBlendWidth = 2.5;
   const drivewayGrade = (x: number, z: number) => {
     const blend = T.MathUtils.smoothstep(roadClearance({ x, z }), 0, roadBlendWidth);
@@ -273,11 +277,15 @@ export function addSiteSurfaces(
   }
   for (const { width, points } of layout.paths) {
     const line = curve(points);
-    add(ribbon(line, width + 0.26, (x, z) => grade(x, z) + pathLift - 0.04), edging);
-    add(ribbon(line, width, (x, z) => grade(x, z) + pathLift), paving, 'pavers');
+    const borderGrade = (x: number, z: number) => pathGrade(x, z) - 0.018;
+    const border = ribbon(line, width + 0.18, borderGrade, Infinity, 0.6);
+    if (!border.getAttribute('position')) continue;
+    add(sidewalkFascia(ribbonBoundary(border), grade, borderGrade), edging, undefined, false);
+    add(border, edging);
+    add(ribbon(line, width, pathGrade, Infinity, 0.6), paving, 'pavers');
   }
   for (const entry of layout.buildingEntries ?? []) {
-    const facade = buildingEntry(data, entry, grade, pathLift);
+    const facade = buildingEntry(data, entry, grade, pathRise);
     if (!facade) continue;
     add(facade.connector, paving, 'pavers');
     for (const deck of facade.stepDecks) add(deck, edging);
@@ -291,12 +299,12 @@ export function addSiteSurfaces(
   }
   for (const { curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
     const edge = curb.map(data.project);
-    const { top, curb: curbGeometry, skirt } = curbWalk(edge, width, outward, grade,
+    const { top, curb: curbGeometry, fascia } = curbWalk(edge, width, outward, grade,
       beside === 'driveway' ? drivewayGrade : streetGrade, crossings);
     const planted = edgeFinish === 'planted';
     add(top, planted ? plantedEdge : paving, planted ? 'forest' : 'pavers');
     add(curbGeometry, edging);
-    add(skirt, plantedEdge, 'forest');
+    add(fascia, edging, undefined, false);
   }
 
   if (layout.playground) {
@@ -378,4 +386,3 @@ export function addSiteSurfaces(
   const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
   return { elevation, drivewayElevation, drivewayCenterline, asphaltDecks, parked, fenced };
 }
-  const pathLift = 0.24;

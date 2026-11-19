@@ -61,11 +61,9 @@ export function curbWalk(
       return new T.Vector3(px, roadAtEdge + lift + ground(px, pz) - groundAtEdge, pz);
     }
     const outside = top(width);
-    const shoulder = width + 0.3 + Math.max(0, outside.y - ground(outside.x, outside.z));
-    const sx = x + nx * shoulder, sz = z + nz * shoulder;
     sections.push([
       new T.Vector3(x, roadAtEdge - 0.025, z), top(0), top(curbWidth), outside,
-      new T.Vector3(sx, ground(sx, sz) - 0.025, sz),
+      new T.Vector3(outside.x, ground(outside.x, outside.z) - 0.025, outside.z),
     ]);
   }
 
@@ -82,7 +80,7 @@ export function curbWalk(
   const end = edge[edge.length - 1], direction = corners[corners.length - 1];
   section(end.x, end.z, direction.x, direction.z);
 
-  const strips = (pairs: [number, number][]) => {
+  const strips = (pairs: [number, number][], closeEnds = false) => {
     const positions: number[] = [];
     function quad(a: T.Vector3, b: T.Vector3, c: T.Vector3, d: T.Vector3) {
       for (const { x, y, z } of outward === 1 ? [a, b, c, c, b, d] : [a, c, b, c, d, b]) positions.push(x, y, z);
@@ -91,9 +89,12 @@ export function curbWalk(
       const a = sections[i - 1], b = sections[i];
       for (const [j, k] of pairs) quad(a[j], b[j], a[k], b[k]);
     }
+    if (closeEnds) for (const end of [sections[0], sections[sections.length - 1]]) {
+      quad(end[0], end[4], end[1], end[3]);
+    }
     const geometry = new T.BufferGeometry().setAttribute('position', new T.Float32BufferAttribute(positions, 3));
     geometry.computeVertexNormals();
     return geometry;
   };
-  return { top: strips([[2, 3]]), curb: strips([[0, 1], [1, 2]]), skirt: strips([[3, 4]]) };
+  return { top: strips([[2, 3]]), curb: strips([[0, 1], [1, 2]]), fascia: strips([[3, 4]], true) };
 }
