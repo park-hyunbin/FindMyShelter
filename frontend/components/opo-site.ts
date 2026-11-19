@@ -279,6 +279,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       const inside = [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
       const gateLink = frontage ? [frontage.at(-1)!, gate] : nearGate;
       const gateLinkM = Math.round(lengthOf(gateLink));
+      const frontageFocus = frontage?.find(point => Math.hypot(point.x - frontage[0].x, point.z - frontage[0].z) >= 4);
       addLine(nearStation, shortConnection);
       if (frontage) addLine(frontage, aerialTrace, surfaceGuide);
       addLine(gateLink, shortConnection, surfaceGuide);
@@ -302,7 +303,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
           }] : []),
           frontage ? at('front-junction', '단지 앞 교차점 보도',
             `${songpaEntrance.capturedIn} 로드뷰에 정문 방향 보도 확인 · 모형 끝에서 정문 앞까지 직선 약 ${gateLinkM}m의 연결과 실제 단차는 확인 필요`,
-            frontage[0], frontage[2])
+            frontage[0], frontageFocus ?? frontage.at(-1)!)
             : at('front-junction', '단지 앞 교차점', `정문 방향 약 ${gateLinkM}m · 보도 연결과 단차 미확인`, nearGate[0], nearGate[1]),
           at('main-gate', '정문 접근로', '항공영상의 진입 포장선 참고 · 실제 보행 연결과 개방 여부는 현장 확인',
             data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
