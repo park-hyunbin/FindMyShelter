@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
-import { curbWalk } from './opo-curb-walk';
+import { curbWalk, sidewalkFascia } from './opo-curb-walk';
 import { crosswalkFrame, zebraOffsets, type CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift } from './opo-meshes';
@@ -159,6 +159,8 @@ export function addSiteSurfaces(
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
   const drivewayDecks: typeof decks = [];
+  const pedestrianDecks: typeof decks = [];
+  const gateLandings: typeof decks = [];
   const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
   const hits: T.Intersection[] = [];
   const parkedCars: { center: Point; direction: Point }[] = [];
@@ -179,6 +181,8 @@ export function addSiteSurfaces(
         const deck = { mesh, bounds: geometry.boundingBox };
         decks.push(deck);
         if (texture === 'asphalt') drivewayDecks.push(deck);
+        if (texture === 'pavers') pedestrianDecks.push(deck);
+        return deck;
       }
     }
   }
@@ -273,7 +277,10 @@ export function addSiteSurfaces(
   }
   const streetGrade = (x: number, z: number) => grade(x, z) + streetDeckLift;
   for (const { outline } of layout.surveyedWalks ?? []) {
-    add(groundPolygon([outline.map(data.project)], streetGrade, 0.8, 0.13), paving, 'pavers');
+    const ring = outline.map(data.project);
+    const walkGrade = (x: number, z: number) => streetGrade(x, z) + 0.13;
+    add(groundPolygon([ring], walkGrade, 0.8, 0), paving, 'pavers');
+    add(sidewalkFascia(ring, grade, walkGrade), edging, undefined, false);
   }
   for (const { curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
     const edge = curb.map(data.project);
@@ -294,18 +301,28 @@ export function addSiteSurfaces(
   }
   if (gate && frame && gateCrossing) {
     const { at } = frame;
-    const sidewalk = material('#c7c6be', 'pavers');
     const { extension, rampWidth } = gate.sidewalks;
     const along = (gate.crossing[0] + gate.crossing[1]) / 2;
     const { center, direction, depth } = gateCrossing;
     const edge = gate.width / 2;
+    const approaches = pedestrianDecks.slice();
     for (const side of [-1, 1]) {
+      const end = at(side * (edge + extension), along);
+      const approachHeight = (point: Point) => {
+        const height = surfaceHeight(point, approaches);
+        return height !== undefined && height > (drivewayElevation(point) ?? -Infinity) ? height : undefined;
+      };
+      const endHeight = approachHeight(end);
+      // A landing belongs to a connected pedestrian surface, not an isolated strip on the carriageway.
+      if (endHeight === undefined || gate.crossing.some(offset => approachHeight(at(side * (edge + extension), offset)) === undefined)) continue;
+      const endLift = endHeight - drivewayGrade(end.x, end.z) + 0.004;
       const points = [edge, edge + rampWidth, edge + extension].map(across => at(side * across, along));
-      add(ribbon(points, depth, (x, z) => {
+      const deck = add(ribbon(points, depth, (x, z) => {
         const across = (x - center.x) * direction.z - (z - center.z) * direction.x;
-        const lift = T.MathUtils.lerp(0.015, 0.12, T.MathUtils.smoothstep(Math.abs(across) - edge, 0, rampWidth));
+        const lift = T.MathUtils.lerp(0.015, endLift, T.MathUtils.smoothstep(Math.abs(across) - edge, 0, extension));
         return drivewayGrade(x, z) + lift;
-      }, 0.25), sidewalk, 'pavers');
+      }, 0.25, 0.25), paving, 'pavers');
+      if (deck) gateLandings.push(deck);
     }
   }
   const fenceLines = (layout.ironFences ?? []).map(line => line.map(data.project));
@@ -364,6 +381,7 @@ export function addSiteSurfaces(
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
   const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
-  return { elevation, drivewayElevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked, fenced };
+  const hasGateLanding = (point: Point) => surfaceHeight(point, gateLandings) !== undefined;
+  return { elevation, drivewayElevation, drivewayGrade, drivewayCenterline, asphaltDecks, parked, fenced, hasGateLanding };
 }
   const pathLift = 0.24;

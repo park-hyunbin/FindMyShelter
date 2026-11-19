@@ -2,6 +2,25 @@ import * as T from 'three';
 import type { CrosswalkArea } from './opo-crosswalks';
 import type { OpoData, Point } from './opo-data';
 
+export function sidewalkFascia(outline: Point[], ground: OpoData['ground'], top: OpoData['ground']) {
+  const vertices: number[] = [];
+  for (const [i, a] of outline.entries()) {
+    const b = outline[(i + 1) % outline.length];
+    const steps = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.65);
+    for (let step = 0; step < steps; step++) {
+      const point = (fraction: number) => {
+        const x = T.MathUtils.lerp(a.x, b.x, fraction), z = T.MathUtils.lerp(a.z, b.z, fraction);
+        return { foot: [x, ground(x, z) - 0.02, z], cap: [x, top(x, z), z] };
+      };
+      const from = point(step / steps), to = point((step + 1) / steps);
+      vertices.push(...from.foot, ...to.foot, ...from.cap, ...from.cap, ...to.foot, ...to.cap);
+    }
+  }
+  const mesh = new T.BufferGeometry().setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
+  mesh.computeVertexNormals();
+  return mesh;
+}
+
 export function curbWalk(
   edge: Point[], width: number, outward: -1 | 1, ground: OpoData['ground'], road: OpoData['ground'],
   crossings: CrosswalkArea[],

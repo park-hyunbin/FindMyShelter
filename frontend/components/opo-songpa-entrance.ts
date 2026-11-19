@@ -10,7 +10,8 @@ function surfaceMaterial(color: string, roughness = 0.9) {
   return new T.MeshStandardMaterial({ color, roughness, side: T.DoubleSide });
 }
 
-function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground'], elevation: (point: Point) => number | undefined) {
+function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground'],
+  elevation: (point: Point) => number | undefined, hasLanding: (point: Point) => boolean) {
   const gate = songpaGateLayout;
   const [start, end] = gate.axis.map(data.project);
   const { at, heading } = axisBetween(start, end);
@@ -32,9 +33,11 @@ function addGateFixtures(data: OpoData, group: T.Group, grade: OpoData['ground']
   }
 
   for (const side of [-1, 1]) {
-    const crossingCenter = (gate.crossing[0] + gate.crossing[1]) / 2;
-    box(side * (gate.width / 2 + 0.66), crossingCenter, 0.015, [0.54, 0.026, 0.85], yellow, true);
     box(side * 4.25, 4.5, 0, [0.49, 0.99, 0.46], gray);
+    const crossingCenter = (gate.crossing[0] + gate.crossing[1]) / 2;
+    const tactileOffset = side * (gate.width / 2 + 0.66);
+    if (!hasLanding(at(tactileOffset, crossingCenter))) continue;
+    box(tactileOffset, crossingCenter, 0.015, [0.54, 0.026, 0.85], yellow, true);
     const guard = side * (gate.width / 2 + gate.guards.inset);
     for (const [from, to] of gateGuardRuns(gate)) {
       for (const along of [from, to]) box(guard, along, 0, [0.08, 0.87, 0.08], grate, true);
@@ -106,9 +109,10 @@ function addParkingCanopy(data: OpoData, group: T.Group, grade: OpoData['ground'
 }
 
 export function addSongpaEntrance(data: OpoData, scene: T.Scene, grade: OpoData['ground'],
-  gateGrade: OpoData['ground'], elevation: (point: Point) => number | undefined, finish: TourMaterials) {
+  gateGrade: OpoData['ground'], elevation: (point: Point) => number | undefined,
+  hasLanding: (point: Point) => boolean, finish: TourMaterials) {
   const group = new T.Group();
-  addGateFixtures(data, group, gateGrade, elevation);
+  addGateFixtures(data, group, gateGrade, elevation, hasLanding);
   addParkingCanopy(data, group, grade, finish);
   scene.add(group);
 }

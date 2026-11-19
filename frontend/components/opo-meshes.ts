@@ -26,8 +26,10 @@ export function makeGround(data: OpoData) {
   geometry.rotateX(-Math.PI / 2);
   const positions = geometry.getAttribute('position');
   const colors = new Float32Array(positions.count * 3);
-  const low = new T.Color('#b3be92');
-  const high = new T.Color('#778a62');
+  // Mapped vegetation is a separate surface. Leave unclassified urban ground neutral.
+  const urban = data.region === 'songpa';
+  const low = new T.Color(urban ? '#ada495' : '#b3be92');
+  const high = new T.Color(urban ? '#8c8174' : '#778a62');
   const color = new T.Color();
   for (let i = 0; i < positions.count; i++) {
     const x = positions.getX(i), z = positions.getZ(i);

@@ -86,7 +86,7 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const surfaces = siteSurfaces[data.region];
   const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, surfaces.gate, insideBuilding);
   if (data.region === 'songpa') {
-    addSongpaEntrance(data, scene, grade, paving?.drivewayGrade ?? grade, paving?.elevation ?? (() => undefined), finish);
+    if (paving) addSongpaEntrance(data, scene, grade, paving.drivewayGrade, paving.elevation, paving.hasGateLanding, finish);
     addSongpaCourtyard(data, scene, grade, finish);
     addPlayground(data, scene, (x, z) => paving?.elevation({ x, z }) ?? grade(x, z), songpaPlayground.layout);
     addSongiPark(data, scene, grade, finish);
