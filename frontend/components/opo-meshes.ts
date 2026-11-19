@@ -115,7 +115,11 @@ export function groundPolygon(rings: Shape, ground: OpoData['ground'], maxEdge =
   return geometry;
 }
 
-export const streetDeckLift = 0.47;
+export function streetDeckLift(region: OpoData['region']) {
+  // The Songpa road deck follows the terrain mesh. This is clearance for rendering,
+  // since the elevation source does not resolve road grades and curbs separately.
+  return region === 'songpa' ? 0.08 : 0.47;
+}
 
 export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity, alongStep = 3) {
   const vertices: number[] = [];
@@ -447,7 +451,8 @@ export function addEnvironment(data: OpoData, scene: T.Scene, finish?: TourMater
     if (feature.brunnel === 'tunnel' || feature.kind === 'road') continue;
     const key = feature.kind === 'green' ? feature.category as 'wood' | 'grass' | 'farmland' : feature.kind;
     for (const shape of feature.shapes) {
-      const geometry = groundPolygon(shape, surface);
+      const drapeCover = data.region === 'songpa' && (feature.kind === 'green' || feature.kind === 'facility');
+      const geometry = drapeCover ? groundPolygon(shape, surface, 8, 0.024) : groundPolygon(shape, surface);
       if (finish && (key === 'wood' || key === 'grass' || key === 'farmland')) surfaceUV(geometry, landCover[key]);
       if (waterNormal && key === 'water') surfaceUV(geometry, 'water');
       const mesh = new T.Mesh(geometry, materials[key]);

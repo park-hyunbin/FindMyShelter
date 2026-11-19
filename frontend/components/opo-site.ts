@@ -231,19 +231,18 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       return line;
     }
     const traceLift = 0.10;
-    const surfaceGuide = ({ x, z }: Point) => (paving?.elevation({ x, z }) ?? grade(x, z)) + traceLift;
+    const surfaceGuide = ({ x, z }: Point) => (standingSurface?.(x, z) ?? grade(x, z)) + traceLift;
     const parkGuide = route.parkEntrance && shortConnection;
     route.segments.forEach((segment, index) => {
       const line = projected[index];
       const style = segment.mappedWalkway ? recorded : unconfirmed;
       if (parkGuide && index === projected.length - 1) {
-        const parkSurface = ({ x, z }: Point) => (standingSurface?.(x, z) ?? grade(x, z)) + traceLift;
         const confirmedLegs = route.variantOf ? songiParkApproach.slice(4) : songiParkApproach;
         const first = data.project(confirmedLegs[0].coordinates[0]);
         if (route.variantOf) addLine([line[0], first], parkGuide);
         else addLine(splitLineAt(line, first).before, style);
         for (const leg of confirmedLegs) {
-          addLine(leg.coordinates.map(data.project), leg.confirmed ? recorded : parkGuide, parkSurface);
+          addLine(leg.coordinates.map(data.project), leg.confirmed ? recorded : parkGuide, surfaceGuide);
         }
         addLine([data.project(confirmedLegs.at(-1)!.coordinates.at(-1)!), endpoint], recorded);
         return;
@@ -259,7 +258,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       addLine([surveyedWalk[surveyedWalk.length - 1], end.point], shortConnection);
       addLine(end.after, style);
     });
-    if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection);
+    if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection, surfaceGuide);
     const driveway = paving?.drivewayCenterline;
     const homeWalk = aerialTrace && shortConnection && paving && driveway && driveway.length >= 2
       && stationRoute ? (() => {
@@ -275,12 +274,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       }, { index: 0, point: driveway[0], distance: Infinity });
       const gate = nearGate.at(-1)!;
       const inside = [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
-      const gateLift = surfaceGuide(gate) - grade(gate.x, gate.z);
       addLine(nearStation, shortConnection);
-      addLine(nearGate, shortConnection, ({ x, z }) => {
-        const blend = T.MathUtils.smoothstep(Math.hypot(x - gate.x, z - gate.z), 0, 5);
-        return grade(x, z) + T.MathUtils.lerp(gateLift, 0.66, blend);
-      });
+      addLine(nearGate, shortConnection, surfaceGuide);
       addLine(inside, aerialTrace, surfaceGuide);
       const at = (id: string, name: string, evidence: string, position: Point, toward: Point) => ({
         id, name, evidence, position,
@@ -298,7 +293,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
             id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
             position: uphillSample.position, bearing: uphillSample.bearing + 180,
           }] : []),
-          at('front-junction', '단지 앞 교차점', `정문 방향 약 ${songpaHomeLinks.gateApproach.lengthM}m · 지도에 보도 연결 표시 없음`, nearGate[0], nearGate[1]),
+          at('front-junction', '단지 앞 교차점', `정문 방향 약 ${songpaHomeLinks.gateApproach.lengthM}m · 진입로 횡단보도 양끝의 보도와 단차는 미확인`, nearGate[0], nearGate[1]),
           at('main-gate', '정문 접근로', '항공영상의 진입 포장선 참고 · 실제 보행 연결과 개방 여부는 현장 확인',
             data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
           at(inner.id, inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',

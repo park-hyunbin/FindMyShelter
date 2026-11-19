@@ -224,6 +224,8 @@ function leaveJunctionGap(points: Point[], start: number, end: number) {
 
 export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials) {
   const songpa = data.region === 'songpa';
+  const deckLift = streetDeckLift(data.region);
+  const sidewalkLift = deckLift + (songpa ? 0.14 : 0.10);
   const site = siteSurfaces[data.region];
   const driveway = site?.layout.drivewayRoad;
   const driveOutline = site?.layout.pavedDrive;
@@ -379,12 +381,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   for (const { ring, siteDriveway } of surveyedPavements) {
     if (siteDriveway) continue;
-    const geometry = groundPolygon([ring], surface, 1.45, streetDeckLift);
+    const geometry = groundPolygon([ring], surface, 1.45, deckLift);
     roadPaint?.addSurface(geometry);
     add(finish ? '#e2ecf8' : '#737878', geometry, 'asphalt');
   }
   for (const { ring } of junctionPavements) {
-    const geometry = groundPolygon([ring], surface, 1.45, streetDeckLift);
+    const geometry = groundPolygon([ring], surface, 1.45, deckLift);
     roadPaint?.addSurface(geometry);
     add(finish ? '#e2ecf8' : '#737878', geometry, 'asphalt', false, true);
   }
@@ -400,7 +402,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const outline = ribbon(line, 0.44, () => 0);
         add(tone, roadPaint.clip(outline, 0.026));
         outline.dispose();
-      } else strip(line, 0.44, 0.545, tone);
+      } else strip(line, 0.44, deckLift + 0.075, tone);
     }
 
     road.sidewalks.forEach((present, index) => {
@@ -410,11 +412,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       if (surveyedDeck && !surveyedWalks.some(walk => walk.roadId === road.id
         && inShape(position(0, at(1.0)), [walk.ring]))) return;
       const rampDepth = half + 0.14;
-      const sidewalkLift = songpa ? 0.61 : 0.57;
       // A modeled landing joins the painted road to the adjacent mapped sidewalk.
       const ramp = ribbon([position(0, at(-0.03)), position(0, at(0.92))], rampDepth * 2, (x, z) => {
         const lateral = (x - crossing.center.x) * crossing.direction.z - (z - crossing.center.z) * crossing.direction.x;
-        const lift = T.MathUtils.lerp(0.48, sidewalkLift, T.MathUtils.clamp((lateral * side - width / 2) / 0.85, 0, 1));
+        const lift = T.MathUtils.lerp(deckLift + 0.01, sidewalkLift, T.MathUtils.clamp((lateral * side - width / 2) / 0.85, 0, 1));
         return surface(x, z) + lift;
       }, 0.7);
       const paving = songpa ? 'pavers' : 'cobble';
@@ -470,16 +471,16 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
           const axis = offsetLine(laneLine, offset);
           if (!road.oneWay && lane === opposite) {
             for (const delta of (count >= 4 ? [-0.14, 0.14] : [0])) {
-              interruptedStrip(offsetLine(laneLine, offset + delta), 0.13, 0.523, '#e9bd51');
+              interruptedStrip(offsetLine(laneLine, offset + delta), 0.13, deckLift + 0.053, '#e9bd51');
             }
           } else {
-            for (const dash of lineChunks(axis, arterial ? 4.5 : 2.7, arterial ? 6.5 : 4.4)) interruptedStrip(dash, 0.14, 0.525, '#ebe9e0');
+            for (const dash of lineChunks(axis, arterial ? 4.5 : 2.7, arterial ? 6.5 : 4.4)) interruptedStrip(dash, 0.14, deckLift + 0.055, '#ebe9e0');
           }
         }
       }
       for (const [index, sign] of [1, -1].entries()) {
         const edge = width / 2 * sign;
-        if (arterial && approximatePaint) interruptedStrip(offsetLine(laneLine, edge - sign * 0.32), 0.15, 0.519, '#eeeae2');
+        if (arterial && approximatePaint) interruptedStrip(offsetLine(laneLine, edge - sign * 0.32), 0.15, deckLift + 0.049, '#eeeae2');
         if (road.sidewalks[index]) {
           const survey = surveyedWalks.find(walk => walk.roadId === road.id && walk.side === sign)?.ends;
           for (const span of fallbackSpans(road, points)) {
@@ -495,8 +496,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
             }
             for (const run of fallback) {
               if (run.length < 2) continue;
-              interruptedStrip(offsetLine(run, edge + sign * 0.89), 1.78, 0.61, '#d4cec2', 'pavers', 1.9);
-              interruptedStrip(offsetLine(run, edge + sign * 0.12), 0.19, 0.635, '#a5a4a0', undefined, 0.30);
+              interruptedStrip(offsetLine(run, edge + sign * 0.89), 1.78, sidewalkLift, '#d4cec2', 'pavers', 1.9);
+              interruptedStrip(offsetLine(run, edge + sign * 0.12), 0.19, sidewalkLift + 0.025, '#a5a4a0', undefined, 0.30);
             }
           }
         }
@@ -508,9 +509,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       const surfaces = isPath && !road.bridge ? leaveCrosswalkGaps(points, paintCrossings, 0.04) : fallbackSpans(road, points);
       for (const line of surfaces) {
         if (!finish || isPath || road.bridge) {
-          strip(line, width + (isPath ? 0.14 : 0.42), 0.38, isPath ? '#a29477' : '#a29f91');
+          strip(line, width + (isPath ? 0.14 : 0.42), deckLift - (songpa ? 0.024 : 0.09), isPath ? '#a29477' : '#a29f91');
         }
-        strip(line, width, streetDeckLift, tint, texture, pavedMotorRoad);
+        strip(line, width, deckLift, tint, texture, pavedMotorRoad);
       }
       if (!isPath) for (const line of surfaces) {
         for (const point of (songpa && width > 12 ? [line[0], line[line.length - 1]] : line)) {
@@ -518,7 +519,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
           cap.rotateX(-Math.PI / 2).translate(point.x, 0, point.z);
           if (songpa) {
             const positions = cap.getAttribute('position');
-            for (let i = 0; i < positions.count; i++) positions.setY(i, surface(positions.getX(i), positions.getZ(i)) + 0.355);
+            for (let i = 0; i < positions.count; i++) positions.setY(i, surface(positions.getX(i), positions.getZ(i)) + deckLift - 0.015);
           } else cap.translate(0, surface(point.x, point.z) + 0.445, 0);
           if (pavedMotorRoad) roadPaint?.addSurface(cap);
           add(tint, cap, texture);
@@ -591,7 +592,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     paint(run);
   }
   for (const area of data.parking) add(finish ? '#ddd9cf' : '#90918a',
-    groundPolygon(area, (x, z) => surface(x, z) + 0.11), 'asphalt');
+    songpa ? groundPolygon(area, surface, 2, 0.045) : groundPolygon(area, (x, z) => surface(x, z) + 0.11), 'asphalt');
   const busStops: Point[] = [], benches: Point[] = [];
   for (const item of data.streetPoints) {
     if (item.kind === 'bus') busStops.push(item.position);
@@ -683,5 +684,5 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (!next || (songpa && roadClearance(next.point) > 0)) return undefined;
     return next;
   }
-  return { ...network, drive, surface, roadClearance, streetClearance, addSurveyedPaint };
+  return { ...network, drive, surface, deckLift, roadClearance, streetClearance, addSurveyedPaint };
 }

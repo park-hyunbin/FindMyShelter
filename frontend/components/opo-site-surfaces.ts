@@ -158,10 +158,12 @@ export function addSiteSurfaces(
   const plantedEdge = material('#b4a685', 'forest');
   const paint = material('#eeeae0');
   const crossings = (layout.surveyedCrossings ?? []).map(crossing => projectSiteCrossing(data.project, crossing).area);
+  const deckLift = streetDeckLift(data.region);
+  const streetGrade = (x: number, z: number) => grade(x, z) + deckLift;
   const roadBlendWidth = 2.5;
   const drivewayGrade = (x: number, z: number) => {
     const blend = T.MathUtils.smoothstep(roadClearance({ x, z }), 0, roadBlendWidth);
-    return grade(x, z) + T.MathUtils.lerp(streetDeckLift, 0.15, blend);
+    return grade(x, z) + T.MathUtils.lerp(deckLift, 0.15, blend);
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
   const drivewayDecks: typeof decks = [];
@@ -264,7 +266,7 @@ export function addSiteSurfaces(
     if (layout.drivewayJoin) {
       // Keep the sub-centimetre gap between independently tessellated pavement edges covered.
       const join = layout.drivewayJoin.map(data.project);
-      add(ribbon(join, 0.16, (x, z) => grade(x, z) + streetDeckLift - 0.012, 0.08, 0.65), asphalt, 'asphalt');
+      add(ribbon(join, 0.16, (x, z) => streetGrade(x, z) - 0.012, 0.08, 0.65), asphalt, 'asphalt');
     }
   } else if (layout.drive && drivewayCenterline) {
     add(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1), asphalt, 'asphalt');
@@ -281,7 +283,6 @@ export function addSiteSurfaces(
     for (const deck of facade.stepDecks) add(deck, edging);
     scene.add(facade.exterior);
   }
-  const streetGrade = (x: number, z: number) => grade(x, z) + streetDeckLift;
   for (const { outline } of layout.surveyedWalks ?? []) {
     const ring = outline.map(data.project);
     const walkGrade = (x: number, z: number) => streetGrade(x, z) + 0.13;

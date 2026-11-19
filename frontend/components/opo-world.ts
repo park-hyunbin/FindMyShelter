@@ -8,7 +8,7 @@ import { courtyardStairs } from './opo-garden';
 import { directionProfile } from './opo-horizon';
 import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
-import { addEnvironment, buildMeshes, makeGround, streetDeckLift } from './opo-meshes';
+import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
 import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, nearSurfaceHeight, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, addSongpaSchoolMap, approach, playgroundReference } from './opo-site';
@@ -127,7 +127,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   function walkDeck(point: Point, ground: number) {
     const paved = site.paving?.elevation(point);
     if (streets.streetClearance(point) <= 0) {
-      return Math.max(paved ?? ground, ground + streetDeckLift);
+      return Math.max(paved ?? ground, ground + streets.deckLift);
     }
     return paved;
   }
@@ -179,6 +179,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const streetViews = isOpo ? [] : songpaStreets.views.map(stop => ({
     id: stop.id, name: stop.name, position: data.project(stop.position), lookAt: data.project(stop.lookAt),
   })).filter(stop => !occupied(stop.position));
+  const roadsideViews = [...entranceStops, ...streetViews];
   const destinations: { id: string; name: string; position: Point; lookAt?: Point }[] = isOpo ? [
     { id: 'approach', name: '오포 롯데캐슬 정문·진입교', position: approachPoint },
     courtyard,
@@ -843,7 +844,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const y = drivingFloor ?? (eyeLevel ? undefined : modeledFloor) ?? surfaceHeight;
       const actor = driving ? car : player;
       const actorHeight = modeledFloor === undefined
-        ? drivingFloor ?? surfaceHeight + (driving ? streetDeckLift : 0.18)
+        ? drivingFloor ?? surfaceHeight + (driving ? streets.deckLift : 0.18)
         : modeledFloor - (isOpo ? 0 : playerFootHeight);
       actor.position.set(position.x, actorHeight, position.z);
       actor.rotation.y = -heading;
@@ -882,8 +883,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const point = { x, z };
       const ground = streets.surface(x, z);
       const deck = !isOpo && !pose.driving ? walkDeck(point, ground) : undefined;
-      const y = isOpo ? modeledElevation(point) ?? ground + (pose.driving ? streetDeckLift : 0.18)
-        : deck === undefined ? ground + (pose.driving ? streetDeckLift : 0.18) : deck - playerFootHeight;
+      const y = isOpo ? modeledElevation(point) ?? ground + (pose.driving ? streets.deckLift : 0.18)
+        : deck === undefined ? ground + (pose.driving ? streets.deckLift : 0.18) : deck - playerFootHeight;
       actor.position.set(x, y, z);
       const turn = -pose.heading - actor.rotation.y;
       actor.rotation.y += Math.atan2(Math.sin(turn), Math.cos(turn)) * blend;
@@ -1001,8 +1002,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const nearest = mode === 'drive' ? driveSegment.road : streets.nearest(position, 8)?.segment.road;
       const nearCourtyard = isOpo && mode === 'walk' && Math.hypot(position.x - courtyard.position.x, position.z - courtyard.position.z) < 20;
       const paving = mode === 'walk' ? pavingStops.find(stop => Math.hypot(position.x - stop.position.x, position.z - stop.position.z) < 11) : undefined;
-      const entry = mode === 'walk' ? entranceStops.find(stop => Math.hypot(position.x - stop.position.x, position.z - stop.position.z) < 9) : undefined;
-      const streetView = mode === 'walk' ? streetViews.find(stop => Math.hypot(position.x - stop.position.x, position.z - stop.position.z) < 10) : undefined;
+      const roadsideView = mode === 'walk' ? roadsideViews.reduce<{ name: string; distance: number } | undefined>((closest, stop) => {
+        const distance = Math.hypot(position.x - stop.position.x, position.z - stop.position.z);
+        return distance < (closest?.distance ?? 10) ? { name: stop.name, distance } : closest;
+      }, undefined) : undefined;
       const roadside = ambientMap?.stops[0];
       const nearRoadside = mode === 'walk' && roadside && Math.hypot(position.x - roadside.position.x, position.z - roadside.position.z) < 11;
       const nearSchoolCrossing = mode === 'walk' && schoolCrossing
@@ -1011,7 +1014,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const streetName = onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name;
       const parkView = mode === 'walk' ? parkViews.find(view => Math.hypot(position.x - view.position.x, position.z - view.position.z) < 12) : undefined;
       const analysisPoint = (eyeLevel || studyingSunlight) && 'label' in position && typeof position.label === 'string' ? position.label : undefined;
-      const namedPoint = entry?.name ?? streetView?.name
+      const namedPoint = roadsideView?.name
         ?? (nearSchoolCrossing ? '송이로 횡단보도' : nearRoadside ? roadside.name : (paving?.name ?? parkView?.name));
       return { name: analysisPoint ?? namedPoint ?? (nearCourtyard ? courtyard.name : nearest?.name || streetName),
         speed: Math.round(travelSpeed * 3.6), touring: tripIndex > 0 };
