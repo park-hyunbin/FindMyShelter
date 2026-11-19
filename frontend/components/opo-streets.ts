@@ -242,7 +242,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const centerlines = createStreetNetwork(centerlineRoads);
   const survey = data.roadMarkings;
   const surveyedLines = survey?.lanes.map(lane => ({ ...lane, points: lane.points.map(data.project) })) ?? [];
-  const roadPaint = surveyedLines.length || site?.layout.surveyedCrossings?.length ? createSurfaceClipper() : undefined;
+  const paintedHumps = survey?.paintedHumps?.records.map(hump => projectSiteCrossing(data.project, hump)) ?? [];
+  const roadPaint = surveyedLines.length || paintedHumps.length || site?.layout.surveyedCrossings?.length
+    ? createSurfaceClipper() : undefined;
   const surveyedWays = new Set<number>();
   const edgeOffsets = new Map<number, number[]>();
   for (const { points, edge } of surveyedLines) for (const [index, a] of points.slice(0, -1).entries()) {
@@ -696,6 +698,24 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       mask.dispose();
     }
     for (const { style, points } of surveyedLines) surveyedPaint(points, style, roadPaint);
+    for (const { area, ring } of paintedHumps) {
+      const mask = groundPolygon([ring], () => 0, Infinity, 0);
+      const onRoad = roadPaint.clip(mask, 0.024);
+      const clipper = createSurfaceClipper();
+      clipper.addSurface(onRoad);
+      add('#e7b836', onRoad);
+      const at = crosswalkFrame(area);
+      const depth = area.depth / 2;
+      const slant = depth * 0.22;
+      const halfWidth = area.section.width / 2 + slant;
+      for (let offset = -halfWidth + 0.35; offset < halfWidth; offset += 0.87) {
+        const stripe = ribbon([at(-depth - 0.12, offset - slant), at(depth + 0.12, offset + slant)], 0.42, () => 0);
+        addPaint('#f1eee4', clipper.clip(stripe, 0.008), 0.42);
+        stripe.dispose();
+      }
+      clipper.clear();
+      mask.dispose();
+    }
     flushLayers();
     roadPaint.clear();
   }

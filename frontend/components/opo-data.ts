@@ -38,6 +38,10 @@ type StreetPaintFile = {
   markingsArchiveDate: string; crosswalkInventoryDate: string;
   lanes: { style: StreetPaint; points: Position[]; edge?: boolean }[];
   crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][] }[];
+  paintedHumps?: {
+    source: string; archiveDate: string;
+    records: { id: string; start: [number, number]; end: [number, number]; outline: [number, number][] }[];
+  };
 };
 export type Street = StreetProperties & { points: Point[] };
 export type StreetPoint = StreetPointProperties & { position: Point; treeForm?: 'broadleaf' | 'pine' };

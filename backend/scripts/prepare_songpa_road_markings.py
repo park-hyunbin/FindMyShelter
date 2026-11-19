@@ -3,6 +3,7 @@
 import argparse
 from io import BytesIO
 import json
+from math import dist
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -16,6 +17,7 @@ REGION = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions
 LANES = "https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do"
 CROSSWALKS = "https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do"
 CURRENT = "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do"
+HUMPS = "https://data.seoul.go.kr/dataList/OA-15541/S/1/datasetView.do"
 TO_METERS = Transformer.from_crs(4326, 5186, always_xy=True)
 TO_GPS = Transformer.from_crs(5186, 4326, always_xy=True)
 BOUNDS = (127.1095, 37.4932, 127.1241, 37.5035)
@@ -57,12 +59,41 @@ def lane_style(kind, subtype):
     return None
 
 
+def painted_humps(path, selected):
+    records = []
+    with ZipFile(path) as archive:
+        for tags, geometry in city_features(archive, "A067_A"):
+            number = tags["HUMP_MGRNU"]
+            # A067_A: 001 is a raised hump; 002 is an image painted on the road.
+            if number not in selected or tags["A067_KND_C"] != "002":
+                continue
+            for polygon in getattr(geometry, "geoms", [geometry]):
+                if polygon.geom_type != "Polygon" or polygon.area < 1:
+                    continue
+                corners = list(polygon.minimum_rotated_rectangle.exterior.coords)[:-1]
+                side = min(range(2), key=lambda i: dist(corners[i], corners[i + 1]))
+                centers = [tuple((a[axis] + b[axis]) / 2 for axis in range(2))
+                           for a, b in ((corners[side], corners[side + 1]),
+                                        (corners[side + 2], corners[(side + 3) % 4]))]
+                start, end = gps(centers)
+                records.append({"id": number, "start": start, "end": end,
+                                "outline": gps(polygon.exterior.coords[:-1])})
+    missing = selected - {record["id"] for record in records}
+    if missing:
+        raise ValueError(f"Selected painted humps not found: {', '.join(sorted(missing))}")
+    return {"source": HUMPS, "archiveDate": "2025-04-17", "records": sorted(records, key=lambda item: item["id"])}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lanes", type=Path)
     parser.add_argument("crosswalk_surfaces", type=Path)
     parser.add_argument("current_crosswalks", type=Path)
+    parser.add_argument("--humps", type=Path, help="Seoul A067_A archive")
+    parser.add_argument("--hump-id", action="append", default=[], help="Reviewed HUMP_MGRNU, repeat for each location")
     args = parser.parse_args()
+    if bool(args.humps) != bool(args.hump_id):
+        parser.error("--humps and at least one --hump-id must be supplied together")
     lanes = []
     with ZipFile(args.lanes) as archive:
         for tags, geom in city_features(archive, "A058_L"):
@@ -96,7 +127,12 @@ def main():
         raise ValueError("Street marking or crosswalk coverage is incomplete")
     result = {"lanesSource": LANES, "crosswalksSource": CROSSWALKS, "crosswalkInventory": CURRENT,
               "markingsArchiveDate": "2021-08-09", "crosswalkInventoryDate": "2026-08-24", "lanes": lanes, "crosswalks": crosswalks}
-    (REGION / "road-markings.json").write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
+    destination = REGION / "road-markings.json"
+    humps = painted_humps(args.humps, set(args.hump_id)) if args.humps else (
+        json.loads(destination.read_text(encoding="utf-8")).get("paintedHumps") if destination.exists() else None)
+    if humps:
+        result["paintedHumps"] = humps
+    destination.write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
     matches = sum(crosswalk["inventoryMatch"] for crosswalk in crosswalks)
     print(f"{len(lanes)} mapped lane lines, {len(crosswalks)} crosswalks ({matches} matched to the 2026 inventory)")
 

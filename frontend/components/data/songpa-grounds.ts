@@ -297,21 +297,20 @@ const songpaCoveredApproachFinish = {
   ],
 } satisfies NonNullable<SiteSurfaceLayout['drivewayFinishes']>[number];
 
-// The June 2026 road view shows the white bands on the street side of
-// the block-paved gate apron. Fit their limits to the driveway footprint.
+// The June 2026 view shows white bands alongside the block-paved apron.
+// Trim the interpreted south ends to the north edge of Seoul hump 16-003565.
 const songpaGateMarking = {
-  start: [127.1168450, 37.4977850], end: [127.1167570, 37.4977160],
+  start: [127.1168450, 37.4977850], end: [127.1167980, 37.4977481],
   outline: [
     [127.1168360, 37.4977930], [127.1168540, 37.4977770],
-    [127.1167660, 37.4977080], [127.1167480, 37.4977240],
+    [127.1168082, 37.4977411], [127.1167878, 37.4977552],
   ],
 } satisfies NonNullable<SiteSurfaceLayout['surveyedCrossings']>[number];
 const songpaGateFinish = {
   surface: 'pavers',
   color: '#e4ddd2',
   outline: [
-    songpaGateNorthCorner, [127.1167490, 37.4977230],
-    [127.1167090, 37.4977360], [127.1167240, 37.4977790],
+    songpaGateNorthCorner, [127.1167882, 37.4977549], [127.1167383, 37.4977893],
     [127.1167560, 37.4978020], [127.1167810, 37.4978330],
     [127.1168050, 37.4978310], [127.1168310, 37.4978040],
   ],

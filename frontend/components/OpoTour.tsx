@@ -1537,6 +1537,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <p>송파대로32길 서쪽 보도를 따라 정문을 볼 수 있어요. 보도 끝 높이는 차단기 옆 블록 포장에 맞췄어요. 102동 쪽 시점은 양재대로60길 서쪽 보도 위에 있어요.</p>
           <p>양재대로60길 교차로의 횡단보도 세 곳과 정문 차도 경계는 서울시 수치지형도와 항공영상을 대조했어요. 보도 단차, 덮개 아래 실제 경사와 차수시설, 방문차량 입차 조건은 현장 확인이 필요해요.</p>
           <p>{songpaEntrance.capturedIn} 로드뷰에서 확인한 정문 앞 흰색 횡단 표시와 블록 포장, 차량 차단기를 도로 경계에 맞춰 그렸어요. 배치와 치수는 근사이며 차단기 모습은 촬영 당시를 참고했어요.</p>
+          {world?.sources.roadMarkings?.paintedHumps && <p>정문 앞과 송이로14길의 노랑·흰색 감속 표시는 서울시 도형에 맞춘 노면 도색이에요.</p>}
           <p>102·105동 앞 철책과 일부 가로수는 서울시 지형도 위치를 사용했어요. 식재 범위는 항공영상으로 추정했으며 철책 높이, 수종, 계절별 시야 차폐는 현장 확인이 필요해요.</p>
           <div className="site-actions">
             {[songpaEntrance.main, songpaEntrance.garage].map(stop => <button key={stop.id}
@@ -1545,6 +1546,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <div className="basis">
             <a href={songpaEntrance.roadGeometry} target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel} · 도로 경계</a>
             <a href={songpaJunction.crossingSource} target="_blank" rel="noreferrer">서울시 양재대로60길 교차로 횡단보도 도형 ↗</a>
+            {world?.sources.roadMarkings?.paintedHumps && <a href={world.sources.roadMarkings.paintedHumps} target="_blank" rel="noreferrer">서울시 감속 표시 도형 ↗</a>}
             <a href={songpaFrontage.fenceSource} target="_blank" rel="noreferrer">서울시 철책 위치 도형 ↗</a>
             <a href={songpaFrontage.treeSource} target="_blank" rel="noreferrer">서울시 가로수 위치 도형 ↗</a>
             <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">덮개와 식재 범위 참고 항공영상 ↗</a>

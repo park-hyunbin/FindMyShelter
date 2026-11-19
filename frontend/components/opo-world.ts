@@ -1007,7 +1007,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       localTerrain: data.localTerrain,
       roadMarkings: data.roadMarkings && { lanes: data.roadMarkings.lanesSource, crosswalks: data.roadMarkings.crosswalksSource,
         inventory: data.roadMarkings.crosswalkInventory, archiveDate: data.roadMarkings.markingsArchiveDate,
-        inventoryDate: data.roadMarkings.crosswalkInventoryDate },
+        inventoryDate: data.roadMarkings.crosswalkInventoryDate, paintedHumps: data.roadMarkings.paintedHumps?.source },
       streets: data.streetSource, register: data.buildingRegister,
       treeCover: data.treeCover && { year: data.treeCover.year, resolution: data.treeCover.cellM,
         source: data.treeCover.source, catalog: data.treeCover.catalog, license: data.treeCover.license } },
