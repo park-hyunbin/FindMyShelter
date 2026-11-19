@@ -12,6 +12,12 @@ import { addShrubPlanting, type ShrubPlacement } from './opo-vegetation';
 
 type Coordinate = [longitude: number, latitude: number];
 type SiteCrossing = { start: Coordinate; end: Coordinate; outline: Coordinate[] };
+type IronFence = {
+  points: Coordinate[];
+  color?: string;
+  height?: number;
+  plinth?: { width: number; height: number; color: string };
+};
 type ParkingRow = {
   aisle: [Coordinate, Coordinate];
   depth: number;
@@ -40,7 +46,7 @@ export type SiteSurfaceLayout = {
   paths: { width: number; points: Coordinate[] }[];
   plantingBeds?: { outline: Coordinate[]; hedge: Coordinate[]; width: number; height: number }[];
   plantedGround?: Coordinate[][];
-  ironFences?: Coordinate[][];
+  ironFences?: IronFence[];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
   drivewayFinishes?: { outline: Coordinate[]; color: string }[];
@@ -77,43 +83,68 @@ export function projectSiteCrossing(project: OpoData['project'], { start, end, o
   return { area, ring, boundary: [...ring, ring[0]] };
 }
 
-function ironFence(lines: Point[][], grade: OpoData['ground']) {
+function ironFence(line: Point[], grade: OpoData['ground'], height: number) {
   const pieces: T.BufferGeometry[] = [];
-  const height = 1.06;
   const railAxis = new T.Vector3(0, 0, 1);
   const span = new T.Vector3();
   const angle = new T.Quaternion();
   const rotation = new T.Matrix4();
-  for (const line of lines) {
-    const points = line.map(({ x, z }) => new T.Vector3(x, grade(x, z), z));
-    for (const [i, a] of points.slice(0, -1).entries()) {
-      const b = points[i + 1];
-      const length = Math.hypot(b.x - a.x, b.z - a.z);
-      if (length < 0.005) continue;
-      const panels = Math.ceil(length / 2.4);
-      const pickets = Math.ceil(length / panels / 0.24);
-      for (let j = 0; j < panels * pickets; j++) {
-        const t = j / (panels * pickets);
-        const x = T.MathUtils.lerp(a.x, b.x, t), z = T.MathUtils.lerp(a.z, b.z, t);
-        const post = j % pickets === 0;
-        const width = post ? 0.074 : 0.027;
-        pieces.push(new T.BoxGeometry(width, height, width).translate(x, grade(x, z) + height / 2, z));
-      }
-      span.subVectors(b, a);
-      const beamLength = span.length();
-      rotation.makeRotationFromQuaternion(angle.setFromUnitVectors(railAxis, span.normalize()));
-      for (const lift of [0.23, 0.98]) {
-        pieces.push(new T.BoxGeometry(0.048, 0.046, beamLength).applyMatrix4(rotation)
-          .translate((a.x + b.x) / 2, (a.y + b.y) / 2 + lift, (a.z + b.z) / 2));
-      }
+  const points = line.map(({ x, z }) => new T.Vector3(x, grade(x, z), z));
+  for (const [i, a] of points.slice(0, -1).entries()) {
+    const b = points[i + 1];
+    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    if (length < 0.005) continue;
+    const panels = Math.ceil(length / 2.4);
+    const pickets = Math.ceil(length / panels / 0.24);
+    for (let j = 0; j < panels * pickets; j++) {
+      const t = j / (panels * pickets);
+      const x = T.MathUtils.lerp(a.x, b.x, t), z = T.MathUtils.lerp(a.z, b.z, t);
+      const width = j % pickets === 0 ? 0.074 : 0.027;
+      pieces.push(new T.BoxGeometry(width, height, width).translate(x, grade(x, z) + height / 2, z));
     }
-    const last = points.at(-1);
-    if (last) pieces.push(new T.BoxGeometry(0.074, height, 0.074).translate(last.x, last.y + height / 2, last.z));
+    span.subVectors(b, a);
+    const beamLength = span.length();
+    rotation.makeRotationFromQuaternion(angle.setFromUnitVectors(railAxis, span.normalize()));
+    for (const lift of [height * (0.23 / 1.06), height - 0.08]) {
+      pieces.push(new T.BoxGeometry(0.048, 0.046, beamLength).applyMatrix4(rotation)
+        .translate((a.x + b.x) / 2, (a.y + b.y) / 2 + lift, (a.z + b.z) / 2));
+    }
   }
+  const last = points.at(-1);
+  if (last) pieces.push(new T.BoxGeometry(0.074, height, 0.074).translate(last.x, last.y + height / 2, last.z));
   if (!pieces.length) return;
   const geometry = mergeGeometries(pieces);
   pieces.forEach(piece => piece.dispose());
   return geometry;
+}
+
+function fencePlinth(line: Point[], ground: OpoData['ground'], width: number, height: number) {
+  const top = ribbon(line, width, (x, z) => ground(x, z) + height, Infinity, 0.6);
+  if (!top.getAttribute('position')) return top;
+  const vertices = top.getAttribute('position');
+  // An uncrossed ribbon has two vertices per station. Close the sides down to the adjacent surface.
+  const edges = Array.from({ length: vertices.count / 2 }, (_, i) => i * 2);
+  const ring = [...edges, ...edges.slice().reverse().map(i => i + 1)]
+    .map(i => ({ x: vertices.getX(i), z: vertices.getZ(i) }));
+  const sides = sidewalkFascia(ring, ground, (x, z) => ground(x, z) + height);
+  const cap = top.toNonIndexed();
+  cap.deleteAttribute('uv');
+  const joined = mergeGeometries([cap, sides]);
+  top.dispose();
+  cap.dispose();
+  sides.dispose();
+  if (joined) {
+    const position = joined.getAttribute('position');
+    const normal = joined.getAttribute('normal');
+    const uv = new T.Float32BufferAttribute(new Float32Array(position.count * 2), 2);
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i), z = position.getZ(i);
+      if (Math.abs(normal.getY(i)) > 0.8) uv.setXY(i, x / 1.6, z / 1.6);
+      else uv.setXY(i, (z * normal.getX(i) - x * normal.getZ(i)) / 1.6, position.getY(i));
+    }
+    joined.setAttribute('uv', uv);
+  }
+  return joined;
 }
 
 export function addSiteSurfaces(
@@ -274,10 +305,19 @@ export function addSiteSurfaces(
     add(groundPolygon([playRing], grade, 3, 0.25), playFloor, surface);
     add(ribbon([...playRing, playRing[0]], 0.23, (x, z) => grade(x, z) + 0.28), edging);
   }
-  const fenceLines = (layout.ironFences ?? []).map(line => line.map(data.project));
-  const fenceGeometry = ironFence(fenceLines, (x, z) => elevation({ x, z }) ?? grade(x, z));
-  if (fenceGeometry) {
-    const fence = new T.Mesh(fenceGeometry, material('#536053'));
+  const fenceLines: Point[][] = [];
+  for (const { points, color = '#536053', height = 1.06, plinth } of layout.ironFences ?? []) {
+    const line = points.map(data.project);
+    fenceLines.push(line);
+    // A supporting wall rests on the terrain. Adjacent paving can cover its bottom edge.
+    const foot = plinth ? grade : (x: number, z: number) => elevation({ x, z }) ?? grade(x, z);
+    if (plinth) {
+      const base = fencePlinth(line, foot, plinth.width, plinth.height);
+      if (base?.getAttribute('position')?.count) add(base, material(plinth.color, 'pavers'), undefined, false);
+    }
+    const geometry = ironFence(line, (x, z) => foot(x, z) + (plinth?.height ?? 0), height);
+    if (!geometry) continue;
+    const fence = new T.Mesh(geometry, material(color));
     fence.name = '철책';
     fence.castShadow = fence.receiveShadow = true;
     scene.add(fence);

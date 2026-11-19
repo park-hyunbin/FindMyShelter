@@ -22,6 +22,26 @@ const bayDesigns = [
 const sillLevel = 0.24;
 const headLevel = 0.84;
 
+function ribbedBaseMaterial() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#a19b95';
+  ctx.fillRect(0, 0, 64, 64);
+  for (let x = 0; x < 64; x += 8) {
+    ctx.fillStyle = '#98948e';
+    ctx.fillRect(x, 0, 2, 64);
+    ctx.fillStyle = '#b1aaa3';
+    ctx.fillRect(x + 2, 0, 2, 64);
+  }
+  ctx.fillStyle = '#918d87';
+  ctx.fillRect(0, 61, 64, 3);
+  const material = materialForCanvas(canvas, false);
+  material.map!.wrapS = T.RepeatWrapping;
+  return material;
+}
+
 function groundFloorMaterial() {
   const canvas = document.createElement('canvas');
   canvas.width = (bayDesigns.length + 1) * bayWidth;
@@ -101,6 +121,7 @@ export function songpaExteriorMaterials() {
   return {
     balconies: materialForCanvas(canvas, true),
     groundFloor: groundFloorMaterial(),
+    ribbedBase: ribbedBaseMaterial(),
     concrete: new T.MeshStandardMaterial({ color: '#d9ddd5', roughness: 0.92, side: T.DoubleSide }),
     plinth: new T.MeshStandardMaterial({ color: '#949b95', roughness: 0.94, side: T.DoubleSide }),
     profiles: new T.MeshStandardMaterial({ color: '#c8d0ca', roughness: 0.66 }),
@@ -185,10 +206,17 @@ export function addSongpaTowerExterior(scene: T.Scene, building: {
     const length = Math.hypot(b.x - a.x, b.z - a.z);
     if (length < 0.03) continue;
     const end = record.endFaces.includes(index);
+    const endMaterial = record.numberFaces.includes(index) ? numberedEnd : plainEnd;
+    if (end && record.ribbedBase?.faces.includes(index)) {
+      const claddingTop = grade + record.ribbedBase.heightM;
+      wall(a, b, bottom, claddingTop, materials.ribbedBase, 0, length / 0.65);
+      wall(a, b, claddingTop, eave, endMaterial, 0, 1, 1, record.ribbedBase.heightM / (eave - grade));
+      continue;
+    }
     wall(a, b, bottom, grade, materials.plinth);
     if (end || length < 1.8) {
       groundBay(a, b, bayDesigns.length);
-      wall(a, b, upperStart, eave, end ? (index === record.numberFace ? numberedEnd : plainEnd) : materials.concrete,
+      wall(a, b, upperStart, eave, end ? endMaterial : materials.concrete,
         0, 1, 1, 1 / levels);
       continue;
     }

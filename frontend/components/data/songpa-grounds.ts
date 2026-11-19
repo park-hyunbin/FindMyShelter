@@ -29,6 +29,25 @@ export const songpaManagementFees = {
 type Coordinate = [longitude: number, latitude: number];
 export type SongpaGroundView = { id: string; name: string; coordinate: Coordinate; lookAt: Coordinate; viewFrom?: Coordinate };
 
+// OpenLab N1L_B0020000: UFID 70 identifies the iron fence, and 242 its concrete support on this span.
+const playgroundFenceCorner: Coordinate = [127.1159068, 37.4980198];
+const playgroundFences = [{
+  color: '#e6e6df', height: 1.12,
+  points: [
+    [127.1158157, 37.4977601], [127.1158040, 37.4977748], [127.1158073, 37.4978124],
+    [127.1158074, 37.4978139], [127.1158122, 37.4978321], [127.1158289, 37.4978724],
+    [127.1158370, 37.4978729], [127.1158559, 37.4979011], [127.1158924, 37.4979463],
+    [127.1158952, 37.4979501], [127.1158657, 37.4979658], playgroundFenceCorner,
+  ],
+}, {
+  color: '#e6e6df', height: 0.86, plinth: { color: '#9c7867', width: 0.28, height: 0.54 },
+  points: [
+    playgroundFenceCorner, [127.1160408, 37.4979521], [127.1161020, 37.4979223],
+    [127.1160940, 37.4979080], [127.1160691, 37.4978587], [127.1160622, 37.4978476],
+    [127.1160354, 37.4978129], [127.1160317, 37.4978082],
+  ],
+}] satisfies NonNullable<SiteSurfaceLayout['ironFences']>;
+
 export const songpaPlayground = {
   facilityNo: '503928',
   source: 'https://www.cpf.go.kr/cpf/ko/nori/0006/index.jsp?qr=Y&pfctSn=503928',
@@ -60,7 +79,8 @@ export const songpaCourtyard = {
       [127.1164674, 37.4974184], [127.1165586, 37.4974567],
     ] },
     { width: 2.15, points: [
-      [127.1159148, 37.4979440], [127.1159604, 37.4980100], [127.1160167, 37.4980675],
+      // The mapped fence crosses the former last few metres of the interpreted line.
+      [127.1159604, 37.4980100], [127.1160167, 37.4980675],
       [127.1160758, 37.4981377], [127.1161267, 37.4982015], [127.1161965, 37.4982356],
     ] },
     { width: 1.75, points: [
@@ -127,7 +147,8 @@ export const songpaCourtyard = {
   views: [
     { id: 'west-garden', name: '103·104동 사이 산책로', coordinate: [127.1161133, 37.4974865],
       viewFrom: [127.1160543, 37.4975674], lookAt: [127.1160784, 37.4976185] },
-    { id: 'playground-edge', name: '어린이놀이터 옆', coordinate: [127.1159685, 37.4978100], lookAt: [127.1159551, 37.4979057] },
+    { id: 'playground-edge', name: '어린이놀이터 옆', coordinate: [127.1159685, 37.4978100],
+      viewFrom: [127.1159363, 37.4979680], lookAt: [127.1159960, 37.4977550] },
   ] satisfies SongpaGroundView[],
 };
 
@@ -410,7 +431,7 @@ export const songpaSurfaceLayout = {
   paths: songpaCourtyard.paths,
   plantingBeds: songpaFrontage.beds,
   plantedGround: songpaFrontage.plantedGround,
-  ironFences: songpaFrontage.ironFences,
+  ironFences: [...songpaFrontage.ironFences.map(points => ({ points })), ...playgroundFences],
   // The pavers and entrance style are photo references. The door placement and dimensions are illustrative.
   buildingEntries: [
     { buildingId: '55765541', wall: [127.1160945, 37.4976121], path: [127.1160462, 37.4976100], width: 3.10 },
