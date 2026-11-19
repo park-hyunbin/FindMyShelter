@@ -122,6 +122,21 @@ export function streetDeckLift(region: OpoData['region']) {
   return region === 'songpa' ? 0.08 : 0.47;
 }
 
+export function createTerrainProjection(terrain: T.BufferGeometry) {
+  const clipper = createSurfaceClipper(terrainSpacing * 1.5);
+  clipper.addSurface(terrain);
+  function fit(mask: T.BufferGeometry, lift: number) {
+    const geometry = clipper.clip(mask, lift);
+    mask.dispose();
+    return geometry;
+  }
+  return {
+    fit,
+    area: (shape: Shape, lift: number) => fit(groundPolygon(shape, () => 0, terrainSpacing * 3, 0), lift),
+    clear: clipper.clear,
+  };
+}
+
 export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity, alongStep = 3) {
   const vertices: number[] = [];
   const indexes: number[] = [];
@@ -407,7 +422,8 @@ function addReeds(group: T.Group, locations: Point[], surface: OpoData['ground']
   group.add(reeds);
 }
 
-export function addEnvironment(data: OpoData, scene: T.Scene, terrain: T.BufferGeometry, finish?: TourMaterials, paved?: (p: Point) => boolean,
+export function addEnvironment(data: OpoData, scene: T.Scene, terrain: ReturnType<typeof createTerrainProjection> | undefined,
+    finish?: TourMaterials, paved?: (p: Point) => boolean,
     forest?: TreeCover) {
   const colors = {
     wood: '#6d845d', grass: '#a6b587', farmland: '#b7ad7c', water: '#719c9c',
@@ -446,17 +462,6 @@ export function addEnvironment(data: OpoData, scene: T.Scene, terrain: T.BufferG
   surfaceOverlays.add(landCoverOverlays);
   scene.add(surfaceOverlays, vegetation);
   const surface = (x: number, z: number) => terrainSurface(data.ground, x, z);
-  const terrainClipper = data.region === 'songpa' ? createSurfaceClipper(terrainSpacing * 1.5) : undefined;
-  terrainClipper?.addSurface(terrain);
-  const flat = () => 0;
-  function terrainCover(shape: Shape) {
-    if (!terrainClipper) return groundPolygon(shape, surface);
-    // Keep the vector boundary and split it along the actual terrain triangles.
-    const mask = groundPolygon(shape, flat, terrainSpacing * 3, 0);
-    const cover = terrainClipper.clip(mask, 0.024);
-    mask.dispose();
-    return cover;
-  }
   let seed = 48961;
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   for (const feature of data.features) {
@@ -464,7 +469,7 @@ export function addEnvironment(data: OpoData, scene: T.Scene, terrain: T.BufferG
     const key = feature.kind === 'green' ? feature.category as 'wood' | 'grass' | 'farmland' : feature.kind;
     for (const shape of feature.shapes) {
       const groundCover = feature.kind === 'green' || feature.kind === 'facility';
-      const geometry = groundCover ? terrainCover(shape) : groundPolygon(shape, surface);
+      const geometry = groundCover && terrain ? terrain.area(shape, 0.024) : groundPolygon(shape, surface);
       if (geometry.getAttribute('position').count) {
         if (finish && (key === 'wood' || key === 'grass' || key === 'farmland')) surfaceUV(geometry, landCover[key]);
         if (waterNormal && key === 'water') surfaceUV(geometry, 'water');
@@ -514,7 +519,6 @@ export function addEnvironment(data: OpoData, scene: T.Scene, terrain: T.BufferG
       if (feature.kind === 'stream') waters.push(points);
     }
   }
-  terrainClipper?.clear();
   if (forest) {
     const inComplex = data.siteOutline.length ? [data.siteOutline] : null;
     trees.push(...forest.placements(random, point => !canPlant(point) || Boolean(inComplex && inShape(point, inComplex))));

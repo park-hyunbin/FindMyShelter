@@ -8,7 +8,7 @@ import { courtyardStairs } from './opo-garden';
 import { directionProfile } from './opo-horizon';
 import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
-import { addEnvironment, buildMeshes, makeGround } from './opo-meshes';
+import { addEnvironment, buildMeshes, createTerrainProjection, makeGround } from './opo-meshes';
 import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, nearSurfaceHeight, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, addSongpaSchoolMap, approach, playgroundReference } from './opo-site';
@@ -105,10 +105,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const ambient = new T.HemisphereLight('#D8D5F0', '#17243A', 1.8);
   scene.add(sun, sun.target, ambient);
   const terrain = makeGround(data);
+  const terrainProjection = isOpo ? undefined : createTerrainProjection(terrain.geometry);
   terrain.castShadow = true;
   scene.add(terrain);
   const { occluders, anchors, roofs } = buildMeshes(data, scene);
-  const streets = addStreets(data, scene, finish);
+  const streets = addStreets(data, scene, finish, terrainProjection);
   const entrance = isOpo ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const insideBuilding = buildingCollision(data.buildings);
   const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
@@ -116,11 +117,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   if (treeCoverOverlay) scene.add(treeCoverOverlay);
   const site = addSiteDetails(data, scene, streets.surface, finish, streets.streetClearance, insideBuilding);
   streets.addSurveyedPaint(site.paving?.asphaltDecks);
-  const environment = addEnvironment(data, scene, terrain.geometry, finish, point => {
+  const environment = addEnvironment(data, scene, terrainProjection, finish, point => {
     const road = streets.nearest(point, 14);
     return entrance?.paved(point) || site.paving?.elevation(point) !== undefined || insideBuilding(point)
       || (isOpo ? road !== undefined && road.distance <= road.segment.width / 2 + 0.4 : streets.roadClearance(point) <= 0.4);
   }, treeCover ?? undefined);
+  terrainProjection?.clear();
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
   const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);
   const floodMap = isOpo ? undefined : addSongpaFloodMap(data, scene, streets.surface);
@@ -969,6 +971,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     sky.follow(camera);
     updateShadows(now);
     environment.waterNormal?.offset.set(now * 0.000018, -now * 0.000033);
+    streets.setPaintProjection(renderer.domElement.height / renderer.getPixelRatio(), camera.fov);
     fog.density = mode === 'orbit'
       ? Math.min(fogDensity, 0.62 / Math.max(1, controls.getDistance())) : fogDensity;
     if (streetOcclusion && mode !== 'orbit' && !showingSatellite) streetOcclusion.render();
