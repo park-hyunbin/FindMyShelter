@@ -280,6 +280,16 @@ const songpaCoveredApproach = [
   [127.1167958, 37.4981547], [127.1167865, 37.4981122], [127.1167758, 37.4980547],
   [127.1167917, 37.4979879], [127.1167546, 37.4978737], [127.1167302, 37.4978249],
 ] satisfies Coordinate[];
+// The exposed, lighter surface south of the canopy is visible in the same capture.
+const songpaCoveredApproachFinish = {
+  color: '#fff9ed',
+  outline: [
+    [127.1167758, 37.4981228], [127.1168214, 37.4981207], [127.1168643, 37.4980802],
+    [127.1168670, 37.4980398], [127.1168536, 37.4979909], [127.1168268, 37.4979504],
+    [127.1167946, 37.4979547], [127.1167758, 37.4979951], [127.1167704, 37.4980356],
+    [127.1167517, 37.4980802], [127.1167570, 37.4981079],
+  ],
+} satisfies NonNullable<SiteSurfaceLayout['drivewayFinishes']>[number];
 
 export const songpaGrounds = {
   source: 'https://www.arcgis.com/apps/mapviewer/index.html?source=sd&url=https%3A%2F%2Fserver.arcgisonline.com%2Farcgis%2Frest%2Fservices%2FWorld_Imagery%2FMapServer&center=127.11665,37.49762&level=19',
@@ -511,7 +521,7 @@ export const songpaSurfaceLayout = {
   }],
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
-  drivewayFinishes: [songpaGrounds.courtFinish],
+  drivewayFinishes: [songpaGrounds.courtFinish, songpaCoveredApproachFinish],
   drivewayJoin: songpaDrivewayJoin,
   parkingRows: songpaGrounds.parkingRows,
 } satisfies SiteSurfaceLayout;

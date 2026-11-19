@@ -1,3 +1,5 @@
+import type { ParkingCanopyLayout } from '../opo-songpa-entrance';
+
 type Coordinate = [longitude: number, latitude: number];
 
 export const songpaEntrance = {
@@ -14,9 +16,22 @@ export const songpaEntrance = {
   },
   garage: {
     id: 'garage-canopy', name: '102동 주차장 덮개',
-    position: [127.1169475, 37.4982143] as Coordinate,
-    lookAt: [127.1168000, 37.4982079] as Coordinate,
-    axis: [[127.1167597, 37.4982909], [127.1168402, 37.4981441]] satisfies Coordinate[],
+    // Inside the west sidewalk outline of Yangjae-daero 60-gil (N1A_A0033320 UFID 1).
+    position: [127.1169800, 37.4981240] as Coordinate,
+    lookAt: [127.1168100, 37.4981900] as Coordinate,
+    canopy: {
+      // Paired visible roof edges in the 2025-10-28 orthophoto, in order from north to south.
+      sections: [
+        [[127.1167168, 37.4982696], [127.1167785, 37.4983016]],
+        [[127.1167409, 37.4982398], [127.1168053, 37.4982696]],
+        [[127.1167651, 37.4982079], [127.1168321, 37.4982377]],
+        [[127.1167919, 37.4981760], [127.1168590, 37.4982058]],
+        [[127.1168160, 37.4981462], [127.1168777, 37.4981654]],
+        [[127.1168268, 37.4981228], [127.1168885, 37.4981334]],
+      ],
+      eaveM: 0.84,
+      riseM: 2.55,
+    } satisfies ParkingCanopyLayout,
     roadview: 'https://map.kakao.com/link/roadview/37.4981654,127.1170467',
   },
 };

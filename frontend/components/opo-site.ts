@@ -14,7 +14,7 @@ import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient
 import { songpaSchool } from './data/songpa-school';
 import { songiPark, songiParkApproach, songiParkSurvey } from './data/songi-park';
 import { surveyedRoute } from './data/songpa-route-elevation';
-import { addSongpaParkingCanopy } from './opo-songpa-entrance';
+import { addParkingCanopy } from './opo-songpa-entrance';
 import { addSongpaCourtyard } from './opo-songpa-courtyard';
 import { addSiteSurfaces } from './opo-site-surfaces';
 import { addPlayground } from './opo-playground';
@@ -86,7 +86,8 @@ export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const surfaces = siteSurfaces[data.region];
   const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, insideBuilding);
   if (data.region === 'songpa') {
-    addSongpaParkingCanopy(data, scene, grade, finish);
+    addParkingCanopy(data, scene, songpaEntrance.garage.canopy,
+      (x, z) => paving?.drivewayElevation({ x, z }) ?? grade(x, z));
     addSongpaCourtyard(data, scene, grade, finish);
     addPlayground(data, scene, (x, z) => paving?.elevation({ x, z }) ?? grade(x, z), songpaPlayground.layout);
     addSongiPark(data, scene, grade, finish);

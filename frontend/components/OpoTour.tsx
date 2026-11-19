@@ -1438,8 +1438,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </article>
         <article className="site-card" data-site-card="entrance" aria-label="정문과 지하주차장 입구">
           <h3>정문과 지하주차장 입구</h3>
-          <p>송파대로32길 정문에서 보행자 횡단 표시가 차량 길과 만나는 모습을 볼 수 있어요. 양재대로60길 쪽에선 102동 옆 주차장 덮개를 볼 수 있어요.</p>
-          <p>양재대로60길 교차로의 횡단보도 두 곳과 정문 차도 경계는 서울시 수치지형도와 항공영상을 대조했어요. 실제 보도 연결과 단차, 지하주차장 차수시설과 방문차량 입차 조건은 현장에서 확인해 보세요.</p>
+          <p>송파대로32길 정문 접근로와 102동 옆 주차장 덮개를 둘러볼 수 있어요. 덮개 외곽은 항공영상에서 읽었고, 102동 쪽 시점은 양재대로60길 서쪽 보도 위에 있어요.</p>
+          <p>양재대로60길 교차로의 횡단보도 세 곳과 정문 차도 경계는 서울시 수치지형도와 항공영상을 대조했어요. 보도 단차, 덮개 아래 실제 경사와 차수시설, 방문차량 입차 조건은 현장 확인이 필요해요.</p>
           <p>102·105동 앞 철책과 일부 가로수는 서울시 지형도 위치를 사용했어요. 식재 범위는 항공영상으로 추정했으며 철책 높이, 수종, 계절별 시야 차폐는 현장 확인이 필요해요.</p>
           <div className="site-actions">
             {[songpaEntrance.main, songpaEntrance.garage].map(stop => <button key={stop.id}
@@ -1450,7 +1450,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <a href={songpaJunction.crossingSource} target="_blank" rel="noreferrer">서울시 양재대로60길 교차로 횡단보도 도형 ↗</a>
             <a href={songpaFrontage.fenceSource} target="_blank" rel="noreferrer">서울시 철책 위치 도형 ↗</a>
             <a href={songpaFrontage.treeSource} target="_blank" rel="noreferrer">서울시 가로수 위치 도형 ↗</a>
-            <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">식재 범위 참고 항공영상 ↗</a>
+            <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">덮개와 식재 범위 참고 항공영상 ↗</a>
             <a href={songpaEntrance.main.roadview} target="_blank" rel="noreferrer">카카오맵 정문 로드뷰 ↗</a>
             <a href={songpaEntrance.garage.roadview} target="_blank" rel="noreferrer">카카오맵 주차장 덮개 로드뷰 ↗</a>
             <a href={songpaEntrance.record} target="_blank" rel="noreferrer">송파구 102동 지하주차장 입구 위치 기록 ↗</a>
