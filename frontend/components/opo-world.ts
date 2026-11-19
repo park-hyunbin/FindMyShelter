@@ -308,16 +308,18 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   }
   overview();
 
-  function frameSurface(points: T.Vector3[], center: T.Vector3, offset: T.Vector3, clearTitle = false) {
+  function frameSurface(points: T.Vector3[], center: T.Vector3, offset: T.Vector3,
+    { clearTitle = false, reserveLabels = false } = {}) {
     const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
     const panel = host.parentElement?.querySelector<HTMLElement>('.analysis');
     const availableWidth = panel && width > 780 ? panel.offsetLeft : width;
-    const bottom = panel && width <= 780 ? panel.offsetTop : height;
-    const title = clearTitle && width <= 780 && host.parentElement?.querySelector<HTMLElement>('.tour-title');
+    const controlsTop = reserveLabels ? host.parentElement?.querySelector<HTMLElement>('.view-controls')?.offsetTop : undefined;
+    const bottom = Math.min(panel && width <= 780 ? panel.offsetTop : height, controlsTop ?? height);
+    const title = clearTitle && (width <= 780 || reserveLabels) && host.parentElement?.querySelector<HTMLElement>('.tour-title');
     const top = Math.min(Math.max(0, bottom - 130), title ? title.offsetTop + title.offsetHeight + 6 : 0);
     const availableHeight = bottom - top;
-    const horizontalFrame = 0.84 * Math.max(1, availableWidth) / width;
-    const verticalFrame = 0.82 * Math.max(1, availableHeight) / height;
+    const horizontalFrame = 0.84 * Math.max(1, availableWidth - (reserveLabels ? 132 : 0)) / width;
+    const verticalFrame = 0.82 * Math.max(1, availableHeight - (reserveLabels ? 48 : 0)) / height;
     camera.fov = 49;
     camera.updateProjectionMatrix();
     controls.target.copy(center);
@@ -334,14 +336,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       if (frame <= 1.01) break;
       camera.position.sub(center).multiplyScalar(Math.min(2.1, frame * 1.04)).add(center);
     }
-    if (!panel) return;
+    if (!panel && !reserveLabels) return;
     const halfHeight = camera.position.distanceTo(center) * Math.tan(T.MathUtils.degToRad(camera.fov / 2));
-    const horizontal = width > 780;
-    const inset = horizontal ? (width - availableWidth) / width : (height - bottom - top) / height;
-    const viewAxis = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, horizontal ? 0 : 1);
-    const shift = halfHeight * inset * (horizontal ? camera.aspect : -1);
-    controls.target.addScaledVector(viewAxis, shift);
-    camera.position.addScaledVector(viewAxis, shift);
+    const shift = new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 0)
+      .multiplyScalar(halfHeight * camera.aspect * (width - availableWidth) / width)
+      .addScaledVector(new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 1), -halfHeight * (height - bottom - top) / height);
+    controls.target.add(shift);
+    camera.position.add(shift);
     controls.update();
   }
 
@@ -359,10 +360,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   scene.add(comparisonMarkers);
   let ambientInspection = false;
   let guidedWalk = false;
+  let browsingPlaces = false;
   let accessEntranceId: string | null = null;
   const analysisMapVisible = () => ambientMap?.group.visible || floodMap?.group.visible || schoolMap?.group.visible;
   const updateComparisonMarkers = () => {
-    comparisonMarkers.visible = !ambientInspection && !guidedWalk && !analysisMapVisible() && !lightPath.group.visible;
+    comparisonMarkers.visible = !ambientInspection && !guidedWalk && !browsingPlaces && !analysisMapVisible() && !lightPath.group.visible;
   };
   const markers = Object.fromEntries((['A', 'B'] as const).map((slot, index) => {
     const group = new T.Group();
@@ -389,7 +391,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.className = 'building-label';
     element.textContent = building.dong;
     host.appendChild(element);
-    return { point, element, enabled: () => !analysisMapVisible() };
+    return { point, element, enabled: () => !browsingPlaces && !analysisMapVisible() };
   });
   const ambientLabels = (ambientMap?.labels ?? []).map(label => {
     const element = document.createElement('span');
@@ -476,22 +478,74 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     { point: lightPath.originPoint, element: lightOriginLabel, enabled: lightPathVisible, keepInFrame: true });
   const placeGroup = new T.Group();
   scene.add(placeGroup);
-  let placeCategories: string[] = [];
-  for (const place of data.places) {
-    const { x, z } = place.point;
-    const color = place.category === 'school' ? '#D8D5F0' : place.category === 'beauty' ? '#F8E9C6' : '#76C9BC';
-    const pin = new T.Mesh(new T.SphereGeometry(7, 10, 8), new T.MeshBasicMaterial({ color }));
-    pin.position.set(x, data.ground(x,z) + 25, z);
-    pin.userData.category = place.category;
+  const placeOverlay = document.createElement('div');
+  placeOverlay.hidden = true;
+  placeOverlay.setAttribute('aria-hidden', 'true');
+  host.appendChild(placeOverlay);
+  const markerShape = new T.SphereGeometry(3.2, 10, 8);
+  function placeMarker({ x, z }: Point, label: string, kind: string, color: string) {
+    const pin = new T.Mesh(markerShape, new T.MeshBasicMaterial({ color, depthTest: false, depthWrite: false }));
+    pin.renderOrder = 4;
+    pin.position.set(x, observationSurface(x, z) + 8, z);
     pin.visible = false;
     placeGroup.add(pin);
     const element = document.createElement('span');
-    element.className = `building-label place-label place-${place.category}`;
-    element.textContent = place.name;
-    element.hidden = true;
-    host.appendChild(element);
-    labels.push({point: pin.position.clone().add(new T.Vector3(0, 12, 0)), element,
-      enabled: () => placeGroup.visible && placeCategories.includes(place.category)});
+    element.className = `building-label place-label place-${kind}`;
+    element.textContent = label;
+    element.style.visibility = 'hidden';
+    placeOverlay.appendChild(element);
+    return { pin, element, width: 0, height: 0 };
+  }
+  const placeOriginMarker = placeMarker(data.placeOrigin.point, data.placeOrigin.label, 'origin', '#ffd28f');
+  placeOriginMarker.pin.scale.setScalar(1.5);
+  placeOriginMarker.pin.renderOrder = 5;
+  const placeMarkers = data.places.map(place => ({
+    place, ...placeMarker(place.point, place.name, place.category,
+      place.category === 'school' ? '#d8d5f0' : place.category === 'beauty' ? '#f8e9c6' : '#76c9bc'),
+  }));
+  let visiblePlaceMarkers: ReturnType<typeof placeMarker>[] = [];
+  type LabelRect = { left: number; right: number; top: number; bottom: number };
+
+  function updatePlaceLabels() {
+    placeOverlay.hidden = !placeGroup.visible || !browsingPlaces;
+    if (placeOverlay.hidden) return;
+    const { clientWidth: width, clientHeight: height } = host;
+    const frame = host.getBoundingClientRect();
+    const obstructions: LabelRect[] = [];
+    for (const node of host.parentElement?.querySelectorAll('.tour-title, .analysis, .analysis-toggle, .view-controls') ?? []) {
+      const bounds = node.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) continue;
+      obstructions.push({ left: bounds.left - frame.left, right: bounds.right - frame.left,
+        top: bounds.top - frame.top, bottom: bounds.bottom - frame.top });
+    }
+    for (const marker of visiblePlaceMarkers) {
+      projected.copy(marker.pin.position).project(camera);
+      let visible = projected.z > -1 && projected.z < 1 && Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1;
+      if (visible) {
+        marker.width ||= marker.element.offsetWidth;
+        marker.height ||= marker.element.offsetHeight;
+        const x = (projected.x * 0.5 + 0.5) * width;
+        const y = (-projected.y * 0.5 + 0.5) * height - marker.height / 2 - 6;
+        const rect = { left: x - marker.width / 2, right: x + marker.width / 2,
+          top: y - marker.height / 2, bottom: y + marker.height / 2 };
+        visible = rect.left >= 6 && rect.top >= 6 && rect.right <= width - 6 && rect.bottom <= height - 6
+          && !obstructions.some(block => rect.left < block.right + 5 && rect.right > block.left - 5
+            && rect.top < block.bottom + 5 && rect.bottom > block.top - 5);
+        if (visible) {
+          obstructions.push(rect);
+          marker.element.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
+        }
+      }
+      marker.element.style.visibility = visible ? 'visible' : 'hidden';
+    }
+  }
+  function framePlaceMarkers(markers: typeof visiblePlaceMarkers, includeOrigin = true) {
+    const points = (includeOrigin ? [placeOriginMarker, ...markers] : markers).map(marker => marker.pin.position);
+    const bounds = new T.Box3().setFromPoints(points);
+    const size = bounds.getSize(new T.Vector3());
+    const distance = Math.max(135, Math.max(size.x, size.z) * 1.2);
+    frameSurface(points, bounds.getCenter(new T.Vector3()), new T.Vector3(0, distance, distance * 0.30),
+      { clearTitle: true, reserveLabels: true });
   }
   const pinLabels = (['A', 'B'] as const).map(slot => {
     const element = document.createElement('span');
@@ -911,6 +965,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         element.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
       }
     }
+    updatePlaceLabels();
     sky.follow(camera);
     updateShadows(now);
     environment.waterNormal?.offset.set(now * 0.000018, -now * 0.000033);
@@ -932,7 +987,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         const frame = new T.Box3().setFromPoints(sunMap.positions);
         const { x, z } = frame.getSize(new T.Vector3());
         const size = Math.max(160, x, z);
-        frameSurface(sunMap.positions, frame.getCenter(new T.Vector3()), new T.Vector3(0, size * 1.42, size * 0.14), true);
+        frameSurface(sunMap.positions, frame.getCenter(new T.Vector3()), new T.Vector3(0, size * 1.42, size * 0.14), { clearTitle: true });
       },
     },
     sources: { terrain: data.terrainSource, osmSnapshot: data.snapshot, referenceHeight: data.referenceHeight,
@@ -1053,18 +1108,35 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       speed = 0;
     },
     places: data.places,
-    showPlaces(categories: string[]) {
-      placeCategories = categories;
-      placeGroup.children.forEach(pin => { pin.visible = categories.includes(pin.userData.category); });
+    placeOrigin: data.placeOrigin.label,
+    showPlaces(categories: string[], selectedId: string | null) {
+      browsingPlaces = categories.length > 0;
+      visiblePlaceMarkers = browsingPlaces ? [placeOriginMarker] : [];
+      placeOriginMarker.pin.visible = browsingPlaces;
+      for (const marker of placeMarkers) {
+        const shown = categories.includes(marker.place.category);
+        const selected = shown && marker.place.id === selectedId;
+        marker.pin.visible = shown;
+        marker.pin.scale.setScalar(selected ? 1.6 : 1);
+        marker.pin.renderOrder = selected ? 6 : 4;
+        marker.element.dataset.selected = selected ? 'true' : '';
+        if (selected) visiblePlaceMarkers.unshift(marker);
+        else if (shown) visiblePlaceMarkers.push(marker);
+        else marker.element.style.visibility = 'hidden';
+      }
+      updateComparisonMarkers();
     },
     focusPlace(id: string) {
-      const place = data.places.find(p => p.id === id);
-      if (!place) return;
-      setMode('orbit');
-      const {x,z} = place.point;
-      controls.target.set(x, data.ground(x,z), z);
-      camera.position.copy(controls.target).add(new T.Vector3(100, 350, 450));
-      controls.update();
+      const marker = placeMarkers.find(item => item.place.id === id);
+      if (!marker) return;
+      framePlaceMarkers([marker]);
+      camera.updateMatrixWorld();
+      updatePlaceLabels();
+      // At the zoom limit on a small screen, keep the selected facility in view.
+      if (marker.element.style.visibility === 'hidden') framePlaceMarkers([marker], false);
+    },
+    frameNearbyPlaces(category: string) {
+      framePlaceMarkers(placeMarkers.filter(marker => category === 'all' || marker.place.category === category).slice(0, 5));
     },
     showSchoolZone(enabled: boolean) {
       if (!schoolMap) return;
@@ -1075,7 +1147,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const bounds = new T.Box3().setFromPoints(schoolMap.regionPoints);
       const { x, z } = bounds.getSize(new T.Vector3());
       const scale = Math.max(x, z);
-      frameSurface(schoolMap.regionPoints, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.10, scale * 0.17), true);
+      frameSurface(schoolMap.regionPoints, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.06, scale * 1.10, scale * 0.17), { clearTitle: true });
     },
     showSiteDetails(enabled: boolean) { site.overlay.visible = enabled; },
     ambientScene: ambientMap && {
@@ -1101,7 +1173,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
       const bounds = new T.Box3().setFromPoints(ambientMap.frames);
       const scale = bounds.getSize(new T.Vector3()).length();
-      frameSurface(ambientMap.frames, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.10, scale * 1.1, scale * 0.22), true);
+      frameSurface(ambientMap.frames, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.10, scale * 1.1, scale * 0.22), { clearTitle: true });
     },
     showFlood(year: string | null, view: FloodView) {
       if (!floodMap) return;
@@ -1113,7 +1185,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const { x, z } = bounds.getSize(new T.Vector3());
       const scale = Math.max(160, x, z);
       const offset = view === 'forecast' ? new T.Vector3(-0.25, 1.55, -0.27) : new T.Vector3(0.06, 1.3, 0.25);
-      frameSurface(points, bounds.getCenter(new T.Vector3()), offset.multiplyScalar(scale), true);
+      frameSurface(points, bounds.getCenter(new T.Vector3()), offset.multiplyScalar(scale), { clearTitle: true });
     },
     greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, entranceView, stopView, homeWalk }) =>
       ({ id, profile, crossingView, entranceView, stopView, homeWalk })),
@@ -1141,7 +1213,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const center = layer.bounds.getCenter(new T.Vector3());
       const size = layer.bounds.getSize(new T.Vector3());
       const scale = Math.max(340, size.x, size.z);
-      frameSurface(layer.routePoints, center, new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34), Boolean(layer.entranceView || layer.stopView));
+      frameSurface(layer.routePoints, center, new T.Vector3(scale * 0.15, scale * 1.28, scale * 0.34), { clearTitle: Boolean(layer.entranceView || layer.stopView) });
     },
     position() { return position; },
     tourPose(): TourPose {
@@ -1206,7 +1278,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       setMode('orbit');
       // Frame nearby hills while leaving the rest of the mapped grid available to pan across.
       const points = [-365, 365].flatMap(x => [-365, 365].map(z => new T.Vector3(x, data.ground(x, z), z)));
-      frameSurface(points, new T.Vector3(0, data.ground(0, 0), 0), new T.Vector3(40, 820, 300), true);
+      frameSurface(points, new T.Vector3(0, data.ground(0, 0), 0), new T.Vector3(40, 820, 300), { clearTitle: true });
     },
     async showSatellite(enabled: boolean) {
       if (!isOpo) return;
@@ -1252,6 +1324,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       streetOcclusion?.dispose();
       renderer.dispose();
       canvas.remove();
+      placeOverlay.remove();
       labels.forEach(({ element }) => element.remove());
     },
   };

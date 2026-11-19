@@ -355,13 +355,15 @@ h1, h2, p { margin: 0; }
   .tour[data-mode='drive'] .analysis-toggle { bottom: 184px; }
 }
 
-.place-label { border: 2px solid var(--glow); color: var(--night); background: var(--moon); font-size: 12px; z-index: 3; }
+.place-label { max-width: 172px; overflow: hidden; text-overflow: ellipsis; border: 2px solid var(--glow); color: var(--night); background: var(--moon); font-size: 12px; z-index: 3; }
+.place-label[data-selected='true'] { color: var(--moon); background: #234c4b; }
+.place-origin { border-color: #e0ae64; background: #f9dda9; }
 .place-school { border-color: var(--lilac); }
 .place-beauty { border-color: var(--glow); }
 .place-explorer { display: grid; gap: 12px; }
 .place-explorer-heading { display: grid; gap: 3px; }
-.place-explorer-heading > span { color: var(--glow); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-.place-explorer-heading p, .place-note p, .place-detail p { margin: 0; color: #c7d3e1; line-height: 1.55; }
+.place-explorer-heading h3 { margin: 0; font-size: 15px; color: var(--moon); }
+.place-explorer-heading p, .place-note p { margin: 0; color: #c7d3e1; line-height: 1.55; }
 .place-filters { display: flex; gap: 5px; flex-wrap: wrap; }
 .place-filters button { border: 1px solid #63748d; border-radius: 16px; padding: 7px 10px; color: var(--lilac); background: var(--slate); }
 .place-filters button[aria-pressed=true] { color: var(--night); border-color: var(--glow); background: var(--glow); }
@@ -372,10 +374,7 @@ h1, h2, p { margin: 0; }
 .place-kind { display: grid; place-items: center; width: 25px; height: 25px; color: var(--night); border-radius: 50%; background: var(--glow); font-size: 10px; font-weight: 850; }
 .place-kind-school { background: var(--lilac); }
 .place-kind-beauty { background: var(--moon); }
-.place-detail, .place-note { display: grid; gap: 6px; padding: 12px; border-left: 3px solid var(--glow); background: #23334b; }
-.place-detail > span { color: var(--glow); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
-.place-detail h3 { margin: 0; color: var(--moon); font-size: 16px; }
-.place-note { border-left-color: var(--lilac); font-size: 11px; }
+.place-note { display: grid; gap: 6px; padding: 12px; border-left: 3px solid var(--lilac); background: #23334b; font-size: 11px; }
 .place-note strong { color: var(--moon); }
 
 .analysis { --muted: #b8c7d8; }

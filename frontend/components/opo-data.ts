@@ -2,6 +2,7 @@ import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFrontage, songpaGrounds } from './data/songpa-grounds';
+import { songpaEntrance } from './data/songpa-entrance';
 import { songiPark } from './data/songi-park';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
@@ -248,11 +249,16 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));
   const date = environment.metadata.tile_source.match(/\/(\d{4})(\d{2})(\d{2})_/);
   const referenceHeight = Math.max(...buildings.map(building => building.height ?? 0));
+  const placeOrigin = region === 'songpa'
+    ? { point: project(songpaEntrance.main.position), label: songpaEntrance.main.name }
+    : { point: { x: 0, z: 0 }, label: '단지 원점' };
   const places: Place[] = poi.features.map(f => {
     const point = project(f.geometry.coordinates);
-    return { ...f.properties, point, distance_m: Math.round(Math.hypot(point.x,point.z)) };
-  }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent);
-  return { region, area, places, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
+    const distance_m = Math.round(Math.hypot(point.x - placeOrigin.point.x, point.z - placeOrigin.point.z));
+    return { ...f.properties, point, distance_m };
+  }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent)
+    .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id));
+  return { region, area, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
     features, siteRoads, siteOutline, project, northOffset, buildingRadius, streets, streetPoints, parking,
     treeCover: region === 'opo' ? treeCover : null,
     streetSource: neighborhood?.metadata.source ?? environment.metadata.tile_source,

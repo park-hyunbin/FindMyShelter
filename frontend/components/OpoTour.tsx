@@ -512,12 +512,22 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   useEffect(() => {
     world?.showSiteDetails(open && tab === 'site');
-    world?.showPlaces(open && tab === 'places' ? (placeCategory === 'all' ? ['beauty','convenience','school'] : [placeCategory]) : []);
-  }, [world, open, tab, placeCategory]);
+  }, [world, open, tab]);
+
+  useEffect(() => {
+    const categories = placeCategory === 'all' ? ['beauty', 'convenience', 'school'] : [placeCategory];
+    world?.showPlaces(open && tab === 'places' && mode === 'orbit' && !schoolZoneVisible ? categories : [], selectedPlaceId);
+  }, [world, open, tab, mode, placeCategory, schoolZoneVisible, selectedPlaceId]);
 
   useEffect(() => {
     world?.showSchoolZone(open && tab === 'places' && mode === 'orbit' && schoolZoneVisible);
   }, [world, open, tab, mode, schoolZoneVisible]);
+
+  useEffect(() => {
+    if (!world || !open || tab !== 'places' || mode !== 'orbit' || schoolZoneVisible) return;
+    if (selectedPlaceId) world.focusPlace(selectedPlaceId);
+    else world.frameNearbyPlaces(placeCategory);
+  }, [world, open, tab, mode, schoolZoneVisible, placeCategory, selectedPlaceId]);
 
   useEffect(() => {
     const active = tab === 'ambient';
@@ -652,7 +662,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (next !== tab) analysisPanel.current?.scrollTo(0, 0);
     if (next !== 'ambient') setAmbientStopId(null);
     if (next !== 'places') setSchoolZoneVisible(false);
-    if (next !== tab && (next === 'ambient' || next === 'flood')) chooseMode('orbit');
+    if (next !== tab && (next === 'ambient' || next === 'flood' || next === 'places')) chooseMode('orbit');
     setTab(next);
   }
 
@@ -664,10 +674,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }
 
   function selectPlace(id: string) {
+    if (id === selectedPlaceId && mode === 'orbit' && !schoolZoneVisible) world?.focusPlace(id);
     setSchoolZoneVisible(false);
     setSelectedPlaceId(id);
-    world?.focusPlace(id);
-    setMode('orbit');
+    chooseMode('orbit');
   }
 
   function hideTreeCover() {
@@ -975,13 +985,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'school':
       case 'places':
-        if (target === 'places') pendingAnalysisSection.current = { tab: 'places', selector: '.place-list' };
+        if (target === 'places') pendingAnalysisSection.current = { tab: 'places', selector: '.place-explorer-heading' };
         setPlaceCategory(target === 'school' ? 'school' : 'all');
         setSelectedPlaceId(null);
         chooseTab('places');
         setSchoolZoneVisible(target === 'school');
-        chooseMode('orbit');
-        if (target === 'places') world.locate();
         break;
     }
   }
@@ -989,10 +997,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const seasonYear = date.slice(0, 4) || initialDate.slice(0, 4);
   const seasonPoint = points[seasonSlot];
   const buildingRegister = world?.sources.register;
-  const selectedPlace = world?.places.find(place => place.id === selectedPlaceId);
   const parkingSpaces = songpaFacilities.surfaceParking + songpaFacilities.undergroundParking;
   const managementTotal = songpaManagementFees.charges.reduce((sum, charge) => sum + charge.won, 0);
-  const placeOrigin = region === 'opo' ? '단지 원점' : '임장구역 원점';
+  const placeOrigin = world?.placeOrigin ?? (region === 'songpa' ? songpaEntrance.main.name : '단지 원점');
   const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
   const homeWalk = guidedAccessId ? world?.greenAccessProfiles.find(route => route.id === guidedAccessId)?.homeWalk : null;
   const currentHomeStop = homeStep === null ? null : homeWalk?.stops[homeStep];
@@ -1405,16 +1412,24 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <a href={songpaSchool.schoolSource} target="_blank" rel="noreferrer">서울신가초 찾아오시는 길 ↗</a>
           </details>
         </article>}
-        <div className="place-explorer-heading"><span>동네 탐색</span><p>아래 장소를 선택해 지도에서 위치를 확인하세요.</p></div>
-        <div className="place-filters" aria-label="장소 종류">{[['all','전체'],['beauty','올리브영'],['convenience','편의점'],['school','학교']].map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => { setPlaceCategory(id); setSelectedPlaceId(null); }}>{label}</button>)}</div>
-        <div className="place-list" tabIndex={-1} aria-label="주변 장소 목록">{world?.places.filter(p => placeCategory === 'all' || p.category === placeCategory).map(p => <button className="place-row" aria-pressed={selectedPlaceId === p.id} key={p.id} onClick={() => selectPlace(p.id)}><span className={`place-kind place-kind-${p.category}`} aria-hidden="true">{p.category === 'school' ? '학' : p.category === 'beauty' ? '영' : '편'}</span><strong>{p.name}</strong><small>직선 {p.distance_m.toLocaleString()}m</small></button>)}</div>
-        {selectedPlace && <section className="place-detail">
-          <span>{selectedPlace.category === 'school' ? '학교' : selectedPlace.category === 'beauty' ? '생활용품' : '편의점'}</span>
-          <h3>{selectedPlace.name}</h3>
-          <p>{placeOrigin}에서 직선 약 {selectedPlace.distance_m.toLocaleString()}m 지점입니다.</p>
-        </section>}
+        <div className="place-explorer-heading" tabIndex={-1}>
+          <h3>주변 생활시설</h3><p>{placeOrigin}에서의 직선거리 · 가까운 순</p>
+        </div>
+        <div className="place-filters" aria-label="장소 종류">{[['all','전체'],['beauty','올리브영'],['convenience','편의점'],['school','학교']].map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => {
+          setPlaceCategory(id);
+          setSelectedPlaceId(null);
+          setSchoolZoneVisible(false);
+          chooseMode('orbit');
+        }}>{label}</button>)}</div>
+        <div className="place-list" aria-label="주변 장소 목록">
+          {world?.places.filter(place => placeCategory === 'all' || place.category === placeCategory).map(place =>
+            <button className="place-row" aria-pressed={selectedPlaceId === place.id} key={place.id} onClick={() => selectPlace(place.id)}>
+              <span className={`place-kind place-kind-${place.category}`} aria-hidden="true">{place.category === 'school' ? '학' : place.category === 'beauty' ? '영' : '편'}</span>
+              <strong>{place.name}</strong><small>직선 {place.distance_m.toLocaleString()}m</small>
+            </button>)}
+        </div>
         {region === 'opo' && <div className="place-note"><strong>공식 통학구역</strong><p>취학 주소의 통학구역은 학구도에서 확인할 수 있어요.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>}
-        <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 2026-11-15 지도 스냅샷. 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
+        <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 지도 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'}). 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
       </div>}
 
       {region === 'songpa' && tab === 'site' && <div className="site-features">
