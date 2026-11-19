@@ -182,8 +182,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const shortConnection = data.region === 'songpa'
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
   const routes = visitRoutes[data.region].routes;
-  const surveyedWalk = siteSurfaces[data.region]?.layout.surveyedWalks
-    ?.find(walk => walk.centerline)?.centerline?.map(data.project);
+  const surveyedWalk = paving?.sidewalkCenterlines.get(songpaEntrance.frontage.surveyedWalkId);
+  const frontageWalk = paving?.sidewalkCenterlines.get(songpaEntrance.frontage.id);
+  const frontage = surveyedWalk?.length && frontageWalk?.length ? [surveyedWalk[0], ...frontageWalk] : null;
+  const lengthOf = (points: Point[]) => points.slice(1).reduce((sum, point, i) =>
+    sum + Math.hypot(point.x - points[i].x, point.z - points[i].z), 0);
   const bearingTo = (from: Point, to: Point) =>
     T.MathUtils.radToDeg(Math.atan2(to.x - from.x, from.z - to.z) - data.northOffset);
   function viewPose(view?: { position: number[]; toward: number[] }) {
@@ -253,7 +256,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       }
       const start = splitLineAt(line, surveyedWalk[0]);
       const end = splitLineAt(start.after, surveyedWalk[surveyedWalk.length - 1]);
-      addLine([...start.before, surveyedWalk[0]], shortConnection);
+      if (!frontage) addLine([...start.before, surveyedWalk[0]], shortConnection);
       addLine(surveyedWalk, recorded, surfaceGuide);
       addLine([surveyedWalk[surveyedWalk.length - 1], end.point], shortConnection);
       addLine(end.after, style);
@@ -274,8 +277,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       }, { index: 0, point: driveway[0], distance: Infinity });
       const gate = nearGate.at(-1)!;
       const inside = [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
+      const gateLink = frontage ? [frontage.at(-1)!, gate] : nearGate;
+      const gateLinkM = Math.round(lengthOf(gateLink));
       addLine(nearStation, shortConnection);
-      addLine(nearGate, shortConnection, surfaceGuide);
+      if (frontage) addLine(frontage, aerialTrace, surfaceGuide);
+      addLine(gateLink, shortConnection, surfaceGuide);
       addLine(inside, aerialTrace, surfaceGuide);
       const at = (id: string, name: string, evidence: string, position: Point, toward: Point) => ({
         id, name, evidence, position,
@@ -284,8 +290,9 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       const uphill = profile?.returnSteepest;
       const uphillSample = uphill && profile?.samples[uphill.index];
       return {
-        insideM: Math.round(inside.slice(1).reduce((sum, p, index) =>
-          sum + Math.hypot(p.x - inside[index].x, p.z - inside[index].z), 0)),
+        insideM: Math.round(lengthOf(inside)),
+        frontageM: frontage ? Math.round(lengthOf(frontage)) : null,
+        gateLinkM,
         stops: [
           at('station-exit', '송파역 2번 출구 위치', `역 안내도상 계단 · 지상 엘리베이터는 ${songpaStationAccess.elevator} · 출구에서 보도까지 약 ${songpaHomeLinks.stationExit.lengthM}m 연결 미확인`,
             nearStation[0], nearStation[1]),
@@ -293,7 +300,10 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
             id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
             position: uphillSample.position, bearing: uphillSample.bearing + 180,
           }] : []),
-          at('front-junction', '단지 앞 교차점', `정문 방향 약 ${songpaHomeLinks.gateApproach.lengthM}m · 진입로 횡단보도 양끝의 보도와 단차는 미확인`, nearGate[0], nearGate[1]),
+          frontage ? at('front-junction', '단지 앞 교차점 보도',
+            `${songpaEntrance.capturedIn} 로드뷰에 정문 방향 보도 확인 · 모형 끝에서 정문 앞까지 직선 약 ${gateLinkM}m의 연결과 실제 단차는 확인 필요`,
+            frontage[0], frontage[2])
+            : at('front-junction', '단지 앞 교차점', `정문 방향 약 ${gateLinkM}m · 보도 연결과 단차 미확인`, nearGate[0], nearGate[1]),
           at('main-gate', '정문 접근로', '항공영상의 진입 포장선 참고 · 실제 보행 연결과 개방 여부는 현장 확인',
             data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
           at(inner.id, inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',

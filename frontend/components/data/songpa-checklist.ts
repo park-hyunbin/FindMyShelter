@@ -74,10 +74,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'transit', title: '역·정류장까지 걷기', evidence: 'model',
-        finding: '송파역 2번 출구부터 단지까지 주요 지점을 눈높이에서 볼 수 있어요. 양재대로 남쪽의 가락동부센트레빌아파트 정류소도 서울시 위치와 지도상 보행로를 함께 확인할 수 있어요.',
+        finding: '송파역 2번 출구에서 단지로 돌아오는 길을 눈높이에서 볼 수 있어요. 정문 방향 서쪽 보도는 서울시 자료와 로드뷰를 대조했어요. 양재대로 남쪽 정류소와 지도상 보행로도 확인할 수 있어요.',
         views: [{ target: 'station-home', label: '송파역에서 귀갓길 체험' }, { target: 'bus-route', label: '가락동부센트레빌아파트 정류소 보기' }],
-        followUp: '정문 앞의 보도 연결, 정류소 승차 방향, 출근 시간에 실제 걸린 시간을 확인해 보세요.',
-        sources: [walkingNetwork, { label: '서울시 버스정류소 위치정보', url: songpaBusStop.source }],
+        followUp: '보도에서 정문까지 남은 연결과 단차, 정류소 승차 방향, 출근 시간에 실제 걸린 시간을 확인해 보세요.',
+        sources: [walkingNetwork, { label: '정문 방향 보도 로드뷰', url: songpaEntrance.frontage.roadview },
+          { label: '서울시 버스정류소 위치정보', url: songpaBusStop.source }],
       },
       {
         id: 'slope', title: '언덕길과 귀갓길', evidence: 'model',

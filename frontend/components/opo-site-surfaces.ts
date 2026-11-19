@@ -28,6 +28,7 @@ type ParkingRow = {
 };
 
 export type SurveyedWalk = {
+  id?: string;
   roadId: number;
   side: -1 | 1;
   outline: Coordinate[];
@@ -52,7 +53,7 @@ export type SiteSurfaceLayout = {
   drivewayFinishes?: { outline: Coordinate[]; color: string }[];
   drivewayRoad?: Omit<SurveyedRoad, 'outline'>;
   drivewayJoin?: Coordinate[];
-  roadsideWalks?: { curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
+  roadsideWalks?: { id?: string; curb: Coordinate[]; outward: -1 | 1; width: number; beside?: 'driveway'; finish?: 'planted' }[];
   surveyedWalks?: SurveyedWalk[];
   surveyedRoads?: SurveyedRoad[];
   surveyedJunctions?: Coordinate[][];
@@ -291,20 +292,23 @@ export function addSiteSurfaces(
     for (const deck of facade.stepDecks) add(deck, edging);
     scene.add(facade.exterior);
   }
-  for (const { outline } of layout.surveyedWalks ?? []) {
+  const sidewalkCenterlines = new Map<string, Point[]>();
+  for (const { id, outline, centerline } of layout.surveyedWalks ?? []) {
     const ring = outline.map(data.project);
     const walkGrade = (x: number, z: number) => streetGrade(x, z) + 0.13;
     add(groundPolygon([ring], walkGrade, 0.8, 0), paving, 'pavers');
     add(sidewalkFascia(ring, grade, walkGrade), edging, undefined, false);
+    if (id && centerline?.length) sidewalkCenterlines.set(id, centerline.map(data.project));
   }
-  for (const { curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
+  for (const { id, curb, outward, width, beside, finish: edgeFinish } of layout.roadsideWalks ?? []) {
     const edge = curb.map(data.project);
-    const { top, curb: curbGeometry, fascia } = curbWalk(edge, width, outward, grade,
+    const { top, curb: curbGeometry, fascia, centerline } = curbWalk(edge, width, outward, grade,
       beside === 'driveway' ? drivewayGrade : streetGrade, crossings);
     const planted = edgeFinish === 'planted';
     add(top, planted ? plantedEdge : paving, planted ? 'forest' : 'pavers');
     add(curbGeometry, edging);
     add(fascia, edging, undefined, false);
+    if (id && !planted) sidewalkCenterlines.set(id, centerline);
   }
 
   if (layout.playground) {
@@ -345,7 +349,8 @@ export function addSiteSurfaces(
   }
   if (layout.plantingBeds?.length) {
     const soil = material('#9b8f73', 'forest');
-    const bedLift = 0.25;
+    // The traced soil stays below the render deck even where foliage obscures a paving edge.
+    const bedLift = 0.05;
     const shrubs: ShrubPlacement[] = [];
     for (const { outline, hedge, width, height } of layout.plantingBeds) {
       const ring = outline.map(data.project);
@@ -384,5 +389,5 @@ export function addSiteSurfaces(
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
   const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
-  return { elevation, drivewayElevation, drivewayCenterline, asphaltDecks, parked, fenced };
+  return { elevation, drivewayElevation, drivewayCenterline, sidewalkCenterlines, asphaltDecks, parked, fenced };
 }

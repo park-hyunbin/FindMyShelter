@@ -1036,7 +1036,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       <ul className="walk-legend" aria-label="귀갓길 선 표시">
         <li><i aria-hidden="true" />보도 표기</li>
         <li><i className="walk-gap" aria-hidden="true" />연결 미확인</li>
-        <li><i className="walk-aerial" aria-hidden="true" />항공영상 추정</li>
+        <li><i className="walk-aerial" aria-hidden="true" />영상 대조 · 위치 근사</li>
       </ul>
       <div className="walk-preview-actions">
         <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
@@ -1324,11 +1324,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={songpaStationAccess.elevatorSource} target="_blank" rel="noreferrer">국가철도공단 설치 목록 ({songpaStationAccess.elevatorDate}) ↗</a>
                 <ul className="walk-legend">
                   <li><i className="walk-mapped" aria-hidden="true" />지도상 보도 경로 {route.walkwayM}m · 양재대로60길 일부는 서울시 보도면을 따라 표시</li>
-                  <li><i className="walk-gap" aria-hidden="true" />출구, 정문 앞 약 {songpaHomeLinks.gateApproach.lengthM}m, 보도면 양끝의 연결 미확인</li>
+                  {home.frontageM !== null && <li><i className="walk-aerial" aria-hidden="true" />정문 방향 서쪽 보도 약 {home.frontageM}m · {songpaEntrance.capturedIn} 로드뷰 대조 · 폭과 턱 높이는 근사</li>}
+                  <li><i className="walk-gap" aria-hidden="true" />출구와 보도 끝부분의 연결 미확인{home.frontageM !== null ? ` · 보도 모형 끝에서 정문 앞까지 직선 약 ${home.gateLinkM}m` : ` · 정문 방향 약 ${home.gateLinkM}m`}</li>
                   <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>
                 </ul>
                 <div className="site-actions"><button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button></div>
                 <a href={songpaEntrance.sidewalkGeometry} target="_blank" rel="noreferrer">서울시 보도면 원본 ↗</a>
+                {home.frontageM !== null && <a href={songpaEntrance.frontage.roadview} target="_blank" rel="noreferrer">정문 방향 보도 로드뷰 ↗</a>}
                 <a href={songpaHomeLinks.gateApproach.source} target="_blank" rel="noreferrer">정문 앞 도로 원본 ↗</a>
                 <a href={songpaGrounds.metadata} target="_blank" rel="noreferrer">단지 항공영상 촬영 정보 ↗</a>
               </section>}

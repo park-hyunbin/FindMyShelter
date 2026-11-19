@@ -8,6 +8,11 @@ export const songpaEntrance = {
   roadGeometry: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1L_A0010000.zip',
   sidewalkGeometry: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0033320.zip',
   roadGeometryLabel: '서울특별시 에스맵-오픈랩 데이터',
+  frontage: {
+    id: 'songpa-west-frontage',
+    surveyedWalkId: 'yangjae-west-sidewalk',
+    roadview: 'https://map.kakao.com/link/roadview/37.4981015,127.1170004',
+  },
   main: {
     id: 'main-crossing', name: '정문 접근로',
     position: [127.1169555, 37.4977610] as Coordinate,

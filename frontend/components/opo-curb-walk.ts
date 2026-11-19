@@ -96,5 +96,8 @@ export function curbWalk(
     geometry.computeVertexNormals();
     return geometry;
   };
-  return { top: strips([[2, 3]]), curb: strips([[0, 1], [1, 2]]), fascia: strips([[3, 4]], true) };
+  const centerline = sections.map(([, , inner, outer]) => ({
+    x: (inner.x + outer.x) / 2, z: (inner.z + outer.z) / 2,
+  }));
+  return { top: strips([[2, 3]]), curb: strips([[0, 1], [1, 2]]), fascia: strips([[3, 4]], true), centerline };
 }

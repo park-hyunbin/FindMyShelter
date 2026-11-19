@@ -1,6 +1,6 @@
 import type { SiteSurfaceLayout } from '../opo-site-surfaces';
 import type { PlaygroundLayout } from '../opo-playground';
-import { songpaStreetEdge } from './songpa-entrance';
+import { songpaEntrance, songpaStreetEdge } from './songpa-entrance';
 import { songiParkSurvey } from './songi-park';
 
 export const songpaFacilities = {
@@ -187,6 +187,10 @@ const songpaApproachWest = [
   [127.1170011, 37.4979355], [127.1170199, 37.4978972], [127.1170470, 37.4978800],
   [127.1169980, 37.4978510], [127.1169270, 37.4978150], [127.1168751, 37.4977866],
 ] satisfies Coordinate[];
+// Start at the end of the surveyed sidewalk, then follow the driveway boundary.
+// June 2026 street imagery shows pavers on the west side.
+const songpaPublicWalkJoin: Coordinate = [127.1170050, 37.4981051];
+const songpaPublicWalkEnd: Coordinate = [127.1170140, 37.4980827];
 
 export const songpaJunction = {
   crossingSource: 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0043325.zip',
@@ -447,6 +451,8 @@ export const songpaSurfaceLayout = {
     { buildingId: '55765541', wall: [127.1160945, 37.4976121], path: [127.1160462, 37.4976100], width: 3.10 },
   ],
   roadsideWalks: [
+    { id: songpaEntrance.frontage.id, curb: [songpaPublicWalkJoin, songpaPublicWalkEnd, ...songpaApproachWest.slice(1, 7)],
+      outward: -1, width: 1.55, beside: 'driveway' },
     { curb: songpaStreetEdge, outward: 1, width: 1.55, beside: 'driveway' },
     { curb: songpaWestDriveEdge, outward: -1, width: 1.32, beside: 'driveway' },
     { curb: songpaEastDriveEdge, outward: -1, width: 0.88, beside: 'driveway', finish: 'planted' },
@@ -481,6 +487,7 @@ export const songpaSurfaceLayout = {
   surveyedJunctions: songiParkSurvey.pavement,
   surveyedCrossings: [...songiParkSurvey.crosswalks, ...songpaJunction.crossings, ...songpaGrounds.markings],
   surveyedWalks: [...songiParkSurvey.sidewalks, ...songpaJunction.branchSidewalks, {
+    id: songpaEntrance.frontage.surveyedWalkId,
     roadId: 169916276,
     side: -1,
     // Seoul OpenLab N1A_A0033320, UFID 1000377090304A00310000000000000001.
@@ -489,7 +496,7 @@ export const songpaSurfaceLayout = {
       [127.1164715, 37.4986736], [127.1165756, 37.4985501], [127.1165779, 37.4985483],
       [127.1167014, 37.4984631], [127.1167022, 37.4984625], [127.1167283, 37.4984369],
       [127.1167782, 37.4983789], [127.1169079, 37.4982252], [127.1169732, 37.4981444],
-      [127.1170050, 37.4981051], [127.1170119, 37.4980913], [127.1170140, 37.4980827],
+      songpaPublicWalkJoin, [127.1170119, 37.4980913], songpaPublicWalkEnd,
       [127.1169556, 37.4981329], [127.1168890, 37.4982153], [127.1168668, 37.4982415],
       [127.1167595, 37.4983688], [127.1166903, 37.4984493], [127.1166869, 37.4984532],
       [127.1165859, 37.4985197], [127.1165646, 37.4985336],
