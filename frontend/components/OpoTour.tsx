@@ -10,6 +10,7 @@ import { routeAscent, routeTerrainStep, type RouteTerrainProfile, type RouteTerr
 import { interval, nearSurfaceHeight, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
+import { facadeOffsetM } from './opo-facades';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
@@ -398,6 +399,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [status, setStatus] = useState('');
   const [open, setOpen] = useState(false);
   const [placeCategory, setPlaceCategory] = useState('all');
+  const [facadeId, setFacadeId] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [schoolZoneVisible, setSchoolZoneVisible] = useState(false);
   const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : 'sun');
@@ -627,6 +629,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       return point ? [{ slot, point, profile: world.directionProfile(point, bearing) }] : [];
     });
   }, [world, open, tab, points, bearing]);
+
+  const facade = world?.facades.find(view => view.id === facadeId) ?? world?.facades[0];
+  const facing = useMemo(() => open && tab === 'site' && facade ? world?.buildingAhead(facade) : undefined,
+    [world, facade, tab, open]);
 
   function chooseMode(next: ViewMode) {
     setWinterViewing(false);
@@ -919,6 +925,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         break;
       case 'paving':
       case 'parking':
+      case 'facades':
         pendingAnalysisSection.current = { tab: 'site', selector: `[data-site-card="${target}"]` };
         chooseTab('site');
         break;
@@ -1185,7 +1192,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           const point = points[slot], report = reports[slot];
           const sample = moment[slot];
           const details = nature[slot];
-          return <article key={slot} className={`site-card site-${slot}`}>
+          return <article key={slot} className={`site-card site-${slot}`} tabIndex={-1}>
             <div className="site-row">
               <span className="slot">{slot}</span>
               <select aria-label={`지점 ${slot}`} value={point?.id ?? ''} disabled={!world} onChange={event => {
@@ -1459,6 +1466,46 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               <a href={world.sources.roadMarkings.crosswalks} target="_blank" rel="noreferrer">서울시 횡단보도 도형 ↗</a>
               <a href={world.sources.roadMarkings.inventory} target="_blank" rel="noreferrer">서울시 횡단보도 시설 대장 ↗</a>
             </>}
+          </div>
+        </article>
+        <article className="site-card" data-site-card="facades" tabIndex={-1}>
+          <h3>동별 외벽과 앞 건물</h3>
+          {facade && <label className="facade-select">
+            동과 외벽 방향
+            <select value={facade.id} onChange={event => setFacadeId(event.target.value)}>
+              {songpaComplex.towers.map(({ dong }) => {
+                const sides = world?.facades.filter(view => view.dong === dong);
+                return sides?.length ? <optgroup key={dong} label={dong}>
+                  {sides.map(view => <option key={view.id} value={view.id}>{dong} {view.direction}쪽 · {Math.round(view.bearing) % 360}°</option>)}
+                </optgroup> : null;
+              })}
+            </select>
+          </label>}
+          {facade && facing && <div aria-live="polite">
+            <p>앞 건물 · {facing.nearest ? `${facing.nearest.name} · 직선 약 ${Math.round(facing.nearest.distance)}m`
+              : `이 방향의 건물 자료 범위 약 ${Math.round(facing.range)}m 안에서 미확인`}</p>
+          </div>}
+          <p>건물 윤곽의 외벽 가운데에서 바깥쪽 {facadeOffsetM}m 지점에 서서, 모델 바닥 위 {observationHeight}m 높이에서 봐요. 앞 건물 거리는 그 방향으로 지도 윤곽에 처음 닿는 지점까지예요.</p>
+          <div className="site-actions">
+            <button disabled={!world || !facade} onClick={() => {
+              if (!world || !facade) return;
+              pendingAnalysisSection.current = { tab: 'site', selector: '[data-site-card="facades"]' };
+              lookFromPoint(facade, facade.bearing);
+              setStreet(world.streetStatus());
+              world.focus();
+            }}>이 방향을 눈높이로 보기</button>
+            <button disabled={!world || !facade} onClick={() => {
+              if (!facade) return;
+              chooseMode('orbit');
+              choosePoint('B', facade);
+              pendingAnalysisSection.current = { tab: 'sun', selector: '.site-card.site-B' };
+              chooseTab('sun');
+            }}>이 지점을 일조 비교 B에 넣기</button>
+          </div>
+          <p>공급 141㎡와 170㎡ 기본형 평면도에서 거실과 발코니 배치를 볼 수 있어요. 관심 세대의 창 방향, 층별 채광과 실내 상태는 현장에서 확인해 주세요.</p>
+          <div className="basis">
+            <a href={songpaArchitecture.basicPlans} target="_blank" rel="noreferrer">KB부동산 기본형 평면도 ↗</a>
+            <a href={songpaArchitecture.builder} target="_blank" rel="noreferrer">시공사 가락동 센트레빌 단지 안내 ↗</a>
           </div>
         </article>
         <article className="site-card" data-site-card="paving" tabIndex={-1}>

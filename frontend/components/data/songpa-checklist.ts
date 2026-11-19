@@ -14,7 +14,7 @@ type Source = { label: string; url: string };
 export type ChecklistView = 'complex' | 'sun' | 'winter-walk' | 'winter-capture' | 'horizon' | 'school' | 'places'
   | 'station-home' | 'station-route' | 'station-access' | 'bus-route' | 'park-route' | 'park-profile' | 'park-entry'
   | 'school-route' | 'hospital-route'
-  | 'paving' | 'parking' | 'entrance' | 'garage' | 'ambient' | 'flood';
+  | 'paving' | 'parking' | 'entrance' | 'garage' | 'ambient' | 'flood' | 'facades';
 type Evidence = 'model' | 'document' | 'visit';
 
 type Check = {
@@ -150,8 +150,10 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'interior', title: '세대 내부', evidence: 'visit',
-        finding: '세대 내부 상태는 방문해서 확인할 항목이에요. 이 화면은 주변 건물과 실외 일조를 보여줘요.',
-        followUp: '창 방향과 실제 채광, 창호, 결로·누수, 수압, 층간소음을 확인해 보세요.',
+        finding: '공개 기본형 평면도에서 거실과 발코니 배치를 확인할 수 있어요. 3D에서는 101~105동 외벽 바깥에서 앞 건물과 실외 일조를 비교할 수 있어요.',
+        followUp: '관심 세대의 층과 거실 창 방향, 실제 채광, 창호, 결로·누수, 수압, 층간소음을 확인해 보세요.',
+        views: [{ target: 'facades', label: '동별 외벽과 앞 건물 보기' }],
+        sources: [{ label: 'KB부동산 기본형 평면도', url: songpaArchitecture.basicPlans }],
       },
       {
         id: 'visit-plan', title: '방문 장소·시간 정하기', evidence: 'visit',

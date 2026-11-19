@@ -5,7 +5,8 @@ import { buildingCollision, extent, inShape, nearestOnLine, precinct, type OpoDa
 import { addCourtyard, courtyard, courtyardGarden, courtyardOpening, inCourtyardRing } from './opo-courtyard';
 import { addOpoEntrance } from './opo-entrance';
 import { courtyardStairs } from './opo-garden';
-import { directionProfile } from './opo-horizon';
+import { directionProfile, firstBuildingAhead } from './opo-horizon';
+import { facadeViews, type FacadeView } from './opo-facades';
 import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
 import { addEnvironment, buildMeshes, createTerrainProjection, makeGround } from './opo-meshes';
@@ -662,6 +663,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const point = data.project(coordinate);
     if (canAnalyze(point) && inShape(point, [data.siteOutline])) presets.push({ ...point, id, label });
   }
+  const facades = isOpo ? [] : facadeViews(data, canAnalyze);
+  presets.push(...facades);
 
   function setMode(next: ViewMode) {
     accessEntranceId = null;
@@ -980,6 +983,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
   return {
     presets,
+    facades,
+    buildingAhead: (view: FacadeView) => firstBuildingAhead(data, view, view.bearing),
     destinations,
     tripLength,
     showLightPath,

@@ -9,6 +9,8 @@ export type TowerExterior = {
 export const songpaArchitecture = {
   photos: 'https://hogangnono.com/apt/1Zfb4',
   layout: 'https://m.richgo.ai/api/og/danji-map/a9phoJw',
+  builder: 'https://www.centreville.co.kr/construction/movein_view?seq=24',
+  basicPlans: 'https://kbland.kr/se/c/1953',
   towers: new Map<string, TowerExterior>([
     // Edge indices refer to the ordered outer rings in the current Songpa building dataset.
     ['55765286', { endFaces: [0, 11, 22], numberFaces: [11], roofRadiusM: 4.6 }],

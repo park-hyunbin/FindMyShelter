@@ -376,6 +376,11 @@ h1, h2, p { margin: 0; }
 .place-kind-beauty { background: var(--moon); }
 .place-note { display: grid; gap: 6px; padding: 12px; border-left: 3px solid var(--lilac); background: #23334b; font-size: 11px; }
 .place-note strong { color: var(--moon); }
+.facade-select { display: grid; gap: 5px; color: var(--lilac); }
+.facade-select select {
+  width: 100%; min-height: 36px; padding: 5px 7px; border: 1px solid #70829a;
+  border-radius: 6px; background: var(--night); color: var(--moon);
+}
 
 .analysis { --muted: #b8c7d8; }
 .analysis .date-row input, .analysis .date-row button, .analysis .site-row button,

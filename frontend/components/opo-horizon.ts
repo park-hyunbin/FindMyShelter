@@ -35,6 +35,20 @@ function outlineDistance(origin: Point, direction: Point, rings: Shape) {
   return nearest;
 }
 
+export function firstBuildingAhead(data: Pick<OpoData, 'buildings' | 'northOffset' | 'buildingRadius'>, point: Point, bearing: number) {
+  const angle = bearing * Math.PI / 180 + data.northOffset;
+  const direction = { x: Math.sin(angle), z: -Math.cos(angle) };
+  const range = Math.min(horizonRange, distanceToBuildingCoverage(point, direction, data.buildingRadius));
+  let nearest: { name: string; distance: number } | null = null;
+  for (const building of data.buildings) {
+    for (const rings of building.shapes) {
+      const distance = outlineDistance(point, direction, rings);
+      if (distance <= range && distance < (nearest?.distance ?? Infinity)) nearest = { name: building.dong ?? building.label, distance };
+    }
+  }
+  return { nearest, range };
+}
+
 export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 'heightGaps' | 'buildingRadius'>, roofs: RoofOutline[],
     standingHeight: number, point: Point, bearing: number): DirectionProfile {
   const angle = bearing * Math.PI / 180 + data.northOffset;
