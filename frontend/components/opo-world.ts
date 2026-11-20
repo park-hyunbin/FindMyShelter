@@ -716,7 +716,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     car.visible = next === 'drive';
     greenAccess.marker.children.forEach(part => { part.visible = next === 'orbit'; });
     for (const layer of greenAccess.layers) {
-      layer.group.children.forEach(part => { part.visible = next === 'orbit'; });
+      const slopeOverlays: T.Object3D[] = Object.values(layer.slopeLines);
+      layer.group.children.forEach(part => {
+        if (slopeOverlays.includes(part)) part.position.y = next === 'orbit' ? 0.8 : 0;
+        else part.visible = next === 'orbit';
+      });
     }
     controls.enabled = next === 'orbit' && !selecting;
     if (next === 'orbit') overview();
@@ -1231,10 +1235,12 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
     },
     parkViews,
-    markGreenAccess(id: string | null, index: number) {
-      greenAccess.mark(id, index);
+    markGreenAccess(id: string | null, index: number, direction: Parameters<typeof greenAccess.mark>[2]) {
+      const interval = greenAccess.mark(id, index, mode === 'drive' ? null : direction);
       const sample = greenAccess.layers.find(layer => layer.id === id)?.profile?.samples[index];
-      if (sample) routeTerrainLabel.textContent = `${Math.round(sample.distance)}m · 모델 표고 ${Math.round(sample.elevation)}m`;
+      routeTerrainLabel.dataset.slope = interval ? 'true' : 'false';
+      if (interval) routeTerrainLabel.textContent = `${direction === 'returning' ? '오는 길' : '가는 길'} 오르막 시작 · +${interval.gradient.toFixed(1)}%`;
+      else if (sample) routeTerrainLabel.textContent = `${Math.round(sample.distance)}m · 모델 표고 ${Math.round(sample.elevation)}m`;
     },
     showGreenAccess(id: string | null) {
       const layer = greenAccess.show(id);

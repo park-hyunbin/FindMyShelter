@@ -7,12 +7,19 @@ export type RouteTerrainSample = {
   nearestInputM?: number; contourM?: number;
   gradient: number | null; gradientDistance: number;
 };
+type RouteEdge = { a: Point; b: Point; start: number; end: number; distance: number };
+type SlopeRange = { start: number; end: number; gradient: number; index: number };
+export type RouteSlopeDirection = 'outbound' | 'returning';
+type RouteSlope = SlopeRange & {
+  lines: Point[][];
+  view: Pick<RouteTerrainSample, 'position' | 'bearing'>;
+};
 export type RouteTerrainProfile = {
   length: number;
   samples: RouteTerrainSample[];
   survey?: SurveyedRoute;
-  steepest?: { start: number; end: number; gradient: number; index: number };
-  returnSteepest?: RouteTerrainProfile['steepest'];
+  steepest?: RouteSlope;
+  returnSteepest?: RouteSlope;
 };
 
 export function routeAscent(profile: RouteTerrainProfile) {
@@ -31,7 +38,7 @@ export function routeTerrainProfile(
   survey?: SurveyedRoute,
 ): RouteTerrainProfile {
   let length = 0;
-  const edges = lines.flatMap(line => line.slice(1).flatMap((b, index) => {
+  const edges: RouteEdge[] = lines.flatMap(line => line.slice(1).flatMap((b, index) => {
     const a = line[index];
     const distance = Math.hypot(b.x - a.x, b.z - a.z);
     if (!distance) return [];
@@ -48,13 +55,8 @@ export function routeTerrainProfile(
   for (const [index, distance] of distances.entries()) {
     while (edgeIndex < edges.length - 1 && distance > edges[edgeIndex].end) edgeIndex++;
     const edge = edges[edgeIndex];
-    const fraction = (distance - edge.start) / edge.distance;
-    const position = {
-      x: edge.a.x + (edge.b.x - edge.a.x) * fraction,
-      z: edge.a.z + (edge.b.z - edge.a.z) * fraction,
-    };
-    const bearing = Math.atan2(edge.b.x - edge.a.x, edge.a.z - edge.b.z) * 180 / Math.PI
-      - data.northOffset * 180 / Math.PI;
+    const position = onEdge(edge, distance);
+    const bearing = routeBearing(edge.a, edge.b, data.northOffset);
     const reference = survey?.samples[index];
     samples.push({
       distance, position, bearing, gradient: null, gradientDistance: 0,
@@ -62,7 +64,12 @@ export function routeTerrainProfile(
         : { elevation: data.elevationAt(position.x, position.z), spread: data.spreadAt(position.x, position.z) }),
     });
   }
-  if (survey) return { length, samples, survey, ...summarizeSurveyedSlope(length, samples) };
+  if (survey) {
+    const { steepest, returnSteepest } = summarizeSurveyedSlope(length, samples);
+    return { length, samples, survey,
+      steepest: steepest && locateSlope(edges, steepest, data.northOffset, false),
+      returnSteepest: returnSteepest && locateSlope(edges, returnSteepest, data.northOffset, true) };
+  }
   for (const [index, sample] of samples.entries()) {
     const before = samples[Math.max(0, index - 1)];
     const after = samples[Math.min(samples.length - 1, index + 1)];
@@ -73,6 +80,36 @@ export function routeTerrainProfile(
     }
   }
   return { length, samples };
+}
+
+function onEdge(edge: RouteEdge, distance: number) {
+  if (distance <= edge.start) return edge.a;
+  if (distance >= edge.end) return edge.b;
+  const t = (distance - edge.start) / edge.distance;
+  return { x: edge.a.x + (edge.b.x - edge.a.x) * t, z: edge.a.z + (edge.b.z - edge.a.z) * t };
+}
+
+function routeBearing(from: Point, to: Point, northOffset: number) {
+  return (Math.atan2(to.x - from.x, from.z - to.z) - northOffset) * 180 / Math.PI;
+}
+
+function locateSlope(edges: RouteEdge[], range: SlopeRange, northOffset: number, returning: boolean): RouteSlope {
+  const lines: Point[][] = [];
+  for (const edge of edges) {
+    const from = Math.max(edge.start, range.start), to = Math.min(edge.end, range.end);
+    if (to <= from) continue;
+    const start = onEdge(edge, from), end = onEdge(edge, to);
+    const run = lines.at(-1);
+    const previous = run?.at(-1);
+    if (previous?.x === start.x && previous.z === start.z) run.push(end);
+    else lines.push([start, end]);
+  }
+  if (returning) {
+    lines.reverse();
+    lines.forEach(line => line.reverse());
+  }
+  const [position, ahead] = lines[0];
+  return { ...range, lines, view: { position, bearing: routeBearing(position, ahead, northOffset) } };
 }
 
 function summarizeSurveyedSlope(length: number, samples: RouteTerrainSample[]) {
@@ -89,8 +126,8 @@ function summarizeSurveyedSlope(length: number, samples: RouteTerrainSample[]) {
     sample.gradientDistance = window;
     sample.gradient = (heightAt(start + window) - heightAt(start)) / window * 100;
   }
-  let steepest: RouteTerrainProfile['steepest'];
-  let returnSteepest: RouteTerrainProfile['returnSteepest'];
+  let steepest: SlopeRange | undefined;
+  let returnSteepest: SlopeRange | undefined;
   for (const start of samples.flatMap(({ distance }) => [distance, distance - window])) {
     const end = start + window;
     if (start < 0 || end > length) continue;

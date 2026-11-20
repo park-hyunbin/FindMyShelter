@@ -12,7 +12,7 @@ import { songpaRouteElevation } from './songpa-route-elevation';
 
 type Source = { label: string; url: string };
 export type ChecklistView = 'complex' | 'sun' | 'winter-walk' | 'winter-capture' | 'horizon' | 'school' | 'places'
-  | 'station-home' | 'station-route' | 'station-access' | 'bus-route' | 'park-route' | 'park-profile' | 'park-entry'
+  | 'station-home' | 'station-route' | 'station-access' | 'bus-route' | 'park-route' | 'park-profile' | 'park-entry' | 'station-profile' | 'school-profile'
   | 'school-route' | 'hospital-route'
   | 'paving' | 'parking' | 'entrance' | 'garage' | 'ambient' | 'flood' | 'facades';
 type Evidence = 'model' | 'document' | 'visit';
@@ -85,7 +85,8 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         id: 'slope', title: '언덕길과 귀갓길', evidence: 'model',
         finding: '서울시 수치지형도로 송이공원·송파역·서울신가초 방향의 누적 오르막과 왕복에서 가장 가파른 30m 구간을 볼 수 있어요.',
         followUp: '귀갓길의 가장 가파른 구간은 실제 보도나 경사로에서 확인해 보세요.',
-        views: [{ target: 'park-profile', label: '송이공원 방향 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }],
+        views: [{ target: 'park-profile', label: '송이공원 경로 단면' }, { target: 'station-profile', label: '송파역 경로 단면' },
+          { target: 'school-profile', label: '서울신가초 경로 단면' }, { target: 'horizon', label: '지점별 지형 단면 열기' }],
         sources: [{ label: '서울시 등고선·표고점', url: songpaRouteElevation.source }, terrainGrade],
       },
       {

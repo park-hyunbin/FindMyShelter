@@ -6,7 +6,7 @@ import { courtyardStairs } from './opo-garden';
 import { loadOpoData, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonChartStep, horizonRange, type DirectionProfile } from './opo-horizon';
-import { routeAscent, routeTerrainStep, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
+import { routeAscent, routeTerrainStep, type RouteSlopeDirection, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
 import { interval, nearSurfaceHeight, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
@@ -305,8 +305,9 @@ function TerrainSection({ profiles, onLook }: {
   </div>;
 }
 
-function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
+function RouteTerrain({ profile, selected, direction, startLabel, onSelect, onSlope, onLook }: {
   profile: RouteTerrainProfile; selected: number; startLabel: string; onSelect: (index: number) => void;
+  direction: RouteSlopeDirection | null; onSlope: (direction: RouteSlopeDirection, index: number) => void;
   onLook: (sample: Pick<RouteTerrainSample, 'position' | 'bearing'>) => void;
 }) {
   const sample = profile.samples[selected];
@@ -320,6 +321,7 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
   const difference = profile.samples.at(-1)!.elevation - profile.samples[0].elevation;
   const { outbound, returning } = routeAscent(profile);
   const { survey, steepest, returnSteepest } = profile;
+  const slope = direction === 'outbound' ? steepest : direction === 'returning' ? returnSteepest : undefined;
   const parkEntry = survey?.entranceSample === undefined ? undefined : profile.samples[survey.entranceSample];
   const parkRise = parkEntry ? profile.samples.at(-1)!.elevation - parkEntry.elevation : undefined;
   const step = survey ? songpaRouteElevation.routeStepM : routeTerrainStep;
@@ -328,9 +330,12 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
     <div className="route-terrain-scale"><span>표고 약 {Math.round(maximum)}m</span><span>{step}m 간격 표본</span></div>
     <svg viewBox="0 0 300 80" aria-hidden="true">
       <polygon className="route-terrain-fill" points={`8,75 ${line} 292,75`} />
+      {slope && <rect className="route-slope-band" x={x(slope.start)} y="5" width={x(slope.end) - x(slope.start)} height="70" />}
       <polyline points={line} />
-      <line x1={x(sample.distance)} x2={x(sample.distance)} y1="5" y2="75" />
-      <circle cx={x(sample.distance)} cy={y(sample.elevation)} r="3.3" />
+      {!slope && <>
+        <line x1={x(sample.distance)} x2={x(sample.distance)} y1="5" y2="75" />
+        <circle cx={x(sample.distance)} cy={y(sample.elevation)} r="3.3" />
+      </>}
     </svg>
     <div className="route-terrain-scale"><span>{startLabel} · 0m</span><span>종점 · {Math.round(profile.length).toLocaleString()}m</span></div>
     <label>단면에서 위치 선택
@@ -339,25 +344,33 @@ function RouteTerrain({ profile, selected, startLabel, onSelect, onLook }: {
         onChange={event => onSelect(Number(event.target.value))} />
     </label>
     <dl>
-      <div><dt>출발점부터</dt><dd>{Math.round(sample.distance)}m</dd></div>
-      <div><dt>선택 지형의 표고</dt><dd>약 {Math.round(sample.elevation)}m</dd></div>
-      {sample.gradient !== null && <div><dt>가는 방향 약 {Math.round(sample.gradientDistance)}m 지형 변화율</dt>
-        <dd>{sample.gradient > 0 ? '+' : ''}{sample.gradient.toFixed(1)}%</dd></div>}
-      {sample.spread !== undefined && <div><dt>지형 예측 산포</dt><dd>{sample.spread.toFixed(1)}m</dd></div>}
-      {sample.nearestInputM !== undefined && <div><dt>가장 가까운 계산 입력</dt><dd>약 {Math.round(sample.nearestInputM)}m</dd></div>}
+      {slope ? <div><dt>선택한 30m의 평균 오르막</dt><dd>+{slope.gradient.toFixed(1)}%</dd></div>
+        : <>
+          <div><dt>출발점부터</dt><dd>{Math.round(sample.distance)}m</dd></div>
+          <div><dt>선택 지형의 표고</dt><dd>약 {Math.round(sample.elevation)}m</dd></div>
+          {sample.gradient !== null && <div><dt>가는 방향 약 {Math.round(sample.gradientDistance)}m 지형 변화율</dt>
+            <dd>{sample.gradient > 0 ? '+' : ''}{sample.gradient.toFixed(1)}%</dd></div>}
+          {sample.spread !== undefined && <div><dt>지형 예측 산포</dt><dd>{sample.spread.toFixed(1)}m</dd></div>}
+          {sample.nearestInputM !== undefined && <div><dt>가장 가까운 계산 입력</dt><dd>약 {Math.round(sample.nearestInputM)}m</dd></div>}
+        </>}
       <div><dt>모델 누적 상승</dt><dd>가는 길 약 {Math.round(outbound)}m · 오는 길 약 {Math.round(returning)}m</dd></div>
     </dl>
     <p>종점 지형은 출발 지형보다 약 {Math.round(Math.abs(difference))}m {difference >= 0 ? '높아요' : '낮아요'}.</p>
     {parkEntry && parkRise !== undefined && <p>공원 남쪽 진입부부터 안쪽 보행로까지 약 {Math.round(profile.length - parkEntry.distance)}m 구간에서 모델 지형이 약 {Math.abs(parkRise).toFixed(1)}m {parkRise >= 0 ? '높아져요' : '낮아져요'}.</p>}
     {survey && <div className="site-actions">
-      {steepest && <button onClick={() => onSelect(steepest.index)}>가는 길 오르막 · {Math.round(steepest.start)}~{Math.round(steepest.end)}m · +{steepest.gradient.toFixed(1)}%</button>}
-      {returnSteepest && <button onClick={() => onSelect(returnSteepest.index)}>오는 길 오르막 · 종점부터 {Math.round(profile.length - returnSteepest.end)}~{Math.round(profile.length - returnSteepest.start)}m · +{returnSteepest.gradient.toFixed(1)}%</button>}
+      {steepest && <button aria-pressed={direction === 'outbound'} onClick={() => onSlope('outbound', steepest.index)}>가는 길 오르막 · {Math.round(steepest.start)}~{Math.round(steepest.end)}m · +{steepest.gradient.toFixed(1)}%</button>}
+      {returnSteepest && <button aria-pressed={direction === 'returning'} onClick={() => onSlope('returning', returnSteepest.index)}>오는 길 오르막 · 종점부터 {Math.round(profile.length - returnSteepest.end)}~{Math.round(profile.length - returnSteepest.start)}m · +{returnSteepest.gradient.toFixed(1)}%</button>}
       {profile.samples.map((point, index) => point.contourM !== undefined
-        ? <button key={point.distance} aria-pressed={selected === index} onClick={() => onSelect(index)}>{point.contourM}m 등고선 교차점 · 출발 {Math.round(point.distance)}m</button>
+        ? <button key={point.distance} aria-pressed={!slope && selected === index} onClick={() => onSelect(index)}>{point.contourM}m 등고선 교차점 · 출발 {Math.round(point.distance)}m</button>
         : null)}
     </div>}
-    <button className="route-look" onClick={() => onLook(sample)}>선택 위치 눈높이로 보기 ↗</button>
-    {survey && <button className="route-look" onClick={() => onLook({ position: sample.position, bearing: sample.bearing + 180 })}>오는 방향 눈높이로 보기 ↗</button>}
+    {slope ? <>
+      <p>노란색이 그래프와 3D에 표시된 30m 구간이에요.</p>
+      <button className="route-look" onClick={() => onLook(slope.view)}>오르막 시작점 눈높이로 보기 ↗</button>
+    </> : <>
+      <button className="route-look" onClick={() => onLook(sample)}>선택 위치 눈높이로 보기 ↗</button>
+      {survey && <button className="route-look" onClick={() => onLook({ position: sample.position, bearing: sample.bearing + 180 })}>오는 방향 눈높이로 보기 ↗</button>}
+    </>}
     {survey ? <>
       <p>서울시 1:{songpaRouteElevation.scale.toLocaleString('ko-KR')} 수치지형도의 등고선과 표고점을 삼각망으로 보간했어요. 주변 표고점 {survey.checkedSpots}개를 하나씩 빼고 예측했을 때 평균 절대차는 약 {survey.meanErrorM.toFixed(1)}m였어요.</p>
       <p>실제 보도 경사, 계단·옹벽·교량 단차는 현장 확인이 필요해요.</p>
@@ -407,6 +420,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : 'sun');
   const [accessId, setAccessId] = useState<string | null>(null);
   const [accessSample, setAccessSample] = useState(0);
+  const [accessSlope, setAccessSlope] = useState<RouteSlopeDirection | null>(null);
   const [homeStep, setHomeStep] = useState<number | null>(null);
   const [bearing, setBearing] = useState(0);
   const [satellite, setSatellite] = useState(false);
@@ -543,8 +557,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, open, tab, mode, floodYear, floodView]);
 
   useEffect(() => {
-    world?.markGreenAccess(accessId, accessSample);
-  }, [world, accessId, accessSample, mode]);
+    world?.markGreenAccess(accessId, accessSample, accessSlope);
+  }, [world, accessId, accessSample, accessSlope, mode]);
 
   useEffect(() => {
     world?.showGuidedWalk(guidedAccessId);
@@ -707,7 +721,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (!world) return;
     setHomeStep(null);
     setAccessId(next);
-    if (next !== accessId) setAccessSample(0);
+    if (next !== accessId) {
+      setAccessSample(0);
+      setAccessSlope(null);
+    }
     setSelectedSlot(null);
     setStatus('');
     if (next) {
@@ -747,6 +764,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (!world || !stop) return;
     if (routeId !== accessId || homeStep === null || mode !== 'walk') showAccessRoute(routeId);
     setHomeStep(index);
+    setAccessSlope(stop.id === 'return-uphill' ? 'returning' : null);
     const point = { ...stop.position, label: stop.name };
     lookFromPoint(point, stop.bearing);
     setStreet(world.streetStatus());
@@ -977,8 +995,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         openAccessRoute(songiPark.routeId);
         break;
       case 'park-profile':
+      case 'station-profile':
+      case 'school-profile':
         pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-section="profile"]' };
-        openAccessRoute(songiPark.routeId);
+        openAccessRoute(target === 'park-profile' ? songiPark.routeId : target === 'station-profile' ? songpaStationRouteId : songpaSchool.routeId);
         break;
       case 'hospital-route':
         pendingAnalysisSection.current = { tab: 'nature', selector: '[data-route-section="hospital-entry"]' };
@@ -1401,8 +1421,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={songiParkSurvey.sidewalkSource} target="_blank" rel="noreferrer">서울시 공원 앞 보도면 ↗</a>
                 <a href={songiParkSurvey.crosswalkSource} target="_blank" rel="noreferrer">서울시 송이로·양재대로 횡단보도 도형 ↗</a>
               </div>}
-              {selected && profile && <RouteTerrain profile={profile} selected={accessSample} startLabel={access.startLabel} onSelect={setAccessSample}
-                onLook={lookAtRoutePoint} />}
+              {selected && profile && <RouteTerrain profile={profile} selected={accessSample} direction={accessSlope} startLabel={access.startLabel}
+                onSelect={index => { setAccessSample(index); setAccessSlope(null); }}
+                onSlope={(direction, index) => { setAccessSample(index); setAccessSlope(direction); }} onLook={lookAtRoutePoint} />}
             </div>;
           })}
         </section>

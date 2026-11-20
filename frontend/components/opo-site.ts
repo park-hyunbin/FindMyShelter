@@ -5,7 +5,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { nearestOnLine, splitLineAt, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon, type createTerrainProjection } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
-import { routeTerrainProfile } from './opo-route-profile';
+import { routeTerrainProfile, type RouteSlopeDirection } from './opo-route-profile';
 import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
 import { songpaGrounds, songpaPlayground } from './data/songpa-grounds';
@@ -186,6 +186,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const aerialTrace = data.region === 'songpa' ? new LineMaterial({ color: '#8e69d5', linewidth: 4.3 }) : null;
   const shortConnection = data.region === 'songpa'
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
+  const gradeLine = data.region === 'songpa'
+    ? new LineMaterial({ color: '#f8d78b', linewidth: 7, depthWrite: false }) : null;
   const routes = visitRoutes[data.region].routes;
   const surveyedWalk = site.paving?.sidewalkCenterlines.get(songpaEntrance.frontage.surveyedWalkId);
   const frontageWalk = site.frontage;
@@ -217,7 +219,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     const routePoints: T.Vector3[] = [];
     group.visible = false;
     group.add(lines, pavingGuides);
-    function addLine(points: Point[], style: LineMaterial, surface?: (point: Point) => number) {
+    function addLine(points: Point[], style: LineMaterial, surface?: (point: Point) => number,
+      destination = surface ? pavingGuides : lines) {
       if (points.length < 2) return;
       const vertices: number[] = [];
       function vertex(x: number, z: number) {
@@ -236,11 +239,27 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       }
       const line = new Line2(new LineGeometry().setPositions(vertices), style);
       line.computeLineDistances();
-      (surface ? pavingGuides : lines).add(line);
+      destination.add(line);
       return line;
     }
     const traceLift = 0.10;
     const surfaceGuide = ({ x, z }: Point) => (standingSurface?.(x, z) ?? grade(x, z)) + traceLift;
+    const slopeLines: Partial<Record<RouteSlopeDirection, T.Group>> = {};
+    if (gradeLine && profile?.survey) {
+      const windows = { outbound: profile.steepest, returning: profile.returnSteepest } as const;
+      for (const direction of ['outbound', 'returning'] as const) {
+        const slope = windows[direction];
+        if (!slope) continue;
+        const highlight = new T.Group();
+        highlight.visible = false;
+        for (const line of slope.lines) {
+          const segment = addLine(line, gradeLine, point => surfaceGuide(point) + 0.09, highlight);
+          if (segment) segment.renderOrder = 4;
+        }
+        slopeLines[direction] = highlight;
+        group.add(highlight);
+      }
+    }
     const parkGuide = route.parkEntrance && shortConnection;
     function addRouteLeg(points: Point[], style: LineMaterial) {
       if (stationTrace && shortConnection && points.length > 1) {
@@ -313,14 +332,13 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         bearing: bearingTo(position, toward),
       });
       const uphill = profile?.returnSteepest;
-      const uphillSample = uphill && profile?.samples[uphill.index];
       const elevator = data.project(songpaStationAccess.elevatorLocation.coordinate);
       const elevatorFrom = data.project(songpaStationAccess.elevatorLocation.viewFrom);
       const intermediate = [];
-      if (uphill && uphillSample) intermediate.push({
-        distance: uphillSample.distance,
+      if (uphill) intermediate.push({
+        distance: uphill.end,
         id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
-        position: uphillSample.position, bearing: uphillSample.bearing + 180,
+        ...uphill.view,
       });
       if (stationTrace) intermediate.push({
         distance: stationTrace.view.distance,
@@ -389,7 +407,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       routePoints.push(entranceLabel);
     }
     scene.add(group);
-    return { id: route.id, name: route.name, group, lines, pavingGuides, bounds, endpoint, entranceLabel, entranceView, routePoints, profile,
+    return { id: route.id, name: route.name, group, lines, pavingGuides, slopeLines, bounds, endpoint, entranceLabel, entranceView, routePoints, profile,
       crossingView: viewPose(route.crossingView), stopView: viewPose(route.stopView), homeWalk };
   });
   const marker = new T.Group();
@@ -407,14 +425,23 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     layers,
     marker,
     markerLabelPoint,
-    mark(id: string | null, index: number) {
+    mark(id: string | null, index: number, direction: RouteSlopeDirection | null) {
       const layer = layers.find(layer => layer.id === id);
       const sample = layer?.profile?.samples[index];
-      marker.visible = Boolean(layer?.group.visible && sample);
-      if (!sample || !marker.visible) return;
-      const { x, z } = sample.position;
+      for (const item of layers) {
+        for (const [key, highlight] of Object.entries(item.slopeLines)) {
+          highlight.visible = item === layer && item.group.visible && key === direction;
+        }
+      }
+      const interval = direction === 'outbound' ? layer?.profile?.steepest
+        : direction === 'returning' ? layer?.profile?.returnSteepest : undefined;
+      const position = interval?.view.position ?? sample?.position;
+      marker.visible = Boolean(layer?.group.visible && position);
+      if (!position || !marker.visible) return;
+      const { x, z } = position;
       marker.position.set(x, data.ground(x, z) + 1.6, z);
       markerLabelPoint.copy(marker.position).add(new T.Vector3(0, 24, 0));
+      return interval;
     },
     show(id: string | null) {
       for (const layer of layers) layer.group.visible = layer.id === id;
