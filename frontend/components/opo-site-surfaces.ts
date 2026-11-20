@@ -46,6 +46,7 @@ type SurveyedRoad = {
   nodes: [from: number, to: number];
   outline: Coordinate[];
   axis: { nodeId: number; coordinate: Coordinate }[];
+  endEdge?: [Coordinate, Coordinate];
 };
 
 export type SiteSurfaceLayout = {

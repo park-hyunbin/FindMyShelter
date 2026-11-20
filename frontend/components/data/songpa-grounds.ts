@@ -540,6 +540,7 @@ export const songpaSurfaceLayout = {
   drivewayRoad: {
     roadId: 169916279,
     nodes: [1810741885, 1810741872],
+    endEdge: [southPavingWest.at(-1)!, southPavingEast[0]],
     axis: [
       { nodeId: 1810741895, coordinate: [127.1168628, 37.4977471] },
       { nodeId: 1810741912, coordinate: [127.1166735, 37.4975590] },
