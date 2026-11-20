@@ -3,6 +3,7 @@ import opo from '../../public/opo-green-access.json';
 import songpa from '../../public/datasets/regions/songpa/access.json';
 import hospital from '../../public/datasets/regions/songpa/hospital-entrance.json';
 import busStop from '../../public/datasets/regions/songpa/bus-stop.json';
+import stationElevator from '../../public/datasets/regions/songpa/station-elevator.json';
 
 export const songpaHospital = hospital;
 export const songpaBusStop = busStop;
@@ -17,6 +18,7 @@ export const songpaStationAccess = {
   guideSource: 'https://www.data.go.kr/data/15004974/fileData.do',
   elevatorDate: '2025-06-30',
   elevatorSource: 'https://www.data.go.kr/data/15041396/fileData.do',
+  elevatorLocation: stationElevator,
 };
 
 type AccessRoute = {

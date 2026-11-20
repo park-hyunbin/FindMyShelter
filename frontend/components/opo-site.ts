@@ -282,7 +282,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       const inside = frontage ? [gate, arrival] : [gate, ...driveway.slice(0, join.index + 1), join.point, arrival];
       const gateLinkM = Math.round(lengthOf(gateLink));
       const frontageFocus = frontage?.find(point => Math.hypot(point.x - frontage[0].x, point.z - frontage[0].z) >= 4);
-      addLine(nearStation, shortConnection);
+      addLine(nearStation, recorded, surfaceGuide);
       if (frontage) addLine(frontage, aerialTrace, surfaceGuide);
       addLine(gateLink, shortConnection, surfaceGuide);
       addLine(inside, aerialTrace, surfaceGuide);
@@ -292,12 +292,18 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       });
       const uphill = profile?.returnSteepest;
       const uphillSample = uphill && profile?.samples[uphill.index];
+      const elevator = data.project(songpaStationAccess.elevatorLocation.coordinate);
+      const elevatorFrom = data.project(songpaStationAccess.elevatorLocation.viewFrom);
       return {
         insideM: Math.round(lengthOf(inside)),
         frontageM: frontage ? Math.round(lengthOf(frontage)) : null,
         gateLinkM,
+        elevator: {
+          position: elevatorFrom, bearing: bearingTo(elevatorFrom, elevator),
+          target: new T.Vector3(elevator.x, surfaceGuide(elevator) + 2.2, elevator.z),
+        },
         stops: [
-          at('station-exit', '송파역 2번 출구 위치', `역 안내도상 계단 · 지상 엘리베이터는 ${songpaStationAccess.elevator} · 출구에서 보도까지 약 ${songpaHomeLinks.stationExit.lengthM}m 연결 미확인`,
+          at('station-exit', '송파역 2번 출구 위치', `역 안내도상 계단 · 출구 앞 약 ${songpaHomeLinks.stationExit.lengthM}m는 서울시 보도면 안 · 실제 턱과 통행 폭은 현장 확인`,
             nearStation[0], nearStation[1]),
           ...(uphill && uphillSample ? [{
             id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,

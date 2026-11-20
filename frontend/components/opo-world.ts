@@ -602,6 +602,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         enabled: () => layer.group.visible && mode === 'walk' && accessEntranceId === layer.id });
     }
     const arrival = layer.homeWalk?.stops.at(-1);
+    if (layer.homeWalk) {
+      const elevator = document.createElement('span');
+      elevator.className = 'building-label access-label';
+      elevator.textContent = '송파역 지상 엘리베이터 · 서울시 지도 위치';
+      elevator.hidden = true;
+      host.appendChild(elevator);
+      labels.push({ point: layer.homeWalk.elevator.target, element: elevator, limit: 32,
+        enabled: () => layer.group.visible && mode === 'walk' });
+    }
     if (arrival) {
       const mark = document.createElement('span');
       mark.className = 'building-label access-label';

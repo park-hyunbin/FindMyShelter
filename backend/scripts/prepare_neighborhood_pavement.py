@@ -102,6 +102,8 @@ def main():
     parser.add_argument("roads", type=Path)
     parser.add_argument("sidewalks", type=Path)
     parser.add_argument("--radius", type=float, default=250, help="Clipping distance from the complex boundary in metres")
+    parser.add_argument("--anchor", type=float, nargs=3, action="append", default=[],
+                        metavar=("LON", "LAT", "METRES"), help="Include surveyed pavement near a route destination")
     args = parser.parse_args()
     folder = DATA / args.region
     site = json.loads((folder / "site.geojson").read_text(encoding="utf-8"))
@@ -112,7 +114,11 @@ def main():
     if boundary.is_empty or args.radius <= 0:
         parser.error("A polygonal complex boundary and a positive radius are required")
     graph = json.loads((folder / "streets.json").read_text(encoding="utf-8"))
-    window = boundary.buffer(args.radius)
+    if any(not (-180 <= lon <= 180 and -90 < lat < 90 and radius > 0) for lon, lat, radius in args.anchor):
+        parser.error("Each anchor requires longitude, latitude and a positive radius")
+    window = unary_union([boundary.buffer(args.radius), *(
+        Point(*TO_METRES(lon, lat)).buffer(radius) for lon, lat, radius in args.anchor
+    )])
     roads, road_source = extract(args.roads, ROAD_LAYER, window)
     sidewalks, walk_source = extract(args.sidewalks, WALK_LAYER, window)
     # The city's broad road surface includes mapped pedestrian surfaces.
@@ -122,6 +128,8 @@ def main():
         "roads": export_polygons(driveway), "sidewalks": export_polygons(sidewalks),
         "coveredSegments": covered_segments(graph, driveway),
     }
+    if args.anchor:
+        result["additionalCoverage"] = [{"coordinate": [lon, lat], "radiusM": radius} for lon, lat, radius in args.anchor]
     (folder / "pavement.json").write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
     print(f"{len(road_source['sourceIds'])} road / {len(walk_source['sourceIds'])} sidewalk sources, "
           f"{len(result['coveredSegments'])} graph segments with measured pavement")

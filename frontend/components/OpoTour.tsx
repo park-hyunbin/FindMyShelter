@@ -1321,16 +1321,28 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               {home && <section className="route-terrain return-walk" tabIndex={-1} aria-label="송파역에서 단지로 돌아오는 길">
                 <strong>송파역에서 정문과 단지 안까지</strong>
                 <p><b>{songpaStationAccess.exit}</b>는 체험 시작점이에요. 서울교통공사 안내도에 계단과 자전거 경사로가 표시돼 있어요.</p>
-                <p><b>엘리베이터</b>는 {songpaStationAccess.elevator}에 있어요. {songpaStationAccess.elevatorFloors}을 연결해요. 현재 가동 여부와 지상 보도 연결은 현장에서 확인해 주세요.</p>
+                <p><b>엘리베이터</b>는 {songpaStationAccess.elevator}에서 {songpaStationAccess.elevatorFloors}을 연결해요. 서울시 좌표를 보도 위에 표시했어요. 가동 여부와 승강기 문 앞 단차는 현장에서 확인해 주세요.</p>
                 <a href={songpaStationAccess.guide} target="_blank" rel="noreferrer">서울교통공사 송파역 안내도 ({songpaStationAccess.guideDate}) ↗</a>
                 <a href={songpaStationAccess.elevatorSource} target="_blank" rel="noreferrer">국가철도공단 설치 목록 ({songpaStationAccess.elevatorDate}) ↗</a>
+                <a href={songpaStationAccess.elevatorLocation.source} target="_blank" rel="noreferrer">서울시 엘리베이터 위치 ({songpaStationAccess.elevatorLocation.sourceYear}년 기준) ↗</a>
                 <ul className="walk-legend">
                   <li><i className="walk-mapped" aria-hidden="true" />지도상 보도 경로 {route.walkwayM}m · 양재대로60길 일부는 서울시 보도면을 따라 표시</li>
+                  <li><i className="walk-mapped" aria-hidden="true" />2번 출구 앞 약 {songpaHomeLinks.stationExit.lengthM}m · 같은 서울시 보도면 안에 위치</li>
                   {home.frontageM !== null && <li><i className="walk-aerial" aria-hidden="true" />정문 블록 포장까지 서쪽 보도 약 {home.frontageM}m · {songpaEntrance.capturedIn} 로드뷰 대조 · 폭과 턱 높이는 근사</li>}
-                  <li><i className="walk-gap" aria-hidden="true" />역 출구 쪽과 정문 {home.frontageM !== null ? `차단기 옆 약 ${home.gateLinkM}m 구간의 실제 보행 연결 미확인` : `방향 약 ${home.gateLinkM}m의 연결 미확인`}</li>
+                  <li><i className="walk-gap" aria-hidden="true" />정문 {home.frontageM !== null ? `차단기 옆 약 ${home.gateLinkM}m 구간의 실제 보행 연결 미확인` : `방향 약 ${home.gateLinkM}m의 연결 미확인`}</li>
                   <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>
                 </ul>
-                <div className="site-actions"><button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button></div>
+                <div className="site-actions">
+                  <button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button>
+                  <button type="button" onClick={() => {
+                    if (!world) return;
+                    if (!selected) showAccessRoute(route.id);
+                    setHomeStep(null);
+                    lookAtRoutePoint(home.elevator);
+                    setStreet(world.streetStatus());
+                    world.focus();
+                  }}>지상 엘리베이터 위치 보기</button>
+                </div>
                 <a href={songpaEntrance.sidewalkGeometry} target="_blank" rel="noreferrer">서울시 보도면 원본 ↗</a>
                 {home.frontageM !== null && <a href={songpaEntrance.frontage.roadview} target="_blank" rel="noreferrer">정문 방향 보도 로드뷰 ↗</a>}
                 <a href={songpaHomeLinks.gateApproach.source} target="_blank" rel="noreferrer">정문 앞 도로 원본 ↗</a>

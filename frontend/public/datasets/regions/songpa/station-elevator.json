@@ -1,0 +1,10 @@
+{
+  "source": "https://data.seoul.go.kr/dataList/OA-21212/S/1/datasetView.do",
+  "sourceYear": 2020,
+  "checkedOn": "2026-11-20",
+  "nodeId": 21236,
+  "stationCode": 206,
+  "coordinate": [127.11274757857919, 37.499504154508294],
+  "viewFrom": [127.112725001, 37.499531206],
+  "sidewalkUfid": "1000377090303A00310000000000000015"
+}

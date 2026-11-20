@@ -30,7 +30,7 @@ const gateApproachNode = 1810741895;
 const destinations = [
   {
     id: 'songpa-station', name: '송파역 2번 출구 인근', node: 10911566248, reference: 3401171608,
-    endLabel: '출구 인근 보행 겸용로 · 출구까지 마지막 연결 미확인',
+    endLabel: '2번 출구 앞 보행로 · 실제 통행 폭과 턱은 현장 확인',
     referenceSource: 'https://www.openstreetmap.org/node/3401171608',
   },
   {
