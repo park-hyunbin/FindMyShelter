@@ -13,7 +13,12 @@ type Station = {
 export type AmbientMoment = { day: string; hour: number };
 export const ambientArchive: { start: string; end: string; minute: number; stations: Station[] } = archive;
 export const ambientDays = Object.keys(ambientArchive.stations[0].days);
-export const defaultAmbientMoment = { day: ambientDays[5], hour: 22 };
+const weekday = (day: string) => new Date(day).getUTCDay();
+export const ambientDayGroups = [
+  { label: '평일', days: ambientDays.filter(day => weekday(day) >= 1 && weekday(day) <= 5) },
+  { label: '주말', days: ambientDays.filter(day => weekday(day) === 0 || weekday(day) === 6) },
+];
+export const defaultAmbientMoment = { day: ambientDays.filter(day => weekday(day) === 6).at(-1) ?? ambientArchive.end, hour: 22 };
 export const ambientFixtures: readonly { id: string; kind: 'road' | 'security'; coordinate: number[] }[] =
   lights.fixtures.filter((fixture): fixture is typeof fixture & { kind: 'road' | 'security' } =>
     fixture.kind === 'road' || fixture.kind === 'security');
@@ -44,4 +49,14 @@ export function ambientTime(hour: number) {
 
 export function ambientStationDistance(distanceM: number) {
   return `약 ${Math.round(distanceM / 10) * 10}m`;
+}
+
+export function ambientRange(station: Station, days: string[], hour: number, metric: 0 | 1) {
+  const values = days.flatMap(day => {
+    const value = station.days[day]?.[hour]?.[metric];
+    return value == null ? [] : [value];
+  });
+  if (!values.length) return { range: null, count: 0 };
+  const low = Math.min(...values), high = Math.max(...values);
+  return { range: low === high ? String(low) : `${low}–${high}`, count: values.length };
 }

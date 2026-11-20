@@ -418,6 +418,8 @@ h1, h2, p { margin: 0; }
 .ambient-readings thead th { font-size: 10px; color: var(--muted); }
 .ambient-readings tbody th { color: var(--glow); }
 .ambient-readings small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
+.ambient-ranges td { white-space: normal; vertical-align: top; }
+.ambient-ranges td div + div { margin-top: 6px; }
 .building-label.school-map-label { border-color: #bacbff; background: #263350; color: #e8eeff; }
 .building-label.school-map-site { border-color: #70ead1; background: #183f41; color: #cbfff3; }
 .school-zone-card h3 { margin: 0; font-size: 16px; color: var(--moon); }
