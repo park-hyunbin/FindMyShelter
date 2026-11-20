@@ -14,7 +14,7 @@ import { facadeOffsetM } from './opo-facades';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
-import { regions, songpaComplex, type RegionId } from './data/regions';
+import { regions, seoulBiotopeSource, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFacilities, songpaFrontage, songpaGrounds, songpaJunction, songpaManagementFees, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
@@ -1715,7 +1715,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     <footer className="credits">
       <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap / OpenMapTiles</a> · <a href="https://zenodo.org/records/15689805" target="_blank" rel="noreferrer">GEDTM30 · Ho &amp; Hengl (CC BY 4.0)</a> · 실외 모델 추정
       {region === 'opo' && <> · <a href="https://registry.opendata.aws/sentinel-2-l2a-cogs/" target="_blank" rel="noreferrer">{satelliteMetadata.attribution}</a></>}
-      {region === 'songpa' && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel}</a></>}
+      {region === 'songpa' && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel}</a>
+        {' · '}<a href={seoulBiotopeSource} target="_blank" rel="noreferrer">서울시 도시생태현황도 2025</a></>}
     </footer>
   </main>;
 }

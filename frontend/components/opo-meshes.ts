@@ -470,6 +470,19 @@ export function addEnvironment(data: OpoData, scene: T.Scene, terrain: ReturnTyp
   surfaceOverlays.add(landCoverOverlays);
   scene.add(surfaceOverlays, vegetation);
   const surface = (x: number, z: number) => terrainSurface(data.ground, x, z);
+  for (const rings of data.neighborhoodPlanting) {
+    // Keep the survey base below detailed park, courtyard and pavement surfaces.
+    const geometry = terrain ? terrain.area(rings, 0.012) : groundPolygon(rings, surface, 12, 0.012);
+    if (!geometry.getAttribute('position')?.count) {
+      geometry.dispose();
+      continue;
+    }
+    if (finish) surfaceUV(geometry, 'grass');
+    const mesh = new T.Mesh(geometry, materials.grass);
+    mesh.receiveShadow = true;
+    landCoverOverlays.add(mesh);
+    greens.push(rings);
+  }
   let seed = 48961;
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   for (const feature of data.features) {

@@ -75,6 +75,7 @@ type PavementFile = {
   sidewalks: Position[][][];
   coveredSegments: [roadId: number, startNode: number, intervals: [from: number, to: number][]][];
 };
+type NeighborhoodPlantingFile = { patches: Position[][][] };
 
 export type Environment = EnvironmentProperties & { lines: Point[][]; shapes: Shape[] };
 export type OpoData = Awaited<ReturnType<typeof loadOpoData>>;
@@ -137,7 +138,7 @@ function regionalStreets(features: Environment[]): Street[] {
 export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo') {
   const area = regions.find(r => r.id === region)!;
   const empty = {type: 'FeatureCollection' as const, features: []};
-  const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings, pavement] = await Promise.all([
+  const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings, pavement, planting] = await Promise.all([
     loadBuildingDataset(region, signal),
     json<EnvironmentFile>(area.environment, signal),
     json<TerrainFile>(area.terrain, signal),
@@ -148,6 +149,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     area.neighborhoodTerrain ? json<NeighborhoodTerrain>(area.neighborhoodTerrain, signal) : Promise.resolve(null),
     area.roadMarkings ? json<StreetPaintFile>(area.roadMarkings, signal) : Promise.resolve(null),
     area.pavement ? json<PavementFile>(area.pavement, signal) : Promise.resolve(null),
+    area.planting ? json<NeighborhoodPlantingFile>(area.planting, signal) : Promise.resolve(null),
   ]);
   const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
@@ -327,6 +329,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id));
   return { region, area, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
     features, siteRoads, siteOutline, project, northOffset, buildingRadius, streets, streetPoints, parking,
+    neighborhoodPlanting: planting?.patches.map(toShape) ?? [],
     treeCover: region === 'opo' ? treeCover : null,
     streetSource: neighborhood?.metadata.source ?? environment.metadata.tile_source,
     buildingRegister: region === 'opo' ? { ...register, towers: registerRows.sort((a, b) => a.dong.localeCompare(b.dong)) } : null,

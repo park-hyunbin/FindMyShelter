@@ -1285,7 +1285,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     environmentAt(point: Point) {
       const water = nearestOnLine(point, environment.waters).distance;
       const green = environment.greens.some(shape => inShape(point, shape)) ? 0
-        : nearestOnLine(point, environment.greens.map(shape => [...shape[0], shape[0][0]])).distance;
+        : nearestOnLine(point, environment.greens.flatMap(shape => shape.map(ring => [...ring, ring[0]]))).distance;
       return { water, green, elevation: data.elevationAt(point.x, point.z), spread: data.spreadAt(point.x, point.z) };
     },
     directionProfile(point: Point, bearing: number) {
