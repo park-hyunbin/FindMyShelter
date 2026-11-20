@@ -2,6 +2,7 @@ import type { SiteSurfaceLayout } from '../opo-site-surfaces';
 import type { PlaygroundLayout } from '../opo-playground';
 import { songpaEntrance, songpaStreetEdge } from './songpa-entrance';
 import { songiParkSurvey } from './songi-park';
+import { songpaStationCrossings } from './visit-routes';
 import streetTreeArchive from '../../public/datasets/regions/songpa/street-trees.json';
 import courtyardWalkArchive from '../../public/datasets/regions/songpa/courtyard-walks.json';
 
@@ -589,7 +590,17 @@ export const songpaSurfaceLayout = {
     ],
   }, songpaJunction.branch],
   surveyedJunctions: songiParkSurvey.pavement,
-  surveyedCrossings: [...songiParkSurvey.crosswalks, ...songpaJunction.crossings, songpaGateMarking, ...songpaGrounds.markings],
+  surveyedCrossings: [
+    ...songiParkSurvey.crosswalks,
+    ...songpaJunction.crossings,
+    ...songpaStationCrossings.crossings.map(({ start, end, outline }) => ({
+      start: [start[0], start[1]] as Coordinate,
+      end: [end[0], end[1]] as Coordinate,
+      outline: outline.map(([lng, lat]): Coordinate => [lng, lat]),
+    })),
+    songpaGateMarking,
+    ...songpaGrounds.markings,
+  ],
   surveyedWalks: [...songiParkSurvey.sidewalks, ...songpaJunction.branchSidewalks, {
     id: songpaEntrance.frontage.surveyedWalkId,
     roadId: 169916276,

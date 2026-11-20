@@ -4,11 +4,13 @@ import songpa from '../../public/datasets/regions/songpa/access.json';
 import hospital from '../../public/datasets/regions/songpa/hospital-entrance.json';
 import busStop from '../../public/datasets/regions/songpa/bus-stop.json';
 import stationElevator from '../../public/datasets/regions/songpa/station-elevator.json';
+import stationCrossings from '../../public/datasets/regions/songpa/station-crossings.json';
 
 export const songpaHospital = hospital;
 export const songpaBusStop = busStop;
 export const songpaHomeLinks = songpa.homeLinks;
 export const songpaStationRouteId = 'songpa-station';
+export const songpaStationCrossings = stationCrossings;
 export const songpaStationAccess = {
   exit: '2번 출구',
   elevator: '1·2번 출구 사이',

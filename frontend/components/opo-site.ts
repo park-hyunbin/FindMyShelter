@@ -6,7 +6,7 @@ import { nearestOnLine, splitLineAt, type OpoData, type Point } from './opo-data
 import { groundPolygon, ribbon } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
-import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationRouteId, visitRoutes } from './data/visit-routes';
+import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
 import { songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
@@ -202,6 +202,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const layers = routes.map(route => {
     const projected = route.segments.map(segment => segment.coordinates.map(data.project));
     const stationRoute = route.id === songpaStationRouteId || route.variantOf === songpaStationRouteId;
+    const stationTrace = route.id === songpaStationRouteId ? songpaStationCrossings : undefined;
     const endpoint = data.project(route.end);
     const surveyedEntrance = route.id === songpaHospital.routeId ? data.project(songpaHospital.coordinate) : null;
     const survey = data.region === 'songpa' ? surveyedRoute(route.id, route.segments.flatMap(segment => segment.coordinates)) : undefined;
@@ -238,6 +239,23 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     const traceLift = 0.10;
     const surfaceGuide = ({ x, z }: Point) => (standingSurface?.(x, z) ?? grade(x, z)) + traceLift;
     const parkGuide = route.parkEntrance && shortConnection;
+    function addRouteLeg(points: Point[], style: LineMaterial) {
+      if (stationTrace && shortConnection && points.length > 1) {
+        const from = data.project(stationTrace.from);
+        const to = data.project(stationTrace.to);
+        const start = splitLineAt(points, from);
+        const end = splitLineAt(start.after, to);
+        if (lengthOf([from, start.point]) <= 0.2 && lengthOf([to, end.point]) <= 0.2) {
+          addLine([...start.before.slice(0, -1), from], style, surfaceGuide);
+          for (const leg of stationTrace.legs) {
+            addLine(leg.coordinates.map(data.project), leg.confirmed ? recorded : shortConnection, surfaceGuide);
+          }
+          addLine([to, ...end.after.slice(1)], style, surfaceGuide);
+          return;
+        }
+      }
+      addLine(points, style);
+    }
     route.segments.forEach((segment, index) => {
       const line = projected[index];
       const style = segment.mappedWalkway ? recorded : unconfirmed;
@@ -253,15 +271,15 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         return;
       }
       if (index !== 0 || !stationRoute || !shortConnection || !surveyedWalk?.length) {
-        addLine(line, style);
+        addRouteLeg(line, style);
         return;
       }
       const start = splitLineAt(line, surveyedWalk[0]);
       const end = splitLineAt(start.after, surveyedWalk[surveyedWalk.length - 1]);
       if (!frontage) addLine([...start.before, surveyedWalk[0]], shortConnection);
       addLine(surveyedWalk, recorded, surfaceGuide);
-      addLine([surveyedWalk[surveyedWalk.length - 1], end.point], shortConnection);
-      addLine(end.after, style);
+      addLine([surveyedWalk[surveyedWalk.length - 1], end.point], shortConnection, stationTrace ? surfaceGuide : undefined);
+      addRouteLeg(end.after, style);
     });
     if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection, surfaceGuide);
     const driveway = site.paving?.drivewayCenterline;
@@ -294,6 +312,18 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       const uphillSample = uphill && profile?.samples[uphill.index];
       const elevator = data.project(songpaStationAccess.elevatorLocation.coordinate);
       const elevatorFrom = data.project(songpaStationAccess.elevatorLocation.viewFrom);
+      const intermediate = [];
+      if (uphill && uphillSample) intermediate.push({
+        distance: uphillSample.distance,
+        id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
+        position: uphillSample.position, bearing: uphillSample.bearing + 180,
+      });
+      if (stationTrace) intermediate.push({
+        distance: stationTrace.view.distance,
+        ...at('yangjae-crossing', '양재대로 횡단보도', '서울시 횡단보도 도형 · 신호 대기와 보도 턱은 현장 확인',
+          data.project(stationTrace.view.position), data.project(stationTrace.view.toward)),
+      });
+      intermediate.sort((a, b) => b.distance - a.distance);
       return {
         insideM: Math.round(lengthOf(inside)),
         frontageM: frontage ? Math.round(lengthOf(frontage)) : null,
@@ -305,10 +335,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         stops: [
           at('station-exit', '송파역 2번 출구 위치', `역 안내도상 계단 · 출구 앞 약 ${songpaHomeLinks.stationExit.lengthM}m는 서울시 보도면 안 · 실제 턱과 통행 폭은 현장 확인`,
             nearStation[0], nearStation[1]),
-          ...(uphill && uphillSample ? [{
-            id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
-            position: uphillSample.position, bearing: uphillSample.bearing + 180,
-          }] : []),
+          ...intermediate,
           frontage ? at('front-junction', '단지 앞 교차점 보도',
             `${songpaEntrance.capturedIn} 로드뷰에서 정문 블록 포장까지 보도 확인 · 실제 폭과 턱 높이는 현장 확인`,
             frontage[0], frontageFocus ?? frontage.at(-1)!)
@@ -323,8 +350,9 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     for (const crossing of route.crossings ?? []) {
       const parkCrossing = parkGuide && (crossing.wayId === 544143915 ? songiParkSurvey.crosswalks[0]
         : crossing.wayId === 544143913 ? songiParkSurvey.crosswalks[1] : undefined);
-      const a = data.project(parkCrossing ? parkCrossing.start : crossing.coordinate);
-      const b = parkCrossing ? data.project(parkCrossing.end) : a;
+      const surveyedCrossing = stationTrace?.crossings.find(item => item.wayId === crossing.wayId) || parkCrossing;
+      const a = data.project(surveyedCrossing ? surveyedCrossing.start : crossing.coordinate);
+      const b = surveyedCrossing ? data.project(surveyedCrossing.end) : a;
       const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
       const ring = new T.Mesh(crossingGeometry!, crossingMaterial!);
       ring.position.set(x, data.ground(x, z) + 2, z);
