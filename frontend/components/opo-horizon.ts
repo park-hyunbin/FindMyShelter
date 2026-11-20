@@ -1,4 +1,4 @@
-import { distanceToBuildingCoverage, inShape, type OpoData, type Point, type Shape } from './opo-data';
+import { distanceToBuildingCoverage, firstHeightGap, outlineDistance, type OpoData, type Point } from './opo-data';
 import { terrainRayBreaks, terrainSurface, type RoofOutline } from './opo-meshes';
 import { observationHeight } from './opo-sunlight';
 
@@ -6,34 +6,10 @@ export const horizonRange = 800;
 export const horizonChartStep = 50;
 type HorizonHit = { angle: number; distance: number; source: string };
 export type DirectionProfile = {
-  heights: (number | null)[]; hit: HorizonHit | null; terrainAngleBelowBuilding: number | null; nearestHeightGap: number | null;
+  heights: (number | null)[]; hit: HorizonHit | null; terrainAngleBelowBuilding: number | null;
+  nearestHeightGap: { label: string; distance: number } | null;
   terrainRange: number; buildingRange: number;
 };
-
-function outlineDistance(origin: Point, direction: Point, rings: Shape) {
-  if (inShape(origin, rings)) return 0;
-  let nearest = Infinity;
-  for (const ring of rings) {
-    for (let i = 0; i < ring.length; i++) {
-      const a = ring[i], b = ring[(i + 1) % ring.length];
-      const ex = b.x - a.x, ez = b.z - a.z;
-      const cross = direction.x * ez - direction.z * ex;
-      const ax = a.x - origin.x, az = a.z - origin.z;
-      if (Math.abs(cross) < 1e-8) {
-        if (Math.abs(ax * direction.z - az * direction.x) < 1e-8) {
-          const first = ax * direction.x + az * direction.z;
-          const last = first + ex * direction.x + ez * direction.z;
-          if (Math.max(first, last) >= 0) nearest = Math.min(nearest, Math.max(0, Math.min(first, last)));
-        }
-        continue;
-      }
-      const distance = (ax * ez - az * ex) / cross;
-      const segment = (ax * direction.z - az * direction.x) / cross;
-      if (distance >= 0 && segment >= 0 && segment <= 1) nearest = Math.min(nearest, distance);
-    }
-  }
-  return nearest;
-}
 
 export function firstBuildingAhead(data: Pick<OpoData, 'buildings' | 'northOffset' | 'buildingRadius'>, point: Point, bearing: number) {
   const angle = bearing * Math.PI / 180 + data.northOffset;
@@ -77,10 +53,9 @@ export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 
     const elevationAngle = Math.atan2(roof.elevation - eye, distance) * 180 / Math.PI;
     if (elevationAngle > (hit?.angle ?? 0)) hit = { angle: elevationAngle, distance, source: roof.label };
   }
-  let nearestHeightGap = Infinity;
-  for (const shape of data.heightGaps) nearestHeightGap = Math.min(nearestHeightGap, outlineDistance(point, direction, shape));
+  const nearest = firstHeightGap(data.heightGaps, point, direction, Math.min(terrainRange, buildingRange));
   return {
     heights, terrainRange, buildingRange, hit, terrainAngleBelowBuilding: hit === terrainHit ? null : terrainHit?.angle ?? 0,
-    nearestHeightGap: nearestHeightGap <= horizonRange ? nearestHeightGap : null,
+    nearestHeightGap: nearest && { label: nearest.gap.label, distance: nearest.distance },
   };
 }

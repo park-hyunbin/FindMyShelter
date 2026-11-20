@@ -2,9 +2,10 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import type { OpoData, Shape } from './opo-data';
 import type { LightSample } from './opo-sunlight';
 
-export function createLightPath(scene: T.Scene, objects: T.Mesh[]) {
+export function createLightPath(scene: T.Scene, objects: T.Mesh[], ground: OpoData['ground']) {
   const group = new T.Group();
   group.name = '선택 지점의 햇빛 경로';
   group.visible = false;
@@ -32,7 +33,7 @@ export function createLightPath(scene: T.Scene, objects: T.Mesh[]) {
   group.add(stroke, line, start, end, arrow, outline);
   const bounds = new T.Box3();
   const labelPoint = new T.Vector3();
-  let outlinedObjectId: number | null = null;
+  let outlined: number | Shape | null = null;
 
   function update(sample: LightSample, origin: T.Vector3, direction: T.Vector3, slot: 'A' | 'B') {
     group.visible = sample.status !== 'night';
@@ -42,12 +43,14 @@ export function createLightPath(scene: T.Scene, objects: T.Mesh[]) {
     const isUncertain = sample.status === 'unknown';
     foreground.color.set(isUncertain ? '#e5bc86' : color);
     foreground.dashed = backing.dashed = isUncertain;
-    outlineMaterial.color.set(color);
+    outlineMaterial.color.copy(foreground.color);
     pointMaterial.color.copy(foreground.color);
     start.position.copy(origin);
     const hit = sample.obstruction;
+    const gap = sample.heightGap;
+    const rayLength = gap ? Math.max(18, (gap.distance + 8) / Math.hypot(direction.x, direction.z)) : 120;
     const target = hit ? new T.Vector3(hit.point.x, hit.point.y, hit.point.z)
-      : origin.clone().addScaledVector(direction, 120);
+      : origin.clone().addScaledVector(direction, rayLength);
     const rayStart = geometry.getAttribute('instanceStart');
     const rayEnd = geometry.getAttribute('instanceEnd');
     rayStart.setXYZ(0, origin.x, origin.y, origin.z);
@@ -66,18 +69,34 @@ export function createLightPath(scene: T.Scene, objects: T.Mesh[]) {
     if (hit?.kind === 'building') {
       const object = objects.find(mesh => mesh.id === hit.objectId);
       if (object) {
-        if (outlinedObjectId !== object.id) {
+        if (outlined !== object.id) {
           outline.geometry.dispose();
           outline.geometry = new T.EdgesGeometry(object.geometry);
-          outlinedObjectId = object.id;
+          outlined = object.id;
         }
         outline.matrix.copy(object.matrixWorld);
+        outline.matrixWorldNeedsUpdate = true;
         outline.visible = true;
         bounds.expandByObject(object);
       }
     }
     bounds.expandByPoint(origin).expandByPoint(target);
     labelPoint.copy(target).add(new T.Vector3(0, 5, 0));
+    if (gap) {
+      if (outlined !== gap.rings) {
+        const points = gap.rings.flatMap(ring => ring.flatMap((point, index) =>
+          [point, ring[(index + 1) % ring.length]].map(({ x, z }) => new T.Vector3(x, ground(x, z) + 0.25, z))));
+        outline.geometry.dispose();
+        outline.geometry = new T.BufferGeometry().setFromPoints(points);
+        outline.matrix.identity();
+        outline.matrixWorldNeedsUpdate = true;
+        outlined = gap.rings;
+      }
+      outline.visible = true;
+      bounds.expandByObject(outline);
+      const { x, z } = gap.center;
+      labelPoint.set(x, ground(x, z) + 4, z);
+    }
   }
 
   function dispose() {

@@ -15,6 +15,7 @@ import songpaTreeInventory from '../public/datasets/regions/songpa/street-tree-i
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
 export type Shape = Point[][];
+type HeightGap = { label: string; rings: Shape; center: Point; radius: number };
 export type Building = {
   id: string; label: string; dong: string | null; height: number | null;
   levels: number | null; category: string; roof: string | null; shapes: Shape[];
@@ -222,9 +223,6 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     };
   };
   const buildings = source.features.map(toBuilding);
-  const outlineCenter = (ring: Point[]) => ring.reduce((sum, point) => ({
-    x: sum.x + point.x / ring.length, z: sum.z + point.z / ring.length,
-  }), { x: 0, z: 0 });
   const existing = buildings.flatMap(building => building.shapes.map(shape => ({ shape, center: outlineCenter(shape[0]) })));
   const additional = surrounding.features.map(toBuilding).filter(building => {
     const shape = building.shapes[0], center = outlineCenter(shape[0]);
@@ -232,8 +230,12 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
       && !existing.some(original => inShape(center, original.shape) || inShape(original.center, shape));
   });
   // Preserve the QGIS measurements when a building is present in both sources.
-  const heightGaps = [...buildings, ...additional].filter(building => !building.height).flatMap(building => building.shapes);
   buildings.push(...additional);
+  const heightGaps: HeightGap[] = buildings.filter(building => !building.height).flatMap(({ label, shapes }) => shapes.map(rings => {
+    const center = outlineCenter(rings[0]);
+    const radius = Math.max(...rings[0].map(p => Math.hypot(p.x - center.x, p.z - center.z)));
+    return { label, rings, center, radius };
+  }));
   const features: Environment[] = environment.features.map(({ geometry, properties }) => ({
     ...properties,
     lines: geometry.type === 'LineString' ? [geometry.coordinates.map(project)]
@@ -357,6 +359,53 @@ export function inShape(point: Point, rings: Shape): boolean {
     return hit;
   };
   return inside(rings[0]) && !rings.slice(1).some(inside);
+}
+
+export function outlineCenter(ring: Point[]) {
+  return ring.reduce((sum, point) => ({
+    x: sum.x + point.x / ring.length, z: sum.z + point.z / ring.length,
+  }), { x: 0, z: 0 });
+}
+
+export function outlineDistance(origin: Point, direction: Point, rings: Shape) {
+  if (inShape(origin, rings)) return 0;
+  let nearest = Infinity;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      const ex = b.x - a.x, ez = b.z - a.z;
+      const cross = direction.x * ez - direction.z * ex;
+      const ax = a.x - origin.x, az = a.z - origin.z;
+      if (Math.abs(cross) < 1e-8) {
+        if (Math.abs(ax * direction.z - az * direction.x) < 1e-8) {
+          const first = ax * direction.x + az * direction.z;
+          const last = first + ex * direction.x + ez * direction.z;
+          if (Math.max(first, last) >= 0) nearest = Math.min(nearest, Math.max(0, Math.min(first, last)));
+        }
+        continue;
+      }
+      const distance = (ax * ez - az * ex) / cross;
+      const segment = (ax * direction.z - az * direction.x) / cross;
+      if (distance >= 0 && segment >= 0 && segment <= 1) nearest = Math.min(nearest, distance);
+    }
+  }
+  return nearest;
+}
+
+export function firstHeightGap(gaps: HeightGap[], origin: Point, direction: Point, range: number,
+    accept?: (gap: HeightGap, distance: number) => boolean) {
+  let nearest: { gap: HeightGap; distance: number } | null = null;
+  for (const gap of gaps) {
+    const dx = gap.center.x - origin.x, dz = gap.center.z - origin.z;
+    const ahead = dx * direction.x + dz * direction.z;
+    const limit = nearest?.distance ?? range;
+    if (ahead + gap.radius < 0 || ahead - gap.radius > limit ||
+        Math.abs(dx * direction.z - dz * direction.x) > gap.radius) continue;
+    const distance = outlineDistance(origin, direction, gap.rings);
+    if (Number.isFinite(distance) && distance <= limit && (!nearest || distance < nearest.distance)
+        && (!accept || accept(gap, distance))) nearest = { gap, distance };
+  }
+  return nearest;
 }
 
 export function buildingCollision(buildings: Building[]) {

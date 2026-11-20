@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { extent, inShape, nearestOnLine, type Building, type OpoData, type Point, type Shape } from './opo-data';
+import { extent, inShape, nearestOnLine, outlineCenter, type Building, type OpoData, type Point, type Shape } from './opo-data';
 import { riverNormals, surfaceUV, type TourMaterials } from './opo-materials';
 import type { TreeCover } from './opo-tree-cover';
 import { addSongpaTowerExterior, songpaExteriorMaterials } from './opo-songpa-exterior';
@@ -319,7 +319,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
         scene.add(new T.Mesh(groundPolygon(rings, ground), footprints));
         continue;
       }
-      const position = rings[0].reduce((p, item) => ({ x: p.x + item.x / rings[0].length, z: p.z + item.z / rings[0].length }), { x: 0, z: 0 });
+      const position = outlineCenter(rings[0]);
       const verticalBase = ground(position.x, position.z);
       const skirt = Math.max(1.15, ...rings[0].map(p => verticalBase - ground(p.x, p.z) + 0.75));
       const shape = shapeFrom(rings);

@@ -9,7 +9,7 @@ import { directionProfile, firstBuildingAhead } from './opo-horizon';
 import { facadeViews, type FacadeView } from './opo-facades';
 import { createLightPath } from './opo-light-path';
 import { createTourMaterials, detailGround } from './opo-materials';
-import { addEnvironment, buildMeshes, createTerrainProjection, makeGround } from './opo-meshes';
+import { addEnvironment, buildMeshes, createTerrainProjection, makeGround, terrainSurface } from './opo-meshes';
 import { createTourSky } from './opo-sky';
 import { createLightAnalyzer, nearSurfaceHeight, observationHeight, sunAt } from './opo-sunlight';
 import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, addSongpaSchoolMap, approach, playgroundReference } from './opo-site';
@@ -159,7 +159,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   });
   scene.updateMatrixWorld(true);
   const analysis = createLightAnalyzer(data, terrain, occluders, observationSurface);
-  const lightPath = createLightPath(scene, [terrain, ...occluders]);
+  const lightPath = createLightPath(scene, [terrain, ...occluders], (x, z) => terrainSurface(data.ground, x, z));
 
   const endOfTile = ({ x, z }: Point) => Math.abs(x) > extent - 20 || Math.abs(z) > extent - 20;
   const occupied = (point: Point) => insideBuilding(point) || (isOpo && inCourtyardRing(point))
@@ -754,7 +754,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     updateComparisonMarkers();
     lightOriginLabel.textContent = `${slot} · ${location.label}`;
     lightPathLabel.textContent = sample.obstruction ? `차폐 · ${sample.cause}`
-      : sample.status === 'unknown' ? '차폐 미판정' : '태양 방향';
+      : sample.heightGap ? `높이 미확인 · ${sample.heightGap.label}`
+        : sample.status === 'unknown' ? '차폐 미판정' : '태양 방향';
     lightOriginLabel.dataset.slot = slot;
     lightPathLabel.dataset.slot = slot;
     if (!focus || !lightPath.group.visible) return;

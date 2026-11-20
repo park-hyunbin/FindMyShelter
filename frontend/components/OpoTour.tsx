@@ -295,7 +295,7 @@ function TerrainSection({ profiles, onLook }: {
               : incompleteRange ? '확인 범위에서 차폐 없음' : '모델상 수평선 위 차폐 없음'}</strong>
           {hit && <small>{hit.source} · 약 {Math.round(hit.distance)}m</small>}
           {terrainAngleBelowBuilding !== null && <small>지형만 적용 시 약 {terrainAngleBelowBuilding.toFixed(1)}°</small>}
-          {nearestHeightGap !== null && <small className="horizon-gap">높이 미확인 건물 · 약 {Math.round(nearestHeightGap)}m{hit && ' · 추가 차폐 가능'}</small>}
+          {nearestHeightGap && <small className="horizon-gap">높이 미확인 · {nearestHeightGap.label} · 약 {Math.round(nearestHeightGap.distance)}m{hit && ' · 추가 차폐 가능'}</small>}
           {buildingRange < horizonRange && <small>건물 자료 약 {Math.round(buildingRange)}m까지 · 이후 미판정</small>}
           {terrainRange < horizonRange && <small>지형 자료 약 {Math.round(terrainRange)}m까지 · 이후 미판정</small>}
         </div>
@@ -1194,6 +1194,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           const point = points[slot], report = reports[slot];
           const sample = moment[slot];
           const details = nature[slot];
+          const traceLabel = sample?.status === 'shade' ? '그늘 원인 보기' : sample?.heightGap ? '미판정 건물 보기' : '햇빛 방향 보기';
           return <article key={slot} className={`site-card site-${slot}`} tabIndex={-1}>
             <div className="site-row">
               <span className="slot">{slot}</span>
@@ -1215,9 +1216,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               <Timeline report={report} minute={minute} label={`지점 ${slot} 일조 시간 선택`} onTime={setMinute} />
               <p className="site-status">{lightStatus(sample)}</p>
               {sample.obstruction && <p className="site-status">차폐 지점까지 광선 거리 약 {Math.round(sample.obstruction.distance)}m</p>}
-              <button className="light-trace" aria-label={`${slot} 지점 ${sample.status === 'shade' ? '그늘 원인 보기' : '햇빛 방향 보기'}`}
+              {sample.heightGap && <p className="site-status">약 {Math.round(sample.heightGap.distance)}m 앞 · 이 건물이 햇빛을 가리려면 모델상 약 {Math.round(sample.heightGap.requiredHeight)}m 이상이어야 해요.</p>}
+              <button className="light-trace" aria-label={`${slot} 지점 ${traceLabel}`}
                 aria-pressed={lightSlot === slot} disabled={sample.status === 'night' && lightSlot !== slot}
-                onClick={() => inspectLight(slot)}>{sample.status === 'shade' ? '그늘 원인 보기' : '햇빛 방향 보기'} ↗</button>
+                onClick={() => inspectLight(slot)}>{traceLabel} ↗</button>
               {report.unclassifiedMinutes > 0 && <p className="site-status">하루 중 미판정 {duration(report.unclassifiedMinutes)}</p>}
             </>}
             {tab === 'nature' && details && <dl className="nature-values">
@@ -1234,6 +1236,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
        <details className="basis"><summary>계산 기준과 자료</summary>
           <p>맑은 하늘을 가정하고 지면에서 1.5m 높이의 지점을 10분 간격으로 계산합니다. 건물과 지형이 태양을 가리는지 검사합니다.</p>
           <p>3D 경로는 관측 지점에서 태양 방향으로 보낸 광선입니다. 그늘일 때 처음 닿은 건물 체적 또는 지형을 표시합니다. 점선은 자료 한계로 판정하지 못한 방향을 표시합니다.</p>
+          <p>미판정에 영향을 주는 건물이 있으면 가장 가까운 건물의 지면 윤곽과 거리, 광선에 닿기 위한 모델상 최소 건물 높이를 표시합니다.</p>
           {region === 'songpa' && <p>눈높이는 포장과 보도를 포함한 모델 바닥 위 {observationHeight}m입니다. 겨울 산책에서 발밑 판정은 같은 바닥 위 5cm에서 계산합니다.</p>}
           {buildingRegister && <p>대상 주동은 건축HUB 표제부({buildingRegister.source.dataMonth})의 등록 높이로 건물 체적을 단순화해 계산합니다. 주변 건물은 QGIS 편집본 후보값과 OSM 높이를 사용합니다.</p>}
           <p>{world?.sources.localTerrain ? '단지 주변 지형은 서울시 등고선·표고점을 10m 간격으로 보간하고 외곽은 GEDTM30과 연결했어요.' :
@@ -1243,6 +1246,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           {world?.sunMap && <p>단지 일조 분포는 지도에 표시된 단지 경계 안의 {sunGridSpacing}m 간격 실외 표본에서 계산합니다. 표본 사이의 값은 추정하지 않으며, 표본 간격과 표고 자료의 해상도는 서로 다릅니다.</p>}
           <a href="https://github.com/hypnos3/suncalc3" target="_blank" rel="noreferrer">태양 위치 계산 · SunCalc3 ↗</a>
           {buildingRegister && <a href={buildingRegister.source.url} target="_blank" rel="noreferrer">주동 등록 높이 · 국토교통부 건축HUB ↗</a>}
+          {region === 'songpa' && <a href="https://data.seoul.go.kr/dataList/OA-22424/S/1/datasetView.do" target="_blank" rel="noreferrer">높이 미기재 확인 · 서울시 건축물대장 표제부 ↗</a>}
         </details>
       </> : tab === 'nature' && <>
         <div className="terrain-heading" tabIndex={-1}><h3>방향별 시야와 지형 단면</h3>
