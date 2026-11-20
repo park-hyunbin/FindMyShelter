@@ -195,6 +195,21 @@ const songpaWestDriveEdge = [
 const songpaEastDriveEdge = [
   [127.1167029, 37.4974014], [127.1167214, 37.4974577], [127.1167679, 37.4975725],
 ] satisfies Coordinate[];
+// In the orthophoto the paved carriageway narrows before leaving the complex.
+// The east road-survey line here still encloses a planted shoulder, so the
+// visible paving is traced inside it up to the next shared OSM route node.
+const southPavingWest = [
+  [127.1165317, 37.4973546], [127.1165371, 37.4973120],
+  [127.1165451, 37.4972780], [127.1165478, 37.4972546],
+] satisfies Coordinate[];
+const southPavingEast = [
+  [127.1166390, 37.4972546], [127.1166390, 37.4972950], [127.1166390, 37.4973482],
+] satisfies Coordinate[];
+// Seoul OpenLab N1L_B0020000, the south stretch of iron fence UFID 66.
+const southWalkFence = [
+  [127.1165761, 37.4975627], [127.1165645, 37.4975391], [127.1165440, 37.4974784],
+  [127.1165198, 37.4974177], [127.1165132, 37.4974081], [127.1164893, 37.4973517],
+] satisfies Coordinate[];
 // The short recessed edge at the parking strip meets the visible landscaped verge.
 const songpaParkingVerge = [
   songpaEastDriveEdge.at(-1)!,
@@ -362,7 +377,8 @@ export const songpaGrounds = {
     ...songpaStreetEdge.slice(2).reverse(),
     ...songpaApproachEast.slice().reverse(), ...songpaApproachWest,
     songpaGateNorthCorner, ...songpaCoveredApproach, [127.1167463, 37.4977866],
-    ...songpaWestDriveEdge, ...songpaEastDriveEdge, ...songpaParkingVerge.slice(1, -1),
+    ...songpaWestDriveEdge, ...southPavingWest, ...southPavingEast,
+    ...songpaEastDriveEdge, ...songpaParkingVerge.slice(1, -1),
   ] satisfies Coordinate[],
   // The white bands are visible in the 2025-10-28 World Imagery capture.
   // Trace their visible extent; the image does not identify ramps or the legal crossing type.
@@ -430,9 +446,36 @@ export const songpaFrontage = {
       [127.1169877, 37.4976972], [127.1168938, 37.4976376], [127.1169019, 37.4975951],
       [127.1168402, 37.4975674],
     ],
+    [
+      ...southWalkFence,
+      [127.1165156, 37.4973588], [127.1165264, 37.4973929], [127.1165398, 37.4974397],
+      [127.1165586, 37.4974887], [127.1165720, 37.4975376], [127.1165854, 37.4975600],
+    ],
+    [
+      songpaEastDriveEdge[1], [127.1167544, 37.4974716], [127.1167812, 37.4974440],
+      [127.1168268, 37.4974312], [127.1168777, 37.4974099], [127.1169046, 37.4973759],
+      [127.1168187, 37.4973674], [127.1167678, 37.4973823], [127.1166927, 37.4973461],
+      [127.1166685, 37.4973184], [127.1166444, 37.4973269], southPavingEast[2],
+      songpaEastDriveEdge[0],
+    ],
+    [
+      [127.1165076, 37.4972950], [127.1165320, 37.4972929], [127.1165398, 37.4972503],
+      [127.1165639, 37.4971886], [127.1165773, 37.4971269], [127.1165290, 37.4971354],
+      [127.1164915, 37.4971822], [127.1164620, 37.4972397], [127.1164405, 37.4972716],
+      [127.1164620, 37.4972950],
+    ],
+    [
+      [127.1166739, 37.4972780], [127.1167088, 37.4973035], [127.1167570, 37.4973035],
+      [127.1168160, 37.4972865], [127.1168536, 37.4972333], [127.1168751, 37.4971865],
+      [127.1168455, 37.4971375], [127.1168670, 37.4970673], [127.1169233, 37.4970184],
+      [127.1169072, 37.4969439], [127.1168590, 37.4969013], [127.1168000, 37.4969034],
+      [127.1167731, 37.4969566], [127.1167490, 37.4970354], [127.1167409, 37.4970801],
+      [127.1167114, 37.4971439], [127.1166819, 37.4971992], [127.1166658, 37.4972375],
+    ],
   ] satisfies Coordinate[][],
-  // Iron fences in Seoul OpenLab N1L_B0020000, UFIDs ending with 220 and 227.
+  // Iron fences in Seoul OpenLab N1L_B0020000, UFIDs ending with 66, 220 and 227.
   ironFences: [
+    southWalkFence,
     [
       [127.1169666, 37.4981054], [127.1169765, 37.4980740], [127.1169787, 37.4980256],
       [127.1169768, 37.4980118], [127.1169748, 37.4980000], [127.1169627, 37.4979767],
@@ -479,6 +522,11 @@ export const songpaFrontage = {
     [127.1169421, 37.4976887], [127.1168938, 37.4976121],
     [127.1169904, 37.4978760], [127.1169823, 37.4978504],
     [127.1170360, 37.4977696], [127.1171057, 37.4978249], [127.1171862, 37.4978653],
+    [127.1165183, 37.4973886], [127.1167329, 37.4974397], [127.1167839, 37.4974120],
+    [127.1167356, 37.4973716], [127.1166819, 37.4973546],
+    [127.1165076, 37.4972482], [127.1165425, 37.4971801], [127.1167383, 37.4972716],
+    [127.1168107, 37.4972141], [127.1168080, 37.4971631], [127.1168160, 37.4970950],
+    [127.1168509, 37.4969950], [127.1168455, 37.4969332],
   ] satisfies Coordinate[],
 };
 
@@ -487,10 +535,12 @@ export const songpaSurfaceLayout = {
   drive: { points: songpaCourtyard.apron, width: 3.8 },
   drivewayRoad: {
     roadId: 169916279,
-    nodes: [1810741885, 1810741892],
+    nodes: [1810741885, 1810741872],
     axis: [
       { nodeId: 1810741895, coordinate: [127.1168628, 37.4977471] },
       { nodeId: 1810741912, coordinate: [127.1166735, 37.4975590] },
+      { nodeId: 1810741892, coordinate: [127.1166230, 37.4974231] },
+      { nodeId: 1810741872, coordinate: [127.1165934, 37.4972546] },
     ],
   },
   paths: songpaCourtyard.paths,
@@ -508,7 +558,7 @@ export const songpaSurfaceLayout = {
       curb: [songpaPublicWalkJoin, songpaPublicWalkEnd, ...songpaApproachWest.slice(1), songpaGateNorthCorner, songpaGateWalkMerge],
       outward: -1, width: 1.55, beside: 'driveway', flushEndM: 2.2 },
     { curb: [...songpaApproachEast, ...songpaStreetEdge.slice(2)], outward: 1, width: 1.55, beside: 'driveway' },
-    { curb: songpaWestDriveEdge, outward: -1, width: 1.32, beside: 'driveway' },
+    { curb: [...songpaWestDriveEdge, southPavingWest[0]], outward: -1, width: 1.32, beside: 'driveway' },
     { curb: songpaEastDriveEdge, outward: -1, width: 0.88, beside: 'driveway', finish: 'planted' },
   ],
   surveyedRoads: [{
