@@ -553,7 +553,11 @@ export const songpaSurfaceLayout = {
     ...garakGreenStrip.paving,
   ].map(outline => outline.map(([lng, lat]): Coordinate => [lng, lat])),
   plantingBeds: songpaFrontage.beds,
-  plantedGround: [...songpaFrontage.plantedGround, ...songpaCourtyard.plantedGround],
+  plantedGround: [
+    ...[...songpaFrontage.plantedGround, ...songpaCourtyard.plantedGround].map(outline => [outline]),
+    ...courtyardWalkArchive.plantingMargins.map(rings => rings.map(ring => ring.slice(0, -1)
+      .map(([lng, lat]): Coordinate => [lng, lat]))),
+  ],
   ironFences: [...songpaFrontage.ironFences.map(points => ({ points })), ...playgroundFences],
   // The pavers and entrance style are photo references. The door placement and dimensions are illustrative.
   buildingEntries: [

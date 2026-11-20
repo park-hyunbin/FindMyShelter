@@ -10,7 +10,10 @@ from zipfile import ZipFile
 from pyproj import CRS, Transformer
 import shapefile
 from shapely.geometry import LineString, Point, Polygon
-from shapely.ops import substring
+from shapely.ops import substring, unary_union
+
+from prepare_neighborhood_pavement import export_polygons, parts
+from prepare_neighborhood_planting import building_footprints
 
 LAYER = "N1L_A0010000"
 SOURCE = f"https://openlab.eseoul.go.kr/qgisplugin/SHP/{LAYER}.zip"
@@ -72,6 +75,18 @@ def join_edges(left, right, start_tangent, end, next_point):
     return sides
 
 
+def planting_margins(edges, east_start, walks):
+    # The public courtyard photo shows planted ground beside the 103–104 path.
+    # Use the surveyed path sides as inner limits; planting depth is visually estimated.
+    west_edge = LineString(edges[165][6:13])
+    east_edge = LineString(edges[150][4:13])
+    east_run = LineString(between(east_edge, east_start, edges[150][4]))
+    verge = unary_union([west_edge.buffer(-4.4, single_sided=True), east_run.buffer(3.1, single_sided=True)])
+    obstacles = [*walks, *(building for building in building_footprints(OUTPUT.parent) if building.intersects(verge))]
+    exposed = verge.difference(unary_union(obstacles))
+    return [patch for patch in parts(exposed, "Polygon") if patch.area >= 1]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
@@ -95,15 +110,22 @@ def main():
 
     convert = Transformer.from_crs(5186, 4326, always_xy=True)
     walks = []
+    walk_polygons = []
     for key, outline in [("101-102-garden", north), ("103-104-connector", south)]:
         polygon = Polygon(outline)
         if not polygon.is_valid or polygon.area < 10:
             raise ValueError(f"Review geometry for {key}")
         coordinates = [[round(value, 9) for value in convert.transform(x, y)] for x, y in outline]
         walks.append({"id": key, "outline": coordinates})
+        walk_polygons.append(polygon)
         print(f"{key}: {polygon.area:.1f} m2")
+    margins = planting_margins(edges, east_side[-1], walk_polygons)
+    if not margins:
+        raise ValueError("No reviewed courtyard planting margins remain")
     result = {"source": SOURCE, "archiveFileDate": date, "sourceIds": sorted(ids),
-              "connectorJoins": [NORTH_JOIN, SOUTH_JOIN], "walks": walks}
+              "connectorJoins": [NORTH_JOIN, SOUTH_JOIN], "walks": walks,
+              "plantingMargins": export_polygons(unary_union(margins))}
+    print(f"103–104 planting margins: {sum(patch.area for patch in margins):.1f} m2")
     OUTPUT.write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
 
 

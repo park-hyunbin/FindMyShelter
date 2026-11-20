@@ -53,7 +53,7 @@ export type SiteSurfaceLayout = {
   paths: { width: number; points: Coordinate[] }[];
   walkAreas?: Coordinate[][];
   plantingBeds?: { outline: Coordinate[]; hedge: Coordinate[]; width: number; height: number }[];
-  plantedGround?: Coordinate[][];
+  plantedGround?: Coordinate[][][];
   ironFences?: IronFence[];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
@@ -246,8 +246,8 @@ export function addSiteSurfaces(
     else add(geometry, edging, undefined, false);
   }
 
-  function featherEdge(geometry: T.BufferGeometry, ring: Point[], width: number) {
-    const boundary = [[...ring, ring[0]]];
+  function featherEdge(geometry: T.BufferGeometry, rings: Point[][], width: number) {
+    const boundary = rings.map(ring => [...ring, ring[0]]);
     const vertices = geometry.getAttribute('position');
     const colors = new Float32Array(vertices.count * 4).fill(1);
     for (let i = 0; i < vertices.count; i++) {
@@ -376,7 +376,7 @@ export function addSiteSurfaces(
   const walkAreas = (layout.walkAreas ?? []).map(outline => outline.map(data.project));
   const walkMask = walkAreas.length ? createSurfaceClipper() : undefined;
   for (const ring of walkAreas) {
-    const top = groundPolygon([ring], pathGrade, 0.8, 0);
+    const top = terrain?.area([ring], pathRise) ?? groundPolygon([ring], pathGrade, 0.8, 0);
     walkMask?.addSurface(top);
     addWalk(top, paving, 'pavers');
     addWalkSide(sidewalkFascia(ring, grade, pathGrade));
@@ -500,10 +500,11 @@ export function addSiteSurfaces(
     groundCover.vertexColors = true;
     groundCover.transparent = true;
     groundCover.depthWrite = false;
-    for (const outline of layout.plantedGround) {
-      const ring = outline.map(data.project);
-      const ground = groundPolygon([ring], grade, 0.7, 0.04);
-      featherEdge(ground, ring, 0.65);
+    for (const shape of layout.plantedGround) {
+      const rings = shape.map(ring => ring.map(data.project));
+      const mesh = groundPolygon(rings, terrain ? () => 0 : grade, 0.7, terrain ? 0 : 0.04);
+      const ground = terrain ? terrain.fit(mesh, 0.04) : mesh;
+      featherEdge(ground, rings, 0.45);
       add(ground, groundCover, 'forest', false);
     }
   }
@@ -539,7 +540,7 @@ export function addSiteSurfaces(
         tint.color.multiplyScalar(1.42);
         tint.vertexColors = tint.transparent = true;
         tint.depthWrite = false;
-        featherEdge(patch, ring, 1.2);
+        featherEdge(patch, [ring], 1.2);
       }
       add(patch, tint, surface, false);
     }
