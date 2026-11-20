@@ -144,5 +144,18 @@ export function createSurfaceClipper(cellSize = 10) {
     });
     return toGeometry(vertices);
   }
-  return { addSurface, clip, subtract, clear: () => cells.clear() };
+
+  function heightAt(point: Point) {
+    const key = `${Math.floor(point.x / cellSize)}:${Math.floor(point.z / cellSize)}`;
+    let height: number | undefined;
+    for (const { points: [a, b, c], bounds, area } of cells.get(key) ?? []) {
+      if (point.x < bounds.west || point.x > bounds.east || point.z < bounds.north || point.z > bounds.south) continue;
+      const wa = side(b, c, point), wb = side(c, a, point), wc = side(a, b, point);
+      if (Math.min(wa, wb, wc) < -epsilon) continue;
+      const y = (a.y * wa + b.y * wb + c.y * wc) / area;
+      height = Math.max(height ?? y, y);
+    }
+    return height;
+  }
+  return { addSurface, clip, subtract, heightAt, clear: () => cells.clear() };
 }

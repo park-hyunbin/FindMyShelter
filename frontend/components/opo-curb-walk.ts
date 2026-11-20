@@ -1,8 +1,70 @@
 import * as T from 'three';
 import type { CrosswalkArea } from './opo-crosswalks';
 import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
+import { createSurfaceClipper } from './opo-surface-clip';
 
 export const sidewalkRise = 0.14;
+
+export function createSidewalkSeams() {
+  const decks = createSurfaceClipper();
+  const sides: { geometry: T.BufferGeometry; add: (geometry: T.BufferGeometry) => void }[] = [];
+
+  function finish() {
+    for (const { geometry, add } of sides) {
+      const positions = geometry.getAttribute('position');
+      const vertices: number[] = [];
+      // Wall generators emit quads along each edge. A neighboring deck on both sides
+      // can cover the bottom of that wall, or the entire wall at a flush join.
+      for (let i = 0; i + 5 < positions.count; i += 6) {
+        const start = { x: positions.getX(i), z: positions.getZ(i), low: Infinity, high: -Infinity };
+        const end = { x: start.x, z: start.z, low: Infinity, high: -Infinity };
+        for (let j = i; j < i + 6; j++) {
+          const x = positions.getX(j), y = positions.getY(j), z = positions.getZ(j);
+          const point = x === start.x && z === start.z ? start : end;
+          point.x = x;
+          point.z = z;
+          point.low = Math.min(point.low, y);
+          point.high = Math.max(point.high, y);
+        }
+        const dx = end.x - start.x, dz = end.z - start.z;
+        const length = Math.hypot(dx, dz);
+        if (length < 0.001) continue;
+        const nx = 0.023 * dz / length, nz = -0.023 * dx / length;
+        const steps = Math.ceil(length / 0.2);
+        function at(t: number) {
+          const x = start.x + dx * t, z = start.z + dz * t;
+          const low = T.MathUtils.lerp(start.low, end.low, t);
+          const high = T.MathUtils.lerp(start.high, end.high, t);
+          return { x, z, low, high };
+        }
+        for (let step = 0; step < steps; step++) {
+          const center = at((step + 0.5) / steps);
+          const a = at(step / steps), b = at((step + 1) / steps);
+          const left = decks.heightAt({ x: center.x + nx, z: center.z + nz });
+          const right = decks.heightAt({ x: center.x - nx, z: center.z - nz });
+          const covered = left === undefined || right === undefined ? 0 : Math.min(left, right) - center.low;
+          if (center.low + covered >= center.high - 0.013) continue;
+          const footA = T.MathUtils.clamp(a.low + covered, a.low, a.high);
+          const footB = T.MathUtils.clamp(b.low + covered, b.low, b.high);
+          vertices.push(a.x, footA, a.z, b.x, footB, b.z, a.x, a.high, a.z,
+            a.x, a.high, a.z, b.x, footB, b.z, b.x, b.high, b.z);
+        }
+      }
+      geometry.dispose();
+      const exposed = new T.BufferGeometry().setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
+      exposed.computeVertexNormals();
+      add(exposed);
+    }
+    sides.length = 0;
+    decks.clear();
+  }
+
+  return {
+    addDeck: decks.addSurface,
+    addSide: (geometry: T.BufferGeometry, add: (geometry: T.BufferGeometry) => void) => sides.push({ geometry, add }),
+    finish,
+  };
+}
 
 export function sidewalkFascia(outline: Point[], ground: OpoData['ground'], top: OpoData['ground']) {
   const vertices: number[] = [];

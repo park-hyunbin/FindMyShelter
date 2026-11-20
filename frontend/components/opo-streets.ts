@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, inShape, nearestOnLine, splitLineAt, type OpoData, type Point, type Shape, type Street, type StreetPaint } from './opo-data';
-import { sidewalkFascia, sidewalkRise } from './opo-curb-walk';
+import { sidewalkFascia, sidewalkRise, type createSidewalkSeams } from './opo-curb-walk';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection } from './opo-meshes';
@@ -234,7 +234,8 @@ function leaveJunctionGap(points: Point[], start: number, end: number) {
 }
 
 export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials,
-  terrain?: ReturnType<typeof createTerrainProjection>, insideBuilding?: (position: Point) => boolean) {
+  terrain?: ReturnType<typeof createTerrainProjection>, insideBuilding?: (position: Point) => boolean,
+  sidewalkSeams?: ReturnType<typeof createSidewalkSeams>) {
   const songpa = data.region === 'songpa';
   const deckLift = streetDeckLift(data.region);
   const sidewalkLift = deckLift + (songpa ? sidewalkRise : 0.10);
@@ -502,6 +503,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       const exposed = reviewed.subtract(walk);
       walk.dispose();
       municipalWalkBorders?.addSurface(exposed);
+      sidewalkSeams?.addDeck(exposed);
       add('#c8c1b8', exposed, 'pavers');
       const sidewalkTrees = trees.filter(({ position }) => bounds.containsPoint(new T.Vector2(position.x, position.z))
         && inShape(position, rings));
@@ -519,7 +521,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         sidewalkSurface.clear();
       }
       for (const ring of rings) {
-        add('#aaa59a', sidewalkFascia(ring, surface, (x, z) => surface(x, z) + sidewalkLift));
+        const wall = sidewalkFascia(ring, surface, (x, z) => surface(x, z) + sidewalkLift);
+        if (sidewalkSeams) sidewalkSeams.addSide(wall, exposed => add('#aaa59a', exposed));
+        else add('#aaa59a', wall);
       }
     }
     for (const { rings, paving, planting, trees } of trafficIslands) {
@@ -795,7 +799,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   flushLayers();
 
   function addSurveyedPaint(asphaltDecks: T.BufferGeometry[] = []) {
-    if (!roadPaint) return;
+    if (!roadPaint) { flushLayers(); return; }
     for (const deck of asphaltDecks) roadPaint.addSurface(deck);
     for (const { mask, color, width } of deferredPaint) {
       addPaint(color, roadPaint.clip(mask, 0.027), width);

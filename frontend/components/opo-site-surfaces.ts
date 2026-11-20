@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
-import { curbWalk, sidewalkFascia, sidewalkRise } from './opo-curb-walk';
+import { curbWalk, sidewalkFascia, sidewalkRise, type createSidewalkSeams } from './opo-curb-walk';
 import type { CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift, type createTerrainProjection } from './opo-meshes';
@@ -191,6 +191,7 @@ export function addSiteSurfaces(
   data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
   layout: SiteSurfaceLayout, roadClearance: (point: Point) => number, insideBuilding?: (point: Point) => boolean,
   terrain?: ReturnType<typeof createTerrainProjection>,
+  sidewalkSeams?: ReturnType<typeof createSidewalkSeams>,
 ) {
   const asphalt = material('#e2ecf8', 'asphalt');
   asphalt.color.multiplyScalar(1.42);
@@ -233,6 +234,16 @@ export function addSiteSurfaces(
         if (texture === 'asphalt') drivewayDecks.push(deck);
       }
     }
+  }
+
+  function addWalk(deck: T.BufferGeometry, value = paving, texture?: TourSurface) {
+    sidewalkSeams?.addDeck(deck);
+    add(deck, value, texture);
+  }
+
+  function addWalkSide(geometry: T.BufferGeometry) {
+    if (sidewalkSeams) sidewalkSeams.addSide(geometry, exposed => add(exposed, edging, undefined, false));
+    else add(geometry, edging, undefined, false);
   }
 
   function featherEdge(geometry: T.BufferGeometry, ring: Point[], width: number) {
@@ -367,8 +378,8 @@ export function addSiteSurfaces(
   for (const ring of walkAreas) {
     const top = groundPolygon([ring], pathGrade, 0.8, 0);
     walkMask?.addSurface(top);
-    add(top, paving, 'pavers');
-    add(sidewalkFascia(ring, grade, pathGrade), edging, undefined, false);
+    addWalk(top, paving, 'pavers');
+    addWalkSide(sidewalkFascia(ring, grade, pathGrade));
   }
   function outsideWalkAreas(geometry: T.BufferGeometry) {
     if (!walkMask) return geometry;
@@ -381,9 +392,9 @@ export function addSiteSurfaces(
     const borderGrade = (x: number, z: number) => pathGrade(x, z) - 0.018;
     const border = ribbon(line, width + 0.18, borderGrade, Infinity, 0.6);
     if (!border.getAttribute('position')) continue;
-    add(sidewalkFascia(ribbonBoundary(border), grade, borderGrade), edging, undefined, false);
-    add(outsideWalkAreas(border), edging);
-    add(outsideWalkAreas(ribbon(line, width, pathGrade, Infinity, 0.6)), paving, 'pavers');
+    addWalkSide(sidewalkFascia(ribbonBoundary(border), grade, borderGrade));
+    addWalk(outsideWalkAreas(border), edging);
+    addWalk(outsideWalkAreas(ribbon(line, width, pathGrade, Infinity, 0.6)), paving, 'pavers');
   }
   walkMask?.clear();
   for (const entry of layout.buildingEntries ?? []) {
@@ -402,9 +413,9 @@ export function addSiteSurfaces(
   const treeWellGround: T.BufferGeometry[] = [];
   for (const { id, outline, centerline } of layout.surveyedWalks ?? []) {
     const ring = outline.map(data.project);
-    const walkingSurface = groundPolygon([ring], walkGrade, 0.8, 0);
-    add(walkingSurface, paving, 'pavers');
-    add(sidewalkFascia(ring, grade, walkGrade), edging, undefined, false);
+    const walkingSurface = terrain?.area([ring], deckLift + sidewalkRise) ?? groundPolygon([ring], walkGrade, 0.8, 0);
+    addWalk(walkingSurface, paving, 'pavers');
+    addWalkSide(sidewalkFascia(ring, grade, walkGrade));
     if (id && centerline?.length) sidewalkCenterlines.set(id, centerline.map(data.project));
     if (id) surveyedWalks.set(id, { outline: ring, surface: walkingSurface });
     const wells = surveyedTrees.filter(({ id, position }) =>
@@ -448,10 +459,14 @@ export function addSiteSurfaces(
       return exposed;
     }
     const planted = edgeFinish === 'planted';
-    add(outsideSurvey(top), planted ? plantedEdge : paving, planted ? 'forest' : 'pavers');
-    add(outsideSurvey(curbGeometry), edging);
-    add(curbFace, edging, undefined, false);
-    add(fascia, edging, undefined, false);
+    const visibleTop = outsideSurvey(top);
+    if (planted) add(visibleTop, plantedEdge, 'forest');
+    else addWalk(visibleTop, paving, 'pavers');
+    const visibleCurb = outsideSurvey(curbGeometry);
+    if (planted) add(visibleCurb, edging);
+    else addWalk(visibleCurb, edging);
+    addWalkSide(curbFace);
+    addWalkSide(fascia);
     overlap?.clear();
     if (id && !planted) sidewalkCenterlines.set(id, centerline);
   }

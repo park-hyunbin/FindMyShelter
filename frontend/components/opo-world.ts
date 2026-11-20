@@ -16,6 +16,7 @@ import { addGreenAccess, addSiteDetails, addSongpaAmbientMap, addSongpaSchoolMap
 import { addSongpaFloodMap } from './opo-flood';
 import type { FloodView } from './data/songpa-flood';
 import { addStreets } from './opo-streets';
+import { createSidewalkSeams } from './opo-curb-walk';
 import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
 import { createStreetOcclusion } from './opo-contact-shadows';
@@ -111,12 +112,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   scene.add(terrain);
   const { occluders, anchors, roofs } = buildMeshes(data, scene);
   const insideBuilding = buildingCollision(data.buildings);
-  const streets = addStreets(data, scene, finish, terrainProjection, insideBuilding);
+  const sidewalkSeams = isOpo ? undefined : createSidewalkSeams();
+  const streets = addStreets(data, scene, finish, terrainProjection, insideBuilding, sidewalkSeams);
   const entrance = isOpo ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
   const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
   if (treeCoverOverlay) scene.add(treeCoverOverlay);
-  const site = addSiteDetails(data, scene, streets.surface, finish, streets.streetClearance, insideBuilding, terrainProjection);
+  const site = addSiteDetails(data, scene, streets.surface, finish, streets.streetClearance, insideBuilding,
+    terrainProjection, sidewalkSeams);
+  sidewalkSeams?.finish();
   streets.addSurveyedPaint(site.paving?.asphaltDecks);
   const environment = addEnvironment(data, scene, terrainProjection, finish, point => {
     const road = streets.nearest(point, 14);
