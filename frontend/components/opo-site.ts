@@ -3,7 +3,7 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { nearestOnLine, splitLineAt, type OpoData, type Point } from './opo-data';
-import { groundPolygon, ribbon } from './opo-meshes';
+import { groundPolygon, ribbon, type createTerrainProjection } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile } from './opo-route-profile';
 import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
@@ -82,9 +82,10 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
 }
 
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
-  roadClearance: (point: Point) => number, insideBuilding: (point: Point) => boolean) {
+  roadClearance: (point: Point) => number, insideBuilding: (point: Point) => boolean,
+  terrain?: ReturnType<typeof createTerrainProjection>) {
   const surfaces = siteSurfaces[data.region];
-  const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, insideBuilding);
+  const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, insideBuilding, terrain);
   if (data.region === 'songpa') {
     addParkingCanopy(data, scene, songpaEntrance.garage.canopy,
       (x, z) => paving?.drivewayElevation({ x, z }) ?? grade(x, z));

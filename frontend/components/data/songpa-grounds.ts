@@ -563,7 +563,7 @@ export const songpaSurfaceLayout = {
     // The June 2026 imagery shows the west sidewalk rounding the planting bed to the gate apron.
     { id: songpaEntrance.frontage.id,
       curb: [songpaPublicWalkJoin, songpaPublicWalkEnd, ...songpaApproachWest.slice(1), songpaGateNorthCorner, songpaGateWalkMerge],
-      outward: -1, width: 1.55, beside: 'driveway', flushEndM: 2.2 },
+      outward: -1, width: 1.55, beside: 'driveway', flushEndM: 2.2, joinsWalk: songpaEntrance.frontage.surveyedWalkId },
     { curb: [...songpaApproachEast, ...songpaStreetEdge.slice(2)], outward: 1, width: 1.55, beside: 'driveway' },
     { curb: [...songpaWestDriveEdge, southPavingWest[0]], outward: -1, width: 1.32, beside: 'driveway' },
     { curb: songpaEastDriveEdge, outward: -1, width: 0.88, beside: 'driveway', finish: 'planted' },
@@ -580,8 +580,8 @@ export const songpaSurfaceLayout = {
       [127.1178497, 37.4973002], [127.1178935, 37.4972403], [127.1179012, 37.4972316],
       [127.1178268, 37.4971902], [127.1178220, 37.4971957], [127.1177706, 37.4972546],
       [127.1176208, 37.4974464], [127.1174469, 37.4976755], [127.1172610, 37.4978873],
-      [127.1172299, 37.4979135], [127.1172158, 37.4979191], [127.1172015, 37.4979216],
-      [127.1170812, 37.4980249], [127.1169556, 37.4981329], [127.1168890, 37.4982153],
+      [127.1172299, 37.4979135], [127.1172158, 37.4979191],
+      ...songpaDrivewayJoin, [127.1169556, 37.4981329], [127.1168890, 37.4982153],
       [127.1168668, 37.4982415], [127.1167595, 37.4983688], [127.1166903, 37.4984493],
       [127.1166869, 37.4984532], [127.1166844, 37.4984548],
     ],
@@ -650,7 +650,6 @@ export const songpaSurfaceLayout = {
   playground: { outline: songpaCourtyard.playground, surface: 'rubber' },
   pavedDrive: songpaGrounds.paving,
   drivewayFinishes: [songpaGrounds.courtFinish, songpaCoveredApproachFinish, songpaGateFinish],
-  drivewayJoin: songpaDrivewayJoin,
   parkingRows: songpaGrounds.parkingRows,
   vehicleGates: [songpaEntrance.main.island],
 } satisfies SiteSurfaceLayout;

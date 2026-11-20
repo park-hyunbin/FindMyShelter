@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { extent, inShape, nearestOnLine, splitLineAt, type OpoData, type Point, type Shape, type Street, type StreetPaint } from './opo-data';
-import { sidewalkFascia } from './opo-curb-walk';
+import { sidewalkFascia, sidewalkRise } from './opo-curb-walk';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection } from './opo-meshes';
@@ -237,7 +237,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   terrain?: ReturnType<typeof createTerrainProjection>, insideBuilding?: (position: Point) => boolean) {
   const songpa = data.region === 'songpa';
   const deckLift = streetDeckLift(data.region);
-  const sidewalkLift = deckLift + (songpa ? 0.14 : 0.10);
+  const sidewalkLift = deckLift + (songpa ? sidewalkRise : 0.10);
   const site = siteSurfaces[data.region];
   const driveway = site?.layout.drivewayRoad;
   const driveOutline = site?.layout.pavedDrive;

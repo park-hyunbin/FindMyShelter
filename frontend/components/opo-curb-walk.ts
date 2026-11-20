@@ -1,6 +1,8 @@
 import * as T from 'three';
 import type { CrosswalkArea } from './opo-crosswalks';
-import type { OpoData, Point } from './opo-data';
+import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
+
+export const sidewalkRise = 0.14;
 
 export function sidewalkFascia(outline: Point[], ground: OpoData['ground'], top: OpoData['ground']) {
   const vertices: number[] = [];
@@ -24,10 +26,11 @@ export function sidewalkFascia(outline: Point[], ground: OpoData['ground'], top:
 export function curbWalk(
   edge: Point[], width: number, outward: -1 | 1, ground: OpoData['ground'], road: OpoData['ground'],
   crossings: CrosswalkArea[], flushEndM = 0,
+  join?: { outline: Point[]; grade: OpoData['ground'] },
 ) {
   const curbWidth = Math.min(0.16, width / 3);
-  const curbHeight = 0.12;
   const sections: T.Vector3[][] = [];
+  const joinBoundary = join && [...join.outline, join.outline[0]];
   const offsets = edge.slice(1).map((point, i) => {
     const dx = point.x - edge[i].x;
     const dz = point.z - edge[i].z;
@@ -55,12 +58,17 @@ export function curbWalk(
       ));
     }
     // Drop the curb to the paved deck at a crossing, with a grade transition on either side.
-    const lift = T.MathUtils.lerp(0.014, curbHeight, T.MathUtils.smoothstep(clearance, 0.25, 1.65));
+    const lift = T.MathUtils.lerp(0.014, sidewalkRise, T.MathUtils.smoothstep(clearance, 0.25, 1.65));
     const raised = flushEndM > 0 ? T.MathUtils.smoothstep(remaining, 0, flushEndM) : 1;
     function top(offset: number) {
       const px = x + nx * offset, pz = z + nz * offset;
       const y = roadAtEdge + lift + ground(px, pz) - groundAtEdge;
-      return new T.Vector3(px, raised === 1 ? y : T.MathUtils.lerp(road(px, pz) + 0.008, y, raised), pz);
+      const height = raised === 1 ? y : T.MathUtils.lerp(road(px, pz) + 0.008, y, raised);
+      if (!join || !joinBoundary) return new T.Vector3(px, height, pz);
+      const point = { x: px, z: pz };
+      const distance = inShape(point, [join.outline]) ? 0 : nearestOnLine(point, [joinBoundary]).distance;
+      const blend = T.MathUtils.smoothstep(distance, 0, 1.4);
+      return new T.Vector3(px, T.MathUtils.lerp(join.grade(px, pz), height, blend), pz);
     }
     const outside = top(width);
     sections.push([
@@ -103,5 +111,6 @@ export function curbWalk(
   const centerline = sections.map(([, , inner, outer]) => ({
     x: (inner.x + outer.x) / 2, z: (inner.z + outer.z) / 2,
   }));
-  return { top: strips([[2, 3]]), curb: strips([[0, 1], [1, 2]]), fascia: strips([[3, 4]], true), centerline };
+  return { top: strips([[2, 3]]), curb: strips([[1, 2]]), curbFace: strips([[0, 1]]),
+    fascia: strips([[3, 4]], true), centerline };
 }
