@@ -255,7 +255,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const survey = data.roadMarkings;
   const surveyedLines = survey?.lanes.map(lane => ({ ...lane, points: lane.points.map(data.project) })) ?? [];
   const paintedHumps = survey?.paintedHumps?.records.map(hump => projectSiteCrossing(data.project, hump)) ?? [];
-  const roadPaint = surveyedLines.length || paintedHumps.length || site?.layout.surveyedCrossings?.length
+  const roadPaint = surveyedLines.length || paintedHumps.length || site?.layout.surveyedCrossings?.length || data.servicePaving.length
     ? createSurfaceClipper() : undefined;
   const surveyedWays = new Set<number>();
   const edgeOffsets = new Map<number, number[]>();
@@ -310,6 +310,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const sitePavement = surveyedPavements.find(patch => patch.siteDriveway);
   const municipalRoads = (data.pavement?.roads ?? []).map(rings => pavementBounds(rings, 4));
   const municipalWalks = (data.pavement?.sidewalks ?? []).map(rings => pavementBounds(rings));
+  const servicePavements = data.servicePaving.map(rings => pavementBounds(rings));
   const trafficIslands = (data.pavement?.trafficIslands ?? []).map(({ shape, ...detail }) => ({
     ...pavementBounds(shape), ...detail,
   }));
@@ -749,6 +750,13 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (item.kind === 'bench') benches.push(item.position);
   }
   for (const crossing of crossings) zebra(crossing);
+  for (const { rings } of servicePavements) {
+    const deck = pavementArea(rings, deckLift, 1.45);
+    // Match the rendered road boundary where a centerline fallback already fills the surface.
+    const exposed = roadPaint ? roadPaint.subtract(deck) : deck;
+    if (exposed !== deck) deck.dispose();
+    add(finish ? '#e2ecf8' : '#737878', exposed, 'asphalt');
+  }
   municipalWalkBorders?.clear();
   function flushLayers() {
     for (const { color, texture, geometry: geometries, castsShadow, priority, paint } of layers.values()) {
@@ -889,8 +897,14 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       return surface(point.x, point.z) + sidewalkLift;
     }
   }
+  function serviceElevation(point: Point) {
+    const position = new T.Vector2(point.x, point.z);
+    if (servicePavements.some(({ rings, bounds }) => bounds.containsPoint(position) && inShape(point, rings))) {
+      return surface(point.x, point.z) + deckLift;
+    }
+  }
   return { ...network, drive, surface, deckLift, roadClearance, streetClearance, addSurveyedPaint,
-    sidewalkElevation, municipalTreeHeights,
+    sidewalkElevation, serviceElevation, municipalTreeHeights,
     setPaintProjection: (height: number, fov: number) => {
       paintProjection.value = height / (2 * Math.tan(T.MathUtils.degToRad(fov / 2)));
     } };

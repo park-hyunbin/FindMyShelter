@@ -120,7 +120,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   streets.addSurveyedPaint(site.paving?.asphaltDecks);
   const environment = addEnvironment(data, scene, terrainProjection, finish, point => {
     const road = streets.nearest(point, 14);
-    return entrance?.paved(point) || site.paving?.elevation(point) !== undefined || streets.sidewalkElevation(point) !== undefined || insideBuilding(point)
+    return entrance?.paved(point) || site.paving?.elevation(point) !== undefined || streets.sidewalkElevation(point) !== undefined
+      || streets.serviceElevation(point) !== undefined || insideBuilding(point)
       || (isOpo ? road !== undefined && road.distance <= road.segment.width / 2 + 0.4 : streets.roadClearance(point) <= 0.4);
   }, treeCover ?? undefined, new Map([...streets.municipalTreeHeights, ...(site.paving?.sidewalkTreeHeights ?? [])]));
   terrainProjection?.clear();
@@ -131,7 +132,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   function walkDeck(point: Point, ground: number) {
-    const paved = site.paving?.elevation(point) ?? streets.sidewalkElevation(point);
+    const paved = site.paving?.elevation(point) ?? streets.sidewalkElevation(point) ?? streets.serviceElevation(point);
     if (streets.streetClearance(point) <= 0) {
       return Math.max(paved ?? ground, ground + streets.deckLift);
     }

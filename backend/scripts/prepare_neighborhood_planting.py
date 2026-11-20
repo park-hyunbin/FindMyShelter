@@ -29,6 +29,13 @@ def local_shape(geometry):
     return make_valid(transform(shape(geometry), TO_METRES, interleaved=False))
 
 
+def building_footprints(folder):
+    buildings = DATA.parent / "buildings" / folder.name
+    manifest = read_json(buildings / "manifest.json")
+    return [local_shape(feature["geometry"])
+            for item in manifest["chunks"] for feature in read_json(buildings / item["url"])["features"]]
+
+
 def read_planting(path, window):
     with ZipFile(path) as archive:
         shp = next(name for name in archive.namelist() if Path(name).name == f"{SURVEY}.shp")
@@ -59,10 +66,7 @@ def build(folder, archive, road_archive, walk_archive, radius):
     window = boundary.buffer(radius)
     road, road_source = extract(road_archive, ROAD_LAYER, window)
     walk, walk_source = extract(walk_archive, WALK_LAYER, window)
-    buildings = DATA.parent / "buildings" / folder.name
-    manifest = read_json(buildings / "manifest.json")
-    footprints = [local_shape(feature["geometry"]).intersection(window)
-                  for item in manifest["chunks"] for feature in read_json(buildings / item["url"])["features"]]
+    footprints = [polygon.intersection(window) for polygon in building_footprints(folder)]
     mapped = [local_shape(feature["geometry"]).intersection(window)
               for feature in read_json(folder / "environment.geojson")["features"]
               if feature["properties"]["kind"] in {"green", "water"} and "Polygon" in feature["geometry"]["type"]]
