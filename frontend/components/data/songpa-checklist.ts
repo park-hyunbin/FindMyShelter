@@ -1,5 +1,5 @@
 import { songpaComplex } from './regions';
-import { songpaCourtyard, songpaFacilities, songpaGrounds, songpaManagementFees, songpaPlayground } from './songpa-grounds';
+import { garakGreenStrip, songpaCourtyard, songpaFacilities, songpaGrounds, songpaManagementFees, songpaPlayground } from './songpa-grounds';
 import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
 import { floodForecast, floodSource } from './songpa-flood';
@@ -74,10 +74,11 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'transit', title: '역·정류장까지 걷기', evidence: 'model',
-        finding: '송파역 2번 출구에서 단지로 돌아오는 길을 눈높이에서 볼 수 있어요. 정문 방향 서쪽 보도는 서울시 자료와 로드뷰를 대조했어요. 양재대로 남쪽 정류소와 지도상 보행로도 확인할 수 있어요.',
+        finding: '송파역 2번 출구에서 단지로 돌아오며 양재대로 교통섬과 가락광장 동쪽 녹지를 볼 수 있어요. 녹지 안 수목과 포장은 2025년 10월 항공영상을 참고했어요. 양재대로 남쪽 버스 정류소까지의 길도 확인할 수 있어요.',
         views: [{ target: 'station-home', label: '송파역에서 귀갓길 체험' }, { target: 'bus-route', label: '가락동부센트레빌아파트 정류소 보기' }],
         followUp: '보도에서 정문까지 남은 연결과 단차, 정류소 승차 방향, 출근 시간에 실제 걸린 시간을 확인해 보세요.',
-        sources: [walkingNetwork, { label: '정문 방향 보도 로드뷰', url: songpaEntrance.frontage.roadview },
+        sources: [walkingNetwork, { label: '서울시 가락광장·완충녹지 도형', url: garakGreenStrip.source.planning },
+          { label: '정문 방향 보도 로드뷰', url: songpaEntrance.frontage.roadview },
           { label: '서울시 버스정류소 위치정보', url: songpaBusStop.source }],
       },
       {

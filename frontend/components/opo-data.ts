@@ -1,7 +1,7 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { regions, songpaComplex, type RegionId } from './data/regions';
-import { songpaCourtyard, songpaFrontage, songpaGrounds } from './data/songpa-grounds';
+import { garakGreenStrip, songpaCourtyard, songpaFrontage, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songiPark } from './data/songi-park';
 import { songpaStationCrossings } from './data/visit-routes';
@@ -236,6 +236,15 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     shapes: geometry.type === 'Polygon' ? [toShape(geometry.coordinates)]
       : geometry.type === 'MultiPolygon' ? geometry.coordinates.map(toShape) : [],
   }));
+  if (region === 'songpa') {
+    const parkAnchor = project(garakGreenStrip.anchor);
+    const parkIndex = features.findIndex(feature => feature.kind === 'green' && feature.subclass === 'park'
+      && feature.shapes.some(rings => inShape(parkAnchor, rings)));
+    if (parkIndex >= 0) features.splice(parkIndex, 1);
+    for (const { category, shapes } of garakGreenStrip.cover) {
+      features.push({ kind: 'green', category, subclass: 'park', lines: [], shapes: shapes.map(toShape) });
+    }
+  }
   const siteRoads = site.features.flatMap(({ geometry, properties }) => geometry.type === 'LineString'
     ? [{ points: geometry.coordinates.map(project), bridge: properties.bridge, id: properties.id }] : []);
   const siteOutline = site.features.flatMap(({ geometry }) => geometry.type === 'Polygon'
@@ -295,6 +304,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     }
     for (const [index, coordinate] of [...songpaCourtyard.crowns, ...songiPark.crowns].entries()) {
       streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
+    }
+    for (const [index, coordinate] of garakGreenStrip.crowns.entries()) {
+      streetPoints.push({ id: `garak-green-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
     }
     streetPoints.push(...surveyed);
   }

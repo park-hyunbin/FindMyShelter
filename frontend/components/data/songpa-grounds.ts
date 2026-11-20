@@ -5,6 +5,9 @@ import { songiParkSurvey } from './songi-park';
 import { songpaStationCrossings } from './visit-routes';
 import streetTreeArchive from '../../public/datasets/regions/songpa/street-trees.json';
 import courtyardWalkArchive from '../../public/datasets/regions/songpa/courtyard-walks.json';
+import garakGreenArchive from '../../public/datasets/regions/songpa/garak-green-strip.json';
+
+export const garakGreenStrip = garakGreenArchive;
 
 export const songpaFacilities = {
   checkedOn: '2026-11-18',
@@ -545,7 +548,10 @@ export const songpaSurfaceLayout = {
     ],
   },
   paths: songpaCourtyard.paths,
-  walkAreas: courtyardWalkArchive.walks.map(({ outline }) => outline.map(([lng, lat]): Coordinate => [lng, lat])),
+  walkAreas: [
+    ...courtyardWalkArchive.walks.map(({ outline }) => outline),
+    ...garakGreenStrip.paving,
+  ].map(outline => outline.map(([lng, lat]): Coordinate => [lng, lat])),
   plantingBeds: songpaFrontage.beds,
   plantedGround: [...songpaFrontage.plantedGround, ...songpaCourtyard.plantedGround],
   ironFences: [...songpaFrontage.ironFences.map(points => ({ points })), ...playgroundFences],
