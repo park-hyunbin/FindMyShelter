@@ -3,8 +3,13 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { OpoData, Point } from './opo-data';
 
 type XYZ = [number, number, number];
-export type LandscapePoint = Point & { mapped?: boolean; form?: 'broadleaf' | 'pine'; sidewalkHeight?: number };
+export type LandscapePoint = Point & { mapped?: boolean; form?: 'broadleaf' | 'pine'; species?: string; sidewalkHeight?: number };
 export type ShrubPlacement = Point & { y: number; scale: XYZ };
+
+// Horizontal proportions for the shared canopy mesh. These are display profiles.
+const speciesCrownScale = new Map([
+  ['벚나무류', 1.13], ['양버즘나무', 1.18], ['은행나무', 0.77], ['느티나무', 1.20],
+]);
 
 function sampler(seed: number) {
   return () => {
@@ -120,12 +125,13 @@ export function addLandscapeTrees(group: T.Group, trees: LandscapePoint[], surfa
     foliage.name = `주변 수목 · ${type}`;
     trunks.castShadow = foliage.castShadow = !distant;
     trunks.receiveShadow = foliage.receiveShadow = true;
-    points.forEach(({ x, z, sidewalkHeight }, index) => {
+    points.forEach(({ x, z, species, sidewalkHeight }, index) => {
       const random = sampler(Math.imul(Math.round(x * 100), 73856093) ^ Math.imul(Math.round(z * 100), 19349663));
       const size = random();
       const height = sidewalkHeight !== undefined ? 6.2 + size * 4.2 : forest ? 6.3 + size * 6.5 : 4.1 + size * 5.2;
       transform.position.set(x, sidewalkHeight ?? surface(x, z), z);
-      transform.scale.set(height * (0.86 + random() * 0.29), height, height * (0.86 + random() * 0.29));
+      const width = height * (speciesCrownScale.get(species ?? '') ?? 1);
+      transform.scale.set(width * (0.86 + random() * 0.29), height, width * (0.86 + random() * 0.29));
       transform.rotation.y = random() * Math.PI * 2;
       transform.updateMatrix();
       trunks.setMatrixAt(index, transform.matrix);

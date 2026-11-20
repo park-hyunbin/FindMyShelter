@@ -80,6 +80,8 @@ node frontend/scripts/prepare-region.mjs --region songpa --refresh
 
 - 놀이터에서 101·102동 방향으로 굽는 길과 103·104동 사이의 좁은 연결부는 서울시 부지안도로 `N1L_A0010000`의 UFID 끝자리 150·156·165 양쪽 선을 사용합니다. 2025-10-28 항공영상과 대조한 구간을 면으로 만들고, 기존 보행로와 겹치는 곳은 실측 윤곽을 우선합니다. 같은 면을 보행 높이와 좌표 관측에 사용합니다. 좁은 연결부 양끝은 기존 보행로의 방향과 폭에 맞춰 이었습니다. 굽은 길 안쪽의 식재 지면은 항공영상에서 식생이 식별되는 범위로 제한했습니다. 접속부의 실제 폭과 턱 높이, 수관 아래 마감은 모형의 근사입니다. `uv run --with pyshp --with pyproj --with shapely python backend/scripts/prepare_songpa_courtyard_walks.py <부지안도로 ZIP>`으로 보행면을 다시 만들 수 있습니다. [서울시 부지안도로 원본](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1L_A0010000.zip) · [항공영상 출처](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)
 
+- 2026-09-30 서울시 가로수 목록으로 단지 경계 250m 내 보도와 진입부 수종을 대조합니다. 에스맵 점과 서로 가장 가까운 4.5m 이내의 28건은 에스맵 좌표에 수종을 연결합니다. 신규 후보는 에스맵 점에서 떨어져 있고 보도면 안쪽이며 차도 경계 밖인 131개만 추출합니다. 정문 안팎에는 항공영상 수관 중심과 서로 가장 가까운 2.5m 이내의 벚나무류 3건을 항공영상 위치에 연결했습니다. 높이·수관 폭·보호틀은 시각 모형에 쓰는 근사이며 실제 규격은 확인이 필요합니다. `uv run --with pyproj --with shapely python backend/scripts/prepare_songpa_tree_inventory.py <2026 가로수 XLSX>`로 결과를 재생성할 수 있습니다. [서울시 가로수 위치 정보](https://data.seoul.go.kr/dataList/OA-23040/S/1/datasetView.do)
+
 ## 송파에서 서울로 확장하는 데이터 설계
 
 2026년 11월 18일 기준 확보 경로를 확인했다. **새 단지에 주소와 단지 코드를 등록하면 공통 데이터로 주변 기본 3D가 생성되고, 확인한 출입구·보행로·시설만 단지 데이터로 추가되는 구조**를 목표로 한다. 같은 동네의 건물·지형·도로는 인접 단지가 재사용한다. 아래는 목표 설계이며, 송파 이외 구역의 원본과 실제 제공 범위는 아직 확보·검증이 필요하다.

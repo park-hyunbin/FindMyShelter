@@ -95,6 +95,33 @@ export function projectSiteCrossing(project: OpoData['project'], { start, end, o
   return { area, ring, boundary: [...ring, ring[0]] };
 }
 
+export function sidewalkTreeWell(position: Point, rings: Point[][], surface: ReturnType<typeof createSurfaceClipper>) {
+  let nearest: [Point, Point] | undefined;
+  let distance = Infinity;
+  for (const ring of rings) for (const [index, a] of ring.entries()) {
+    const b = ring[(index + 1) % ring.length];
+    const candidate = nearestOnLine(position, [[a, b]]).distance;
+    if (candidate < distance) {
+      nearest = [a, b];
+      distance = candidate;
+    }
+  }
+  const half = Math.min(0.49, distance - 0.025);
+  if (!nearest || half < 0.17) return undefined;
+  const direction = axisBetween(...nearest).direction;
+  function onSidewalk(radius: number, lift: number) {
+    const square = [[-radius, -radius], [radius, -radius], [radius, radius], [-radius, radius]].map(([u, v]) => ({
+      x: position.x + direction.x * u + direction.z * v,
+      z: position.z + direction.z * u - direction.x * v,
+    }));
+    const outline = groundPolygon([square], () => 0, Infinity, 0);
+    const result = surface.clip(outline, lift);
+    outline.dispose();
+    return result;
+  }
+  return { frame: onSidewalk(half, 0.013), fill: onSidewalk(half - 0.07, 0.016) };
+}
+
 function ironFence(line: Point[], grade: OpoData['ground'], height: number) {
   const pieces: T.BufferGeometry[] = [];
   const railAxis = new T.Vector3(0, 0, 1);
@@ -378,30 +405,15 @@ export function addSiteSurfaces(
 
     const clipper = createSurfaceClipper();
     clipper.addSurface(walkingSurface);
-    const edges = ring.map((a, index) => [a, ring[(index + 1) % ring.length]])
-      .filter(([a, b]) => a.x !== b.x || a.z !== b.z);
     for (const { id, position } of wells) {
       const height = elevation(position);
       if (height === undefined) continue;
       sidewalkTreeHeights.set(id, height);
-      const closest = edges.reduce((best, edge) => {
-        const { distance } = nearestOnLine(position, [edge]);
-        return distance < best.distance ? { edge, distance } : best;
-      }, { edge: edges[0], distance: Infinity });
-      const half = Math.min(0.49, closest.distance - 0.025);
-      if (half < 0.17) continue;
-      const [a, b] = closest.edge;
-      const direction = axisBetween(a, b).direction;
-      const square = (radius: number) => [[-radius, -radius], [radius, -radius], [radius, radius], [-radius, radius]].map(([u, v]) => ({
-        x: position.x + direction.x * u + direction.z * v,
-        z: position.z + direction.z * u - direction.x * v,
-      }));
-      const rim = groundPolygon([square(half)], () => 0, Infinity, 0);
-      const soil = groundPolygon([square(half - 0.07)], () => 0, Infinity, 0);
-      treeWellFrames.push(clipper.clip(rim, 0.013));
-      treeWellGround.push(clipper.clip(soil, 0.016));
-      rim.dispose();
-      soil.dispose();
+      const well = sidewalkTreeWell(position, [ring], clipper);
+      if (well) {
+        treeWellFrames.push(well.frame);
+        treeWellGround.push(well.fill);
+      }
     }
     clipper.clear();
   }

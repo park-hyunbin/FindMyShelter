@@ -110,9 +110,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   terrain.castShadow = true;
   scene.add(terrain);
   const { occluders, anchors, roofs } = buildMeshes(data, scene);
-  const streets = addStreets(data, scene, finish, terrainProjection);
-  const entrance = isOpo ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const insideBuilding = buildingCollision(data.buildings);
+  const streets = addStreets(data, scene, finish, terrainProjection, insideBuilding);
+  const entrance = isOpo ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
   const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
   if (treeCoverOverlay) scene.add(treeCoverOverlay);
@@ -122,7 +122,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const road = streets.nearest(point, 14);
     return entrance?.paved(point) || site.paving?.elevation(point) !== undefined || streets.sidewalkElevation(point) !== undefined || insideBuilding(point)
       || (isOpo ? road !== undefined && road.distance <= road.segment.width / 2 + 0.4 : streets.roadClearance(point) <= 0.4);
-  }, treeCover ?? undefined, site.paving?.sidewalkTreeHeights);
+  }, treeCover ?? undefined, new Map([...streets.municipalTreeHeights, ...(site.paving?.sidewalkTreeHeights ?? [])]));
   terrainProjection?.clear();
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
   const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);

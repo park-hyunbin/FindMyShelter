@@ -7,7 +7,7 @@ import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection } from './opo-meshes';
 import { crossingOutline, crosswalkFrame, fitCrosswalk, fitCrosswalkDeck, leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type Crosswalk } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
-import { projectSiteCrossing } from './opo-site-surfaces';
+import { projectSiteCrossing, sidewalkTreeWell } from './opo-site-surfaces';
 import { createSurfaceClipper } from './opo-surface-clip';
 
 const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
@@ -233,7 +233,8 @@ function leaveJunctionGap(points: Point[], start: number, end: number) {
   return remaining;
 }
 
-export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials, terrain?: ReturnType<typeof createTerrainProjection>) {
+export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials,
+  terrain?: ReturnType<typeof createTerrainProjection>, insideBuilding?: (position: Point) => boolean) {
   const songpa = data.region === 'songpa';
   const deckLift = streetDeckLift(data.region);
   const sidewalkLift = deckLift + (songpa ? 0.14 : 0.10);
@@ -469,9 +470,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     roadPaint?.addSurface(geometry);
     add(finish ? '#e2ecf8' : '#737878', geometry, 'asphalt', false, true);
   }
+  const municipalTreeHeights = new Map<string, number>();
   if (data.pavement) {
     const reviewed = createSurfaceClipper();
-    for (const { ring } of [...surveyedPavements, ...junctionPavements, ...surveyedWalks]) {
+    const priorityRings = [...surveyedPavements, ...junctionPavements, ...surveyedWalks].map(({ ring }) => ring);
+    for (const ring of priorityRings) {
       const mask = groundPolygon([ring], () => 0, Infinity, 0);
       reviewed.addSurface(mask);
       mask.dispose();
@@ -484,12 +487,29 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       municipalWalkBorders?.addSurface(exposed);
       add(finish ? '#e2ecf8' : '#737878', exposed, 'asphalt');
     }
-    for (const { rings } of municipalWalks) {
+    const trees = data.streetPoints.filter(point => point.surveyedTree && !insideBuilding?.(point.position)
+      && !priorityRings.some(ring => inShape(point.position, [ring])));
+    for (const { rings, bounds } of municipalWalks) {
       const walk = pavementArea(rings, sidewalkLift, 1.45);
       const exposed = reviewed.subtract(walk);
       walk.dispose();
       municipalWalkBorders?.addSurface(exposed);
       add('#c8c1b8', exposed, 'pavers');
+      const sidewalkTrees = trees.filter(({ position }) => bounds.containsPoint(new T.Vector2(position.x, position.z))
+        && inShape(position, rings));
+      if (sidewalkTrees.length) {
+        const sidewalkSurface = createSurfaceClipper();
+        sidewalkSurface.addSurface(exposed);
+        for (const { id, position } of sidewalkTrees) {
+          const well = sidewalkTreeWell(position, rings, sidewalkSurface);
+          if (well) {
+            add('#555853', well.frame);
+            add('#807463', well.fill, 'forest');
+          }
+          municipalTreeHeights.set(id, surface(position.x, position.z) + sidewalkLift);
+        }
+        sidewalkSurface.clear();
+      }
       for (const ring of rings) {
         add('#aaa59a', sidewalkFascia(ring, surface, (x, z) => surface(x, z) + sidewalkLift));
       }
@@ -850,7 +870,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
   }
   return { ...network, drive, surface, deckLift, roadClearance, streetClearance, addSurveyedPaint,
-    sidewalkElevation,
+    sidewalkElevation, municipalTreeHeights,
     setPaintProjection: (height: number, fov: number) => {
       paintProjection.value = height / (2 * Math.tan(T.MathUtils.degToRad(fov / 2)));
     } };

@@ -528,7 +528,7 @@ export function addEnvironment(data: OpoData, scene: T.Scene, terrain: ReturnTyp
     if (point.kind !== 'tree') continue;
     const sidewalkHeight = sidewalkTrees?.get(point.id);
     if (sidewalkHeight === undefined ? canPlant(point.position) : clearOfWater(point.position)) {
-      trees.push({ ...point.position, mapped: true, form: point.treeForm, sidewalkHeight });
+      trees.push({ ...point.position, mapped: true, form: point.treeForm, species: point.treeSpecies, sidewalkHeight });
     }
   }
   addLandscapeTrees(vegetation, trees, surface, Boolean(finish), Boolean(forest));

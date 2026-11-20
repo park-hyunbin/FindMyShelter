@@ -9,6 +9,7 @@ import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
 import songpaBusStop from '../public/datasets/regions/songpa/bus-stop.json';
 import songpaStreetTrees from '../public/datasets/regions/songpa/street-trees.json';
+import songpaTreeInventory from '../public/datasets/regions/songpa/street-tree-inventory.json';
 
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
@@ -45,7 +46,9 @@ type StreetPaintFile = {
   };
 };
 export type Street = StreetProperties & { points: Point[] };
-export type StreetPoint = StreetPointProperties & { position: Point; treeForm?: 'broadleaf' | 'pine'; surveyedTree?: boolean };
+export type StreetPoint = StreetPointProperties & {
+  position: Point; treeForm?: 'broadleaf' | 'pine'; treeSpecies?: string; surveyedTree?: boolean;
+};
 type BuildingFile = FeatureCollection<Polygon | MultiPolygon, BuildingProperties> & {
   metadata: { center_lnglat: [number, number]; local_origin_xy: [number, number]; radius_m: number };
 };
@@ -249,16 +252,44 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   if (officialStop) streetPoints.push({
     id: officialStop.osmPointId, kind: 'bus', name: officialStop.name, position: project(officialStop.coordinate),
   });
-  if (region === 'songpa') for (const [index, coordinate] of [...songpaGrounds.crowns, ...songpaCourtyard.crowns, ...songiPark.crowns].entries()) {
-    streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
-  }
-  if (region === 'songpa') for (const [index, coordinate] of songpaFrontage.crowns.entries()) {
-    streetPoints.push({
-      id: `songpa-frontage-crown-${index}`, kind: 'tree', name: null, position: project(coordinate), treeForm: 'broadleaf',
+  if (region === 'songpa') {
+    const recordedForm = (species: string): StreetPoint['treeForm'] =>
+      /소나무|향나무|잣나무|메타세쿼이아|측백|주목/.test(species) ? 'pine' : 'broadleaf';
+    const matches = new Map(Object.entries(songpaTreeInventory.surveyMatches));
+    const surveyed: StreetPoint[] = songpaStreetTrees.trees.map(({ id, coordinate }) => {
+      const match = matches.get(id);
+      return { id, kind: 'tree', name: null, treeSpecies: match?.species, position: project(coordinate), surveyedTree: true,
+        treeForm: match ? recordedForm(match.species) : 'broadleaf' };
     });
-  }
-  if (region === 'songpa') for (const { id, coordinate } of songpaStreetTrees.trees) {
-    streetPoints.push({ id, kind: 'tree', name: null, position: project(coordinate), treeForm: 'broadleaf', surveyedTree: true });
+    surveyed.push(...songpaTreeInventory.sidewalkTrees.map(({ row, species, coordinate }): StreetPoint => ({
+      id: `seoul-tree-2026-${row}`, kind: 'tree', name: null, treeSpecies: species, position: project(coordinate),
+      surveyedTree: true, treeForm: recordedForm(species),
+    })));
+    // Primary tree positions replace nearby lower-detail OSM tree points.
+    const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z);
+    for (let i = streetPoints.length - 1; i >= 0; i--) {
+      const point = streetPoints[i];
+      if (point.kind === 'tree' && surveyed.some(tree => distance(tree.position, point.position) < 2)) streetPoints.splice(i, 1);
+    }
+    const entranceCrowns = [...songpaGrounds.crowns, ...songpaFrontage.crowns].map(project);
+    const entranceInventory = songpaTreeInventory.entranceContext.map(row => ({ ...row, point: project(row.coordinate) }));
+    function entranceSpecies(position: Point) {
+      if (!entranceInventory.length) return undefined;
+      const closest = entranceInventory.reduce((a, b) => distance(position, a.point) <= distance(position, b.point) ? a : b);
+      if (distance(position, closest.point) > 2.5) return undefined;
+      const nearestCrown = entranceCrowns.reduce((a, b) => distance(closest.point, a) <= distance(closest.point, b) ? a : b);
+      return nearestCrown === position ? closest.species : undefined;
+    }
+    for (const [index, position] of entranceCrowns.entries()) {
+      if (surveyed.some(tree => distance(tree.position, position) < 2)) continue;
+      const species = entranceSpecies(position);
+      streetPoints.push({ id: `songpa-entrance-crown-${index}`, kind: 'tree', name: null, treeSpecies: species, position,
+        treeForm: species ? recordedForm(species) : index >= songpaGrounds.crowns.length ? 'broadleaf' : undefined });
+    }
+    for (const [index, coordinate] of [...songpaCourtyard.crowns, ...songiPark.crowns].entries()) {
+      streetPoints.push({ id: `songpa-crown-${index}`, kind: 'tree', name: null, position: project(coordinate) });
+    }
+    streetPoints.push(...surveyed);
   }
   const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));
   const date = environment.metadata.tile_source.match(/\/(\d{4})(\d{2})(\d{2})_/);
