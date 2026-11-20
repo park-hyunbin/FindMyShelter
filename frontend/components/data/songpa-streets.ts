@@ -1,4 +1,5 @@
 import type { StreetFacade } from '../opo-street-exterior';
+import type { NeighborhoodPalette } from '../opo-neighborhood-facade';
 
 export const songpaStreets = {
   roadview: 'https://map.kakao.com/link/roadview/37.4979588,127.1171789',
@@ -16,4 +17,10 @@ export const songpaStreetFacades = new Map<string, StreetFacade>([
     front: [127.117202, 37.497954], balconies: true, storefront: false }],
   ['69803784', { wall: '#c7c1b7', roof: '#92938e', edge: '#b3ada3', glass: '#50676b', lower: '#7b7771',
     front: [127.116839, 37.498395], balconies: false, storefront: true }],
+]);
+
+// Shared finishes for the adjacent complexes, based on the photographed street elevations.
+export const songpaNeighborApartments = new Map<string, NeighborhoodPalette>([
+  ['가락금호아파트', { wall: '#e0e3e0', trim: '#c6cfcb', glass: '#637c86', roof: '#8b9390', accent: '#819cae' }],
+  ['가락우성아파트', { wall: '#e4dbcf', trim: '#cfc0af', glass: '#637475', roof: '#9caa8c', accent: '#ae8e75' }],
 ]);

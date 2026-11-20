@@ -7,7 +7,7 @@ import { addSongpaTowerExterior, songpaExteriorMaterials } from './opo-songpa-ex
 import { addStreetExterior } from './opo-street-exterior';
 import { buildingAppearance } from './data/building-appearance';
 import { buildingProfile, buildingProfiles, type BuildingUse } from './data/building-profile';
-import { facadeUV, neighborhoodFacade } from './opo-neighborhood-facade';
+import { facadeUV, neighborhoodFacade, type NeighborhoodPalette } from './opo-neighborhood-facade';
 import { addLandscapeTrees, type LandscapePoint } from './opo-vegetation';
 import { createSurfaceClipper } from './opo-surface-clip';
 
@@ -287,10 +287,14 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
   const claddingMaterials = appearance?.towerCladding ? songpaExteriorMaterials() : null;
   const apartmentRoof = new T.MeshStandardMaterial({ color: '#665a53', roughness: 0.95 });
   const pavilionWall = new T.MeshStandardMaterial({ color: '#e4e2d8', roughness: 0.91 });
-  const defaultMaterials = new Map(Object.entries(buildingProfiles).map(([use, style]) => [use as BuildingUse, {
+  const buildingMaterials = (use: BuildingUse, style: NeighborhoodPalette) => ({
     roof: new T.MeshStandardMaterial({ color: style.roof, roughness: 0.96 }),
-    wall: neighborhoodFacade(use as BuildingUse),
-  }]));
+    wall: neighborhoodFacade(use, style),
+  });
+  const defaultMaterials = new Map(Object.entries(buildingProfiles).map(([use, style]) =>
+    [use as BuildingUse, buildingMaterials(use as BuildingUse, style)]));
+  const neighborMaterials = [...(appearance?.neighborApartments ?? [])].map(([name, style]) =>
+    [name, buildingMaterials('apartments', style)] as const);
   const pitchedRoofMaterial = new T.MeshStandardMaterial({ color: '#845a48', roughness: 0.96 });
   const estimatedGeometry = new Map<T.Material, T.BufferGeometry[]>();
   const footprints = new T.MeshBasicMaterial({ color: '#a89d86' });
@@ -306,7 +310,9 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
     const wallHeight = (displayHeight ?? 0) - roofRise;
     const floorHeight = building.levels ? wallHeight / building.levels : profile.floorM;
     const sharedFacade = !building.dong || !sourceHeight;
-    const materials = defaultMaterials.get(use)!;
+    const neighborApartment = !building.dong && use === 'apartments';
+    const recordedFinish = neighborApartment && neighborMaterials.find(([name]) => building.label.startsWith(name));
+    const materials = recordedFinish ? recordedFinish[1] : defaultMaterials.get(use)!;
     const roof = pitchedRoof ? pitchedRoofMaterial : materials.roof;
     for (const [index, rings] of building.shapes.entries()) {
       if (displayHeight === null) {
@@ -318,9 +324,10 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       const skirt = Math.max(1.15, ...rings[0].map(p => verticalBase - ground(p.x, p.z) + 0.75));
       const shape = shapeFrom(rings);
       const genericFloorHeight = building.levels ? floorHeight : displayHeight / Math.max(1, Math.round(displayHeight / profile.floorM));
+      const apartmentOutline = neighborApartment && (building.levels ?? 0) >= 9 && rings.length === 1 ? rings[0] : undefined;
       const geometry = new T.ExtrudeGeometry(shape, {
         depth: displayHeight + skirt, bevelEnabled: false,
-        UVGenerator: sharedFacade ? facadeUV(profile.bayM, genericFloorHeight, skirt) : undefined,
+        UVGenerator: sharedFacade ? facadeUV(profile.bayM, genericFloorHeight, skirt, apartmentOutline) : undefined,
       });
       if (!sharedFacade && !roofRise) {
         const uv = geometry.getAttribute('uv');
