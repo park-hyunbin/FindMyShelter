@@ -248,7 +248,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
         if (lengthOf([from, start.point]) <= 0.2 && lengthOf([to, end.point]) <= 0.2) {
           addLine([...start.before.slice(0, -1), from], style, surfaceGuide);
           for (const leg of stationTrace.legs) {
-            addLine(leg.coordinates.map(data.project), leg.confirmed ? recorded : shortConnection, surfaceGuide);
+            const legend = leg.surface === 'survey' ? recorded : leg.surface === 'aerial' ? aerialTrace ?? recorded : shortConnection;
+            addLine(leg.coordinates.map(data.project), legend, surfaceGuide);
           }
           addLine([to, ...end.after.slice(1)], style, surfaceGuide);
           return;
@@ -320,7 +321,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       });
       if (stationTrace) intermediate.push({
         distance: stationTrace.view.distance,
-        ...at('yangjae-crossing', '양재대로 횡단보도', '서울시 횡단보도 도형 · 신호 대기와 보도 턱은 현장 확인',
+        ...at('yangjae-crossing', '양재대로 횡단보도', '교통섬 2곳은 서울시 도형 · 섬 안 보행로는 항공영상 기준 · 신호와 턱은 현장 확인',
           data.project(stationTrace.view.position), data.project(stationTrace.view.toward)),
       });
       intermediate.sort((a, b) => b.distance - a.distance);

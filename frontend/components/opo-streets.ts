@@ -310,6 +310,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const sitePavement = surveyedPavements.find(patch => patch.siteDriveway);
   const municipalRoads = (data.pavement?.roads ?? []).map(rings => pavementBounds(rings, 4));
   const municipalWalks = (data.pavement?.sidewalks ?? []).map(rings => pavementBounds(rings));
+  const trafficIslands = (data.pavement?.trafficIslands ?? []).map(({ shape, ...detail }) => ({
+    ...pavementBounds(shape), ...detail,
+  }));
+  const pedestrianPavements = [...municipalWalks, ...trafficIslands];
   const measuredSegments = new Map<string, [number, number][]>((data.pavement?.coveredSegments ?? []).map(([road, node, spans]) => [
     `${road}:${node}`, spans,
   ] as const));
@@ -473,9 +477,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const municipalTreeHeights = new Map<string, number>();
   if (data.pavement) {
     const reviewed = createSurfaceClipper();
-    const priorityRings = [...surveyedPavements, ...junctionPavements, ...surveyedWalks].map(({ ring }) => ring);
-    for (const ring of priorityRings) {
-      const mask = groundPolygon([ring], () => 0, Infinity, 0);
+    const priorityAreas = [
+      ...[...surveyedPavements, ...junctionPavements, ...surveyedWalks].map(({ ring }) => [ring]),
+      ...trafficIslands.map(({ rings }) => rings),
+    ];
+    for (const rings of priorityAreas) {
+      const mask = groundPolygon(rings, () => 0, Infinity, 0);
       reviewed.addSurface(mask);
       mask.dispose();
     }
@@ -488,7 +495,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       add(finish ? '#e2ecf8' : '#737878', exposed, 'asphalt');
     }
     const trees = data.streetPoints.filter(point => point.surveyedTree && !insideBuilding?.(point.position)
-      && !priorityRings.some(ring => inShape(point.position, [ring])));
+      && !priorityAreas.some(rings => inShape(point.position, rings)));
     for (const { rings, bounds } of municipalWalks) {
       const walk = pavementArea(rings, sidewalkLift, 1.45);
       const exposed = reviewed.subtract(walk);
@@ -513,6 +520,15 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       for (const ring of rings) {
         add('#aaa59a', sidewalkFascia(ring, surface, (x, z) => surface(x, z) + sidewalkLift));
       }
+    }
+    for (const { rings, paving, planting, trees } of trafficIslands) {
+      const deck = pavementArea(rings, sidewalkLift, 1.45);
+      municipalWalkBorders?.addSurface(deck);
+      add('#c8c1b8', deck, 'pavers');
+      for (const ring of rings) add('#aaa59a', sidewalkFascia(ring, surface, (x, z) => surface(x, z) + sidewalkLift));
+      for (const path of paving) add('#bba093', pavementArea(path, sidewalkLift + 0.012, 1.45), 'pavers');
+      for (const patch of planting) add('#a4ad80', pavementArea(patch, sidewalkLift + 0.018, 1.45), 'grass');
+      for (const { id, position } of trees) municipalTreeHeights.set(id, surface(position.x, position.z) + sidewalkLift + 0.018);
     }
     reviewed.clear();
   }
@@ -849,6 +865,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         if (!bounds.containsPoint(position) || !inShape(point, [ring])) continue;
         minimum = Math.max(minimum, nearestOnLine(point, [boundary]).distance);
       }
+      for (const { rings, boundaries, bounds } of trafficIslands) {
+        if (!bounds.containsPoint(position) || !inShape(point, rings)) continue;
+        minimum = Math.max(minimum, nearestOnLine(point, boundaries).distance);
+      }
     }
     return minimum;
   };
@@ -865,7 +885,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   function sidewalkElevation(point: Point) {
     const position = new T.Vector2(point.x, point.z);
-    if (municipalWalks.some(({ rings, bounds }) => bounds.containsPoint(position) && inShape(point, rings))) {
+    if (pedestrianPavements.some(({ rings, bounds }) => bounds.containsPoint(position) && inShape(point, rings))) {
       return surface(point.x, point.z) + sidewalkLift;
     }
   }

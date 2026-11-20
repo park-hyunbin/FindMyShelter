@@ -4,6 +4,7 @@ import { regions, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFrontage, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songiPark } from './data/songi-park';
+import { songpaStationCrossings } from './data/visit-routes';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
@@ -186,6 +187,12 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const base = elevationAt(0, 0);
   const ground = (x: number, z: number) => elevationAt(x, z) - base;
   const toShape = (rings: Position[][]) => rings.map(ring => ring.slice(0, -1).map(project));
+  const trafficIslands = region === 'songpa' ? songpaStationCrossings.islands.map(island => ({
+    shape: toShape(island.shape),
+    paving: island.paving.map(toShape),
+    planting: island.planting.map(toShape),
+    trees: island.trees.map((coordinate, index) => ({ id: `island-${island.ufid}-${index}`, position: project(coordinate) })),
+  })) : [];
 
   const officialHeights = new Map(register.towers.map(row => [row.outlineId, row]));
   const registerRows: (typeof register.towers[number] & { outlineAreaM2: number })[] = [];
@@ -291,6 +298,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     }
     streetPoints.push(...surveyed);
   }
+  for (const island of trafficIslands) {
+    for (const tree of island.trees) streetPoints.push({ ...tree, kind: 'tree', name: null, treeForm: 'broadleaf' });
+  }
   const parking = (neighborhood?.parking ?? []).map(({ coordinates }) => toShape([coordinates]));
   const date = environment.metadata.tile_source.match(/\/(\d{4})(\d{2})(\d{2})_/);
   const referenceHeight = Math.max(...buildings.map(building => building.height ?? 0));
@@ -313,7 +323,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     localTerrain: localTerrain && { source: localTerrain.source, spacing: localTerrain.spacingM, scale: localTerrain.scale,
       edgeFeatherM: localTerrain.edgeFeatherM },
     roadMarkings, crossingWays: neighborhood?.crossingWays?.map(([a, b]) => [project(a), project(b)] as const) ?? [],
-    pavement: pavement && { roads: pavement.roads.map(toShape), sidewalks: pavement.sidewalks.map(toShape),
+    pavement: pavement && { roads: pavement.roads.map(toShape), sidewalks: pavement.sidewalks.map(toShape), trafficIslands,
       coveredSegments: pavement.coveredSegments },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
