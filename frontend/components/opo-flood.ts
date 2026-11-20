@@ -2,8 +2,8 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { floodDepth, floodDistance, floodForecast, floodHistory, type FloodView } from './data/songpa-flood';
-import type { OpoData, Point } from './opo-data';
+import { drainageStops, floodDepth, floodDistance, floodForecast, floodHistory, type DrainageDistances, type FloodView } from './data/songpa-flood';
+import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
 import { groundPolygon } from './opo-meshes';
 
 export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
@@ -20,6 +20,15 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
     color: '#dc772e', opacity: 0.35, transparent: true, side: T.DoubleSide, depthTest: false, depthWrite: false,
   });
   const pointAt = ({ x, z }: Point, lift = 1.2) => new T.Vector3(x, grade(x, z) + lift, z);
+  const projectRings = (polygon: number[][][]) => polygon.map(ring => ring.slice(0, -1).map(data.project));
+  const stops = drainageStops.map(stop => ({ ...stop, position: data.project(stop.coordinate) }));
+  function distancesFromStops(polygons: Point[][][]) {
+    const edges = polygons.flatMap(rings => rings.map(ring => [...ring, ring[0]]));
+    return Object.fromEntries(stops.map(({ position, id }) => {
+      const distance = polygons.some(rings => inShape(position, rings)) ? 0 : nearestOnLine(position, edges).distance;
+      return [id, Number.isFinite(distance) ? distance : null];
+    }));
+  }
   function drawOutline(target: T.Group, points: Point[], material: LineMaterial, renderOrder: number) {
     const positions = points.map(p => pointAt(p));
     const line = new Line2(new LineGeometry().setPositions(positions.flatMap(p => p.toArray())), material);
@@ -34,8 +43,8 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
     const traces = new T.Group();
     traces.visible = false;
     group.add(traces);
-    const frames = record.polygons.flatMap(polygon => {
-      const rings = polygon.map(ring => ring.slice(0, -1).map(data.project));
+    const polygons = record.polygons.map(projectRings);
+    const frames = polygons.flatMap(rings => {
       const fill = new T.Mesh(groundPolygon(rings, grade, 8, 0.95), traceFill);
       fill.renderOrder = 11;
       traces.add(fill);
@@ -46,11 +55,12 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
     if (record.nearest && record.nearestSite && boundary) {
       drawOutline(traces, [data.project(record.nearestSite), data.project(record.nearest)], distanceStroke, 13);
     }
-    return [year, { traces, frames, nearest, boundary, distance: record.nearestM }];
+    return [year, { traces, frames, nearest, boundary, distance: record.nearestM, stops: distancesFromStops(polygons) }];
   }));
 
   const pinGeometry = new T.SphereGeometry(4, 12, 9);
   const forecastLayer = new T.Group();
+  const forecastPolygons: Point[][][] = [];
   forecastLayer.visible = false;
   group.add(forecastLayer);
   for (const { stage, polygons } of floodForecast.stages) {
@@ -58,7 +68,8 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
     const fill = new T.MeshBasicMaterial({ color, opacity: 0.42, transparent: true, side: T.DoubleSide, depthWrite: false });
     const outline = new LineMaterial({ color, linewidth: 2, depthWrite: false });
     for (const polygon of polygons) {
-      const rings = polygon.map(ring => ring.slice(0, -1).map(data.project));
+      const rings = projectRings(polygon);
+      forecastPolygons.push(rings);
       const mesh = new T.Mesh(groundPolygon(rings, grade, 8, 0.69), fill);
       mesh.renderOrder = 11 + stage / 10;
       forecastLayer.add(mesh);
@@ -103,9 +114,23 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
     }];
   }));
   const traceLabel = { text: '가장 가까운 침수 기록', point: labelPoint, kind: 'trace', enabled: () => nearestMarker.visible };
+  const drainageMaterial = new T.MeshBasicMaterial({ color: '#e6efc1', depthTest: false, depthWrite: false });
+  const drainagePins = stops.map((stop, index) => {
+    const pin = new T.Mesh(pinGeometry, drainageMaterial);
+    pin.visible = false;
+    pin.renderOrder = 15;
+    const label = { text: stop.pin, point: new T.Vector3(), kind: 'drainage', enabled: () => pin.visible };
+    scene.add(pin);
+    return { ...stop, number: String(index + 1), mesh: pin, label };
+  });
+  const distances: DrainageDistances = {
+    forecast: distancesFromStops(forecastPolygons),
+    history: Object.fromEntries([...years.entries()].map(([year, layer]) => [year, layer.stops])),
+  };
   const labels = [
     traceLabel,
     forecastLabel,
+    ...drainagePins.map(stop => stop.label),
     ...Object.values(water).map(({ layer, pin, text }) => ({
       text,
       point: pin.position.clone().add(new T.Vector3(0, 9, 0)), kind: 'water', enabled: () => layer.visible,
@@ -113,11 +138,21 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   ];
   return {
     group,
+    distances,
     labels,
-    show(year: string | null, view: FloodView) {
+    show(year: string | null, view: FloodView, eyeStop: string | null) {
       group.visible = year !== null;
       const traceView = view === 'closest' || view === 'area';
       const forecastView = view === 'forecast';
+      for (const stop of drainagePins) {
+        const atEyeLevel = eyeStop === stop.id;
+        stop.mesh.visible = atEyeLevel || (year !== null && (traceView || forecastView));
+        if (!stop.mesh.visible) continue;
+        stop.mesh.position.copy(pointAt(stop.position, atEyeLevel ? 0.6 : 2));
+        stop.mesh.scale.setScalar(atEyeLevel ? 0.07 : 0.34);
+        stop.label.text = atEyeLevel ? stop.pin : stop.number;
+        stop.label.point.copy(stop.mesh.position).add(new T.Vector3(0, atEyeLevel ? 1.15 : 3, 0));
+      }
       forecastLayer.visible = year !== null && forecastView;
       for (const [value, layer] of years) layer.traces.visible = traceView && year === value;
       for (const [key, { layer }] of Object.entries(water)) layer.visible = year !== null && view === key;

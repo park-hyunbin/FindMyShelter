@@ -1,31 +1,28 @@
 import type { CSSProperties } from 'react';
-import { floodDepth, floodDistance, floodForecast, floodHistory, floodSource, floodWaterSource, floodYears, type FloodView } from './data/songpa-flood';
+import { drainageStops, floodDepth, floodDistance, floodForecast, floodHistory, floodSource, floodWaterSource, floodYears,
+  type DrainageDistances, type FloodView } from './data/songpa-flood';
 import { songpaComplex } from './data/regions';
-import { songpaEntrance } from './data/songpa-entrance';
-import { songpaGrounds } from './data/songpa-grounds';
-
-const drainageStops = [
-  { id: songpaEntrance.main.id, name: songpaEntrance.main.name, check: '보도 가장자리의 빗물받이와 물이 고인 흔적을 확인해요.' },
-  { id: songpaGrounds.points[1].id, name: songpaGrounds.points[1].name, check: '포장 경사가 향하는 쪽과 물이 모이는 곳을 확인해요.' },
-  { id: songpaEntrance.garage.id, name: '102동 지하주차장 입구', check: '덮개 아래 진입부의 배수로와 차수 시설을 확인해요.' },
-];
 
 type Props = {
   year: string;
   view: FloodView;
   sceneReady: boolean;
   mapVisible: boolean;
+  distances?: DrainageDistances;
+  activeStopId: string | null;
   onView: (view: FloodView, year?: string) => void;
   onVisit: (id: string) => void;
 };
 
-export default function SongpaFlood({ year, view, sceneReady, mapVisible, onView, onVisit }: Props) {
+export default function SongpaFlood({ year, view, sceneReady, mapVisible, distances, activeStopId, onView, onVisit }: Props) {
   const record = floodHistory.years[year];
   const nearest = record.nearestM == null ? null : floodDistance(record.nearestM);
   const showingWater = view === 'pond' || view === 'river';
   const showingForecast = view === 'forecast';
   const touchesSite = floodForecast.stages.some(stage => stage.touchesSite);
   const closestForecast = floodForecast.nearest;
+  const stopDistances = showingWater ? undefined : showingForecast ? distances?.forecast : distances?.history[year];
+  const hasDistances = stopDistances && Object.values(stopDistances).some(distance => distance !== null);
   return <section className="flood-panel" aria-label="물길과 침수 기록">
     <article className="site-card">
       <h3>서울시 침수지도</h3>
@@ -46,6 +43,7 @@ export default function SongpaFlood({ year, view, sceneReady, mapVisible, onView
           {floodForecast.stages.map(({ stage }) => <span key={stage} data-kind="forecast"
             style={{ '--flood-stage': floodDepth[stage - 1].color } as CSSProperties}>{floodDepth[stage - 1].label}</span>)}
           <span data-kind="boundary">지도상 단지 경계</span>
+          {mapVisible && <span data-kind="drainage">현장 확인 지점</span>}
         </div>
         <details className="basis">
           <summary>자료 범위와 강우 조건</summary>
@@ -74,6 +72,7 @@ export default function SongpaFlood({ year, view, sceneReady, mapVisible, onView
       {mapVisible && <div className="flood-legend">
         {(showingWater || nearest != null) && <span data-kind={showingWater ? 'water' : 'trace'}>{showingWater ? '선택한 수계' : '침수 기록 영역'}</span>}
         <span data-kind="boundary">지도상 단지 경계</span>
+        {!showingWater && <span data-kind="drainage">현장 확인 지점</span>}
         {(showingWater || (nearest != null && !record.overlap)) && <span data-kind="distance">가장 가까운 두 점의 직선거리</span>}
       </div>}
       <div className="site-actions">
@@ -103,10 +102,16 @@ export default function SongpaFlood({ year, view, sceneReady, mapVisible, onView
     </article>
     <article className="site-card">
       <h3>비가 그친 뒤 확인할 곳</h3>
-      {drainageStops.map(stop => <div key={stop.id}>
-        <div className="site-actions"><button disabled={!sceneReady} onClick={() => onVisit(stop.id)}>{stop.name} 눈높이 보기</button></div>
-        <p>{stop.check}</p>
-      </div>)}
+      {hasDistances && <p>지도에 번호로 표시한 지점에서 {showingForecast ? '100mm 예상' : `${year}년 기록`} 영역까지의 가장 짧은 직선거리예요.</p>}
+      {drainageStops.map((stop, index) => {
+        const distance = stopDistances?.[stop.id];
+        return <div className="flood-stop" key={stop.id}>
+          <div className="site-actions"><button disabled={!sceneReady} aria-pressed={activeStopId === stop.id}
+            onClick={() => onVisit(stop.id)}><span className="flood-stop-number" aria-hidden="true">{index + 1}</span>{stop.name} 눈높이 보기</button></div>
+          {distance != null && <p className="flood-stop-distance">{stop.pin} · <strong>{distance === 0 ? '영역 안' : distance < 1 ? '1m 이내' : `약 ${Math.round(distance)}m`}</strong></p>}
+          <p>{stop.check}</p>
+        </div>;
+      })}
     </article>
   </section>;
 }

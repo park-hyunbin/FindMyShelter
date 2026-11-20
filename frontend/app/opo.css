@@ -435,6 +435,7 @@ h1, h2, p { margin: 0; }
 .building-label.flood-map-label[data-kind='trace'] { margin-top: -26px; }
 .building-label.flood-map-label[data-kind='water'] { border-color: #8fe4ff; background: #1a3847; color: #d1f5ff; }
 .building-label.flood-map-label[data-kind='forecast'] { border-color: #62b9ff; background: #1b3651; color: #d8efff; }
+.building-label.flood-map-label[data-kind='drainage'] { border-color: #d2e2a1; background: #e6efc1; color: #273729; }
 .flood-panel { display: grid; gap: 8px; }
 .flood-panel h3 { margin: 1px 0 6px; }
 .flood-panel p { margin: 6px 0; color: var(--lilac); line-height: 1.55; }
@@ -449,6 +450,11 @@ h1, h2, p { margin: 0; }
 .flood-legend span[data-kind='boundary']::before { border-color: #70ead1; background: transparent; }
 .flood-legend span[data-kind='water']::before { border-color: #8fe4ff; background: #385e70; }
 .flood-legend span[data-kind='forecast']::before { border-color: var(--flood-stage); background: var(--flood-stage); }
+.flood-legend span[data-kind='drainage']::before { border-color: #e6efc1; background: #e6efc1; border-radius: 50%; width: 7px; }
+.flood-stop + .flood-stop { border-top: 1px solid #60738a; margin-top: 7px; padding-top: 4px; }
+.flood-stop-number { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 5px;
+  border-radius: 50%; background: #334838; color: #e6efc1; font-variant-numeric: tabular-nums; }
+.flood-stop .flood-stop-distance strong { color: #e6efc1; }
 .flood-legend span[data-kind='distance']::before { border: 0; border-top: 2px dashed #fff3cf; height: 0; background: transparent; vertical-align: middle; }
 .flood-panel button[aria-pressed='true'] { background: var(--glow); border-color: var(--glow); }
 .visit-checklist { display: grid; gap: 12px; }

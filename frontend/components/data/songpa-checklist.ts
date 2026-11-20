@@ -132,7 +132,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
         views: [{ target: 'parking', label: '주차·관리비 공시 보기' }, { target: 'garage', label: '주차장 입구 눈높이 보기' }],
         sources: [seoulComplex, { label: 'K-apt 관리시설정보', url: songpaFacilities.management },
           { label: 'K-apt 우리단지 관리비등 조회', url: songpaManagementFees.source },
-          { label: '송파구 지하주차장 입구 위치 기록', url: songpaEntrance.record }],
+          { label: '송파구 분리수거함 조사 · 102동 지하주차장 입구 표기', url: songpaEntrance.record }],
       },
       {
         id: 'noise', title: '소음·야간 환경', evidence: 'document',
@@ -147,7 +147,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'drainage', title: '물길·침수·배수', evidence: 'document',
-        finding: '서울시 과거 침수흔적과 한 시간 100mm 강우를 가정한 예상 영역을 각각 단지 경계와 비교할 수 있어요. 주변 연못과 하천도 지도에서 볼 수 있어요.',
+        finding: '서울시 과거 침수흔적과 한 시간 100mm 강우를 가정한 예상 영역을 단지 경계와 비교해요. 정문·단지 포장 공간·102동 주차장 덮개 끝에서는 가장 가까운 영역까지의 거리도 볼 수 있어요.',
         followUp: '비가 그친 뒤 물이 모인 곳, 빗물받이와 지하주차장 차수 시설을 확인해 보세요.',
         views: [{ target: 'flood', label: '침수 기록과 물길 보기' }],
         sources: [{ label: '서울시 침수흔적도 원본', url: floodSource }, { label: '서울시 침수예상도 원본', url: floodForecast.source }],

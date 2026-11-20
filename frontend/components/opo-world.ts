@@ -422,7 +422,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     element.textContent = label.text;
     element.hidden = true;
     host.appendChild(element);
-    labels.push({ point: label.point, element, enabled: () => Boolean(floodMap?.group.visible && label.enabled()), keepInFrame: true });
+    labels.push({ point: label.point, element,
+      enabled: () => label.enabled() && (label.kind === 'drainage' || Boolean(floodMap?.group.visible)), keepInFrame: true });
     return { label, element };
   });
   for (const label of schoolMap?.labels ?? []) {
@@ -1209,12 +1210,13 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const scale = bounds.getSize(new T.Vector3()).length();
       frameSurface(ambientMap.frames, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.10, scale * 1.1, scale * 0.22), { clearTitle: true });
     },
-    showFlood(year: string | null, view: FloodView) {
+    floodDistances: floodMap?.distances,
+    showFlood(year: string | null, view: FloodView, eyeStop: string | null = null) {
       if (!floodMap) return;
-      const points = floodMap.show(year, view);
+      const points = floodMap.show(year, view, eyeStop);
       updateComparisonMarkers();
-      if (!points.length) return;
       for (const { label, element } of floodLabels) element.textContent = label.text;
+      if (!points.length) return;
       const bounds = new T.Box3().setFromPoints(points);
       const { x, z } = bounds.getSize(new T.Vector3());
       const scale = Math.max(160, x, z);

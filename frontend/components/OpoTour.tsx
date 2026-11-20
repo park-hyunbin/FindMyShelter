@@ -433,6 +433,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [ambientReferenceId, setAmbientReferenceId] = useState<string | null>(null);
   const [floodYear, setFloodYear] = useState(latestLocalFloodYear);
   const [floodView, setFloodView] = useState<FloodView>('closest');
+  const [floodStopId, setFloodStopId] = useState<string | null>(null);
   const [winterCaptureDate, setWinterCaptureDate] = useState(songpaWinterCaptures[0].date);
   const winterCapture = songpaWinterCaptures.find(capture => capture.date === winterCaptureDate) ?? songpaWinterCaptures[0];
   const ambientStop = world?.ambientScene?.stops.find(stop => stop.id === ambientStopId);
@@ -553,8 +554,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, open, tab, mode, ambientStop, ambientReference?.id]);
 
   useEffect(() => {
-    world?.showFlood(open && tab === 'flood' && mode === 'orbit' ? floodYear : null, floodView);
-  }, [world, open, tab, mode, floodYear, floodView]);
+    world?.showFlood(open && tab === 'flood' && mode === 'orbit' ? floodYear : null, floodView,
+      tab === 'flood' && mode === 'walk' ? floodStopId : null);
+  }, [world, open, tab, mode, floodYear, floodView, floodStopId]);
 
   useEffect(() => {
     world?.markGreenAccess(accessId, accessSample, accessSlope);
@@ -683,6 +685,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     }
     if (next !== tab) analysisPanel.current?.scrollTo(0, 0);
     if (next !== 'ambient') setAmbientStopId(null);
+    if (next !== 'flood') setFloodStopId(null);
     if (next !== 'places') setSchoolZoneVisible(false);
     if (next !== tab && (next === 'ambient' || next === 'flood' || next === 'places')) chooseMode('orbit');
     setTab(next);
@@ -692,6 +695,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (mode === 'orbit' && year === floodYear && view === floodView) world?.showFlood(year, view);
     setFloodYear(year);
     setFloodView(view);
+    setFloodStopId(null);
     chooseMode('orbit');
   }
 
@@ -915,6 +919,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (!next) return;
     setWinterViewing(Boolean(observation));
     setAmbientStopId(null);
+    setFloodStopId(null);
     hideTreeCover();
     setShowSunMap(false);
     setLightSlot(null);
@@ -932,6 +937,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     setWalkingAtEyeLevel(true);
     world.setWalkingCamera(true);
     world.focus();
+    return true;
   }
 
   function openChecklistView(target: ChecklistView, checkId: string) {
@@ -1152,7 +1158,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           if (mode === 'orbit') world?.showAmbient(true, true, ambientReference?.id);
         }} />}
       {region === 'songpa' && tab === 'flood' && <SongpaFlood year={floodYear} view={floodView} sceneReady={Boolean(world)} mapVisible={mode === 'orbit'}
-        onView={openFloodLocation} onVisit={visitAtEyeLevel} />}
+        distances={world?.floodDistances} activeStopId={mode === 'walk' ? floodStopId : null}
+        onView={openFloodLocation} onVisit={id => { if (visitAtEyeLevel(id)) setFloodStopId(id); }} />}
 
       {tab === 'sun' && <>
         <div className="date-row">
