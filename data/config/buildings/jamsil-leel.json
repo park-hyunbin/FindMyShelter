@@ -1,0 +1,45 @@
+{
+  "region": "jamsil-leel",
+  "source": "data/raw/osm/jamsil-leel.geojson",
+  "encoding": "UTF-8",
+  "center_lnglat": [
+    127.1071774,
+    37.5171077
+  ],
+  "radius_m": 800,
+  "simplify_m": 0.1,
+  "max_chunk_bytes": 180000,
+  "require_verified": false,
+  "mapping_status": "osm_named_apartment_footprints_without_verified_heights",
+  "provenance": {
+    "description": "OpenStreetMap closed building ways, with named apartment footprints identified inside the complex boundary.",
+    "license": "ODbL 1.0",
+    "source_dataset": "https://www.openstreetmap.org/way/503503948"
+  },
+  "osm": {
+    "bounds": [
+      127.0957,
+      37.5083,
+      127.1187,
+      37.526
+    ],
+    "boundaryWay": 503503948,
+    "name": "\uc7a0\uc2e4 \ub974\uc5d8",
+    "towerNumbers": [
+      101,
+      113
+    ],
+    "approachWays": [
+      1563978281,
+      1563978280
+    ]
+  },
+  "fields": {
+    "bldg_id": "id",
+    "name": "name",
+    "dong": "dong",
+    "height_m": "height_m",
+    "floors": "levels",
+    "use": "building"
+  }
+}

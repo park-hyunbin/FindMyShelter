@@ -8,8 +8,6 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import pyogrio
-from pyogrio.errors import DataSourceError
 from shapely.geometry import Point, mapping
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,13 +40,15 @@ def save(target, value):
 
 
 def config(file):
-    c = json.loads(Path(file).read_text())
+    c = json.loads(Path(file).read_text(encoding='utf-8'))
     if not c['region'].replace('-', '').replace('_', '').isalnum():
         raise ValueError('region must be an alphanumeric slug')
     return c
 
 
 def read(c):
+    import pyogrio
+
     kwargs = {'engine': 'pyogrio'}
     if c.get('source_layer'):
         kwargs['layer'] = c['source_layer']
@@ -162,18 +162,45 @@ def check(c):
         errors.append('Config changed since import. Create a new region/version; do not silently reinterpret QGIS work.')
     if 'bldg_id' in frame and sorted(frame.bldg_id.astype(str)) != baseline['ids']:
         errors.append('IDs added/deleted/changed since import; reimport explicitly as a new region/version')
-    report = {'region': c['region'], 'count': len(frame), 'errors': errors, 'gaps': gaps,
-              'source': c['source'], 'provenance': c.get('provenance', {}),
-              'height_policy': 'null/zero -> flat; no floor-based inferred height',
-              'mapping_status': c.get('mapping_status', 'unverified')}
-    save(path(f"data/processed/buildings/{c['region']}/quality.json"), report)
+    report = quality_report(c, frame, errors, gaps)
     if errors:
         raise ValueError('; '.join(errors))
     return frame, report
 
 
+def quality_report(c, frame, errors, gaps):
+    report = {'region': c['region'], 'count': len(frame), 'errors': errors, 'gaps': gaps,
+              'source': c['source'], 'provenance': c.get('provenance', {}),
+              'height_policy': 'null/zero -> flat; no floor-based inferred height',
+              'mapping_status': c.get('mapping_status', 'unverified')}
+    save(path(f"data/processed/buildings/{c['region']}/quality.json"), report)
+    return report
+
+
 def build(c):
-    frame, report = check(c)
+    publish(c, *check(c))
+
+
+def build_geojson(c):
+    """Publish a WGS84 GeoJSON source through the same validation and web exporter."""
+    if c.get('require_verified'):
+        raise ValueError('Use the QGIS workflow when release requires manual verification')
+    if Path(c['source']).suffix.lower() != '.geojson':
+        raise ValueError('build-geojson requires a WGS84 GeoJSON source')
+    source = json.loads(path(c['source']).read_text(encoding='utf-8'))
+    if source.get('type') != 'FeatureCollection' or source.get('crs'):
+        raise ValueError('Expected an RFC 7946 FeatureCollection in WGS84')
+    raw = gpd.GeoDataFrame.from_features(source['features'], crs=4326).to_crs(5186)
+    center = gpd.GeoSeries([Point(c['center_lnglat'])], crs=4326).to_crs(5186).iloc[0]
+    frame = normalize(c, raw.loc[raw.geometry.intersects(center.buffer(c['radius_m']))].copy())
+    errors, gaps = validate(frame)
+    report = quality_report(c, frame, errors, gaps)
+    if errors:
+        raise ValueError('; '.join(errors))
+    publish(c, frame, report)
+
+
+def publish(c, frame, report):
     if c.get('require_verified') and not frame.rev_status.eq('verified').all():
         raise ValueError('Release requires all records verified in QGIS')
     frame = frame.sort_values('bldg_id').reset_index(drop=True)
@@ -245,7 +272,7 @@ def build(c):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['inspect', 'init', 'check', 'build'])
+    parser.add_argument('command', choices=['inspect', 'init', 'check', 'build', 'build-geojson'])
     parser.add_argument('--config', required=True)
     args = parser.parse_args()
     try:
@@ -254,6 +281,6 @@ def main():
             _, report = check(c)
             print(json.dumps(report, ensure_ascii=False, indent=2))
         else:
-            {'inspect': inspect, 'init': init, 'build': build}[args.command](c)
-    except (ValueError, OSError, DataSourceError) as exc:
+            {'inspect': inspect, 'init': init, 'build': build, 'build-geojson': build_geojson}[args.command](c)
+    except (ValueError, OSError, ImportError) as exc:
         parser.exit(1, f'Pipeline stopped: {exc}\n')

@@ -24,7 +24,7 @@ import { addStreetLights } from './opo-street-lights';
 import { addPedestrianSignals } from './opo-pedestrian-signals';
 import { createStudyShadows } from './opo-study-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
-import { songpaComplex } from './data/regions';
+import { jamsilLeel, songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
 import { songiPark } from './data/songi-park';
 import { sampleWinterPixel, winterCapturePoints } from './data/songpa-winter-capture';
@@ -71,6 +71,10 @@ function makePlayer() {
 
 export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (position: Point, source?: 'sun-grid') => void) {
   const isOpo = data.region === 'opo';
+  const isGarak = data.region === 'songpa';
+  const entrances = data.region === 'jamsil-leel' ? jamsilLeel.entrances : [];
+  const defaultEntrance = entrances[0];
+  const urbanRoadName = defaultEntrance ? jamsilLeel.roadName : songpaComplex.roadName;
   const scene = new T.Scene();
   scene.background = new T.Color('#354D65');
   const fogDensity = isOpo ? 0.00112 : 0.00025;
@@ -131,9 +135,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   }, treeCover ?? undefined, new Map([...streets.municipalTreeHeights, ...(site.paving?.sidewalkTreeHeights ?? [])]));
   terrainProjection?.clear();
   const groundDetail = environment.grassTexture && detailGround(terrain.material, environment.grassTexture, isOpo ? courtyardOpening : undefined);
-  const ambientMap = isOpo ? undefined : addSongpaAmbientMap(data, scene, streets.surface);
-  const floodMap = isOpo ? undefined : addSongpaFloodMap(data, scene, streets.surface);
-  const schoolMap = isOpo ? undefined : addSongpaSchoolMap(data, scene, streets.surface);
+  const ambientMap = isGarak ? addSongpaAmbientMap(data, scene, streets.surface) : undefined;
+  const floodMap = isGarak ? addSongpaFloodMap(data, scene, streets.surface) : undefined;
+  const schoolMap = isGarak ? addSongpaSchoolMap(data, scene, streets.surface) : undefined;
   const garden = isOpo ? addCourtyard(scene, streets.surface, finish, environment.waterNormal) : undefined;
   const modeledElevation = (point: Point) => entrance?.elevation(point) ?? garden?.elevation(point);
   function walkDeck(point: Point, ground: number) {
@@ -153,18 +157,18 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   addPedestrianSignals(scene, data.pedestrianSignals?.crossings.flatMap(({ heads }) => heads.map(head => ({
     position: data.project(head.coordinate), toward: data.project(head.toward),
   }))) ?? [], observationSurface);
-  const streetLights = isOpo ? undefined : addStreetLights(scene, ambientFixtures.flatMap(({ kind, coordinate }) => {
+  const streetLights = isGarak ? addStreetLights(scene, ambientFixtures.flatMap(({ kind, coordinate }) => {
     const position = data.project(coordinate);
     if (insideBuilding(position) || streets.roadClearance(position) < 0.02 || site.paving?.fenced(position)) return [];
     return [{ kind, position, toward: streets.nearest(position, 32)?.point }];
-  }), observationSurface, smallScreen ? 3 : 4);
+  }), observationSurface, smallScreen ? 3 : 4) : undefined;
   const greenAccess = addGreenAccess(data, scene, streets.surface, site, observationSurface);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
-  const parkViews = isOpo ? [] : [songiPark.crossingView, ...songiPark.views].map(({ name, coordinate, toward }) => {
+  const parkViews = isGarak ? [songiPark.crossingView, ...songiPark.views].map(({ name, coordinate, toward }) => {
     const position = data.project(coordinate);
     const bearing = T.MathUtils.radToDeg(headingTo(position, data.project(toward)) - data.northOffset);
     return { name, position, bearing };
-  });
+  }) : [];
   scene.updateMatrixWorld(true);
   const analysis = createLightAnalyzer(data, terrain, occluders, observationSurface);
   const lightPath = createLightPath(scene, [terrain, ...occluders], (x, z) => terrainSurface(data.ground, x, z));
@@ -177,28 +181,29 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= analysisRadius;
   const siteSamples = data.siteOutline.length ? sunGridPoints(data.siteOutline, canAnalyze) : [];
   const sunMap = siteSamples.length ? createSunMap(scene, data.siteOutline, siteSamples, observationSurface) : undefined;
-  const roadSpawn = streets.nearest(data.project(isOpo ? roadEntry : songpaComplex.roadside), 64);
+  const roadSpawn = streets.nearest(data.project(isOpo ? roadEntry : (defaultEntrance?.roadside ?? songpaComplex.roadside)), 64);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
   const frontageStart = site.frontage && splitLineAt(site.frontage, data.project(songpaEntrance.frontage.walkStart));
-  const spawn = frontageStart && !occupied(frontageStart.point) ? frontageStart.point : roadSpawn.point;
+  const walkStart = defaultEntrance ? data.project(defaultEntrance.position) : frontageStart?.point;
+  const spawn = walkStart && !occupied(walkStart) ? walkStart : roadSpawn.point;
   const approachPoint = isOpo ? data.project(approach) : roadSpawn.point;
   const frontageAhead = frontageStart?.after.find(point => Math.hypot(point.x - spawn.x, point.z - spawn.z) >= 8);
-  const roadLookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(songpaComplex.lookAt);
+  const roadLookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(defaultEntrance?.lookAt ?? songpaComplex.lookAt);
   const lookAt = spawn === frontageStart?.point && frontageAhead ? frontageAhead : roadLookAt;
   const initialHeading = headingTo(spawn, lookAt);
-  const pavingStops = isOpo ? [] : [...songpaGrounds.points, ...songpaCourtyard.views].map((point: SongpaGroundView) => {
+  const pavingStops = isGarak ? [...songpaGrounds.points, ...songpaCourtyard.views].map((point: SongpaGroundView) => {
     const samplePosition = data.project(point.coordinate);
     const position = point.viewFrom ? data.project(point.viewFrom) : samplePosition;
     return { id: point.id, name: point.name, position, samplePosition, lookAt: data.project(point.lookAt) };
-  }).filter(point => canAnalyze(point.position) && inShape(point.position, [data.siteOutline]));
-  const entranceStops = isOpo ? [] : [songpaEntrance.main, songpaEntrance.garage].map(stop => ({
+  }).filter(point => canAnalyze(point.position) && inShape(point.position, [data.siteOutline])) : [];
+  const entranceStops = (isGarak ? [songpaEntrance.main, songpaEntrance.garage] : entrances).map(stop => ({
     id: stop.id, name: stop.name,
     position: stop.id === songpaEntrance.main.id && site.gateView ? site.gateView : data.project(stop.position),
     samplePosition: data.project(stop.position), lookAt: data.project(stop.lookAt),
   })).filter(stop => !occupied(stop.position));
-  const streetViews = isOpo ? [] : songpaStreets.views.map(stop => ({
+  const streetViews = isGarak ? songpaStreets.views.map(stop => ({
     id: stop.id, name: stop.name, position: data.project(stop.position), lookAt: data.project(stop.lookAt),
-  })).filter(stop => !occupied(stop.position));
+  })).filter(stop => !occupied(stop.position)) : [];
   const roadsideViews = [...entranceStops, ...streetViews];
   const destinations: { id: string; name: string; position: Point; lookAt?: Point }[] = isOpo ? [
     { id: 'approach', name: '오포 롯데캐슬 정문·진입교', position: approachPoint },
@@ -209,7 +214,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const place = data.streetPoints.find(item => item.name === name);
       return place ? [{ id: place.id, name, position: place.position }] : [];
     }),
-  ] : [{ id: 'approach', name: songpaComplex.roadName, position: spawn, lookAt }, ...streetViews, ...entranceStops, ...pavingStops];
+  ] : [{ id: 'approach', name: urbanRoadName, position: spawn, lookAt }, ...streetViews, ...entranceStops, ...pavingStops];
   const tripStops = ['approach', ...destinations.filter(place => routePlaces.slice(0, 2).includes(place.name)).map(place => place.id)]
     .map(id => destinations.find(place => place.id === id))
     .flatMap(place => {
@@ -299,11 +304,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   controls.maxDistance = 4800;
   controls.zoomToCursor = true;
   const apartmentBounds = new T.Box3();
-  for (const { building, point } of anchors) {
+  for (const { building, point, displayHeight } of anchors) {
     const roofY = point.y - 7;
     for (const [outline] of building.shapes) for (const { x, z } of outline) {
       apartmentBounds.expandByPoint(new T.Vector3(x, roofY, z));
-      apartmentBounds.expandByPoint(new T.Vector3(x, roofY - (building.height ?? 0), z));
+      apartmentBounds.expandByPoint(new T.Vector3(x, roofY - displayHeight, z));
     }
   }
   function overview() {
@@ -683,7 +688,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   presets.push(...pavingStops.map(stop => ({ ...stop.samplePosition, id: stop.id, label: stop.name })));
   const gate = entranceStops.find(stop => stop.id === songpaEntrance.main.id && canAnalyze(stop.samplePosition));
   if (gate) presets.push({ ...gate.samplePosition, id: gate.id, label: gate.name });
-  if (!isOpo) for (const { id, label, coordinate } of winterCapturePoints) {
+  if (isGarak) for (const { id, label, coordinate } of winterCapturePoints) {
     const point = data.project(coordinate);
     if (canAnalyze(point) && inShape(point, [data.siteOutline])) presets.push({ ...point, id, label });
   }
@@ -1108,9 +1113,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const nearSchoolCrossing = mode === 'walk' && schoolCrossing
         && Math.hypot(position.x - schoolCrossing.position.x, position.z - schoolCrossing.position.z) < 11;
       const onFrontage = mode === 'walk' && site.frontage && nearestOnLine(position, [site.frontage]).distance <= 1;
-      const onSongpaStartRoad = !isOpo && (onFrontage || nearest?.id === roadSpawn.segment.road.id);
+      const onStartRoad = !isOpo && (onFrontage || nearest?.id === roadSpawn.segment.road.id);
       const streetName = onFrontage ? songpaComplex.roadName
-        : nearest?.name || (onSongpaStartRoad ? songpaComplex.roadName : nearest ? '동네 골목' : data.area.name);
+        : nearest?.name || (onStartRoad ? urbanRoadName : nearest ? '동네 골목' : data.area.name);
       const parkView = mode === 'walk' ? parkViews.find(view => Math.hypot(position.x - view.position.x, position.z - view.position.z) < 12) : undefined;
       const analysisPoint = (eyeLevel || studyingSunlight) && 'label' in position && typeof position.label === 'string' ? position.label : undefined;
       const namedPoint = roadsideView?.name

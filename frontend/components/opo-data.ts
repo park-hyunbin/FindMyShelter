@@ -1,6 +1,6 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
-import { regions, songpaComplex, type RegionId } from './data/regions';
+import { jamsilLeel, regions, songpaComplex, type RegionId } from './data/regions';
 import { garakGreenStrip, songpaCourtyard, songpaFrontage, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songiPark } from './data/songi-park';
@@ -11,6 +11,7 @@ import treeCover from '../public/opo-tree-cover.json';
 import songpaBusStop from '../public/datasets/regions/songpa/bus-stop.json';
 import songpaStreetTrees from '../public/datasets/regions/songpa/street-trees.json';
 import songpaTreeInventory from '../public/datasets/regions/songpa/street-tree-inventory.json';
+import jamsilLandscape from '../public/datasets/regions/jamsil-leel/landscape.json';
 
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
@@ -18,7 +19,7 @@ export type Shape = Point[][];
 type HeightGap = { label: string; rings: Shape; center: Point; radius: number };
 export type Building = {
   id: string; label: string; dong: string | null; height: number | null;
-  levels: number | null; category: string; roof: string | null; shapes: Shape[];
+  levels: number | null; visualHeight?: number; category: string; roof: string | null; shapes: Shape[];
 };
 type BuildingProperties = {
   id: string; name: string | null; dong: string | null; height_m: number | null;
@@ -227,21 +228,26 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
 
   const officialHeights = new Map(register.towers.map(row => [row.outlineId, row]));
   const registerRows: (typeof register.towers[number] & { outlineAreaM2: number })[] = [];
+  const referenceFloors: Readonly<Record<string, number>> = jamsilLeel.referenceFloors;
   const toBuilding = ({ geometry, properties }: BuildingFile['features'][number]): Building => {
     const dong = region === 'opo' && properties.name === '오포 롯데캐슬 포레스트' ? properties.dong
-      : region === 'songpa' ? songpaComplex.towers.find(tower => tower.id === properties.id)?.dong ?? null : null;
-    const row = officialHeights.get(properties.id);
+      : region === 'songpa' ? songpaComplex.towers.find(tower => tower.id === properties.id)?.dong ?? null
+      : region === 'jamsil-leel' ? properties.dong : null;
+    const row = region === 'opo' ? officialHeights.get(properties.id) : undefined;
     const recorded = row && row.dong === dong ? row : undefined;
     const shapes = (geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates).map(toShape);
     const name = properties.name ?? (region === 'songpa' && properties.id === '55781807' ? '예일아파트' : '주변 건물');
     const unit = dong ?? properties.dong;
+    const levels = positiveDimension(recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors);
+    const visualHeight = region === 'jamsil-leel' && dong
+      ? (levels ?? referenceFloors[dong] ?? jamsilLeel.defaultVisualFloors) * jamsilLeel.metresPerVisualFloor : undefined;
     if (recorded) registerRows.push({ ...recorded, outlineAreaM2: properties.area_m2 ?? outlineArea(shapes) });
     return {
       id: properties.id,
       label: unit && !name.endsWith(unit) ? `${name} ${unit}` : name,
       dong,
       height: positiveDimension(recorded?.heightM ?? properties.height_m),
-      levels: positiveDimension(recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors),
+      levels, visualHeight,
       category: properties.use || properties.building || '',
       roof: properties.roof ?? null,
       shapes,
@@ -276,6 +282,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     for (const { category, shapes } of garakGreenStrip.cover) {
       features.push({ kind: 'green', category, subclass: 'park', lines: [], shapes: shapes.map(toShape) });
     }
+  }
+  if (region === 'jamsil-leel') for (const patch of jamsilLandscape.greenery) {
+    features.push({ kind: 'green', category: patch.category, lines: [], shapes: [toShape(patch.rings)] });
   }
   const siteRoads = site.features.flatMap(({ geometry, properties }) => geometry.type === 'LineString'
     ? [{ points: geometry.coordinates.map(project), bridge: properties.bridge, id: properties.id }] : []);
@@ -350,7 +359,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const referenceHeight = Math.max(...buildings.map(building => building.height ?? 0));
   const placeOrigin = region === 'songpa'
     ? { point: project(songpaEntrance.main.position), label: songpaEntrance.main.name }
-    : { point: { x: 0, z: 0 }, label: '단지 원점' };
+    : region === 'jamsil-leel' ? { point: project(jamsilLeel.entrances[0].position), label: jamsilLeel.entrances[0].name }
+      : { point: { x: 0, z: 0 }, label: '단지 원점' };
   const places: Place[] = poi.features.map(f => {
     const point = project(f.geometry.coordinates);
     const distance_m = Math.round(Math.hypot(point.x - placeOrigin.point.x, point.z - placeOrigin.point.z));

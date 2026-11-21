@@ -51,8 +51,8 @@ export default function VillageMap({ villages, selected, onSelect }: {
     </svg>
     <span className="village-map-label">동네 탐험 지도</span>
     <div className="village-pins" role="group" aria-label="지도에서 단지 선택">
-      {villages.map(village => <div key={village.id} className={`village-stop village-stop-${village.id}`}>
-        <span className="village-stop-number" aria-hidden="true">{village.id === 'opo' ? '01' : '02'}</span>
+      {villages.map((village, index) => <div key={village.id} className={`village-stop village-stop-${village.id}`}>
+        <span className="village-stop-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
         <Button className="village-pin" aria-pressed={selected === village.id} aria-controls="village-details"
           onClick={() => onSelect(village.id)} aria-label={`${village.name} 단지 선택`}>
           <span className="village-pin-district">{village.district}</span>

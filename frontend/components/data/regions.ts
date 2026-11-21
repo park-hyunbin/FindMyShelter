@@ -1,3 +1,7 @@
+import jamsilLeel from './jamsil-leel.json';
+
+export { jamsilLeel };
+
 export const songpaComplex = {
   name: '가락동부센트레빌',
   address: '서울 송파구 송파대로32길 33',
@@ -35,5 +39,13 @@ export const regions = [
     pavement: '/datasets/regions/songpa/pavement.json', planting: '/datasets/regions/songpa/neighborhood-planting.json',
     servicePaving: '/datasets/regions/songpa/service-paving.json',
     pedestrianSignals: '/datasets/regions/songpa/pedestrian-signals.json' },
+  { id: 'jamsil-leel', name: jamsilLeel.name, area: jamsilLeel.address,
+    keywords: '서울 송파구 신천동 잠실 미성크로바 르엘 롯데캐슬', description: '잠실 르엘 13개 동과 석촌호수·올림픽로 주변',
+    count: 895, radius: 800, terrain: '/datasets/regions/jamsil-leel/terrain.json',
+    environment: '/datasets/regions/jamsil-leel/environment.geojson', places: '/datasets/regions/jamsil-leel/places.geojson',
+    site: '/datasets/regions/jamsil-leel/site.geojson', surrounding: null, streets: '/datasets/regions/jamsil-leel/streets.json',
+    roadMarkings: '/datasets/regions/jamsil-leel/road-markings.json', neighborhoodTerrain: null,
+    pavement: '/datasets/regions/jamsil-leel/pavement.json',
+    planting: null, servicePaving: null, pedestrianSignals: '/datasets/regions/jamsil-leel/pedestrian-signals.json' },
 ] as const;
 export type RegionId = typeof regions[number]['id'];

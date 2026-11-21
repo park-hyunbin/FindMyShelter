@@ -2,12 +2,12 @@ import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button, Card, Checkbox, Image as IslandImage, Input, NoData, Tag } from 'animal-island-ui';
 import 'animal-island-ui/style';
 import VillageMap from './VillageMap';
-import { regions, type RegionId } from './data/regions';
+import { jamsilLeel, regions, type RegionId } from './data/regions';
 import snapshot from './data/tour-complexes.generated.json';
 import transactions from './data/tour-transactions.generated.json';
 import {
   evaluateTour, parkingRatio, preferences, readManwon, summarizeTransactions, tenures,
-  type Criteria, type PreferenceId, type Tenure, type Transaction,
+  type ComplexFacts, type Criteria, type PreferenceId, type Tenure, type Transaction,
 } from './data/tour-matching';
 import './tour-planner.css';
 
@@ -22,8 +22,13 @@ const states = {
 const checkLabels = { match: '충족', 'no-match': '불충족', unknown: '미확인' };
 const number = new Intl.NumberFormat('ko-KR');
 const areaNumber = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 });
-const district = { opo: '경기 광주', songpa: '서울 송파' };
-const addressAliases = { opo: '경기도 광주시', songpa: '서울특별시 송파구' };
+const district = { opo: '경기 광주', songpa: '서울 송파', 'jamsil-leel': '서울 잠실' };
+const addressAliases = { opo: '경기도 광주시', songpa: '서울특별시 송파구', 'jamsil-leel': '서울특별시 송파구' };
+const complexFacts: Record<RegionId, ComplexFacts> = {
+  ...snapshot.complexes,
+  'jamsil-leel': { code: '', households: jamsilLeel.households, parkingSpaces: null, corridorType: null, playground: null, evCharging: null },
+};
+const transactionHistory: Partial<Record<RegionId, Transaction[]>> = transactions.complexes;
 const featureOptions = preferences.map(({ id, label }) => ({ value: id, label }));
 
 function compact(value: string) {
@@ -91,10 +96,10 @@ export default function TourPlanner({ mode, onMode, onEnter }: {
     const searchable = compact(`${region.name} ${region.area} ${region.keywords} ${addressAliases[region.id]}`);
     return terms.every(term => searchable.includes(term));
   }).map(region => {
-    const facts = snapshot.complexes[region.id];
+    const facts = complexFacts[region.id];
     const price = prices[region.id] ?? null;
     const result = evaluateTour(facts, criteria, price === null ? null : { amount: price, kind: 'entered-listing' });
-    const history = summarizeTransactions(transactions.complexes[region.id], criteria);
+    const history = summarizeTransactions(transactionHistory[region.id] ?? [], criteria);
     return { region, facts, price, history, ...result };
   }).filter(row => !(budgetOnly && hasBudget) || row.history.withinBudget.length > 0)
     .sort((left, right) => states[left.status].order - states[right.status].order

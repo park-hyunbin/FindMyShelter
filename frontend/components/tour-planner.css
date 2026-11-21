@@ -77,8 +77,10 @@
 .village-stop { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 3px; width: min(37%, 192px); transform: translate(-50%, -22%); }
 .village-stop-opo { left: 28%; top: 42%; }
 .village-stop-songpa { left: 73%; top: 25%; }
+.village-stop-jamsil-leel { left: 65%; top: 65%; }
 .village-stop-number { display: grid; width: 33px; height: 33px; place-items: center; border: 2px solid #fef7dd; border-radius: 50% 50% 45% 45%; background: #8f6950; box-shadow: 0 3px #724f3d41; color: #fff9e9; font: 850 .79rem Nunito, system-ui, sans-serif; }
 .village-stop-songpa .village-stop-number { background: #587c66; }
+.village-stop-jamsil-leel .village-stop-number { background: #486c77; }
 .planner .village-pin { width: 100%; min-height: 62px; padding: 7px 7px 9px; border: 2px solid #cbb791; border-radius: 19px 15px 18px 14px; background: #fff8df; box-shadow: 0 4px #b9a37891; color: #3d503e; white-space: normal; }
 .planner .village-pin[aria-pressed="true"] { border-color: #5f8b62; background: #fff4cc; box-shadow: 0 4px #7d9b6691; }
 .village-pin > span { display: grid; gap: 3px; justify-items: center; }

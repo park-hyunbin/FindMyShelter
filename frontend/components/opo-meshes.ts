@@ -117,9 +117,9 @@ export function groundPolygon(rings: Shape, ground: OpoData['ground'], maxEdge =
 }
 
 export function streetDeckLift(region: OpoData['region']) {
-  // The Songpa road deck follows the terrain mesh. This is clearance for rendering,
+  // Urban road decks follow the terrain mesh. This is clearance for rendering,
   // since the elevation source does not resolve road grades and curbs separately.
-  return region === 'songpa' ? 0.08 : 0.47;
+  return region === 'opo' ? 0.47 : 0.08;
 }
 
 export function createTerrainProjection(terrain: T.BufferGeometry) {
@@ -293,6 +293,9 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
   });
   const defaultMaterials = new Map(Object.entries(buildingProfiles).map(([use, style]) =>
     [use as BuildingUse, buildingMaterials(use as BuildingUse, style)]));
+  const towerVisualization = data.region === 'jamsil-leel' ? buildingMaterials('apartments', {
+    wall: '#bec5cb', glass: '#344a60', trim: '#84919e', roof: '#777e87', accent: '#556173',
+  }) : null;
   const neighborMaterials = [...(appearance?.neighborApartments ?? [])].map(([name, style]) =>
     [name, buildingMaterials('apartments', style)] as const);
   const pitchedRoofMaterial = new T.MeshStandardMaterial({ color: '#845a48', roughness: 0.96 });
@@ -300,7 +303,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
   const footprints = new T.MeshBasicMaterial({ color: '#a89d86' });
   const occluders: T.Mesh[] = [];
   const roofs: RoofOutline[] = [];
-  const anchors: { point: T.Vector3; building: Building }[] = [];
+  const anchors: { point: T.Vector3; building: Building; displayHeight: number }[] = [];
   const ground = (x: number, z: number) => terrainSurface(data.ground, x, z);
 
   for (const building of data.buildings) {
@@ -312,7 +315,8 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
     const sharedFacade = !building.dong || !sourceHeight;
     const neighborApartment = !building.dong && use === 'apartments';
     const recordedFinish = neighborApartment && neighborMaterials.find(([name]) => building.label.startsWith(name));
-    const materials = recordedFinish ? recordedFinish[1] : defaultMaterials.get(use)!;
+    const materials = building.dong && towerVisualization ? towerVisualization
+      : recordedFinish ? recordedFinish[1] : defaultMaterials.get(use)!;
     const roof = pitchedRoof ? pitchedRoofMaterial : materials.roof;
     for (const [index, rings] of building.shapes.entries()) {
       if (displayHeight === null) {
@@ -335,6 +339,9 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       }
       geometry.rotateX(-Math.PI / 2);
       geometry.translate(0, verticalBase - skirt, 0);
+      if (building.dong && index === 0 && (sourceHeight || building.visualHeight)) {
+        anchors.push({ building, displayHeight, point: new T.Vector3(position.x, verticalBase + displayHeight + 7, position.z) });
+      }
       if (!sourceHeight) {
         [roof, materials.wall].forEach((material, group) => {
           const bucket = estimatedGeometry.get(material) ?? [];
@@ -379,9 +386,6 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
           { roof: apartmentRoof, wall: pavilionWall }, scene);
       }
       roofs.push({ rings, elevation: verticalBase + sourceHeight, label: mesh.name });
-      if (building.dong && index === 0) {
-        anchors.push({ building, point: new T.Vector3(position.x, verticalBase + sourceHeight + 7, position.z) });
-      }
     }
   }
   for (const [material, batch] of estimatedGeometry) {

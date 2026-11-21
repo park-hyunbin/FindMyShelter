@@ -1,8 +1,10 @@
 # 지역별 3D 임장
 
-메인에서 오포 임장에 바로 입장합니다. 지역을 검색하거나 `?region=songpa`를 열면 가락동부센트레빌로 이동합니다. `ShelterHome`은 선택한 구역의 `OpoTour`를 열고 필요한 건물 조각·DEM·환경·POI만 요청합니다. 지역 전환 시 이전 렌더러·GPU 자원·이벤트·로딩 요청을 정리합니다. `/polygons`는 건물 자료 검증 화면입니다.
+메인에서 지역을 선택하거나 주소의 `region`에 지역 ID를 지정해 3D 임장에 입장합니다. `ShelterHome`은 선택한 구역의 `OpoTour`를 열고 필요한 건물 조각·DEM·환경·POI만 요청합니다. 지역 전환 시 이전 렌더러·GPU 자원·이벤트·로딩 요청을 정리합니다. `/polygons`는 건물 자료 검증 화면입니다.
 
 ## 현재 지역
+
+- 잠실 르엘(`jamsil-leel`)은 101~113동, 두 진입부, 반경 800m의 건물·지형과 서울시 도로·차선·보도·보행 신호 자료를 공통 렌더러에서 제공합니다. [제작 및 재생성 기록](planning/2026-11-21-jamsil-leel-build.md)
 
 - 오포: 기존 건물 214개, 주변 OSM 건물, DEM, 도로, 녹지, 수계, POI, 단지 도로·시설·공원 경로·위성영상.
 - 송파는 가락동부센트레빌 101~105동, 송파대로32길의 눈높이 시작점, 지도상 단지 경계, 8m 간격 실외 일조 표본을 제공합니다. 반경 600m 건물 표본 752개와 GEDTM30 격자 11,025점, 주변 OSM 도로·녹지·장소를 사용합니다. 높이 미확인 309개는 그대로 NULL입니다. 주동 형상과 동 번호는 건물 표본을 사용했습니다. OSM의 103·104동 표기는 해당 표본과 차이가 있습니다. 경계는 OSM 주거 영역이며, 출입구·내부 보행로·상세 외관은 추가 확인이 필요합니다. [서울시 단지 정보](https://openapt.seoul.go.kr/openApt/index.do?aptCode=A13816002) · [OSM 경계](https://www.openstreetmap.org/way/1079940834) · [시작 도로](https://www.openstreetmap.org/way/169916279)
@@ -12,7 +14,7 @@ OSM 길은 일반화된 지도 선이며 정밀 도로 폭·보행 적합성·�
 ## 지역 추가 순서
 
 1. `data/config/buildings/{지역}.json`을 작성합니다. 안정적인 건물 ID·CRS·컬럼 매핑·중심·범위·출처를 지정합니다.
-2. Python 건물 파이프라인으로 init → QGIS 검증 → build합니다. [건물 파이프라인](building-pipeline.md) 참조.
+2. Python 건물 파이프라인으로 init → QGIS 검증 → build합니다. 표준 WGS84 GeoJSON 원본을 자동 검증해 바로 발행하는 지역은 `build-geojson`을 사용합니다. [건물 파이프라인](building-pipeline.md) 참조.
 3. `node frontend/scripts/prepare-region.mjs --region {지역}`으로 해당 건물 원점에 정합되는 도로·녹지·물길·POI·DEM을 오프라인 생성합니다.
 4. `frontend/components/data/regions.ts`에 지역명·검색어와 각 생성 파일 경로를 등록하고 화면을 검증합니다. 새 지역의 site/surrounding은 없으면 null입니다.
 

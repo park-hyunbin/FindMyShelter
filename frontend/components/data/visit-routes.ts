@@ -1,4 +1,4 @@
-import type { RegionId } from './regions';
+import { jamsilLeel, type RegionId } from './regions';
 import opo from '../../public/opo-green-access.json';
 import songpa from '../../public/datasets/regions/songpa/access.json';
 import hospital from '../../public/datasets/regions/songpa/hospital-entrance.json';
@@ -47,4 +47,5 @@ type AccessDataset = { startLabel: string; routes: AccessRoute[]; retrieved?: st
 export const visitRoutes: Record<RegionId, AccessDataset> = {
   opo: { ...opo, startLabel: '단지 진입부' },
   songpa: { ...songpa, startLabel: '송파대로32길·양재대로60길 교차점' },
+  'jamsil-leel': { startLabel: jamsilLeel.entrances[0].name, routes: [], source: jamsilLeel.boundary },
 };

@@ -1,0 +1,21 @@
+{
+  "name": "잠실 르엘",
+  "address": "서울 송파구 올림픽로 333",
+  "households": 1865,
+  "towerCount": 13,
+  "maxFloors": 35,
+  "info": "https://www.lottecastle.co.kr/APT/AT00424/16004/summary/view.do",
+  "boundary": "https://www.openstreetmap.org/way/503503948",
+  "roadName": "올림픽로33길",
+  "referenceFloorsSource": "https://m.richgo.ai/realty/danji/a5YFxWm",
+  "referenceFloors": {
+    "101동": 35, "102동": 35, "103동": 35, "105동": 33, "106동": 33,
+    "107동": 20, "108동": 33, "110동": 33, "111동": 22
+  },
+  "defaultVisualFloors": 30,
+  "metresPerVisualFloor": 3.05,
+  "entrances": [
+    { "id": "east-entry", "name": "동쪽 진입부", "position": [127.108308, 37.5177783], "roadside": [127.1083714, 37.5179045], "lookAt": [127.1076732, 37.5177269], "way": 1563978281 },
+    { "id": "north-entry", "name": "북쪽 진입부", "position": [127.1068369, 37.519055], "roadside": [127.1068476, 37.5189843], "lookAt": [127.1069823, 37.5184547], "way": 1563978280 }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Extract Seoul T-GIS lane geometry and crosswalk surfaces for the Songpa pilot."""
+"""Extract Seoul T-GIS lane geometry and crosswalk surfaces for a tour region."""
 
 import argparse
 from io import BytesIO
@@ -13,7 +13,7 @@ import shapefile
 from shapely import make_valid
 from shapely.geometry import box, shape
 
-REGION = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions/songpa"
+REGIONS = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions"
 LANES = "https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do"
 CROSSWALKS = "https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do"
 CURRENT = "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do"
@@ -59,10 +59,10 @@ def lane_style(kind, subtype):
     return None
 
 
-def painted_humps(path, selected):
+def painted_humps(path, selected, clip):
     records = []
     with ZipFile(path) as archive:
-        for tags, geometry in city_features(archive, "A067_A"):
+        for tags, geometry in city_features(archive, "A067_A", clip):
             number = tags["HUMP_MGRNU"]
             # A067_A: 001 is a raised hump; 002 is an image painted on the road.
             if number not in selected or tags["A067_KND_C"] != "002":
@@ -89,14 +89,24 @@ def main():
     parser.add_argument("lanes", type=Path)
     parser.add_argument("crosswalk_surfaces", type=Path)
     parser.add_argument("current_crosswalks", type=Path)
+    parser.add_argument("--region", default="songpa")
+    parser.add_argument("--bounds", type=float, nargs=4, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
     parser.add_argument("--humps", type=Path, help="Seoul A067_A archive")
     parser.add_argument("--hump-id", action="append", default=[], help="Reviewed HUMP_MGRNU, repeat for each location")
     args = parser.parse_args()
+    if not args.region.replace("-", "").replace("_", "").isalnum():
+        parser.error("--region requires an alphanumeric slug")
+    if args.region != "songpa" and args.bounds is None:
+        parser.error("--bounds is required for a new region")
+    bounds = args.bounds or BOUNDS
+    if not (-180 <= bounds[0] < bounds[2] <= 180 and -90 <= bounds[1] < bounds[3] <= 90):
+        parser.error("--bounds requires an ordered WGS84 bounding box")
+    clip = box(*TO_METERS.transform_bounds(*bounds))
     if bool(args.humps) != bool(args.hump_id):
         parser.error("--humps and at least one --hump-id must be supplied together")
     lanes = []
     with ZipFile(args.lanes) as archive:
-        for tags, geom in city_features(archive, "A058_L"):
+        for tags, geom in city_features(archive, "A058_L", clip):
             style = lane_style(tags["A058_KND_C"], tags["A058_KND2_"])
             if style is None:
                 continue
@@ -108,13 +118,13 @@ def main():
     workbook = load_workbook(args.current_crosswalks, read_only=True, data_only=True)
     rows = workbook.active.iter_rows(min_row=2, values_only=True)
     current = {str(row[2]) for row in rows if isinstance(row[7], (int, float)) and isinstance(row[8], (int, float))
-               and CLIP.covers(shape({"type": "Point", "coordinates": (row[7], row[8])}))}
+               and clip.covers(shape({"type": "Point", "coordinates": (row[7], row[8])}))}
     workbook.close()
     crosswalks = []
     with ZipFile(args.crosswalk_surfaces) as archive:
         nested = next(name for name in archive.namelist() if name.startswith("A004_A_") and name.endswith(".zip"))
         with ZipFile(BytesIO(archive.read(nested))) as surfaces:
-            for tags, geom in city_features(surfaces, "A004_A"):
+            for tags, geom in city_features(surfaces, "A004_A", clip):
                 polygons = [polygon for polygon in getattr(geom, "geoms", [geom])
                             if polygon.geom_type == "Polygon" and polygon.area > 1]
                 if polygons:
@@ -127,8 +137,8 @@ def main():
         raise ValueError("Street marking or crosswalk coverage is incomplete")
     result = {"lanesSource": LANES, "crosswalksSource": CROSSWALKS, "crosswalkInventory": CURRENT,
               "markingsArchiveDate": "2021-08-09", "crosswalkInventoryDate": "2026-08-24", "lanes": lanes, "crosswalks": crosswalks}
-    destination = REGION / "road-markings.json"
-    humps = painted_humps(args.humps, set(args.hump_id)) if args.humps else (
+    destination = REGIONS / args.region / "road-markings.json"
+    humps = painted_humps(args.humps, set(args.hump_id), clip) if args.humps else (
         json.loads(destination.read_text(encoding="utf-8")).get("paintedHumps") if destination.exists() else None)
     if humps:
         result["paintedHumps"] = humps

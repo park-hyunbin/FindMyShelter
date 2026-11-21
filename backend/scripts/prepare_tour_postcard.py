@@ -15,7 +15,7 @@ ANGLE = math.radians(32)
 
 
 def read(path):
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding='utf-8'))
 
 
 def geometry(feature):
@@ -24,35 +24,43 @@ def geometry(feature):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--region', choices=['opo', 'songpa'], required=True)
+    parser.add_argument('--region', choices=['opo', 'songpa', 'jamsil-leel'], required=True)
     region = parser.parse_args().region
     tour = PUBLIC / 'datasets/regions' / region
     buildings = PUBLIC / 'datasets/buildings' / region
     site_file = PUBLIC / 'opo-site.geojson' if region == 'opo' else tour / 'site.geojson'
     environment_file = PUBLIC / 'opo-environment.geojson' if region == 'opo' else tour / 'environment.geojson'
-    name = '오포 롯데캐슬 포레스트' if region == 'opo' else '가락동부센트레빌'
+    visual = read(ROOT / 'frontend/components/data/jamsil-leel.json') if region == 'jamsil-leel' else None
+    name = visual['name'] if visual else '오포 롯데캐슬 포레스트' if region == 'opo' else '가락동부센트레빌'
     site = geometry(next(feature for feature in read(site_file)['features']
                          if feature['properties']['kind'] == 'boundary'))
     origin = site.centroid
     window = site.buffer(53).envelope
-    height_overrides = {row['outlineId']: row['heightM'] for row in read(PUBLIC / 'opo-building-register.json')['towers']
-                        } if region == 'opo' else {row['legacyId']: None for row in
-                                                   read(ROOT / 'frontend/components/data/songpa-towers.json')}
+    height_overrides = {}
+    if region == 'opo':
+        height_overrides = {row['outlineId']: row['heightM'] for row in read(PUBLIC / 'opo-building-register.json')['towers']}
+    elif region == 'songpa':
+        height_overrides = {row['legacyId']: None for row in read(ROOT / 'frontend/components/data/songpa-towers.json')}
     towers = []
     for chunk in read(buildings / 'manifest.json')['chunks']:
         for item in read(buildings / chunk['url'])['features']:
-            identity = item['properties']['id']
+            properties = item['properties']
+            identity = properties['id']
             if identity in height_overrides:
-                towers.append((geometry(item), height_overrides[identity] or item['properties']['height_m']))
-    if len(towers) != len(height_overrides):
+                towers.append((geometry(item), height_overrides[identity] or properties['height_m']))
+            elif visual and properties['dong']:
+                floors = properties['floors'] or visual['referenceFloors'].get(properties['dong'], visual['defaultVisualFloors'])
+                towers.append((geometry(item), properties['height_m'] or floors * visual['metresPerVisualFloor']))
+    if len(towers) != (visual['towerCount'] if visual else len(height_overrides)):
         raise ValueError(f'{region} postcard requires all tour tower footprints')
 
     def depth(x, y):
         return -(x - origin.x) * math.sin(ANGLE) - (y - origin.y) * math.cos(ANGLE)
 
     def view(x, y, height=0):
-        return (360 + 2.4 * ((x - origin.x) * math.cos(ANGLE) - (y - origin.y) * math.sin(ANGLE)),
-                250 + 1.28 * depth(x, y) - 2.15 * height)
+        scale = min(1, 235 / max(site.bounds[2] - site.bounds[0], site.bounds[3] - site.bounds[1])) if visual else 1
+        return (360 + scale * 2.4 * ((x - origin.x) * math.cos(ANGLE) - (y - origin.y) * math.sin(ANGLE)),
+                250 + scale * (1.28 * depth(x, y) - 2.15 * height))
 
     def points(coords, height=0):
         return ' '.join(f'{px:.1f},{py:.1f}' for px, py in (view(x, y, height) for x, y in coords))
@@ -104,7 +112,7 @@ def main():
             scene.append(f'<polygon points="{points(ring, height)}" fill="{roof}" stroke="#829485" stroke-width="1.4"/>')
     target = tour / 'postcard.svg'
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text('\n'.join(scene + ['</svg>', '']))
+    target.write_text('\n'.join(scene + ['</svg>', '']), encoding='utf-8')
 
 
 if __name__ == '__main__':

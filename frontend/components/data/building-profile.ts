@@ -23,11 +23,11 @@ export function buildingUse(category: string): BuildingUse {
   return 'unknown';
 }
 
-export function buildingProfile({ category, dong, height, levels, roof }: Pick<Building, 'category' | 'dong' | 'height' | 'levels' | 'roof'>) {
+export function buildingProfile({ category, dong, height, levels, roof, visualHeight }: Pick<Building, 'category' | 'dong' | 'height' | 'levels' | 'roof' | 'visualHeight'>) {
   const use = dong ? 'apartments' : buildingUse(category);
   const profile = buildingProfiles[use];
   const sourceHeight = height && height > 0 ? height : null;
-  const displayHeight = sourceHeight ?? (levels && levels > 0 ? Math.min(65, levels * profile.floorM) : profile.defaultM);
+  const displayHeight = sourceHeight ?? visualHeight ?? (levels && levels > 0 ? Math.min(65, levels * profile.floorM) : profile.defaultM);
   return {
     use, profile, sourceHeight, displayHeight,
     pitchedRoof: ['gabled', 'hipped', 'half-hipped'].includes(roof ?? ''),

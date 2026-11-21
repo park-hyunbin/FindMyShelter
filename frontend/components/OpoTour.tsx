@@ -14,7 +14,7 @@ import { facadeOffsetM, type FacadeView } from './opo-facades';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
-import { regions, seoulBiotopeSource, songpaComplex, type RegionId } from './data/regions';
+import { jamsilLeel, regions, seoulBiotopeSource, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFacilities, songpaFrontage, songpaGrounds, songpaJunction, songpaManagementFees, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
@@ -426,7 +426,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [facadeId, setFacadeId] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [schoolZoneVisible, setSchoolZoneVisible] = useState(false);
-  const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : 'sun');
+  const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : region === 'jamsil-leel' ? 'site' : 'sun');
   const [accessId, setAccessId] = useState<string | null>(null);
   const [accessSample, setAccessSample] = useState(0);
   const [accessSlope, setAccessSlope] = useState<RouteSlopeDirection | null>(null);
@@ -454,7 +454,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const winterStreet = winterViewing && tab === 'sun' && mode === 'walk';
   const guidedAccessId = tab === 'nature' && mode === 'walk' && homeStep !== null ? accessId : null;
 
-  const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : songpaComplex.roadName, speed: 0, touring: false });
+  const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : region === 'jamsil-leel' ? jamsilLeel.roadName : songpaComplex.roadName, speed: 0, touring: false });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1198,6 +1198,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         onView={openFloodLocation} onVisit={id => { if (visitAtEyeLevel(id)) setFloodStopId(id); }} />}
 
       {tab === 'sun' && <>
+        {region === 'jamsil-leel' && <p>잠실 르엘의 동별 높이는 확인 중이에요. 건물 높이 자료가 빠져 그림자를 확정할 수 없는 시간대는 미판정으로 표시해요.</p>}
         <div className="date-row">
           <label>비교 날짜 <input aria-label="비교 날짜" type="date" min="1900-01-01" max="2100-12-31" value={date} onChange={event => {
             if (event.target.validity.valid) setDate(event.target.value);
@@ -1345,7 +1346,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           </p>}
         </>}
         </>}
-        <section className="green-access" aria-label="주변 접근 경로">
+        {access.routes.length > 0 && <section className="green-access" aria-label="주변 접근 경로">
           <h3>{region === 'songpa' ? '주변 시설 방향 경로' : '공원 인근 도로 연결'}</h3>
           <p>{access.startLabel} 출발 · 실선은 지도에 보행로·보도가 표시된 구간, 점선은 보도 미확인 구간이에요.</p>
           {access.retrieved && <p>지도 확인 {access.retrieved} · 노란 고리는 지도상 횡단 구간이에요. 단지 출입구와 신호 대기는 현장에서 확인해 주세요.</p>}
@@ -1500,7 +1501,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 onSlope={(direction, index) => { setAccessSample(index); setAccessSlope(direction); }} onLook={lookAtRoutePoint} />}
             </div>;
           })}
-        </section>
+        </section>}
         <details className="basis"><summary>자료와 계산 기준</summary>
           <p>3D와 같은 지형 표면에서 출발 지면을 0m로 두고 최대 {horizonRange}m까지 {horizonChartStep}m 간격으로 단면을 표시합니다. {world?.sources.localTerrain ?
             '단지 주변은 서울시 수치지형도에서 보간하고 외곽은 GEDTM30과 연결했어요.' :
@@ -1562,6 +1563,25 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </div>
         {region === 'opo' && <div className="place-note"><strong>공식 통학구역</strong><p>취학 주소의 통학구역은 학구도에서 확인할 수 있어요.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>}
         <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 지도 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'}). 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
+      </div>}
+
+      {region === 'jamsil-leel' && tab === 'site' && <div className="site-features">
+        <article className="site-card">
+          <h3>{jamsilLeel.name}</h3>
+          <p>{jamsilLeel.address} · {jamsilLeel.towerCount}개 동 · {jamsilLeel.households.toLocaleString('ko-KR')}세대 · 최고 {jamsilLeel.maxFloors}층</p>
+          <div className="site-actions">
+            <button disabled={!world} onClick={() => chooseMode('orbit')}>단지 전체 보기</button>
+            {jamsilLeel.entrances.map(stop => <button key={stop.id}
+              disabled={!world?.destinations.some(destination => destination.id === stop.id)}
+              onClick={() => visitAtEyeLevel(stop.id)}>{stop.name} 보기</button>)}
+          </div>
+          <p>101~113동은 지도 윤곽을 따라 배치했어요. 외관과 높이는 참고용 모델이에요. 단지 안쪽 산책로와 정원은 공개 조경도에서 위치를 맞춘 근사예요.</p>
+          <p>도로와 보도는 서울시 도형을 우선 사용해요. 보행 신호등은 설치 기록과 지주 좌표가 일치하는 곳에 표시해요.</p>
+          <a href={jamsilLeel.info} target="_blank" rel="noreferrer">롯데건설 사업개요 ↗</a>
+          <a href={jamsilLeel.boundary} target="_blank" rel="noreferrer">OpenStreetMap 단지 경계 ↗</a>
+          <a href="https://www.lottecastle.co.kr/APT/AT00424/16291/download/view.do" target="_blank" rel="noreferrer">롯데건설 조경설계 ↗</a>
+          <a href={jamsilLeel.referenceFloorsSource} target="_blank" rel="noreferrer">외형 참고 층수 ↗</a>
+        </article>
       </div>}
 
       {region === 'songpa' && tab === 'site' && <div className="site-features">
