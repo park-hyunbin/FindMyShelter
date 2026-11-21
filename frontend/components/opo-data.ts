@@ -44,11 +44,13 @@ type StreetFile = {
   points: (StreetPointProperties & { coordinates: Position })[]; parking: { id: number; coordinates: Position[] }[];
   crossingWays?: [Position, Position][];
 };
-export type StreetPaint = 'yellow' | 'yellow-dash' | 'yellow-double' | 'yellow-combined' | 'blue' | 'blue-dash' | 'white' | 'white-dash' | 'stop';
+export type StreetPaint = 'yellow' | 'yellow-dash' | 'yellow-double' | 'yellow-combined'
+  | 'blue' | 'blue-dash' | 'blue-double' | 'blue-double-dash' | 'white' | 'white-dash' | 'stop';
 type StreetPaintFile = {
   lanesSource: string; crosswalksSource: string; crosswalkInventory: string;
   markingsArchiveDate: string; crosswalkInventoryDate: string;
-  lanes: { style: StreetPaint; points: Position[]; edge?: boolean }[];
+  laneSources?: Record<string, { url: string; archiveDate: string }>;
+  lanes: { style: StreetPaint; points: Position[]; edge?: boolean; busLane?: boolean; dashOffsetM?: number }[];
   crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][] }[];
   paintedHumps?: {
     source: string; archiveDate: string;

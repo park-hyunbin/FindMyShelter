@@ -1745,8 +1745,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <a href={songpaStreets.roadview} target="_blank" rel="noreferrer">양재대로60길 교차로 로드뷰 ↗</a>
             <a href={world?.sources.streets ?? songpaComplex.road} target="_blank" rel="noreferrer">OpenStreetMap 도로와 차로 수 ↗</a>
             {world?.sources.roadMarkings && <>
-              <p>도로와 보도는 지도에서 만들고, 차선과 횡단보도는 서울시 {world.sources.roadMarkings.archiveDate} 도형을 우선 사용했어요. {world.sources.roadMarkings.inventoryDate} 대장에 없는 횡단보도는 현재 상태를 확인해야 해요.</p>
+              <p>차선 기본 선형은 {world.sources.roadMarkings.archiveDate} 서울시 자료를 사용해요. {world.sources.roadMarkings.inventoryDate} 대장에 없는 횡단보도는 현재 상태를 확인해야 해요.</p>
               <a href={world.sources.roadMarkings.lanes} target="_blank" rel="noreferrer">서울시 차선 선형 ↗</a>
+              {world.sources.roadMarkings.busLanes && <a href={world.sources.roadMarkings.busLanes.url} target="_blank" rel="noreferrer">서울시 버스전용차로 선형 ({world.sources.roadMarkings.busLanes.archiveDate}) ↗</a>}
               <a href={world.sources.roadMarkings.crosswalks} target="_blank" rel="noreferrer">서울시 횡단보도 도형 ↗</a>
               <a href={world.sources.roadMarkings.inventory} target="_blank" rel="noreferrer">서울시 횡단보도 시설 대장 ↗</a>
             </>}

@@ -235,13 +235,16 @@ function offsetMarking(points: Point[], offset: number) {
   });
 }
 
-function lineChunks(points: Point[], run: number, gap: number): Point[][] {
+function lineChunks(points: Point[], run: number, gap: number, startDistance = 0): Point[][] {
   const chunks: Point[][] = [];
-  let remaining = run, segment: Point[] = [points[0]], paint = true;
+  const phase = startDistance % (run + gap);
+  let paint = phase < run;
+  let remaining = (paint ? run : run + gap) - phase;
+  let segment: Point[] = [points[0]];
   for (let i = 1; i < points.length; i++) {
     const end = points[i];
     let start = points[i - 1], distance = Math.hypot(end.x - start.x, end.z - start.z);
-    while (distance > remaining) {
+    while (distance >= remaining) {
       const t = remaining / distance;
       const split = { x: start.x + (end.x - start.x) * t, z: start.z + (end.z - start.z) * t };
       if (paint) chunks.push([...segment, split]);
@@ -251,7 +254,7 @@ function lineChunks(points: Point[], run: number, gap: number): Point[][] {
       remaining = paint ? run : gap;
       start = split;
     }
-    if (paint) segment.push(end);
+    if (paint && distance > 0) segment.push(end);
     remaining -= distance;
   }
   if (paint && segment.length > 1) chunks.push(segment);
@@ -662,14 +665,20 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       strip([position(-rampDepth, at(1.34)), position(rampDepth, at(1.34))], 0.88, sidewalkLift + 0.004, '#d4cec2', paving);
     });
   }
-  function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createSurfaceClipper>) {
+  function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createSurfaceClipper>,
+    busLane = false, dashOffsetM = 0) {
     const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0' : '#f2eee3';
-    const double = style === 'yellow-double' || style === 'yellow-combined';
-    const width = style === 'stop' ? 0.31 : 0.14;
-    const paint = (line: Point[], dashed: boolean) => {
-      const segments = dashed ? lineChunks(line, style === 'yellow-dash' ? 2.7 : 4, 4.5) : [line];
+    const combined = style === 'yellow-combined';
+    const double = style.includes('-double') || combined;
+    const dashed = style.endsWith('-dash') || combined;
+    const width = style === 'stop' ? 0.31 : busLane && style === 'blue' ? 0.17 : 0.14;
+    const dashLength = busLane ? 3 : style === 'yellow-dash' ? 2.7 : 4;
+    const gap = busLane ? 3 : 4.5;
+    const solid = [points];
+    const painted = dashed ? lineChunks(points, dashLength, gap, dashOffsetM) : solid;
+    const paint = (segments: Point[][], offset = 0) => {
       for (const segment of segments) {
-        const outline = ribbon(segment, width, () => 0);
+        const outline = ribbon(offset ? offsetMarking(segment, offset) : segment, width, () => 0);
         const onRoad = clipper.clip(outline, 0.018);
         outline.dispose();
         // The lifts of paint on the same deck differ by less than 0.1m.
@@ -679,9 +688,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       }
     };
     if (double) {
-      paint(offsetMarking(points, -0.15), false);
-      paint(offsetMarking(points, 0.15), style === 'yellow-combined');
-    } else paint(points, style.endsWith('-dash'));
+      const offset = busLane ? 0.14 : 0.15;
+      paint(combined ? solid : painted, -offset);
+      paint(painted, offset);
+    } else paint(painted);
   }
   for (const road of roads) {
     if (finish && (road.id === opoEntranceBridgeId || road.id === opoEntranceTurnId)) continue;
@@ -920,10 +930,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       clipper.clear();
       mask.dispose();
     }
-    for (const { style, points } of surveyedLines) {
+    for (const { style, points, busLane, dashOffsetM } of surveyedLines) {
       // Smooth the rendered paint within its width, keeping the original samples for road-width estimates.
       const line = cleanMarking(points, style === 'stop' ? 0.04 : 0.14);
-      if (line.length >= 2) surveyedPaint(line, style, roadPaint);
+      if (line.length >= 2) surveyedPaint(line, style, roadPaint, busLane, dashOffsetM);
     }
     flushLayers();
     crossingPaint?.clear();

@@ -18,6 +18,8 @@ LANES = "https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do"
 CROSSWALKS = "https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do"
 CURRENT = "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do"
 HUMPS = "https://data.seoul.go.kr/dataList/OA-15541/S/1/datasetView.do"
+BUS_KINDS = {"005", "017"}
+EDGE_KINDS = {"002", "007", "009"}
 TO_METERS = Transformer.from_crs(4326, 5186, always_xy=True)
 TO_GPS = Transformer.from_crs(5186, 4326, always_xy=True)
 BOUNDS = (127.1095, 37.4932, 127.1241, 37.5035)
@@ -50,7 +52,9 @@ def lane_style(kind, subtype):
         return "yellow-dash" if kind == "009" or subtype == "002" else "yellow"
     if kind == "016":
         return "white" if subtype == "002" else "yellow"
-    if kind in {"005", "013", "017", "018"}:
+    if kind in BUS_KINDS or kind == "018":
+        return {"002": "blue-dash", "003": "blue-double", "004": "blue-double-dash"}.get(subtype, "blue")
+    if kind == "013":
         return "blue-dash" if subtype in {"002", "004"} else "blue"
     if kind in {"003", "011", "012"} or kind == "006" and subtype == "002":
         return "white-dash"
@@ -107,13 +111,15 @@ def main():
     lanes = []
     with ZipFile(args.lanes) as archive:
         for tags, geom in city_features(archive, "A058_L", clip):
-            style = lane_style(tags["A058_KND_C"], tags["A058_KND2_"])
+            kind = tags["A058_KND_C"]
+            style = lane_style(kind, tags["A058_KND2_"])
             if style is None:
                 continue
             for line in getattr(geom, "geoms", [geom]):
                 if line.geom_type == "LineString" and line.length > 0.25:
-                    edge = tags["A058_KND_C"] in {"002", "007", "009"}
-                    lanes.append({"style": style, "points": gps(line.simplify(0.11).coords), **({"edge": True} if edge else {})})
+                    lanes.append({"style": style, "points": gps(line.simplify(0.11).coords),
+                                  **({"edge": True} if kind in EDGE_KINDS else {}),
+                                  **({"busLane": True} if kind in BUS_KINDS else {})})
 
     workbook = load_workbook(args.current_crosswalks, read_only=True, data_only=True)
     rows = workbook.active.iter_rows(min_row=2, values_only=True)

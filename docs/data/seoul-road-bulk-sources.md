@@ -100,6 +100,12 @@
 
 > 서울 25개 구의 T-GIS 차선·정지선(`A058_L`)과 횡단보도·노면표시 전체 선형 최신 원본을 GeoPackage 또는 SHP로 받을 수 있는지 확인 요청드립니다. 공개된 2021년 선형에는 이후 변경 내용을 확인하기 어렵습니다. 관리번호, 분류코드, 도로·교차로 연결키, 방향·층위, 설치·변경일, 삭제 이력 또는 변경분, 측량 범위와 좌표계가 필요합니다. 자료는 실제 도로와 보행환경을 보여주는 온라인 3D 임장에 사용합니다. 웹 타일로 가공해 공개 서비스로 제공할 때의 이용 조건도 함께 안내 부탁드립니다.
 
+## 공개 장면 일괄 갱신
+
+서울 10개 장면의 차선 23,950개를 기존 기준 범위와 2021년 원본으로 재현했다. 이어 서울 전체 인덱스에서 2026년 버스전용차로를 반영한 차선을 읽고 같은 범위로 잘랐다. 이렇게 10개 장면에 **관리번호 191개, 장면별 중복을 포함해 252개 선형 조각**을 연결했다. 횡단보도, 감속 표시, 보도 자료는 이번 갱신의 비교 기준으로 사용했다. 2026년 버스전용차로 ZIP 공개일은 2월 13일이고 ZIP 안의 SHP 색인 파일 날짜는 2월 12일이다. 장면별 JSON에 ZIP 해시, 적용한 출처와 범위, 갱신 선형의 관리번호를 기록했다. [서울시 버스전용차로 위치](https://data.seoul.go.kr/dataList/OA-22396/F/1/datasetView.do)
+
+청색 실선·점선·복선은 서울시 차선 유형 코드로 구분한다. 점선의 도색과 빈 간격은 경찰청 규격을 따라 3m씩 모델링했다. 겹치는 장면에서 점선이 다른 위치로 옮겨 보이는 일을 줄이기 위해, 잘린 첫 좌표가 원본 선의 시작점에서 얼마나 떨어져 있는지도 전달한다. 두 줄로 된 점선은 같은 시작 위치에서 나눈다. 원본에는 개별 도색 조각의 길이·시작점이 따로 들어 있지 않다. [서울시 차선 정의서](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [경찰청 교통노면표시 업무편람](https://itskorea.kr/downloadFile.do?fileId=FILE_000000000038775&fileSn=2)
+
 ## 재현 명령
 
 Python 3.11 이상에서 실행한다. 작업 폴더의 `road-source-cache`에는 원본을 저장하고, 결과 JSON에는 자치구별 거리 합계, 도형 개수, CRS, 파일 해시와 번호 일치 건수를 남긴다. 기본 실행은 캐시만 사용하고 `--download`를 붙이면 누락된 원본도 받는다.
@@ -119,6 +125,12 @@ uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/
 ```
 
 [도시 인덱스 생성](../../backend/scripts/index_seoul_road_markings.py) · [생활권 추출](../../backend/scripts/extract_seoul_road_window.py) · [부지안도로 경계 후보 검사](../../backend/scripts/probe_seoul_internal_road_edges.py)
+
+위 인덱스의 선형으로 공개 장면을 갱신한다. `--output`을 지정하면 다른 디렉터리에 생성해 전후를 비교할 수 있다.
+
+```powershell
+uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_lane_windows.py ../road-source-cache ../road-source-cache/seoul-marking-index.sqlite
+```
 
 국가교통정보센터에서 [2026-11-11 전국 ZIP](https://www.its.go.kr/opendata/nodelinkFileSDownload/DF_222/0)을 `national-road-links-2026-11-11.zip`으로 저장한 뒤 실행한다. 다음 스냅샷도 ZIP 하나를 교체해 전체를 다시 검사한다. SQLite의 `evidence`는 차선 인덱스의 구간과 같은 키를 사용한다. 구별 합계와 입력 해시는 `metadata`의 `report`와 표준 출력에서 확인한다.
 
