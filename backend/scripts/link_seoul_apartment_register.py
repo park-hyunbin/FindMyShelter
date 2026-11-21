@@ -15,7 +15,7 @@ from zipfile import ZipFile
 
 from openpyxl import load_workbook
 
-from audit_seoul_tour_coverage import APARTMENT_TYPES, DISTRICTS, ROOT, read_json
+from audit_seoul_tour_coverage import APARTMENT_TYPES, DISTRICTS, ROOT, read_json, registered_scene_configs
 
 
 PNU_PATTERN = re.compile(r'\d{10}[12]\d{8}', re.ASCII)
@@ -209,9 +209,8 @@ def build_links(catalog_path, parcel_path, register_path, snapshot_date, registe
             for code in codes:
                 complexes[code].update(status='shared_register_record', buildings=[])
 
-    for path in sorted((ROOT / 'data/config/buildings').glob('*.json')):
-        config = read_json(path)
-        code = config.get('kapt_code')
+    for config in registered_scene_configs(ROOT):
+        code = config['kapt_code']
         if code in complexes:
             complexes[code]['scene'] = compare_tour_buildings(
                 complexes[code], config['region'], ROOT / 'frontend/public/datasets',

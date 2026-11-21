@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button, Card, Checkbox, Image as IslandImage, Input, NoData, Tag } from 'animal-island-ui';
 import 'animal-island-ui/style';
 import VillageMap from './VillageMap';
-import { jamsilLeel, regions, type RegionId } from './data/regions';
+import { catalogScene, jamsilLeel, regions, type RegionId } from './data/regions';
 import snapshot from './data/tour-complexes.generated.json';
 import transactions from './data/tour-transactions.generated.json';
 import {
@@ -22,14 +22,18 @@ const states = {
 const checkLabels = { match: '충족', 'no-match': '불충족', unknown: '미확인' };
 const number = new Intl.NumberFormat('ko-KR');
 const areaNumber = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 });
-const district = { opo: '경기 광주', songpa: '서울 송파', 'jamsil-leel': '서울 잠실' };
-const addressAliases = { opo: '경기도 광주시', songpa: '서울특별시 송파구', 'jamsil-leel': '서울특별시 송파구' };
-const complexFacts: Record<RegionId, ComplexFacts> = {
+const district: Partial<Record<RegionId, string>> = { opo: '경기 광주', songpa: '서울 송파', 'jamsil-leel': '서울 잠실' };
+const addressAliases: Partial<Record<RegionId, string>> = { opo: '경기도 광주시', songpa: '서울특별시 송파구', 'jamsil-leel': '서울특별시 송파구' };
+const complexFacts: Partial<Record<RegionId, ComplexFacts>> = {
   ...snapshot.complexes,
   'jamsil-leel': { code: '', households: jamsilLeel.households, parkingSpaces: null, corridorType: null, playground: null, evCharging: null },
 };
 const transactionHistory: Partial<Record<RegionId, Transaction[]>> = transactions.complexes;
 const featureOptions = preferences.map(({ id, label }) => ({ value: id, label }));
+
+function districtOf(region: typeof regions[number]) {
+  return district[region.id] ?? region.area.split(' ').slice(0, 2).join(' ');
+}
 
 function compact(value: string) {
   return value.normalize('NFC').replace(/\s+/g, '').toLowerCase();
@@ -93,10 +97,12 @@ export default function TourPlanner({ mode, onMode, onEnter }: {
   const terms = appliedQuery.trim().split(/\s+/).filter(Boolean).map(compact);
   const hasBudget = criteria.maxPrice !== null || criteria.maxMonthly !== null;
   const rows = regions.filter(region => {
-    const searchable = compact(`${region.name} ${region.area} ${region.keywords} ${addressAliases[region.id]}`);
+    const searchable = compact(`${region.name} ${region.area} ${region.keywords} ${addressAliases[region.id] ?? ''}`);
     return terms.every(term => searchable.includes(term));
   }).map(region => {
-    const facts = complexFacts[region.id];
+    const scene = catalogScene(region.id);
+    const facts = complexFacts[region.id] ?? { code: scene?.kaptCode ?? '', households: scene?.households ?? null,
+      parkingSpaces: null, corridorType: null, playground: null, evCharging: null };
     const price = prices[region.id] ?? null;
     const result = evaluateTour(facts, criteria, price === null ? null : { amount: price, kind: 'entered-listing' });
     const history = summarizeTransactions(transactionHistory[region.id] ?? [], criteria);
@@ -171,10 +177,10 @@ export default function TourPlanner({ mode, onMode, onEnter }: {
         <p>조건 설정 없이 바로 입장해 걷기, 드라이브, 조감을 즐겨보세요.</p>
       </div>
       <div className="planner-map-layout">
-        <VillageMap villages={regions.map(region => ({ ...region, district: district[region.id] }))}
+        <VillageMap villages={regions.map(region => ({ ...region, district: districtOf(region) }))}
           selected={explored.id} onSelect={setSelected} />
         <aside id="village-details" className="planner-field-notes" aria-label="선택한 동네">
-          <p className="planner-kicker">동네 수첩 · {district[explored.id]}</p>
+          <p className="planner-kicker">동네 수첩 · {districtOf(explored)}</p>
           <h3>{explored.name}</h3><p className="planner-address">{explored.area}</p>
           <Postcard region={explored.id} />
           <Button className="planner-enter" icon={<Icon kind="compass" />} onClick={() => onEnter(explored.id)}
@@ -239,7 +245,7 @@ export default function TourPlanner({ mode, onMode, onEnter }: {
           extra={<Button onClick={() => { setQuery(''); setAppliedQuery(''); setBudgetOnly(false); }}>모든 단지 보기</Button>} />
           : <div className="planner-map-layout">
             <VillageMap villages={rows.map(row => ({ id: row.region.id, name: row.region.name,
-              district: district[row.region.id],
+              district: districtOf(row.region),
               note: row.history.withinBudget.length ? `예산 이내 과거 거래 ${row.history.withinBudget.length}건` : states[row.status].label,
             }))} selected={selectedRow.region.id} onSelect={setSelected} />
             {(() => {
@@ -247,7 +253,7 @@ export default function TourPlanner({ mode, onMode, onEnter }: {
             const parking = parkingRatio(facts);
             const latest = history.records[0];
             return <aside id="village-details" className="planner-field-notes" key={region.id} aria-label="선택한 단지">
-                  <div className="planner-card-tags"><span>{district[region.id]}</span>
+                  <div className="planner-card-tags"><span>{districtOf(region)}</span>
                     <Tag className={`planner-status status-${status}`} size="small" variant="soft" color={states[status].color}>{states[status].label}</Tag>
                   </div>
                   <h3>{region.name}</h3><p className="planner-address">{region.area}</p>

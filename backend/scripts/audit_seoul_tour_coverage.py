@@ -25,6 +25,15 @@ def read_json(path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def registered_scene_configs(root):
+    catalog = root / 'frontend/components/data/seoul-scenes.generated.json'
+    scenes = {row['id'] for row in read_json(catalog)} if catalog.exists() else set()
+    for path in sorted((root / 'data/config/buildings').glob('*.json')):
+        config = read_json(path)
+        if config.get('kapt_code') and (not config.get('catalog') or config['region'] in scenes):
+            yield config
+
+
 def audit_scene(region, datasets):
     buildings = datasets / 'buildings' / region
     scene = datasets / 'regions' / region
@@ -94,13 +103,10 @@ def build_report(source, snapshot_date, root):
         raise ValueError(f'Seoul districts missing from snapshot: {", ".join(sorted(missing))}')
 
     datasets = root / 'frontend/public/datasets'
-    for path in sorted((root / 'data/config/buildings').glob('*.json')):
-        config = read_json(path)
-        code = config.get('kapt_code')
-        if not code:
-            continue
+    for config in registered_scene_configs(root):
+        code = config['kapt_code']
         if code not in catalog or catalog[code]['tour'] is not None:
-            raise ValueError(f'{path.name}: K-apt code {code} is absent or already linked')
+            raise ValueError(f'{config["region"]}: K-apt code {code} is absent or already linked')
         catalog[code]['tour'] = audit_scene(config['region'], datasets)
 
     entries = sorted(catalog.values(), key=lambda item: (item['district'], item['name'], item['kaptCode']))

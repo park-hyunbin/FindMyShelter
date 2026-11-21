@@ -74,7 +74,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const isGarak = data.region === 'songpa';
   const entrances = data.region === 'jamsil-leel' ? jamsilLeel.entrances : [];
   const defaultEntrance = entrances[0];
-  const urbanRoadName = defaultEntrance ? jamsilLeel.roadName : songpaComplex.roadName;
+  const urbanRoadName = data.catalog?.roadName ?? (defaultEntrance ? jamsilLeel.roadName : songpaComplex.roadName);
   const scene = new T.Scene();
   scene.background = new T.Color('#354D65');
   const fogDensity = isOpo ? 0.00112 : 0.00025;
@@ -179,16 +179,17 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const blockedForMovement = (point: Point) => occupied(point) || site.paving?.parked(point);
   const analysisRadius = isOpo ? Math.min(precinct, data.buildingRadius) : data.buildingRadius;
   const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= analysisRadius;
-  const siteSamples = data.siteOutline.length ? sunGridPoints(data.siteOutline, canAnalyze) : [];
+  const siteSamples = data.siteOutline.length ? sunGridPoints(data.siteOutline,
+    point => canAnalyze(point) && !data.siteHoles.some(ring => inShape(point, [ring]))) : [];
   const sunMap = siteSamples.length ? createSunMap(scene, data.siteOutline, siteSamples, observationSurface) : undefined;
-  const roadSpawn = streets.nearest(data.project(isOpo ? roadEntry : (defaultEntrance?.roadside ?? songpaComplex.roadside)), 64);
+  const roadSpawn = streets.nearest(data.project(isOpo ? roadEntry : (data.catalog?.roadside ?? defaultEntrance?.roadside ?? songpaComplex.roadside)), 64);
   if (!roadSpawn) throw new Error('임장 구역의 도로 시작 위치를 찾을 수 없어요.');
   const frontageStart = site.frontage && splitLineAt(site.frontage, data.project(songpaEntrance.frontage.walkStart));
   const walkStart = defaultEntrance ? data.project(defaultEntrance.position) : frontageStart?.point;
   const spawn = walkStart && !occupied(walkStart) ? walkStart : roadSpawn.point;
   const approachPoint = isOpo ? data.project(approach) : roadSpawn.point;
   const frontageAhead = frontageStart?.after.find(point => Math.hypot(point.x - spawn.x, point.z - spawn.z) >= 8);
-  const roadLookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(defaultEntrance?.lookAt ?? songpaComplex.lookAt);
+  const roadLookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(data.catalog?.lookAt ?? defaultEntrance?.lookAt ?? songpaComplex.lookAt);
   const lookAt = spawn === frontageStart?.point && frontageAhead ? frontageAhead : roadLookAt;
   const initialHeading = headingTo(spawn, lookAt);
   const pavingStops = isGarak ? [...songpaGrounds.points, ...songpaCourtyard.views].map((point: SongpaGroundView) => {

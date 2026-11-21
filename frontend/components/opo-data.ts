@@ -1,6 +1,6 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
-import { jamsilLeel, regions, songpaComplex, type RegionId } from './data/regions';
+import { catalogScene, jamsilLeel, regions, songpaComplex, type RegionId } from './data/regions';
 import { garakGreenStrip, songpaCourtyard, songpaFrontage, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songiPark } from './data/songi-park';
@@ -157,6 +157,7 @@ function regionalStreets(features: Environment[]): Street[] {
 
 export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo') {
   const area = regions.find(r => r.id === region)!;
+  const catalog = catalogScene(region);
   const empty = {type: 'FeatureCollection' as const, features: []};
   const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings, pavement,
     planting, servicePaving, pedestrianSignals] = await Promise.all([
@@ -233,7 +234,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const toBuilding = ({ geometry, properties }: BuildingFile['features'][number]): Building => {
     const dong = region === 'opo' && properties.name === '오포 롯데캐슬 포레스트' ? properties.dong
       : region === 'songpa' ? songpaComplex.towers.find(tower => tower.id === properties.id)?.dong ?? null
-      : region === 'jamsil-leel' ? properties.dong : null;
+      : region === 'jamsil-leel' ? properties.dong : catalog?.towers[properties.id] ?? null;
     const row = region === 'opo' ? officialHeights.get(properties.id) : undefined;
     const recorded = row && row.dong === dong ? row : undefined;
     const shapes = (geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates).map(toShape);
@@ -241,7 +242,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     const unit = dong ?? properties.dong;
     const levels = positiveDimension(recorded?.aboveGroundFloors ?? properties.levels ?? properties.floors);
     const visualHeight = region === 'jamsil-leel' && dong
-      ? (levels ?? referenceFloors[dong] ?? jamsilLeel.defaultVisualFloors) * jamsilLeel.metresPerVisualFloor : undefined;
+      ? (levels ?? referenceFloors[dong] ?? jamsilLeel.defaultVisualFloors) * jamsilLeel.metresPerVisualFloor
+      : catalog && levels ? levels * 3.05 : undefined;
     if (recorded) registerRows.push({ ...recorded, outlineAreaM2: properties.area_m2 ?? outlineArea(shapes) });
     return {
       id: properties.id,
@@ -291,6 +293,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     ? [{ points: geometry.coordinates.map(project), bridge: properties.bridge, id: properties.id }] : []);
   const siteOutline = site.features.flatMap(({ geometry }) => geometry.type === 'Polygon'
     ? geometry.coordinates[0].map(project) : []);
+  const siteHoles = site.features.flatMap(({ geometry }) => geometry.type === 'Polygon'
+    ? geometry.coordinates.slice(1).map(ring => ring.map(project)) : []);
   const streets: Street[] = neighborhood
     ? neighborhood.roads.map(({ coordinates, ...tags }) => ({ ...tags, points: coordinates.map(project) }))
     : regionalStreets(features);
@@ -368,8 +372,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     return { ...f.properties, point, distance_m };
   }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent)
     .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id));
-  return { region, area, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
-    features, siteRoads, siteOutline, project, northOffset, buildingRadius, streets, streetPoints, parking,
+  return { region, area, catalog, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
+    features, siteRoads, siteOutline, siteHoles, project, northOffset, buildingRadius, streets, streetPoints, parking,
     neighborhoodPlanting: planting?.patches.map(toShape) ?? [],
     servicePaving: servicePaving?.surfaces.map(toShape) ?? [],
     pedestrianSignals,

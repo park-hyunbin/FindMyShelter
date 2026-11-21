@@ -44,8 +44,12 @@ type AccessRoute = {
 
 type AccessDataset = { startLabel: string; routes: AccessRoute[]; retrieved?: string; source: string };
 
-export const visitRoutes: Record<RegionId, AccessDataset> = {
+const visitRoutes: Partial<Record<RegionId, AccessDataset>> = {
   opo: { ...opo, startLabel: '단지 진입부' },
   songpa: { ...songpa, startLabel: '송파대로32길·양재대로60길 교차점' },
   'jamsil-leel': { startLabel: jamsilLeel.entrances[0].name, routes: [], source: jamsilLeel.boundary },
 };
+
+export function routesFor(region: RegionId): AccessDataset {
+  return visitRoutes[region] ?? { startLabel: '단지 주변', routes: [], source: 'https://www.openstreetmap.org/' };
+}

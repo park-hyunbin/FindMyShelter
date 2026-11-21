@@ -1,4 +1,5 @@
 import jamsilLeel from './jamsil-leel.json';
+import seoulScenes from './seoul-scenes.generated.json';
 
 export { jamsilLeel };
 
@@ -24,7 +25,7 @@ export const seoulBiotopeSource = 'https://data.seoul.go.kr/dataList/OA-21145/S/
 
 // Small searchable catalog only. Heavy regional assets are fetched after entry.
 // New regions use the same building manifest + terrain/environment contract.
-export const regions = [
+const originalRegions = [
   { id: 'opo', name: '오포 롯데캐슬 포레스트', area: '경기 광주시 수레실길 7',
     keywords: '오포 광주 롯데캐슬 능평동', description: '산자락과 단지 사이를 걷는 동네',
     count: 214, radius: 350, terrain: '/opo-terrain.json', environment: '/opo-environment.geojson',
@@ -48,4 +49,29 @@ export const regions = [
     pavement: '/datasets/regions/jamsil-leel/pavement.json',
     planting: null, servicePaving: null, pedestrianSignals: '/datasets/regions/jamsil-leel/pedestrian-signals.json' },
 ] as const;
+
+type SeoulSceneId = `seoul-a${string}`;
+type SeoulScene = {
+  id: string; name: string; area: string; roadName: string; households: number; towerCount: number;
+  kaptCode: string; count: number; radius: number; roadside: number[]; lookAt: number[];
+  towers: Record<string, string>; outlineSource: string; registerSource: string; layers: string[];
+};
+const catalogRegions = (seoulScenes as SeoulScene[]).map(scene => {
+  const id = scene.id as SeoulSceneId;
+  const path = `/datasets/regions/${id}`;
+  const optional = (file: string) => scene.layers.includes(file) ? `${path}/${file}` : null;
+  return {
+    id, name: scene.name, area: scene.area, count: scene.count, radius: scene.radius,
+    description: `${scene.towerCount}개 동과 주변 도로·생활환경`, keywords: `${scene.roadName} ${scene.kaptCode}`,
+    terrain: `${path}/terrain.json`, environment: `${path}/environment.geojson`, places: `${path}/places.geojson`,
+    site: `${path}/site.geojson`, streets: `${path}/streets.json`, surrounding: null,
+    roadMarkings: optional('road-markings.json'), neighborhoodTerrain: null, pavement: optional('pavement.json'),
+    planting: null, servicePaving: null, pedestrianSignals: optional('pedestrian-signals.json'),
+  } as const;
+});
+
+export const regions = [...originalRegions, ...catalogRegions];
 export type RegionId = typeof regions[number]['id'];
+export function catalogScene(region: RegionId): SeoulScene | undefined {
+  return (seoulScenes as SeoulScene[]).find(scene => scene.id === region);
+}

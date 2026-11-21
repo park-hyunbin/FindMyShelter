@@ -37,11 +37,28 @@ const numericTag = tag => {
 };
 const ringCenter = ring => ring.slice(0, -1).reduce((sum, point) =>
   [sum[0] + point[0] / (ring.length - 1), sum[1] + point[1] / (ring.length - 1)], [0, 0]);
-const boundary = regionConfig && raw.elements.find(item => item.type === 'way' && item.id === regionConfig.boundaryWay);
-const outline = boundary && lineCoordinates(boundary);
-if (regionConfig && (!outline || outline.length < 4 || outline.some(point => !point) || boundary.nodes[0] !== boundary.nodes.at(-1))) {
-  throw new Error('The configured complex boundary is missing or open');
+const boundary = regionConfig && raw.elements.find(item => regionConfig.boundaryRelation
+  ? item.type === 'relation' && item.id === regionConfig.boundaryRelation
+  : item.type === 'way' && item.id === regionConfig.boundaryWay);
+const closedRing = way => {
+  const coordinates = way?.nodes && lineCoordinates(way);
+  if (!coordinates || coordinates.length < 4 || coordinates.some(point => !point) || way.nodes[0] !== way.nodes.at(-1)) {
+    throw new Error('The configured complex boundary is missing or open');
+  }
+  return coordinates;
+};
+let rings = [];
+if (regionConfig) {
+  if (boundary?.type === 'relation') {
+    const outer = boundary.members.filter(member => member.role === 'outer');
+    if (outer.length !== 1) throw new Error('A complex boundary requires one closed outer ring');
+    rings = [...outer, ...boundary.members.filter(member => member.role === 'inner')]
+      .map(member => closedRing(raw.elements.find(item => item.type === 'way' && item.id === member.ref)));
+  } else {
+    rings = [closedRing(boundary)];
+  }
 }
+const outline = rings[0];
 function inside([x, y], ring) {
   let contained = false;
   for (let i = 1; i < ring.length; i++) {
@@ -77,7 +94,7 @@ for (const item of raw.elements) {
   if (coordinates.some(point => !point)) continue;
   const closed = coordinates.length >= 4 && item.nodes[0] === item.nodes.at(-1);
   if (closed && tags.building && !['no', 'roof', 'construction', 'demolished'].includes(tags.building)) {
-    const dong = outline && tags.building === 'apartments' && /^\d+동$/.test(tags.name ?? '') && inside(ringCenter(coordinates), outline)
+    const dong = regionConfig?.towerNumbers && outline && tags.building === 'apartments' && /^\d+동$/.test(tags.name ?? '') && inside(ringCenter(coordinates), outline)
       ? tags.name : null;
     const levels = numericTag(tags['building:levels']);
     buildings.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [coordinates] },
@@ -120,23 +137,25 @@ for (const item of raw.elements) {
 }
 
 const metadata = { bounds, source, attribution: '© OpenStreetMap contributors', license: 'https://www.openstreetmap.org/copyright' };
-const coreWays = regionConfig?.approachWays ?? (songpa ? [169916276, 169916279, 1175929595]
+const coreWays = regionConfig?.approachWays ?? (region ? [] : songpa ? [169916276, 169916279, 1175929595]
   : [836821229, 835658906, 835665646, 835665645, 835658907, 835658913, 835658914]);
 if ((!urban && buildings.length < 500) || roads.length < 100 || !coreWays.every(id => roads.some(road => road.id === id))) {
   throw new Error('The snapshot is missing neighborhood roads or the mapped complex approach.');
 }
 const regionFolder = region && new URL(`../public/datasets/regions/${region}/`, import.meta.url);
 if (regionFolder) {
-  const [first, last] = regionConfig.towerNumbers;
-  const expected = Array.from({ length: last - first + 1 }, (_, index) => `${first + index}동`);
-  const actual = buildings.flatMap(({ properties }) => properties.dong ? [properties.dong] : []).sort();
-  if (actual.join('|') !== expected.sort().join('|')) {
-    throw new Error(`Expected ${expected.join(', ')} inside the boundary; found ${actual.join(', ')}`);
+  if (regionConfig.towerNumbers) {
+    const [first, last] = regionConfig.towerNumbers;
+    const expected = Array.from({ length: last - first + 1 }, (_, index) => `${first + index}동`);
+    const actual = buildings.flatMap(({ properties }) => properties.dong ? [properties.dong] : []).sort();
+    if (actual.join('|') !== expected.sort().join('|')) {
+      throw new Error(`Expected ${expected.join(', ')} inside the boundary; found ${actual.join(', ')}`);
+    }
   }
   await mkdir(regionFolder, { recursive: true });
   await writeFile(new URL('site.geojson', regionFolder), JSON.stringify({
     type: 'FeatureCollection',
-    features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [outline] },
+    features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: rings },
       properties: { kind: 'boundary', id: boundary.id, bridge: false } }],
     metadata: { ...metadata, boundaryVersion: boundary.version, boundaryEdited: boundary.timestamp },
   }) + '\n');
@@ -146,7 +165,7 @@ const streetFile = region ? `../public/datasets/regions/${region}/streets.json`
 await writeFile(new URL(streetFile, import.meta.url), JSON.stringify({ metadata, roads, points, parking,
   ...(urban ? { crossingWays } : {}),
 }) + '\n');
-if (region) {
+if (regionConfig?.towerNumbers) {
   const rawFolder = new URL('../../data/raw/osm/', import.meta.url);
   await mkdir(rawFolder, { recursive: true });
   await writeFile(new URL(`${region}.geojson`, rawFolder), JSON.stringify({ type: 'FeatureCollection', features: buildings, metadata }) + '\n');

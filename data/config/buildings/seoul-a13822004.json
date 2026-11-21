@@ -1,0 +1,12 @@
+{
+  "region": "seoul-a13822004",
+  "kapt_code": "A13822004",
+  "catalog": {
+    "name": "잠실엘스",
+    "area": "서울 송파구 올림픽로 99",
+    "roadName": "올림픽로",
+    "households": 5678,
+    "towerCount": 72
+  },
+  "osm": {"bounds": [127.068, 37.504, 127.095, 37.525], "boundaryRelation": 6114967}
+}

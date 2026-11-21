@@ -24,19 +24,24 @@ def geometry(feature):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--region', choices=['opo', 'songpa', 'jamsil-leel'], required=True)
+    parser.add_argument('--region', required=True)
     region = parser.parse_args().region
+    data_dir = ROOT / 'frontend/components/data'
+    catalog_file = data_dir / 'seoul-scenes.generated.json'
+    generated = next((row for row in read(catalog_file) if row['id'] == region), None) if catalog_file.exists() else None
+    if generated is None and region not in ('opo', 'songpa', 'jamsil-leel'):
+        parser.error('Use an existing or generated tour region')
     tour = PUBLIC / 'datasets/regions' / region
     buildings = PUBLIC / 'datasets/buildings' / region
     site_file = PUBLIC / 'opo-site.geojson' if region == 'opo' else tour / 'site.geojson'
     environment_file = PUBLIC / 'opo-environment.geojson' if region == 'opo' else tour / 'environment.geojson'
     visual = read(ROOT / 'frontend/components/data/jamsil-leel.json') if region == 'jamsil-leel' else None
-    name = visual['name'] if visual else '오포 롯데캐슬 포레스트' if region == 'opo' else '가락동부센트레빌'
+    name = (generated or visual or {}).get('name') or ('오포 롯데캐슬 포레스트' if region == 'opo' else '가락동부센트레빌')
     site = geometry(next(feature for feature in read(site_file)['features']
                          if feature['properties']['kind'] == 'boundary'))
     origin = site.centroid
     window = site.buffer(53).envelope
-    height_overrides = {}
+    height_overrides = dict.fromkeys(generated['towers']) if generated else {}
     if region == 'opo':
         height_overrides = {row['outlineId']: row['heightM'] for row in read(PUBLIC / 'opo-building-register.json')['towers']}
     elif region == 'songpa':
@@ -47,7 +52,10 @@ def main():
             properties = item['properties']
             identity = properties['id']
             if identity in height_overrides:
-                towers.append((geometry(item), height_overrides[identity] or properties['height_m']))
+                height = height_overrides[identity] or properties['height_m']
+                if height is None and generated and properties['floors']:
+                    height = properties['floors'] * 3.05
+                towers.append((geometry(item), height))
             elif visual and properties['dong']:
                 floors = properties['floors'] or visual['referenceFloors'].get(properties['dong'], visual['defaultVisualFloors'])
                 towers.append((geometry(item), properties['height_m'] or floors * visual['metresPerVisualFloor']))
@@ -58,7 +66,7 @@ def main():
         return -(x - origin.x) * math.sin(ANGLE) - (y - origin.y) * math.cos(ANGLE)
 
     def view(x, y, height=0):
-        scale = min(1, 235 / max(site.bounds[2] - site.bounds[0], site.bounds[3] - site.bounds[1])) if visual else 1
+        scale = min(1, 235 / max(site.bounds[2] - site.bounds[0], site.bounds[3] - site.bounds[1])) if visual or generated else 1
         return (360 + scale * 2.4 * ((x - origin.x) * math.cos(ANGLE) - (y - origin.y) * math.sin(ANGLE)),
                 250 + scale * (1.28 * depth(x, y) - 2.15 * height))
 

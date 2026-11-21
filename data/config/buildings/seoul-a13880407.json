@@ -1,0 +1,12 @@
+{
+  "region": "seoul-a13880407",
+  "kapt_code": "A13880407",
+  "catalog": {
+    "name": "가락금호아파트",
+    "area": "서울 송파구 송파대로32길 15",
+    "roadName": "송파대로32길",
+    "households": 915,
+    "towerCount": 8
+  },
+  "osm": {"bounds": [127.102, 37.486, 127.132, 37.506], "boundaryWay": 1459206579}
+}

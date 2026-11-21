@@ -8,7 +8,10 @@ export default function VillageMap({ villages, selected, onSelect }: {
   selected: RegionId;
   onSelect: (id: RegionId) => void;
 }) {
-  return <div className="village-map">
+  const mapVillages = villages.filter(village => !village.id.startsWith('seoul-a'));
+  const catalogVillages = villages.filter(village => village.id.startsWith('seoul-a'));
+  return <div className="village-map-and-list">
+    {mapVillages.length > 0 && <div className="village-map">
     <svg className="village-landscape" viewBox="0 0 700 400" preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <pattern id="map-paper" width="14" height="14" patternUnits="userSpaceOnUse">
@@ -51,7 +54,7 @@ export default function VillageMap({ villages, selected, onSelect }: {
     </svg>
     <span className="village-map-label">동네 탐험 지도</span>
     <div className="village-pins" role="group" aria-label="지도에서 단지 선택">
-      {villages.map((village, index) => <div key={village.id} className={`village-stop village-stop-${village.id}`}>
+      {mapVillages.map((village, index) => <div key={village.id} className={`village-stop village-stop-${village.id}`}>
         <span className="village-stop-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
         <Button className="village-pin" aria-pressed={selected === village.id} aria-controls="village-details"
           onClick={() => onSelect(village.id)} aria-label={`${village.name} 단지 선택`}>
@@ -62,5 +65,13 @@ export default function VillageMap({ villages, selected, onSelect }: {
       </div>)}
     </div>
     <span className="village-map-caption">탐험용 그림 · 실제 위치와 거리는 달라요</span>
+    </div>}
+    {catalogVillages.length > 0 && <div className="village-catalog" role="group" aria-label="서울 단지 선택">
+      {catalogVillages.map(village => <Button key={village.id} className="village-pin" aria-pressed={selected === village.id}
+        aria-controls="village-details" onClick={() => onSelect(village.id)} aria-label={`${village.name} 단지 선택`}>
+        <span className="village-pin-district">{village.district}</span><strong>{village.name}</strong>
+        {village.note && <span className="village-pin-note">{village.note}</span>}
+      </Button>)}
+    </div>}
   </div>;
 }

@@ -12,9 +12,9 @@ import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
 import { facadeObservation, facadeOffsetM, facadeRegisterSource, type FacadeView } from './opo-facades';
 import satelliteMetadata from '../public/opo-sentinel.json';
-import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
+import { routesFor, songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
-import { jamsilLeel, regions, seoulBiotopeSource, songpaComplex, type RegionId } from './data/regions';
+import { catalogScene, jamsilLeel, regions, seoulBiotopeSource, songpaComplex, type RegionId } from './data/regions';
 import { songpaCourtyard, songpaFacilities, songpaFrontage, songpaGrounds, songpaJunction, songpaManagementFees, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
@@ -391,7 +391,8 @@ function RouteTerrain({ profile, selected, direction, startLabel, onSelect, onSl
 
 export default function OpoTour({region = 'opo', onChangeRegion}: {region?: RegionId; onChangeRegion?: () => void}) {
   const area = regions.find(r => r.id === region)!;
-  const access = visitRoutes[region];
+  const access = routesFor(region);
+  const catalog = catalogScene(region);
   const field = useFieldVisits(region === 'songpa');
   const checklist = useChecklistRecords(region === 'songpa');
   const host = useRef<HTMLDivElement>(null);
@@ -429,7 +430,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [fixedFacade, setFixedFacade] = useState<FacadeView | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [schoolZoneVisible, setSchoolZoneVisible] = useState(false);
-  const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : region === 'jamsil-leel' ? 'site' : 'sun');
+  const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : region === 'jamsil-leel' || catalog ? 'site' : 'sun');
   const [accessId, setAccessId] = useState<string | null>(null);
   const [accessSample, setAccessSample] = useState(0);
   const [accessSlope, setAccessSlope] = useState<RouteSlopeDirection | null>(null);
@@ -457,7 +458,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const winterStreet = winterViewing && tab === 'sun' && mode === 'walk';
   const guidedAccessId = tab === 'nature' && mode === 'walk' && homeStep !== null ? accessId : null;
 
-  const [street, setStreet] = useState({ name: region === 'opo' ? '수레실길' : region === 'jamsil-leel' ? jamsilLeel.roadName : songpaComplex.roadName, speed: 0, touring: false });
+  const [street, setStreet] = useState({ name: catalog?.roadName ?? (region === 'opo' ? '수레실길' : region === 'jamsil-leel' ? jamsilLeel.roadName : songpaComplex.roadName), speed: 0, touring: false });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1665,6 +1666,21 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 지도 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'}). 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
       </div>}
 
+      {catalog && tab === 'site' && <div className="site-features">
+        <article className="site-card">
+          <h3>{catalog.name}</h3>
+          <p>{catalog.area} · {catalog.towerCount}개 동 · {catalog.households.toLocaleString('ko-KR')}세대</p>
+          <div className="site-actions">
+            <button disabled={!world} onClick={() => chooseMode('orbit')}>단지 전체 보기</button>
+            <button disabled={!world} onClick={() => visitAtEyeLevel('approach')}>주변 도로 눈높이 보기</button>
+          </div>
+          <p>주동 윤곽은 서울시 지도, 확인된 높이는 건축물대장 기준이에요. 높이값이 비어 있는 주변 건물이 햇빛을 가릴 수 있는 시간대는 미판정으로 표시해요.</p>
+          <p>{area.pavement ? '도로와 보도는 공개 지도와 서울시 도형을 사용해요.' : '도로와 보도는 공개 지도의 표기를 사용해요.'} 단지 출입 조건과 실제 보행 연결은 확인이 필요해요.</p>
+          <a href={catalog.outlineSource} target="_blank" rel="noreferrer">서울특별시 에스맵-오픈랩 건물면</a>
+          <a href={catalog.registerSource} target="_blank" rel="noreferrer">건축HUB 표제부</a>
+        </article>
+      </div>}
+
       {region === 'jamsil-leel' && tab === 'site' && <div className="site-features">
         <article className="site-card">
           <h3>{jamsilLeel.name}</h3>
@@ -1969,6 +1985,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       {region === 'opo' && <> · <a href="https://registry.opendata.aws/sentinel-2-l2a-cogs/" target="_blank" rel="noreferrer">{satelliteMetadata.attribution}</a></>}
       {region === 'songpa' && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel}</a>
         {' · '}<a href={seoulBiotopeSource} target="_blank" rel="noreferrer">서울시 도시생태현황도 2025</a></>}
+      {catalog && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">서울특별시 에스맵-오픈랩 데이터</a></>}
     </footer>
   </main>;
 }

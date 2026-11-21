@@ -7,7 +7,7 @@ import { groundPolygon, ribbon, type createTerrainProjection } from './opo-meshe
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile, type RouteSlopeDirection } from './opo-route-profile';
 import { pavedRoute } from './opo-paved-route';
-import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
+import { routesFor, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
 import { songpaCourtyard, songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
@@ -190,7 +190,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
   const gradeLine = data.region === 'songpa'
     ? new LineMaterial({ color: '#f8d78b', linewidth: 7, depthWrite: false }) : null;
-  const routes = visitRoutes[data.region].routes;
+  const routes = routesFor(data.region).routes;
   const surveyedWalk = site.paving?.sidewalkCenterlines.get(songpaEntrance.frontage.surveyedWalkId);
   const frontageWalk = site.frontage;
   const frontage = surveyedWalk?.length && frontageWalk?.length ? [surveyedWalk[0], ...frontageWalk] : null;
