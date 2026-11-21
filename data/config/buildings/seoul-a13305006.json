@@ -1,0 +1,35 @@
+{
+  "region": "seoul-a13305006",
+  "kapt_code": "A13305006",
+  "catalog": {
+    "name": "왕십리삼성",
+    "area": "서울 성동구 마장로 271",
+    "roadName": "마장로",
+    "households": 430,
+    "towerCount": 5
+  },
+  "osm": {
+    "neighborhood": "seongdong-cheonggye",
+    "bounds": [
+      127.029,
+      37.557,
+      127.053,
+      37.58
+    ],
+    "boundaryWay": 379966617
+  },
+  "walking": [
+    {
+      "node": 3403004998,
+      "name": "왕십리역 13번 출구",
+      "endLabel": "왕십리역 13번 출구 방향",
+      "id": "seoul-a13305006-station"
+    },
+    {
+      "way": 871052114,
+      "name": "보람어린이공원",
+      "endLabel": "공원 경계 인근의 지도상 보행로",
+      "id": "seoul-a13305006-park"
+    }
+  ]
+}

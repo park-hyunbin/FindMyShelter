@@ -1,0 +1,21 @@
+{
+  "region": "seoul-a13611103",
+  "kapt_code": "A13611103",
+  "catalog": {
+    "name": "래미안길음1차",
+    "area": "서울 성북구 길음로9길 40",
+    "roadName": "길음로9길",
+    "households": 1125,
+    "towerCount": 15
+  },
+  "osm": {
+    "neighborhood": "seongbuk-gireum",
+    "bounds": [
+      127.003,
+      37.592,
+      127.041,
+      37.622
+    ],
+    "boundaryWay": 877381486
+  }
+}

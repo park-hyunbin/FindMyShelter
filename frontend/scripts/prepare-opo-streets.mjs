@@ -6,11 +6,17 @@ const region = firstArg === '--region' ? secondArg : null;
 if (firstArg === '--region' && !/^[a-z0-9_-]+$/.test(region ?? '')) throw new Error('Use --region <slug> [snapshot.json]');
 const regionConfig = region && JSON.parse(await readFile(new URL(`../../data/config/buildings/${region}.json`, import.meta.url), 'utf8')).osm;
 if (region && !regionConfig) throw new Error(`Missing OSM settings for ${region}`);
+const neighborhood = regionConfig?.neighborhood;
+if (neighborhood && !/^[a-z0-9-]+$/.test(neighborhood)) throw new Error('Invalid neighborhood ID');
 const urban = songpa || Boolean(region);
 const bounds = regionConfig?.bounds ?? (songpa ? [127.1024, 37.4862, 127.1313, 37.5094] : [127.1497, 37.3392, 127.1788, 37.3624]);
 const source = `https://www.openstreetmap.org/api/0.6/map.json?bbox=${bounds.join(',')}`;
 const suppliedSnapshot = region ? thirdArg : songpa ? secondArg : firstArg;
 const raw = suppliedSnapshot ? JSON.parse(await readFile(suppliedSnapshot, 'utf8')) : await download();
+if (neighborhood && (!raw.bounds || ['minlon', 'minlat', 'maxlon', 'maxlat'].some((key, index) =>
+  raw.bounds[key] !== bounds[index]))) {
+  throw new Error('Shared neighborhood snapshot bounds do not match the configured region');
+}
 
 async function download() {
   const response = await fetch(source, {
@@ -136,7 +142,8 @@ for (const item of raw.elements) {
   });
 }
 
-const metadata = { bounds, source, attribution: '© OpenStreetMap contributors', license: 'https://www.openstreetmap.org/copyright' };
+const metadata = { bounds, source, attribution: '© OpenStreetMap contributors', license: 'https://www.openstreetmap.org/copyright',
+  ...(neighborhood ? { neighborhood } : {}) };
 const coreWays = regionConfig?.approachWays ?? (region ? [] : songpa ? [169916276, 169916279, 1175929595]
   : [836821229, 835658906, 835665646, 835665645, 835658907, 835658913, 835658914]);
 if ((!urban && buildings.length < 500) || roads.length < 100 || !coreWays.every(id => roads.some(road => road.id === id))) {
@@ -160,8 +167,10 @@ if (regionFolder) {
     metadata: { ...metadata, boundaryVersion: boundary.version, boundaryEdited: boundary.timestamp },
   }) + '\n');
 }
-const streetFile = region ? `../public/datasets/regions/${region}/streets.json`
+const streetFile = neighborhood ? `../public/datasets/neighborhoods/${neighborhood}/streets.json`
+  : region ? `../public/datasets/regions/${region}/streets.json`
   : songpa ? '../public/datasets/regions/songpa/streets.json' : '../public/opo-streets.json';
+if (neighborhood) await mkdir(new URL('.', new URL(streetFile, import.meta.url)), { recursive: true });
 await writeFile(new URL(streetFile, import.meta.url), JSON.stringify({ metadata, roads, points, parking,
   ...(urban ? { crossingWays } : {}),
 }) + '\n');

@@ -1,0 +1,21 @@
+{
+  "region": "seoul-a13381608",
+  "kapt_code": "A13381608",
+  "catalog": {
+    "name": "청계현대아파트",
+    "area": "서울 성동구 살곶이길 50",
+    "roadName": "살곶이길",
+    "households": 1017,
+    "towerCount": 11
+  },
+  "osm": {
+    "neighborhood": "seongdong-cheonggye",
+    "bounds": [
+      127.029,
+      37.557,
+      127.053,
+      37.58
+    ],
+    "boundaryWay": 379966616
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "region": "seoul-a12187602",
+  "kapt_code": "A12187602",
+  "catalog": {
+    "name": "래미안용강아파트",
+    "area": "서울 마포구 큰우물로 28",
+    "roadName": "큰우물로",
+    "households": 430,
+    "towerCount": 9
+  },
+  "osm": {
+    "neighborhood": "mapo-yonggang",
+    "bounds": [
+      126.929,
+      37.532,
+      126.954,
+      37.552
+    ],
+    "boundaryWay": 463923759
+  },
+  "walking": [
+    {
+      "node": 3401440060,
+      "name": "대흥역 1번 출구",
+      "endLabel": "대흥역 1번 출구 방향",
+      "id": "seoul-a12187602-station"
+    },
+    {
+      "way": 539942123,
+      "name": "자연보호공원",
+      "endLabel": "공원 경계 인근의 지도상 보행로",
+      "id": "seoul-a12187602-park"
+    }
+  ]
+}

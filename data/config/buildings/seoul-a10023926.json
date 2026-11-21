@@ -1,0 +1,35 @@
+{
+  "region": "seoul-a10023926",
+  "kapt_code": "A10023926",
+  "catalog": {
+    "name": "롯데캐슬클라시아",
+    "area": "서울 성북구 숭인로8길 80",
+    "roadName": "숭인로8길",
+    "households": 2029,
+    "towerCount": 19
+  },
+  "osm": {
+    "neighborhood": "seongbuk-gireum",
+    "bounds": [
+      127.003,
+      37.592,
+      127.041,
+      37.622
+    ],
+    "boundaryWay": 877560587
+  },
+  "walking": [
+    {
+      "node": 3401490114,
+      "name": "길음역 10번 출구",
+      "endLabel": "길음역 10번 출구 방향",
+      "id": "seoul-a10023926-station"
+    },
+    {
+      "way": 782903342,
+      "name": "길음역 공원",
+      "endLabel": "공원 경계 인근의 지도상 보행로",
+      "id": "seoul-a10023926-park"
+    }
+  ]
+}

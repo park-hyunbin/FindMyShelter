@@ -168,6 +168,8 @@ def main():
         parser.error('Select a generated Seoul region')
     profile = read(ROOT / f'data/config/buildings/{args.region}.json')
     folder = REGIONS / args.region
+    neighborhood = profile['osm'].get('neighborhood')
+    context = REGIONS.parent / 'neighborhoods' / neighborhood if neighborhood else folder
     elements = read(args.snapshot)['elements']
     nodes = {item['id']: item for item in elements if item['type'] == 'node'}
     ways = {item['id']: item for item in elements if item['type'] == 'way'}
@@ -190,7 +192,7 @@ def main():
     routes = [describe_route(spec, start, next_edge, target, coordinates)
               for spec, (_, next_edge), target in zip(specs, trees, targets)]
     result = {
-        'source': read(folder / 'streets.json')['metadata']['source'], 'start': coordinates[start], 'startNode': start,
+        'source': read(context / 'streets.json')['metadata']['source'], 'start': coordinates[start], 'startNode': start,
         'startLabel': '단지 경계 가까운 지도상 출발점', 'boundaryDistanceM': distance,
         'retrieved': args.retrieved.isoformat(), 'routes': routes,
     }

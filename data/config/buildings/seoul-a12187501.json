@@ -1,0 +1,21 @@
+{
+  "region": "seoul-a12187501",
+  "kapt_code": "A12187501",
+  "catalog": {
+    "name": "래미안마포리버웰",
+    "area": "서울 마포구 토정로31길 23",
+    "roadName": "토정로31길",
+    "households": 563,
+    "towerCount": 9
+  },
+  "osm": {
+    "neighborhood": "mapo-yonggang",
+    "bounds": [
+      126.929,
+      37.532,
+      126.954,
+      37.552
+    ],
+    "boundaryWay": 463923557
+  }
+}

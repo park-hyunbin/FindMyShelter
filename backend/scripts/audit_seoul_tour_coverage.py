@@ -42,16 +42,17 @@ def has_route_profile(route, profiles):
     return profile.get('path') == path
 
 
-def audit_scene(region, datasets):
+def audit_scene(region, datasets, neighborhood=None):
     buildings = datasets / 'buildings' / region
     scene = datasets / 'regions' / region
+    context = datasets / 'neighborhoods' / neighborhood if neighborhood else scene
     manifest = read_json(buildings / 'manifest.json')
     terrain = read_json(scene / 'terrain.json')
     if manifest['metadata']['local_origin_xy'] != terrain['originEPSG5186']:
         raise ValueError(f'{region}: terrain and building origins disagree')
-    for filename, field in (('site.geojson', 'features'), ('environment.geojson', 'features'),
-                            ('streets.json', 'roads')):
-        if not read_json(scene / filename)[field]:
+    for filename, field in ((scene / 'site.geojson', 'features'), (context / 'environment.geojson', 'features'),
+                            (context / 'streets.json', 'roads')):
+        if not read_json(filename)[field]:
             raise ValueError(f'{region}: empty scene layer {filename}')
 
     building_ids = set()
@@ -115,7 +116,7 @@ def build_report(source, snapshot_date, root):
         code = config['kapt_code']
         if code not in catalog or catalog[code]['tour'] is not None:
             raise ValueError(f'{config["region"]}: K-apt code {code} is absent or already linked')
-        catalog[code]['tour'] = audit_scene(config['region'], datasets)
+        catalog[code]['tour'] = audit_scene(config['region'], datasets, config.get('osm', {}).get('neighborhood'))
 
     entries = sorted(catalog.values(), key=lambda item: (item['district'], item['name'], item['kaptCode']))
     by_district = {district: {'catalog': 0, 'roadAddress': 0, 'scenes': 0, 'withWalkingRoutes': 0}

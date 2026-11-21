@@ -55,7 +55,9 @@ function run(name, ...args) {
 await run('prepare-opo-streets.mjs', '--region', region, resolve(snapshot));
 await run('prepare-region.mjs', '--region', region);
 
-const graph = await read(new URL('streets.json', sceneFiles));
+const neighborhood = profile.osm.neighborhood;
+const contextFiles = neighborhood ? new URL(`../public/datasets/neighborhoods/${neighborhood}/`, import.meta.url) : sceneFiles;
+const graph = await read(new URL('streets.json', contextFiles));
 const [lng, lat] = manifest.metadata.center_lnglat;
 const cos = Math.cos(lat * Math.PI / 180);
 const candidates = graph.roads.filter(road => road.motor && !road.bridge && road.name === profile.catalog.roadName);
@@ -79,6 +81,7 @@ const entries = await read(registry).catch(error => {
 });
 const entry = {
   id: region, ...profile.catalog, kaptCode: inputConfig.kapt_code,
+  ...(neighborhood ? { neighborhood } : {}),
   count: manifest.count, radius: manifest.metadata.radius_m, roadside: start.point, lookAt: [lng, lat],
   towers: Object.fromEntries(registered),
   layers: await Promise.all(['pavement.json', 'road-markings.json', 'pedestrian-signals.json', 'access.json', 'route-elevation.json'].map(async file => {

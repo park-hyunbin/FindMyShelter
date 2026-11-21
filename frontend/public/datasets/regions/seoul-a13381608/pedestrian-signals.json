@@ -1,0 +1,2440 @@
+{
+  "inventorySource": "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do",
+  "inventoryRecorded": "2026-08-24",
+  "poleSource": "https://data.seoul.go.kr/dataList/OA-22356/F/1/datasetView.do",
+  "poleFileUpdated": "2026-02-13",
+  "landingRangeM": 6,
+  "crossings": [
+    {
+      "inventoryId": "06-0000001578",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "island"
+        },
+        {
+          "gapM": 0.18,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041573684,
+              37.565069596
+            ],
+            "toward": [
+              127.041572535,
+              37.565083793
+            ]
+          }
+        }
+      ],
+      "junctionId": 254,
+      "junction": "마장역"
+    },
+    {
+      "inventoryId": "06-0000010708",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.045035863,
+            37.56765457
+          ],
+          "toward": [
+            127.045185991,
+            37.567441078
+          ],
+          "distanceFromCrossingEndM": 5.2
+        },
+        {
+          "coordinate": [
+            127.045233362,
+            37.567454913
+          ],
+          "toward": [
+            127.045001797,
+            37.567616364
+          ],
+          "distanceFromCrossingEndM": 4.46
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.01,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2546,
+      "junction": "기업은행마장(연등)"
+    },
+    {
+      "inventoryId": "06-0000010710",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.045109249,
+            37.566164244
+          ],
+          "toward": [
+            127.045188271,
+            37.56629372
+          ],
+          "distanceFromCrossingEndM": 2.94
+        },
+        {
+          "coordinate": [
+            127.04523623,
+            37.566301831
+          ],
+          "toward": [
+            127.045091188,
+            37.566186528
+          ],
+          "distanceFromCrossingEndM": 4.33
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 1.5,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045071966,
+              37.566165305
+            ],
+            "toward": [
+              127.045091188,
+              37.566186528
+            ]
+          }
+        },
+        {
+          "gapM": 2.45,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045213746,
+              37.566321848
+            ],
+            "toward": [
+              127.045188271,
+              37.56629372
+            ]
+          }
+        }
+      ],
+      "junctionId": 2540,
+      "junction": "마장동주민센터"
+    },
+    {
+      "inventoryId": "06-0000011058",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.96,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.039977598,
+              37.565746868
+            ],
+            "toward": [
+              127.040004029,
+              37.565743869
+            ]
+          }
+        },
+        {
+          "gapM": 1.4,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.040111278,
+              37.565731696
+            ],
+            "toward": [
+              127.0400799,
+              37.565735258
+            ]
+          }
+        }
+      ],
+      "junctionId": 4091,
+      "junction": "마장하이츠아파트"
+    },
+    {
+      "inventoryId": "06-0000011059",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.040230977,
+            37.565577466
+          ],
+          "toward": [
+            127.040211654,
+            37.565700691
+          ],
+          "distanceFromCrossingEndM": 3.66
+        },
+        {
+          "coordinate": [
+            127.040246609,
+            37.565706416
+          ],
+          "toward": [
+            127.040192997,
+            37.56559073
+          ],
+          "distanceFromCrossingEndM": 3.15
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.18,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.040190597,
+              37.565576584
+            ],
+            "toward": [
+              127.040192997,
+              37.56559073
+            ]
+          }
+        },
+        {
+          "gapM": 0.3,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.040214233,
+              37.565715891
+            ],
+            "toward": [
+              127.040211654,
+              37.565700691
+            ]
+          }
+        }
+      ],
+      "junctionId": 4091,
+      "junction": "마장하이츠아파트"
+    },
+    {
+      "inventoryId": "06-0000011060",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.041592737,
+            37.565346245
+          ],
+          "toward": [
+            127.041813526,
+            37.565254571
+          ],
+          "distanceFromCrossingEndM": 4.2
+        },
+        {
+          "coordinate": [
+            127.041808947,
+            37.565229297
+          ],
+          "toward": [
+            127.041607557,
+            37.565310319
+          ],
+          "distanceFromCrossingEndM": 2.83
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.17,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041590734,
+              37.565314873
+            ],
+            "toward": [
+              127.041607557,
+              37.565310319
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 254,
+      "junction": "마장역"
+    },
+    {
+      "inventoryId": "06-0000011061",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.041860479,
+            37.565591485
+          ],
+          "toward": [
+            127.041952372,
+            37.565352315
+          ],
+          "distanceFromCrossingEndM": 5.63
+        },
+        {
+          "coordinate": [
+            127.041916309,
+            37.56531476
+          ],
+          "toward": [
+            127.041807856,
+            37.565562828
+          ],
+          "distanceFromCrossingEndM": 5.25
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 254,
+      "junction": "마장역"
+    },
+    {
+      "inventoryId": "06-0000011062",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.041641195,
+            37.565540038
+          ],
+          "toward": [
+            127.041566403,
+            37.565396159
+          ],
+          "distanceFromCrossingEndM": 3.25
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.07,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041562997,
+              37.565383235
+            ],
+            "toward": [
+              127.041566403,
+              37.565396159
+            ]
+          }
+        },
+        {
+          "gapM": 0.01,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 254,
+      "junction": "마장역"
+    },
+    {
+      "inventoryId": "06-0000011259",
+      "installed": true,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.36,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044275181,
+              37.572205121
+            ],
+            "toward": [
+              127.044292115,
+              37.572196746
+            ]
+          }
+        },
+        {
+          "gapM": 0.31,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.04447812,
+              37.572104757
+            ],
+            "toward": [
+              127.044461635,
+              37.572112909
+            ]
+          }
+        }
+      ],
+      "junctionId": 645,
+      "junction": "청계한신휴플러스"
+    },
+    {
+      "inventoryId": "06-0000011264",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000011415",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.046105999,
+            37.567957372
+          ],
+          "toward": [
+            127.045917913,
+            37.56785256
+          ],
+          "distanceFromCrossingEndM": 3.68
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 2.51,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045877839,
+              37.56783763
+            ],
+            "toward": [
+              127.045917913,
+              37.56785256
+            ]
+          }
+        },
+        {
+          "gapM": 0.14,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.046126258,
+              37.567930179
+            ],
+            "toward": [
+              127.046110774,
+              37.56792441
+            ]
+          }
+        }
+      ],
+      "junctionId": 2545,
+      "junction": "마장2교"
+    },
+    {
+      "inventoryId": "06-0000011680",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.23,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045524444,
+              37.568121192
+            ],
+            "toward": [
+              127.04554185,
+              37.568126126
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2545,
+      "junction": "마장2교"
+    },
+    {
+      "inventoryId": "06-0000011682",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.045695978,
+            37.568224397
+          ],
+          "toward": [
+            127.045864264,
+            37.568322509
+          ],
+          "distanceFromCrossingEndM": 2.78
+        },
+        {
+          "coordinate": [
+            127.045860881,
+            37.568333447
+          ],
+          "toward": [
+            127.045690992,
+            37.568249146
+          ],
+          "distanceFromCrossingEndM": 1.25
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.21,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.0456749,
+              37.568242332
+            ],
+            "toward": [
+              127.045690992,
+              37.568249146
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2545,
+      "junction": "마장2교"
+    },
+    {
+      "inventoryId": "06-0000013722",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.08,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045130766,
+              37.573217645
+            ],
+            "toward": [
+              127.045140475,
+              37.573228475
+            ]
+          }
+        },
+        {
+          "gapM": 0.21,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045194223,
+              37.573288433
+            ],
+            "toward": [
+              127.045183647,
+              37.573276636
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000013723",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.41,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044933012,
+              37.573001807
+            ],
+            "toward": [
+              127.044944472,
+              37.573015299
+            ]
+          }
+        },
+        {
+          "gapM": 0.39,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044987664,
+              37.573066149
+            ],
+            "toward": [
+              127.044976305,
+              37.573052776
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000013995",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.037484841,
+            37.569996664
+          ],
+          "toward": [
+            127.037721011,
+            37.569990155
+          ],
+          "distanceFromCrossingEndM": 3.94
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.15,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.037484337,
+              37.570032679
+            ],
+            "toward": [
+              127.037501452,
+              37.570029604
+            ]
+          }
+        },
+        {
+          "gapM": 1.89,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.037757311,
+              37.569983633
+            ],
+            "toward": [
+              127.037721011,
+              37.569990155
+            ]
+          }
+        }
+      ],
+      "junctionId": 2550,
+      "junction": "국민은행마장"
+    },
+    {
+      "inventoryId": "06-0000013996",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2550,
+      "junction": "국민은행마장"
+    },
+    {
+      "inventoryId": "06-0000013999",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000014092",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 1.6,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041971473,
+              37.573088209
+            ],
+            "toward": [
+              127.04199792,
+              37.573080882
+            ]
+          }
+        },
+        {
+          "gapM": 1.02,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042221343,
+              37.573018979
+            ],
+            "toward": [
+              127.042195487,
+              37.573026143
+            ]
+          }
+        }
+      ],
+      "junctionId": 53,
+      "junction": "용두공원"
+    },
+    {
+      "inventoryId": "06-0000014094",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000014095",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000014096",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 0.1,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.040246582,
+              37.573587894
+            ],
+            "toward": [
+              127.040240849,
+              37.57357592
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000014102",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 1.81,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042309975,
+              37.573383432
+            ],
+            "toward": [
+              127.042322753,
+              37.573410521
+            ]
+          }
+        },
+        {
+          "gapM": 0.42,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042349685,
+              37.573467614
+            ],
+            "toward": [
+              127.042343674,
+              37.573454873
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000014425",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.042919365,
+            37.570361496
+          ],
+          "toward": [
+            127.04297568,
+            37.570500678
+          ],
+          "distanceFromCrossingEndM": 4.16
+        },
+        {
+          "coordinate": [
+            127.042946343,
+            37.570526481
+          ],
+          "toward": [
+            127.042887995,
+            37.570389456
+          ],
+          "distanceFromCrossingEndM": 3.86
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2547,
+      "junction": "마장현대아파트"
+    },
+    {
+      "inventoryId": "06-0000014426",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 0.51,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042831051,
+              37.570399094
+            ],
+            "toward": [
+              127.042818741,
+              37.570384977
+            ]
+          }
+        }
+      ],
+      "junctionId": 2547,
+      "junction": "마장현대아파트"
+    },
+    {
+      "inventoryId": "06-0000014427",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": null
+        }
+      ],
+      "junctionId": 2547,
+      "junction": "마장현대아파트"
+    },
+    {
+      "inventoryId": "06-0000014428",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 1.97,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042109235,
+              37.570840744
+            ],
+            "toward": [
+              127.042137857,
+              37.570820652
+            ]
+          }
+        },
+        {
+          "gapM": 0.43,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042254423,
+              37.570738824
+            ],
+            "toward": [
+              127.042238883,
+              37.570749733
+            ]
+          }
+        }
+      ],
+      "junctionId": 2548,
+      "junction": "마장현대아파트(연등)"
+    },
+    {
+      "inventoryId": "06-0000014429",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.04231934,
+            37.570708821
+          ],
+          "toward": [
+            127.042401807,
+            37.570840651
+          ],
+          "distanceFromCrossingEndM": 3.32
+        },
+        {
+          "coordinate": [
+            127.042434194,
+            37.570828851
+          ],
+          "toward": [
+            127.042296794,
+            37.570732792
+          ],
+          "distanceFromCrossingEndM": 3.15
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.03,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.01,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2548,
+      "junction": "마장현대아파트(연등)"
+    },
+    {
+      "inventoryId": "06-0000014433",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.03,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": null
+        }
+      ],
+      "junctionId": 6064,
+      "junction": "대한적십자(경보)"
+    },
+    {
+      "inventoryId": "06-0000014434",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.3,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.039854827,
+              37.571547246
+            ],
+            "toward": [
+              127.039873998,
+              37.571546118
+            ]
+          }
+        },
+        {
+          "gapM": 0.34,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.04009701,
+              37.571532999
+            ],
+            "toward": [
+              127.040077396,
+              37.571534153
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000019563",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.044326459,
+            37.571672431
+          ],
+          "toward": [
+            127.044345682,
+            37.57177888
+          ],
+          "distanceFromCrossingEndM": 4.22
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.25,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044280087,
+              37.571682947
+            ],
+            "toward": [
+              127.044289039,
+              37.571696039
+            ]
+          }
+        },
+        {
+          "gapM": null
+        }
+      ],
+      "junctionId": 645,
+      "junction": "청계한신휴플러스"
+    },
+    {
+      "inventoryId": "06-0000019564",
+      "installed": true,
+      "heads": [],
+      "junctionId": 645,
+      "junction": "청계한신휴플러스"
+    },
+    {
+      "inventoryId": "06-0000019565",
+      "installed": true,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 645,
+      "junction": "청계한신휴플러스"
+    },
+    {
+      "inventoryId": "06-0000022981",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.84,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.040024867,
+              37.565592324
+            ],
+            "toward": [
+              127.040049966,
+              37.565589386
+            ]
+          }
+        },
+        {
+          "gapM": 0.41,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.040134307,
+              37.565579511
+            ],
+            "toward": [
+              127.040114009,
+              37.565581888
+            ]
+          }
+        }
+      ],
+      "junctionId": 4091,
+      "junction": "마장하이츠아파트"
+    },
+    {
+      "inventoryId": "06-0000023852",
+      "installed": true,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 0.06,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044202717,
+              37.566608777
+            ],
+            "toward": [
+              127.044202054,
+              37.566621954
+            ]
+          }
+        }
+      ],
+      "junctionId": 2539,
+      "junction": "기업은행마장"
+    },
+    {
+      "inventoryId": "06-0000023853",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.04391898,
+            37.566896173
+          ],
+          "toward": [
+            127.044178253,
+            37.566800572
+          ],
+          "distanceFromCrossingEndM": 5.09
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": null
+        }
+      ],
+      "junctionId": 2539,
+      "junction": "기업은행마장"
+    },
+    {
+      "inventoryId": "06-0000023966",
+      "installed": false,
+      "heads": [],
+      "junctionId": 2549,
+      "junction": "서울시설공단남단"
+    },
+    {
+      "inventoryId": "06-0000023968",
+      "installed": true,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2549,
+      "junction": "서울시설공단남단"
+    },
+    {
+      "inventoryId": "06-0000024675",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 1.52,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044051939,
+              37.566999342
+            ],
+            "toward": [
+              127.044077143,
+              37.567016294
+            ]
+          }
+        },
+        {
+          "gapM": 1.46,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044175383,
+              37.567082372
+            ],
+            "toward": [
+              127.044150689,
+              37.567065763
+            ]
+          }
+        }
+      ],
+      "junctionId": 2539,
+      "junction": "기업은행마장"
+    },
+    {
+      "inventoryId": "06-0000024676",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.6,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.04341053,
+              37.567196328
+            ],
+            "toward": [
+              127.043425972,
+              37.567189814
+            ]
+          }
+        },
+        {
+          "gapM": null
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000024678",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 1.41,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041137354,
+              37.565620949
+            ],
+            "toward": [
+              127.04116885,
+              37.565617695
+            ]
+          }
+        },
+        {
+          "gapM": 0.01,
+          "surface": "sidewalk"
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000025213",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.04,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.27,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044595448,
+              37.572588999
+            ],
+            "toward": [
+              127.044584929,
+              37.572576454
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000025248",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 6059,
+      "junction": "마장초교(경보)"
+    },
+    {
+      "inventoryId": "06-0000025249",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": null
+        }
+      ],
+      "junctionId": 6059,
+      "junction": "마장초교(경보)"
+    },
+    {
+      "inventoryId": "06-0000025250",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": null
+        }
+      ],
+      "junctionId": 6059,
+      "junction": "마장초교(경보)"
+    },
+    {
+      "inventoryId": "06-0000025251",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ],
+      "junctionId": 6059,
+      "junction": "마장초교(경보)"
+    },
+    {
+      "inventoryId": "06-0000025263",
+      "installed": false,
+      "heads": [],
+      "junctionId": 254,
+      "junction": "마장역"
+    },
+    {
+      "inventoryId": "06-0000025354",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.045666174,
+            37.568118964
+          ],
+          "toward": [
+            127.04579573,
+            37.567867385
+          ],
+          "distanceFromCrossingEndM": 1.89
+        },
+        {
+          "coordinate": [
+            127.04576618,
+            37.567843857
+          ],
+          "toward": [
+            127.045686615,
+            37.56811383
+          ],
+          "distanceFromCrossingEndM": 3.69
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2545,
+      "junction": "마장2교"
+    },
+    {
+      "inventoryId": "06-0000025356",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2545,
+      "junction": "마장2교"
+    },
+    {
+      "inventoryId": "06-0000025363",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2546,
+      "junction": "기업은행마장(연등)"
+    },
+    {
+      "inventoryId": "06-0000025364",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2546,
+      "junction": "기업은행마장(연등)"
+    },
+    {
+      "inventoryId": "06-0000028916",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.3,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041081243,
+              37.565466018
+            ],
+            "toward": [
+              127.041100306,
+              37.565463941
+            ]
+          }
+        },
+        {
+          "gapM": 0.4,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041177703,
+              37.565455506
+            ],
+            "toward": [
+              127.041157496,
+              37.565457709
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000028923",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.53,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042331257,
+              37.565926668
+            ],
+            "toward": [
+              127.042348338,
+              37.56593756
+            ]
+          }
+        },
+        {
+          "gapM": 0.92,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042411957,
+              37.565978125
+            ],
+            "toward": [
+              127.042391453,
+              37.565965051
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000028924",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.55,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042571409,
+              37.56568203
+            ],
+            "toward": [
+              127.042588475,
+              37.565693175
+            ]
+          }
+        },
+        {
+          "gapM": 0.22,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042674229,
+              37.56574918
+            ],
+            "toward": [
+              127.042660094,
+              37.565739949
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000030604",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.044706962,
+            37.569537066
+          ],
+          "toward": [
+            127.04486508,
+            37.569616008
+          ],
+          "distanceFromCrossingEndM": 4.51
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.07,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044739537,
+              37.569506162
+            ],
+            "toward": [
+              127.044750419,
+              37.569515683
+            ]
+          }
+        },
+        {
+          "gapM": 3.19,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044897911,
+              37.569644734
+            ],
+            "toward": [
+              127.04486508,
+              37.569616008
+            ]
+          }
+        }
+      ],
+      "junctionId": 5940,
+      "junction": "신성미소지음아파트"
+    },
+    {
+      "inventoryId": "06-0000032149",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 0.15,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.038976265,
+              37.571589842
+            ],
+            "toward": [
+              127.038958703,
+              37.571590779
+            ]
+          }
+        }
+      ],
+      "junctionId": 6064,
+      "junction": "대한적십자(경보)"
+    },
+    {
+      "inventoryId": "06-0000032150",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000034878",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": null
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000034880",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000036010",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.08,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.039156966,
+              37.566567827
+            ],
+            "toward": [
+              127.039165068,
+              37.566579504
+            ]
+          }
+        },
+        {
+          "gapM": 0.27,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.039249997,
+              37.566701915
+            ],
+            "toward": [
+              127.039240857,
+              37.566688742
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000036211",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.93,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.042525753,
+              37.572874782
+            ],
+            "toward": [
+              127.042548551,
+              37.572864166
+            ]
+          }
+        },
+        {
+          "gapM": 0.07,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.04270796,
+              37.572789939
+            ],
+            "toward": [
+              127.042693573,
+              37.572796638
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000038769",
+      "installed": null,
+      "heads": []
+    },
+    {
+      "inventoryId": "06-0000039020",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.15,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.043173406,
+              37.573405055
+            ],
+            "toward": [
+              127.043158829,
+              37.573412797
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000041551",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.64,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044599775,
+              37.569427744
+            ],
+            "toward": [
+              127.044617808,
+              37.56941622
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000041552",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.57,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041031668,
+              37.565242305
+            ],
+            "toward": [
+              127.041053964,
+              37.565242937
+            ]
+          }
+        },
+        {
+          "gapM": 1.23,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.04120104,
+              37.565247105
+            ],
+            "toward": [
+              127.04117124,
+              37.56524626
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000043265",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 1.35,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.04327933,
+              37.566518727
+            ],
+            "toward": [
+              127.043255124,
+              37.566503153
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000043266",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.8,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.043410727,
+              37.566219665
+            ],
+            "toward": [
+              127.043430542,
+              37.566231639
+            ]
+          }
+        },
+        {
+          "gapM": 1.46,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.043531299,
+              37.566292528
+            ],
+            "toward": [
+              127.043505495,
+              37.566276934
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000043643",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.72,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045217332,
+              37.572919528
+            ],
+            "toward": [
+              127.045230476,
+              37.572935473
+            ]
+          }
+        },
+        {
+          "gapM": 0.93,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045312577,
+              37.573035074
+            ],
+            "toward": [
+              127.045298135,
+              37.573017553
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000046255",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.08,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.037767943,
+              37.570047362
+            ],
+            "toward": [
+              127.037771363,
+              37.570060371
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2550,
+      "junction": "국민은행마장"
+    },
+    {
+      "inventoryId": "06-0000046256",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.037549061,
+            37.570238281
+          ],
+          "toward": [
+            127.037772058,
+            37.570165156
+          ],
+          "distanceFromCrossingEndM": 3.47
+        },
+        {
+          "coordinate": [
+            127.037792964,
+            37.570209541
+          ],
+          "toward": [
+            127.03754984,
+            37.570207046
+          ],
+          "distanceFromCrossingEndM": 5.26
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.15,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.037532793,
+              37.57021026
+            ],
+            "toward": [
+              127.03754984,
+              37.570207046
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2550,
+      "junction": "국민은행마장"
+    },
+    {
+      "inventoryId": "06-0000048621",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.2,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.044453238,
+              37.566542277
+            ],
+            "toward": [
+              127.04446764,
+              37.566533587
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2540,
+      "junction": "마장동주민센터"
+    },
+    {
+      "inventoryId": "06-0000048622",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.044925231,
+            37.566275527
+          ],
+          "toward": [
+            127.045052382,
+            37.566378693
+          ],
+          "distanceFromCrossingEndM": 2.15
+        },
+        {
+          "coordinate": [
+            127.045030438,
+            37.56639908
+          ],
+          "toward": [
+            127.044949305,
+            37.566272734
+          ],
+          "distanceFromCrossingEndM": 2.98
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.33,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.04493733,
+              37.566260424
+            ],
+            "toward": [
+              127.044949305,
+              37.566272734
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2540,
+      "junction": "마장동주민센터"
+    },
+    {
+      "inventoryId": "06-0000048623",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.01,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 2540,
+      "junction": "마장동주민센터"
+    },
+    {
+      "inventoryId": "06-0000048624",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.14,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045121586,
+              37.566387839
+            ],
+            "toward": [
+              127.045135372,
+              37.566379349
+            ]
+          }
+        },
+        {
+          "gapM": 0.21,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045213184,
+              37.566331432
+            ],
+            "toward": [
+              127.04519881,
+              37.566340283
+            ]
+          }
+        }
+      ],
+      "junctionId": 2540,
+      "junction": "마장동주민센터"
+    },
+    {
+      "inventoryId": "06-0000048625",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.23,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045173733,
+              37.566112668
+            ],
+            "toward": [
+              127.045188694,
+              37.56610413
+            ]
+          }
+        },
+        {
+          "gapM": 0.1,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045245089,
+              37.566071945
+            ],
+            "toward": [
+              127.045231308,
+              37.56607981
+            ]
+          }
+        }
+      ],
+      "junctionId": 2540,
+      "junction": "마장동주민센터"
+    },
+    {
+      "inventoryId": "06-0000048626",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000048627",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.1,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.045863953,
+              37.565715806
+            ],
+            "toward": [
+              127.045874256,
+              37.565726524
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000048630",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
+    },
+    {
+      "inventoryId": "06-0000049971",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.041617675,
+            37.565193097
+          ],
+          "toward": [
+            127.041796339,
+            37.565174827
+          ],
+          "distanceFromCrossingEndM": 2.15
+        },
+        {
+          "coordinate": [
+            127.0418048,
+            37.565154124
+          ],
+          "toward": [
+            127.041629041,
+            37.56517601
+          ],
+          "distanceFromCrossingEndM": 2.42
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "island"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
+      "junctionId": 254,
+      "junction": "마장역"
+    },
+    {
+      "inventoryId": "06-0000050130",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.38,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.041822481,
+              37.565018609
+            ],
+            "toward": [
+              127.041821575,
+              37.565034628
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "islands": [
+    {
+      "ufid": "1000377051669A00510000000000000009",
+      "shape": [
+        [
+          [
+            127.041636307,
+            37.565147957
+          ],
+          [
+            127.04163608,
+            37.565145569
+          ],
+          [
+            127.041634731,
+            37.565143029
+          ],
+          [
+            127.041632512,
+            37.56514157
+          ],
+          [
+            127.041628686,
+            37.56514104
+          ],
+          [
+            127.041626422,
+            37.56514141
+          ],
+          [
+            127.041516243,
+            37.565158234
+          ],
+          [
+            127.04151131,
+            37.56516093
+          ],
+          [
+            127.041510598,
+            37.565162822
+          ],
+          [
+            127.041510452,
+            37.56516503
+          ],
+          [
+            127.041510815,
+            37.565167445
+          ],
+          [
+            127.041511846,
+            37.565169021
+          ],
+          [
+            127.041513998,
+            37.565171065
+          ],
+          [
+            127.041584839,
+            37.565206495
+          ],
+          [
+            127.041616562,
+            37.565220305
+          ],
+          [
+            127.041617808,
+            37.565220412
+          ],
+          [
+            127.041618792,
+            37.565219908
+          ],
+          [
+            127.041619957,
+            37.565218493
+          ],
+          [
+            127.041621211,
+            37.56521351
+          ],
+          [
+            127.041636307,
+            37.565147957
+          ]
+        ]
+      ]
+    }
+  ],
+  "sources": {
+    "inventory": {
+      "source": "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do",
+      "filename": "서울시 교차로 및 횡단보도 시설·위치정보_20260824.xlsx",
+      "fileUpdated": "2026-09-07",
+      "recorded": "2026-08-24",
+      "sha256": "1a5db9ea7a1cd58e2d7f2b4246baf099a3e4d5278f2867a1b87f3d50d21541be"
+    },
+    "poles": {
+      "source": "https://data.seoul.go.kr/dataList/OA-22356/F/1/datasetView.do",
+      "filename": "서울특별시_보행자 신호등 분포도.csv",
+      "fileUpdated": "2026-02-13",
+      "recorded": "2026-02-13",
+      "sha256": "11cac4d69a41f1cbc469126b7318ec480239ec69366c70b2393cf751d0b0cb42"
+    },
+    "crosswalks": {
+      "source": "https://data.seoul.go.kr/dataList/OA-15554/F/1/datasetView.do",
+      "filename": "횡단보도 위치 및 부착대 정보.zip",
+      "fileUpdated": "2021-08-09",
+      "recorded": "2021-08-09",
+      "sha256": "a99a0e19c0b0c50013ca2261bd885ab91f2cc81a72348dfa9136f8f2167b9cdd"
+    },
+    "islands": {
+      "source": "https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0053326.zip",
+      "filename": "N1A_A0053326.zip",
+      "fileUpdated": "2024-07-04",
+      "recorded": "2024-07-04",
+      "sha256": "c4be7da3c71ee7123a176f566f6b293e049ab71feb59b78931081c4ac9a8b651"
+    }
+  },
+  "coverage": {
+    "crossings": 80,
+    "installed": 23,
+    "absent": 26,
+    "unknown": 31,
+    "crossingsWithHeads": 18,
+    "heads": 30,
+    "landingEnds": 152,
+    "landingEndsMapped": 128
+  }
+}

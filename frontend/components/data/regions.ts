@@ -54,17 +54,18 @@ type SeoulSceneId = `seoul-a${string}`;
 type SeoulScene = {
   id: string; name: string; area: string; roadName: string; households: number; towerCount: number;
   kaptCode: string; count: number; radius: number; roadside: number[]; lookAt: number[];
-  towers: Record<string, string>; outlineSource: string; registerSource: string; layers: string[];
+  towers: Record<string, string>; outlineSource: string; registerSource: string; layers: string[]; neighborhood?: string;
 };
 const catalogRegions = (seoulScenes as SeoulScene[]).map(scene => {
   const id = scene.id as SeoulSceneId;
   const path = `/datasets/regions/${id}`;
+  const context = scene.neighborhood ? `/datasets/neighborhoods/${scene.neighborhood}` : path;
   const optional = (file: string) => scene.layers.includes(file) ? `${path}/${file}` : null;
   return {
     id, name: scene.name, area: scene.area, count: scene.count, radius: scene.radius,
     description: `${scene.towerCount}개 동과 주변 도로·생활환경`, keywords: `${scene.roadName} ${scene.kaptCode}`,
-    terrain: `${path}/terrain.json`, environment: `${path}/environment.geojson`, places: `${path}/places.geojson`,
-    site: `${path}/site.geojson`, streets: `${path}/streets.json`, surrounding: null,
+    terrain: `${path}/terrain.json`, environment: `${context}/environment.geojson`, places: `${context}/places.geojson`,
+    site: `${path}/site.geojson`, streets: `${context}/streets.json`, surrounding: null,
     roadMarkings: optional('road-markings.json'), neighborhoodTerrain: null, pavement: optional('pavement.json'),
     planting: null, servicePaving: null, pedestrianSignals: optional('pedestrian-signals.json'),
   } as const;

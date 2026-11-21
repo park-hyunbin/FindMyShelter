@@ -8,7 +8,7 @@ from zipfile import ZipFile
 
 from pyproj import CRS, Transformer
 import shapefile
-from shapely import make_valid, set_precision, transform
+from shapely import intersection, make_valid, set_precision, transform
 from shapely.geometry import LineString, Point, mapping, shape
 from shapely.ops import unary_union
 from shapely.prepared import prep
@@ -17,6 +17,7 @@ DATA = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions"
 SOURCE = "https://openlab.eseoul.go.kr/qgisplugin/SHP"
 ROAD_LAYER = "N1A_A0010000"
 WALK_LAYER = "N1A_A0033320"
+GRID_M = 0.01
 TO_METRES = Transformer.from_crs(4326, 5186, always_xy=True).transform
 TO_GPS = Transformer.from_crs(5186, 4326, always_xy=True).transform
 
@@ -53,7 +54,7 @@ def extract(archive_path, layer, window):
     if not outlines:
         raise ValueError(f"No {layer} features intersect the given complex")
     # Snap both layers to the same centimetre grid before cutting shared edges.
-    return set_precision(unary_union(outlines), 0.01), {
+    return set_precision(unary_union(outlines), GRID_M), {
         "source": f"{SOURCE}/{layer}.zip", "archiveFileDate": f"{year:04}-{month:02}-{day:02}",
         "sourceIds": sorted(set(ids)),
     }
@@ -72,7 +73,8 @@ def export_polygons(geometry):
 
 def covered_segments(graph, paved):
     # Allow for sub-metre rounding in the OSM tiles used as the graph source.
-    matched = paved.buffer(0.35)
+    # Repair slivers at touching corners and retain only surfaces for overlay.
+    matched = unary_union(list(parts(make_valid(paved.buffer(0.35)), "Polygon")))
     footprint = prep(matched)
     spans = []
     for road in graph["roads"]:
@@ -86,7 +88,7 @@ def covered_segments(graph, paved):
             if not footprint.intersects(axis):
                 continue
             cut = []
-            for piece in parts(matched.intersection(axis), "LineString"):
+            for piece in parts(intersection(matched, axis, grid_size=GRID_M), "LineString"):
                 if piece.length <= 0.25:
                     continue
                 ends = [axis.project(Point(point), normalized=True) for point in (piece.coords[0], piece.coords[-1])]
@@ -113,7 +115,9 @@ def main():
     ])
     if boundary.is_empty or args.radius <= 0:
         parser.error("A polygonal complex boundary and a positive radius are required")
-    graph = json.loads((folder / "streets.json").read_text(encoding="utf-8"))
+    neighborhood = site.get("metadata", {}).get("neighborhood")
+    street_directory = DATA.parent / "neighborhoods" / neighborhood if neighborhood else folder
+    graph = json.loads((street_directory / "streets.json").read_text(encoding="utf-8"))
     if any(not (-180 <= lon <= 180 and -90 < lat < 90 and radius > 0) for lon, lat, radius in args.anchor):
         parser.error("Each anchor requires longitude, latitude and a positive radius")
     window = unary_union([boundary.buffer(args.radius), *(

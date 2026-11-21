@@ -7,7 +7,14 @@ if (!/^[a-z0-9_-]+$/.test(region)) throw new Error('Invalid region');
 const regional = process.argv.includes('--region');
 const buildings = JSON.parse(await readFile(new URL(regional ? `../public/datasets/buildings/${region}/manifest.json` : '../public/sample-buildings.geojson', import.meta.url), 'utf8'));
 const [lng, lat] = buildings.metadata.center_lnglat;
-const bounds = [lng - 0.018, lat - 0.015, lng + 0.018, lat + 0.015];
+const profile = regional && await readFile(new URL(`../../data/config/buildings/${region}.json`, import.meta.url), 'utf8')
+  .then(JSON.parse).catch(error => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+const neighborhood = profile?.osm?.neighborhood;
+if (neighborhood && !/^[a-z0-9-]+$/.test(neighborhood)) throw new Error('Invalid neighborhood ID');
+const bounds = neighborhood ? profile.osm.bounds : [lng - 0.018, lat - 0.015, lng + 0.018, lat + 0.015];
 const headers = { 'User-Agent': 'FindMyShelter-OpoResearch/0.1 (neighborhood data preparation)' };
 
 async function download(url) {
@@ -89,7 +96,8 @@ const snapshot = {
     detail: 'Zoom 14 vector tile geometries, generalized and clipped at tile edges.',
   },
 };
-const output = new URL(regional ? `../public/datasets/regions/${region}/` : '../public/', import.meta.url);
+const output = new URL(neighborhood ? `../public/datasets/neighborhoods/${neighborhood}/`
+  : regional ? `../public/datasets/regions/${region}/` : '../public/', import.meta.url);
 await mkdir(output, {recursive:true});
 await writeFile(new URL(regional ? 'environment.geojson' : 'opo-environment.geojson', output), JSON.stringify(snapshot) + '\n');
 if (regional) await writeFile(new URL('places.geojson', output), JSON.stringify({type:'FeatureCollection',features:places,metadata:snapshot.metadata}));
