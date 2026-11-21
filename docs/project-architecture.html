@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Find My Shelter의 데이터 수집, 3D 임장, 주거 환경 분석과 서울 확장 구조">
+  <title>Find My Shelter · 프로젝트 구조</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f6ee; --surface: #fffef8; --ink: #18312a; --muted: #475d52;
+      --forest: #163b2e; --line: #cbd7ca; --wash: #e5eddd; --lime: #e0eea8;
+      font: 16px/1.65 system-ui, "Malgun Gothic", sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-padding-top: 1rem; }
+    body { margin: 0; background: var(--paper); color: var(--ink); word-break: keep-all; overflow-wrap: anywhere; }
+    a { color: #175b42; text-underline-offset: .2em; }
+    :focus-visible { outline: 3px solid #398357; outline-offset: 4px; }
+    h1, h2, h3, p, ul, ol, dl, figure { margin: 0; }
+    h1, h2, h3 { letter-spacing: -.035em; line-height: 1.24; }
+    h2 { font-size: clamp(1.48rem, 3vw, 2.1rem); }
+    h3 { font-size: 1.12rem; }
+    code { font: .9em/1.5 ui-monospace, Consolas, monospace; }
+    .wrap { width: min(1060px, calc(100% - 3rem)); margin-inline: auto; }
+    .skip { position: absolute; top: .5rem; left: .75rem; z-index: 1; padding: .5rem; background: white; transform: translateY(-200%); }
+    .skip:focus { transform: none; }
+    .hero {
+      background: radial-gradient(ellipse at 90% 10%, #2a5740 0, transparent 55%), var(--forest);
+      color: #fffef1; padding: 1.65rem 0 3rem;
+    }
+    .brand { color: var(--lime); font-weight: 750; letter-spacing: .08em; }
+    .hero h1 { font-size: clamp(2.1rem, 5.7vw, 4.15rem); margin: 1rem 0 .8rem; }
+    .hero .intro { max-width: 40rem; font-size: clamp(1rem, 2vw, 1.22rem); color: #e2eddf; }
+    .hero .public { display: inline-block; margin-top: 1.15rem; padding: .48rem .83rem; border-radius: .35rem; background: var(--lime); color: var(--forest); font-weight: 750; }
+    .contents { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; padding: .75rem 0; border-bottom: 1px solid var(--line); list-style: none; }
+    .contents a { display: inline-block; padding-block: .25rem; font-weight: 640; }
+    section { margin-top: 2.6rem; }
+    .lead { margin: .55rem 0 1.15rem; color: var(--muted); max-width: 64ch; }
+    .flow { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
+    .flow li, .module, .layer, .stat { background: var(--surface); border: 1px solid var(--line); border-radius: .65rem; padding: 1rem; }
+    .flow li { position: relative; border-top: 4px solid #438164; }
+    .flow li + li::before { content: ""; position: absolute; top: 1.22rem; left: -.87rem; width: .85rem; height: 2px; background: #438164; }
+    .flow h3, .module h3, .layer h3 { margin-bottom: .45rem; }
+    .flow p, .module p, .layer p { font-size: .97rem; }
+    .flow .paths { margin-top: .55rem; color: var(--muted); }
+    .source { margin-top: .8rem; font-size: .9rem; color: var(--muted); }
+    .layers { display: grid; gap: .55rem; }
+    .layer { display: grid; grid-template-columns: 10rem minmax(0, 1fr); align-items: start; gap: .35rem 1.2rem; }
+    .layer h3 { margin: .14rem 0 0; }
+    .layer:nth-child(2) { background: var(--wash); border-color: #b5cbb4; }
+    .layer .files { margin-top: .3rem; color: var(--muted); }
+    .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+    .module ul { padding-left: 1.15rem; }
+    .module p + p, .module li + li { margin-top: .35rem; }
+    .boundary { margin-top: .85rem; padding: .75rem .9rem; border-left: 3px solid #58836c; background: #ebf0e4; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
+    .stat { display: flex; flex-direction: column; padding: .8rem .95rem; }
+    .stat dt { font-weight: 640; }
+    .stat dd { margin: 0; font-size: clamp(1.6rem, 3.2vw, 2.3rem); font-weight: 780; line-height: 1.25; font-variant-numeric: tabular-nums; }
+    .files-table { width: 100%; border-collapse: collapse; background: var(--surface); }
+    .files-table caption { text-align: left; margin-bottom: .55rem; color: var(--muted); }
+    .files-table th, .files-table td { padding: .63rem .85rem; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .files-table thead th { background: var(--wash); }
+    .files-table tbody th { width: 33%; font-weight: 650; }
+    .roadmap { padding-left: 1.35rem; }
+    .roadmap li + li { margin-top: .55rem; }
+    footer { margin: 2.5rem 0 0; padding: 1rem 0 1.65rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+    @media (max-width: 780px) {
+      .flow, .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow li + li::before { display: none; }
+    }
+    @media (max-width: 520px) {
+      .wrap { width: calc(100% - 1.5rem); }
+      .hero { padding-bottom: 1.8rem; }
+      .flow, .two, .layer { grid-template-columns: minmax(0, 1fr); }
+      .flow li, .module, .layer { padding: .8rem; }
+      .files-table th, .files-table td { padding: .48rem; }
+    }
+    @media print {
+      :root { font-size: 11pt; }
+      .wrap { width: 100%; }
+      .hero { padding: 0; background: white; color: black; }
+      .hero .intro, .brand { color: black; }
+      .contents, .skip, .public { display: none !important; }
+      section { margin-top: 1.25rem; }
+      h2, h3 { break-after: avoid; }
+      .flow li, .module, .layer, .stat, tr { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">본문 바로가기</a>
+  <header class="hero">
+    <div class="wrap">
+      <p class="brand">FIND MY SHELTER</p>
+      <h1>온라인 임장은 어떻게 만들어지나</h1>
+      <p class="intro">공개 지도와 건축·지형 자료를 3D 동네로 연결하고, 후보 아파트의 실외 일조와 귀갓길, 주변 녹지를 비교한다.</p>
+      <a class="public" href="https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/seoul/">공개 임장 열기</a>
+    </div>
+  </header>
+
+  <nav class="wrap" aria-label="문서 목차">
+    <ul class="contents">
+      <li><a href="#flow">데이터 흐름</a></li>
+      <li><a href="#reuse">공유 구조</a></li>
+      <li><a href="#runtime">화면과 배포</a></li>
+      <li><a href="#coverage">현재 범위</a></li>
+      <li><a href="#files">저장소 안내</a></li>
+      <li><a href="#design">서울 확장 설계</a></li>
+    </ul>
+  </nav>
+
+  <main id="main" class="wrap">
+    <section id="flow" aria-labelledby="flow-title">
+      <h2 id="flow-title">데이터에서 3D 임장까지</h2>
+      <p class="lead">공개 원본을 오프라인에서 가공하고, 브라우저는 준비된 파일을 읽어 장면과 분석을 구성한다.</p>
+      <ol class="flow">
+        <li><h3>공개 원본 수집</h3><p>K-apt 단지 목록, 건축HUB 표제부, 서울시 건물면·도로시설·등고선, OpenStreetMap과 GEDTM30을 쓴다.</p><p class="paths"><code>data/raw</code> · <code>data/config</code></p></li>
+        <li><h3>연결하고 검사</h3><p>단지코드와 주소·동 정보를 대조한다. 건물·도로·지형을 EPSG:5186 기준으로 맞추고, 불일치와 자료 누락은 기록한다.</p><p class="paths"><code>backend/scripts</code> · <code>backend/pipeline</code></p></li>
+        <li><h3>웹용 파일 생성</h3><p>건물 윤곽을 GeoJSON 조각으로 내보내고, 도로망·고도 격자·보행 경로를 JSON으로 묶는다. 단지 목록에는 이용 가능한 장면을 연결한다.</p><p class="paths"><code>frontend/scripts</code> · <code>frontend/public/datasets</code></p></li>
+        <li><h3>브라우저에서 체험</h3><p>Next.js의 검색·분석 화면이 Three.js 장면을 열고, 걷기·운전·조감 중 고른 지점을 일조나 지형 분석과 연결한다.</p><p class="paths"><code>frontend/app</code> · <code>frontend/components</code></p></li>
+      </ol>
+      <p class="source"><a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/building-pipeline.md">건물 연결과 검사</a> · <a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/region-tour-pipeline.md">지역 장면 생성</a></p>
+    </section>
+
+    <section id="reuse" aria-labelledby="reuse-title">
+      <h2 id="reuse-title">어떤 데이터를 함께 쓰나</h2>
+      <p class="lead">서울 목록에서 단지를 찾고, 생활권의 공간 데이터 위에 선택한 단지의 경계와 분석 지점을 얹는다.</p>
+      <div class="layers">
+        <article class="layer">
+          <h3>서울 단지 목록</h3>
+          <div><p>K-apt 코드로 단지를 식별한다. 자치구, 주소, 전 주동 윤곽 연결, 3D와 보행 경로의 제공 상태를 집계한다.</p><p class="files"><code>seoul-tour-catalog.json</code></p></div>
+        </article>
+        <article class="layer">
+          <h3>생활권 공유</h3>
+          <div><p>마포 용강·성동 청계천·성북 길음의 이웃 단지는 같은 도로망, 녹지·수계, 생활시설, 지형 격자를 읽는다. 같은 지도 좌표에서 같은 지면을 계산한다.</p><p class="files"><code>datasets/neighborhoods/&lt;생활권&gt;/</code></p></div>
+        </article>
+        <article class="layer">
+          <h3>단지별 장면</h3>
+          <div><p>건물 조각, 단지 경계, 시작 시점과 확보된 경로·보행 시설 레이어를 연결한다. 일조와 시야에 사용하는 건물 자료 범위는 단지별로 설정한다. 사진과 로드뷰는 입구·외장·경관의 외형을 대조하는 데 쓴다.</p><p class="files"><code>datasets/buildings/&lt;단지&gt;/</code> · <code>datasets/regions/&lt;단지&gt;/</code></p></div>
+        </article>
+      </div>
+      <p class="source"><a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-21-seoul-pilot-validation.md">공유 구조와 장면 간 지형 검증 기록</a></p>
+    </section>
+
+    <section id="runtime" aria-labelledby="runtime-title">
+      <h2 id="runtime-title">검색, 3D, 분석은 어떻게 이어지나</h2>
+      <p class="lead"><code>/seoul/</code>에서 단지를 검색하고, 3D가 준비된 곳은 <code>/?region=&lt;ID&gt;</code>로 들어간다.</p>
+      <div class="two">
+        <article class="module">
+          <h3>3D 장면과 주거 환경 분석</h3>
+          <ul>
+            <li><code>opo-data.ts</code>가 지도·건물·지형을 불러와 좌표를 맞춘다.</li>
+            <li><code>opo-world.ts</code>가 지형 위에 건물과 길을 그리고 카메라와 이동을 관리한다.</li>
+            <li><code>OpoTour.tsx</code>에서 시간대별 실외 일조, 방향별 지형과 차폐, 보행 경로와 고도 단면을 연다.</li>
+          </ul>
+        </article>
+        <article class="module">
+          <h3>운영과 기록</h3>
+          <ul>
+            <li>Next.js 정적 결과물과 <code>frontend/worker</code>를 묶어 공개 Sites에 배포한다. 함께 임장의 서버 기능은 Worker와 D1을 쓴다.</li>
+            <li>송파 개인 체크리스트와 현장 메모는 브라우저에 저장된다.</li>
+            <li><code>backend/app</code>은 별도의 실험용 FastAPI 코드다. 공개 3D 장면과 기본 분석은 준비된 파일과 브라우저 계산으로 동작한다.</li>
+          </ul>
+        </article>
+      </div>
+      <p class="boundary"><strong>자료와 추정의 경계.</strong> 차폐에 필요한 건물 높이가 부족한 경우 일조가 미판정으로 남을 수 있다. 경로 경사는 지형에서 계산하고, 실제 보도 단차·출입 조건과 신호 대기는 현장 확인 항목으로 표시한다.</p>
+    </section>
+
+    <section id="coverage" aria-labelledby="coverage-title">
+      <h2 id="coverage-title">지금 어디까지 이용할 수 있나</h2>
+      <p class="lead">서울 25개 구의 K-apt 목록과 공개 3D 표본을 서로 다른 단계로 집계한다.</p>
+      <dl class="stats">
+        <div class="stat"><dt>검색 목록</dt><dd>3,158곳</dd></div>
+        <div class="stat"><dt>전 주동 윤곽 연결</dt><dd>1,238곳</dd></div>
+        <div class="stat"><dt>공개 3D</dt><dd>10곳</dd></div>
+        <div class="stat"><dt>보행 경로와 고도 단면</dt><dd>6곳</dd></div>
+      </dl>
+      <p class="source">K-apt 목록은 2026-11-20 기준이며, 소규모 단지 등은 원본에 빠질 수 있다. 3D는 송파 4곳과 마포·성동·성북 각 2곳이다. <a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-21-seoul-tour-coverage.md">자치구별 데이터 현황</a></p>
+    </section>
+
+    <section id="files" aria-labelledby="files-title">
+      <h2 id="files-title">작업별로 어디부터 보면 되나</h2>
+      <p class="lead">루트 폴더에서 아래 경로로 들어가면 관련 설정과 구현을 찾을 수 있다.</p>
+      <table class="files-table">
+        <caption>주요 디렉터리와 역할</caption>
+        <thead><tr><th scope="col">경로</th><th scope="col">여기서 보는 것</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><code>data/config/buildings/</code></th><td>단지 코드, 장면 범위, OSM 경계, 공유 생활권과 일부 보행 목적지.</td></tr>
+          <tr><th scope="row"><code>backend/scripts/</code></th><td>단지 목록과 건물 자료 연결, 도로·보행 경로·지형·공개 범위 집계.</td></tr>
+          <tr><th scope="row"><code>backend/pipeline/</code></th><td>공간 도형 정리, 필드 매핑, 건물 조각과 매니페스트 생성.</td></tr>
+          <tr><th scope="row"><code>frontend/scripts/</code></th><td>지도·지형 가공, 장면 등록, 공개 Sites 배포 묶음 생성.</td></tr>
+          <tr><th scope="row"><code>frontend/public/datasets/</code></th><td>브라우저에서 읽는 결과물. <code>buildings</code>, <code>neighborhoods</code>, <code>regions</code>로 구성.</td></tr>
+          <tr><th scope="row"><code>frontend/app/</code> · <code>frontend/components/</code></th><td>서울 단지 목록, 3D 화면, 분석과 체크리스트.</td></tr>
+          <tr><th scope="row"><code>docs/</code> · <code>notebooks/</code></th><td>제작·검증 기록과 기획서, 지형 분석 실험.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="design" aria-labelledby="design-title">
+      <h2 id="design-title">서울 확장에서 정할 것</h2>
+      <p class="lead">시범 단지에서 검증한 생성 과정을 넓힐 때 적용할 설계 항목이다.</p>
+      <ol class="roadmap">
+        <li><strong>공유 범위와 갱신 단위.</strong> 도로·지형·건물을 어느 공간 단위로 묶고 원본이 바뀌면 어떤 단지 결과를 다시 생성할지 정한다.</li>
+        <li><strong>3D 장면과 분석의 공개 기준.</strong> 경계·주동·좌표·높이 연결을 점검하고, 보행로 단절처럼 남은 자료 부족은 이용자가 결과 화면에서 볼 수 있게 한다.</li>
+        <li><strong>현실과 대조할 조건.</strong> 지형과 도로의 이음새, 서로 다른 날짜의 그림자, 출입구까지의 보행 연결을 표본에서 검증한다. 단지 간 연속 이동도 별도로 검증한다.</li>
+      </ol>
+      <p class="source"><a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-21-seoul-rollout-plan.md">서울 확장 기획안</a> · <a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-17-complex-online-tour-spec.md">온라인 임장과 체크리스트 기획</a></p>
+    </section>
+
+    <footer>2026-11-21 기록 · 공개 버전의 구조와 데이터 범위는 GitHub <code>f4218ec</code> 기준.</footer>
+  </main>
+</body>
+</html>
