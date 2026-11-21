@@ -3,11 +3,42 @@
   "inventoryRecorded": "2026-08-24",
   "poleSource": "https://data.seoul.go.kr/dataList/OA-22356/F/1/datasetView.do",
   "poleFileUpdated": "2026-02-13",
+  "landingRangeM": 6,
   "crossings": [
     {
       "ufid": "1000377090303A00410000000000000016",
       "installed": false,
       "heads": [],
+      "landings": [
+        {
+          "gapM": 1.15,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.114925245,
+              37.497691312
+            ],
+            "toward": [
+              127.114897082,
+              37.497686334
+            ]
+          }
+        },
+        {
+          "gapM": 1.89,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.114805608,
+              37.497733785
+            ],
+            "toward": [
+              127.114817878,
+              37.497705842
+            ]
+          }
+        }
+      ],
       "inventoryId": "06-0000032295",
       "junctionId": 2098,
       "junction": "가락시장"
@@ -39,6 +70,36 @@
           "distanceFromCrossingEndM": 3.99
         }
       ],
+      "landings": [
+        {
+          "gapM": 1.18,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.114527139,
+              37.497793667
+            ],
+            "toward": [
+              127.114499717,
+              37.497785851
+            ]
+          }
+        },
+        {
+          "gapM": 1.59,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.114262667,
+              37.49807903
+            ],
+            "toward": [
+              127.114264202,
+              37.498052103
+            ]
+          }
+        }
+      ],
       "inventoryId": "06-0000032304",
       "junctionId": 2098,
       "junction": "가락시장",
@@ -57,6 +118,36 @@
       "ufid": "1000377090303A00410000000000000011",
       "installed": false,
       "heads": [],
+      "landings": [
+        {
+          "gapM": 1.3,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.114239965,
+              37.49826194
+            ],
+            "toward": [
+              127.114263471,
+              37.498277408
+            ]
+          }
+        },
+        {
+          "gapM": 2.96,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.114289834,
+              37.498377892
+            ],
+            "toward": [
+              127.114285785,
+              37.498344169
+            ]
+          }
+        }
+      ],
       "inventoryId": "06-0000032305",
       "junctionId": 2098,
       "junction": "가락시장"
@@ -65,6 +156,16 @@
       "inventoryId": "06-0000003115",
       "installed": false,
       "heads": [],
+      "landings": [
+        {
+          "gapM": 0.03,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
       "junctionId": 4756,
       "junction": "가락대림아파트(경보)"
     },
@@ -72,83 +173,363 @@
       "inventoryId": "06-0000003129",
       "installed": false,
       "heads": [],
+      "landings": [
+        {
+          "gapM": 0.32,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.11825199,
+              37.498668996
+            ],
+            "toward": [
+              127.118267623,
+              37.498677443
+            ]
+          }
+        },
+        {
+          "gapM": 0.25,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.118343381,
+              37.498718376
+            ],
+            "toward": [
+              127.118329842,
+              37.498711061
+            ]
+          }
+        }
+      ],
       "junctionId": 4756,
       "junction": "가락대림아파트(경보)"
     },
     {
       "inventoryId": "06-0000009225",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.23,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.119520751,
+              37.497535398
+            ],
+            "toward": [
+              127.119530807,
+              37.497523047
+            ]
+          }
+        },
+        {
+          "gapM": 0.2,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.119596311,
+              37.497442591
+            ],
+            "toward": [
+              127.119586481,
+              37.497454665
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009226",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.13,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.119320457,
+              37.497575211
+            ],
+            "toward": [
+              127.119306603,
+              37.497568096
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009227",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.25,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.119277646,
+              37.497270128
+            ],
+            "toward": [
+              127.119267048,
+              37.497282387
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009228",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.18,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.119569969,
+              37.497283758
+            ],
+            "toward": [
+              127.119557008,
+              37.497276765
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009492",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009493",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.03,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.32,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.117106449,
+              37.498213363
+            ],
+            "toward": [
+              127.117097787,
+              37.498224006
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009494",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 1.57,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.11682998,
+              37.498516319
+            ],
+            "toward": [
+              127.116807018,
+              37.498535792
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009495",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.01,
+          "surface": "sidewalk"
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009676",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009677",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.1,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.112633437,
+              37.499754766
+            ],
+            "toward": [
+              127.112646607,
+              37.499763346
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009678",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": 0.5,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.112713248,
+              37.499823784
+            ],
+            "toward": [
+              127.112699818,
+              37.499837164
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000021196",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.45,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.118476001,
+              37.496715147
+            ],
+            "toward": [
+              127.118495712,
+              37.496709643
+            ]
+          }
+        },
+        {
+          "gapM": 0.19,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.118602452,
+              37.496679837
+            ],
+            "toward": [
+              127.118585523,
+              37.496684564
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000021555",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
     },
     {
       "inventoryId": "06-0000021556",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
     },
     {
       "inventoryId": "06-0000025233",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": null
+        },
+        {
+          "gapM": null
+        }
+      ]
     },
     {
       "inventoryId": "06-0000030679",
@@ -166,6 +547,16 @@
           "distanceFromCrossingEndM": 3.77
         }
       ],
+      "landings": [
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ],
       "junctionId": 5917,
       "junction": "근화제약앞"
     },
@@ -173,6 +564,36 @@
       "inventoryId": "06-0000032298",
       "installed": false,
       "heads": [],
+      "landings": [
+        {
+          "gapM": 3.48,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.113757093,
+              37.49702393
+            ],
+            "toward": [
+              127.113761281,
+              37.497063694
+            ]
+          }
+        },
+        {
+          "gapM": 0.22,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.113770701,
+              37.497153121
+            ],
+            "toward": [
+              127.113769171,
+              37.4971386
+            ]
+          }
+        }
+      ],
       "junctionId": 2098,
       "junction": "가락시장"
     },
@@ -203,6 +624,26 @@
           "distanceFromCrossingEndM": 4.36
         }
       ],
+      "landings": [
+        {
+          "gapM": 0.42,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.113535275,
+              37.497689531
+            ],
+            "toward": [
+              127.113547183,
+              37.497676177
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "island"
+        }
+      ],
       "junctionId": 2098,
       "junction": "가락시장"
     },
@@ -210,6 +651,26 @@
       "inventoryId": "06-0000032301",
       "installed": false,
       "heads": [],
+      "landings": [
+        {
+          "gapM": 1.38,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.113106817,
+              37.497767324
+            ],
+            "toward": [
+              127.113136283,
+              37.497760155
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "island"
+        }
+      ],
       "junctionId": 2098,
       "junction": "가락시장"
     },
@@ -217,13 +678,53 @@
       "inventoryId": "06-0000033663",
       "installed": false,
       "heads": [],
+      "landings": [
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        }
+      ],
       "junctionId": 5917,
       "junction": "근화제약앞"
     },
     {
       "inventoryId": "06-0000034404",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.29,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.118615696,
+              37.495765684
+            ],
+            "toward": [
+              127.118633903,
+              37.495770238
+            ]
+          }
+        },
+        {
+          "gapM": 0.1,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.118743002,
+              37.495797527
+            ],
+            "toward": [
+              127.118726867,
+              37.495793491
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000035497",
@@ -252,6 +753,26 @@
           "distanceFromCrossingEndM": 5.54
         }
       ],
+      "landings": [
+        {
+          "gapM": 0.53,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.113906197,
+              37.497391925
+            ],
+            "toward": [
+              127.113924237,
+              37.497401708
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "island"
+        }
+      ],
       "junctionId": 2098,
       "junction": "가락시장"
     },
@@ -271,23 +792,113 @@
           "distanceFromCrossingEndM": 4.34
         }
       ],
+      "landings": [
+        {
+          "gapM": 0.67,
+          "surface": "island",
+          "view": {
+            "position": [
+              127.113575739,
+              37.497754887
+            ],
+            "toward": [
+              127.113594922,
+              37.497765527
+            ]
+          }
+        },
+        {
+          "gapM": 0.0,
+          "surface": "island"
+        }
+      ],
       "junctionId": 2098,
       "junction": "가락시장"
     },
     {
       "inventoryId": "06-0000037936",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.33,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.118678212,
+              37.496833426
+            ],
+            "toward": [
+              127.118688887,
+              37.496846486
+            ]
+          }
+        },
+        {
+          "gapM": 0.21,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.118757906,
+              37.496930921
+            ],
+            "toward": [
+              127.118747961,
+              37.496918755
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000037937",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        }
+      ]
     },
     {
       "inventoryId": "06-0000047277",
       "installed": null,
-      "heads": []
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 1.5,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.115287884,
+              37.495819075
+            ],
+            "toward": [
+              127.115306915,
+              37.495797791
+            ]
+          }
+        },
+        {
+          "gapM": 0.37,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.115383175,
+              37.495712505
+            ],
+            "toward": [
+              127.115371539,
+              37.495725519
+            ]
+          }
+        }
+      ]
     }
   ],
   "islands": [
@@ -726,6 +1337,8 @@
     "absent": 7,
     "unknown": 19,
     "crossingsWithHeads": 5,
-    "heads": 8
+    "heads": 8,
+    "landingEnds": 62,
+    "landingEndsMapped": 52
   }
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { courtyard, courtyardGarden } from './opo-courtyard';
 import { courtyardStairs } from './opo-garden';
-import { loadOpoData, type Point } from './opo-data';
+import { loadOpoData, type CrossingLanding, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonChartStep, horizonRange, type DirectionProfile } from './opo-horizon';
 import { routeAscent, routeTerrainStep, type RouteSlopeDirection, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
@@ -60,6 +60,15 @@ function duration(minutes: number) {
 
 function meters(value: number) {
   return Number.isFinite(value) ? `약 ${Math.round(value / 10) * 10}m` : '자료 없음';
+}
+
+function crossingLandingLabel(landing: CrossingLanding | undefined, rangeM: number) {
+  if (!landing || landing.gapM === null) return `${rangeM}m 안에서 미확인`;
+  const surface = landing.surface === 'island' ? '교통섬' : '보도';
+  if (landing.gapM === 0) return `${surface} 도형 맞닿음`;
+  if (landing.gapM < 0.1) return `${surface}까지 0.1m 미만`;
+  const rounded = Math.round(landing.gapM * 10) / 10;
+  return `${surface}까지 약 ${rounded.toFixed(1)}m`;
 }
 
 function lightStatus(sample: LightSample) {
@@ -1350,6 +1359,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const entrance = accessDetails?.entranceView;
             const busView = accessDetails?.stopView;
             const home = accessDetails?.homeWalk;
+            const crossingLandings = home?.crossingLandings;
             const selected = accessId === route.id;
             const routeVisible = selected && mode === 'orbit';
             return <div key={primary.id} ref={selected ? activeAccessCard : undefined}
@@ -1405,6 +1415,24 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                   {home.crossingSignals.heads > 0 && ` · 서울시 좌표로 보행등 ${home.crossingSignals.heads}개 표시`}
                   {' · 실제 점등 시각과 대기 시간은 현장 확인'}
                 </p>}
+                {crossingLandings && <details className="basis">
+                  <summary>횡단보도 도색과 보도 사이</summary>
+                  <table className="route-comparison">
+                    <caption>양재대로 횡단 순서 · 단지에서 송파역 방향</caption>
+                    <thead><tr><th scope="col">횡단부</th><th scope="col">단지 쪽</th><th scope="col">역 쪽</th></tr></thead>
+                    <tbody>{crossingLandings.pairs.map((pair, index) =>
+                      <tr key={index}><th scope="row">{index + 1}번째</th>
+                        <td>{crossingLandingLabel(pair?.[0], crossingLandings.rangeM)}</td>
+                        <td>{crossingLandingLabel(pair?.[1], crossingLandings.rangeM)}</td>
+                      </tr>)}
+                    </tbody>
+                  </table>
+                  <p>도색 끝에서 서울시 보도·교통섬 도형에 닿는 곳까지 경로를 따라 잰 거리예요. 실제 턱·경사로·유효 폭은 현장에서 확인해 주세요.</p>
+                  {crossingLandings.hasView && <div className="site-actions">
+                    <button type="button" onClick={() =>
+                      viewHomeStop(route.id, home.stops.findIndex(stop => stop.id === 'crossing-landing-gap'))}>가장 먼 보도 접속부 보기</button>
+                  </div>}
+                </details>}
                 {route.id === songpaStationRouteId && <p>거리와 경사는 OpenStreetMap 경로와 서울시 표고를 기준으로 계산했어요.</p>}
                 <div className="site-actions">
                   <button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button>

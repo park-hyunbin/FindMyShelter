@@ -15,7 +15,7 @@ from pyproj import CRS, Transformer
 import shapefile
 from shapely import STRtree, make_valid
 from shapely.geometry import LineString, Point, Polygon, box, shape
-from shapely.ops import unary_union
+from shapely.ops import substring, unary_union
 
 from prepare_neighborhood_pavement import parts
 from prepare_songpa_road_markings import city_features
@@ -27,6 +27,7 @@ POLE_SOURCE = "https://data.seoul.go.kr/dataList/OA-22356/F/1/datasetView.do"
 CROSSWALK_SOURCE = "https://data.seoul.go.kr/dataList/OA-15554/F/1/datasetView.do"
 ISLAND_LAYER = "N1A_A0053326"
 ISLAND_SOURCE = f"https://openlab.eseoul.go.kr/qgisplugin/SHP/{ISLAND_LAYER}.zip"
+LANDING_RANGE_M = 6
 
 
 def read(path):
@@ -85,6 +86,48 @@ def axis_ends(outline):
         return sorted([spans[0].coords[0], spans[0].coords[-1]])
 
 
+def trace_line(legs):
+    points = []
+    for leg in legs:
+        line = [LOCAL(*coordinate) for coordinate in leg["coordinates"]]
+        if points and dist(points[-1], line[0]) > 0.02:
+            return None
+        points.extend(line if not points else line[1:])
+    return LineString(points) if len(points) > 1 else None
+
+
+def landing_at_end(end, opposite, surfaces, trace=None, sign=1):
+    point = Point(end)
+    traced = trace is not None and trace.distance(point) <= 0.03
+    if traced:
+        station = trace.project(point)
+        limit = min(trace.length, max(0, station + sign * LANDING_RANGE_M))
+        probe = substring(trace, station, limit)
+    else:
+        span = dist(end, opposite)
+        if span < 0.05:
+            return {"gapM": None}
+        outward = [e + (e - other) * LANDING_RANGE_M / span for e, other in zip(end, opposite)]
+        probe = LineString([end, outward])
+    if probe.geom_type != "LineString":
+        return {"gapM": None}
+
+    contacts = []
+    for kind, surface in surfaces:
+        for piece in parts(probe.intersection(surface), "LineString"):
+            near, far = sorted(probe.project(Point(p)) for p in (piece.coords[0], piece.coords[-1]))
+            if far - near >= 0.6:
+                contacts.append((near, far, kind))
+    if not contacts:
+        return {"gapM": None}
+    near, far, kind = min(contacts)
+    landing = {"gapM": round(near, 2), "surface": kind}
+    if near > 0.05:
+        observer = probe.interpolate(min(near + 1.4, (near + far) / 2))
+        landing["view"] = {"position": position(observer.coords[0]), "toward": position(end)}
+    return landing
+
+
 def prepare(crossings, pavement, inventory_path, poles_path, district, archive_path=None):
     with closing(load_workbook(inventory_path, read_only=True, data_only=True)) as workbook:
         rows = workbook.active.iter_rows(values_only=True)
@@ -111,17 +154,22 @@ def prepare(crossings, pavement, inventory_path, poles_path, district, archive_p
         for row in rows
         if row["자치구"] == district and row["종류"] == "보행등" and row["X좌표"] and row["Y좌표"]
     }
-    landings = unary_union(
-        [polygon(rings) for rings in pavement["sidewalks"]]
-        + [polygon(island["shape"]) for island in crossings.get("islands", [])]
-    )
+    surfaces = [
+        ("sidewalk", unary_union([polygon(rings) for rings in pavement["sidewalks"]])),
+        ("island", unary_union([polygon(island["shape"]) for island in crossings.get("islands", [])])),
+    ]
+    landings = unary_union([surface for _, surface in surfaces])
+    trace = trace_line(crossings.get("legs", []))
     poles = [Point(pole) for pole in sorted(poles) if landings.covers(Point(pole))]
     pole_index = STRtree(poles)
     records = []
 
-    def add_record(identity, row=None, ends=None):
+    def add_record(identity, row=None, ends=None, walk=None):
         record = {**identity, "installed": None, "heads": []}
         records.append(record)
+        if ends is not None:
+            record["landings"] = [landing_at_end(end, ends[1 - i], surfaces, walk, sign)
+                                  for i, (end, sign) in enumerate(zip(ends, (-1, 1)))]
         if row is None:
             return record
         inventory_id, junction_id, flag, junction, _ = row
@@ -156,7 +204,7 @@ def prepare(crossings, pavement, inventory_path, poles_path, district, archive_p
         footprint = outline.buffer(2)
         matches = [row for row in inventory if footprint.covers(Point(row[4]))]
         ends = [LOCAL(*crossing[key]) for key in ("start", "end")]
-        record = add_record({"ufid": crossing["ufid"]}, matches[0] if len(matches) == 1 else None, ends)
+        record = add_record({"ufid": crossing["ufid"]}, matches[0] if len(matches) == 1 else None, ends, trace)
         # Place the return-walk view inside the mapped island path, looking back across the crosswalk.
         legs = [
             LineString([LOCAL(*point) for point in leg["coordinates"]])
@@ -222,6 +270,7 @@ def make_dataset(crossings, pavement, inventory, poles, district, inventory_date
         "inventoryRecorded": inventory_date,
         "poleSource": POLE_SOURCE,
         "poleFileUpdated": pole_date,
+        "landingRangeM": LANDING_RANGE_M,
         "crossings": records,
         "islands": used_islands,
     }

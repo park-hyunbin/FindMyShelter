@@ -118,6 +118,7 @@ def main():
     if not records or not any(r["installed"] is not None for r in records):
         raise ValueError("No crossing status matched the selected district and region")
     dataset["sources"] = sources
+    ends = [landing for record in records for landing in record.get("landings", [])]
     dataset["coverage"] = {
         "crossings": len(records),
         "installed": sum(record["installed"] is True for record in records),
@@ -125,6 +126,8 @@ def main():
         "unknown": sum(record["installed"] is None for record in records),
         "crossingsWithHeads": sum(bool(record["heads"]) for record in records),
         "heads": sum(len(record["heads"]) for record in records),
+        "landingEnds": len(ends),
+        "landingEndsMapped": sum(landing["gapM"] is not None for landing in ends),
     }
     write_json(args.region_dir / "pedestrian-signals.json", dataset)
     print(json.dumps(dataset["coverage"]))

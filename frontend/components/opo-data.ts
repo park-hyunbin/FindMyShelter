@@ -78,12 +78,19 @@ type PavementFile = {
 };
 type NeighborhoodPlantingFile = { patches: Position[][][] };
 type ServicePavingFile = { surfaces: Position[][][] };
+export type CrossingLanding = {
+  gapM: number | null;
+  surface?: 'sidewalk' | 'island';
+  view?: { position: Position; toward: Position };
+};
 type PedestrianSignalFile = {
   inventorySource: string; inventoryRecorded: string; poleSource: string; poleFileUpdated: string;
+  landingRangeM?: number;
   islands?: { ufid: string; shape: Position[][] }[];
   crossings: {
     ufid?: string; installed: boolean | null; junction?: string;
     heads: { coordinate: Position; toward: Position }[];
+    landings?: [CrossingLanding, CrossingLanding];
     returnView?: { position: Position; toward: Position };
   }[];
 };

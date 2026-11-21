@@ -2,7 +2,7 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { nearestOnLine, splitLineAt, type OpoData, type Point } from './opo-data';
+import { nearestOnLine, splitLineAt, type CrossingLanding, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon, type createTerrainProjection } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile, type RouteSlopeDirection } from './opo-route-profile';
@@ -338,6 +338,9 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       const signalCrossings = signalArchive?.crossings.filter(record =>
         stationTrace?.crossings.some(({ ufid }) => ufid === record.ufid)) ?? [];
       const signalView = signalCrossings.find(record => record.returnView && record.heads.length)?.returnView;
+      const crossingLandings = stationTrace?.crossings.map(({ ufid }) => signalCrossings.find(record => record.ufid === ufid)?.landings) ?? [];
+      const longestGap = crossingLandings.flatMap(pair => pair ?? []).reduce<CrossingLanding | undefined>((best, landing) =>
+        landing.view && landing.gapM !== null && landing.gapM > (best?.gapM ?? 0) ? landing : best, undefined);
       const intermediate = [];
       if (uphill) intermediate.push({
         distance: uphill.end,
@@ -355,11 +358,23 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
             position, data.project(view.toward)),
         });
       }
+      if (longestGap?.view && longestGap.gapM !== null) {
+        const position = data.project(longestGap.view.position);
+        intermediate.push({
+          distance: lengthOf(splitLineAt(projected.flat(), position).before),
+          ...at('crossing-landing-gap', '양재대로 도색과 보도 경계',
+            `도색 끝에서 ${longestGap.surface === 'island' ? '교통섬' : '보도'} 시작까지 경로상 약 ${longestGap.gapM.toFixed(1)}m · 턱과 경사로는 현장 확인`,
+            position, data.project(longestGap.view.toward)),
+        });
+      }
       intermediate.sort((a, b) => b.distance - a.distance);
       return {
         insideM: Math.round(lengthOf(inside)),
         frontageM: frontage ? Math.round(lengthOf(frontage)) : null,
         gateLinkM,
+        crossingLandings: crossingLandings.some(Boolean) ? {
+          pairs: crossingLandings, rangeM: signalArchive?.landingRangeM ?? 6, hasView: Boolean(longestGap?.view),
+        } : null,
         crossingSignals: signalArchive && signalCrossings.length > 0 ? {
           installed: signalCrossings.filter(record => record.installed === true).length,
           absent: signalCrossings.filter(record => record.installed === false).length,
