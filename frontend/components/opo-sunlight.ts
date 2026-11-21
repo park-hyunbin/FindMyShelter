@@ -1,6 +1,6 @@
 import { Raycaster, Vector3, type Intersection, type Mesh } from 'three';
 import SunCalc from 'suncalc3';
-import { distanceToBuildingCoverage, extent, firstHeightGap, type OpoData, type Point, type Shape } from './opo-data';
+import { distanceToBuildingCoverage, extent, firstHeightGap, type ObservationPoint, type OpoData, type Point, type Shape } from './opo-data';
 import { terrainSurface } from './opo-meshes';
 
 export const interval = 10;
@@ -65,9 +65,9 @@ export function createLightAnalyzer(data: OpoData, terrain: Mesh, buildings: Mes
 
   function sampleAtTime(date: string, minute: number) {
     const { altitude, direction } = sunAt(data, date, minute);
-    return (location: Point, height = observationHeight, base?: number): LightSample => {
+    return (location: ObservationPoint, height = observationHeight, base?: number): LightSample => {
       if (altitude <= 0) return { minute, status: 'night' };
-      origin.set(location.x, (base ?? surface(location.x, location.z)) + height, location.z);
+      origin.set(location.x, (base ?? location.observationBase ?? surface(location.x, location.z)) + height, location.z);
       ray.set(origin, direction);
       hits.length = 0;
       const hit = ray.intersectObjects(objects, false, hits)[0];
@@ -81,10 +81,10 @@ export function createLightAnalyzer(data: OpoData, terrain: Mesh, buildings: Mes
     };
   }
 
-  const at = (location: Point, date: string, minute: number, height = observationHeight) => sampleAtTime(date, minute)(location, height);
-  function day(location: Point, date: string): LightReport {
+  const at = (location: ObservationPoint, date: string, minute: number, height = observationHeight) => sampleAtTime(date, minute)(location, height);
+  function day(location: ObservationPoint, date: string): LightReport {
     const samples: LightSample[] = [];
-    const base = surface(location.x, location.z);
+    const base = location.observationBase ?? surface(location.x, location.z);
     let sunMinutes = 0, unclassifiedMinutes = 0;
     for (let minute = interval / 2; minute < 1440; minute += interval) {
       const sample = sampleAtTime(date, minute)(location, observationHeight, base);

@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { makeCar } from './opo-vehicle';
-import { buildingCollision, extent, inShape, nearestOnLine, precinct, splitLineAt, type OpoData, type Point } from './opo-data';
+import { buildingCollision, extent, inShape, nearestOnLine, precinct, splitLineAt, type ObservationPoint, type OpoData, type Point } from './opo-data';
 import { addCourtyard, courtyard, courtyardGarden, courtyardOpening, inCourtyardRing } from './opo-courtyard';
 import { addOpoEntrance } from './opo-entrance';
 import { courtyardStairs } from './opo-garden';
@@ -35,7 +35,7 @@ import { ambientFixtures, ambientStationDistance } from './data/songpa-ambient';
 
 export type ViewMode = 'orbit' | 'walk' | 'drive';
 export type Slot = 'A' | 'B';
-export type SitePoint = Point & { id: string; label: string };
+export type SitePoint = ObservationPoint & { id: string; label: string };
 const roadEntry = [127.16554, 37.351224];
 const routePlaces = ['수레실.오포롯데캐슬', '능평도서관', '용상골현대아파트', '현동빌라'];
 const headingTo = (from: Point, to: Point) => Math.atan2(to.x - from.x, from.z - to.z);
@@ -241,6 +241,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   let stickX = 0, stickY = 0;
   let mode: ViewMode = 'orbit';
   let eyeLevel = false;
+  let fixedObservationBase: number | undefined;
   let studyingSunlight = false;
   let walkingAtEyeLevel = true;
   const firstPerson = () => eyeLevel || (mode === 'walk' && walkingAtEyeLevel);
@@ -698,6 +699,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   function setMode(next: ViewMode) {
     accessEntranceId = null;
     if (mode === next && !eyeLevel) return;
+    if (fixedObservationBase !== undefined) position = { x: position.x, z: position.z };
     const previous = mode;
     if (next === 'drive') {
       const entry = streets.nearest(position, 24) ?? roadSpawn;
@@ -713,6 +715,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     camera.near = next === 'orbit' ? orbitNear : streetNear;
     camera.updateProjectionMatrix();
     eyeLevel = false;
+    fixedObservationBase = undefined;
     tripIndex = 0;
     walkingTo = null;
     speed = 0;
@@ -766,7 +769,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       return;
     }
     const sample = analysis.at(location, date, minute);
-    const origin = new T.Vector3(location.x, observationSurface(location.x, location.z) + observationHeight, location.z);
+    const origin = new T.Vector3(location.x, (location.observationBase ?? observationSurface(location.x, location.z)) + observationHeight, location.z);
     const { direction } = sunAt(data, date, minute);
     lightPath.update(sample, origin, direction, slot);
     updateComparisonMarkers();
@@ -851,7 +854,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   canvas.addEventListener('pointerup', event => {
     if (!drag || event.pointerId !== drag.id) return;
     const click = drag.distance + Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 9;
-    if (click && (selecting || mode === 'walk')) {
+    if (click && (selecting || (mode === 'walk' && fixedObservationBase === undefined))) {
       const frame = canvas.getBoundingClientRect();
       const pointer = new T.Vector2((event.clientX - frame.left) / frame.width * 2 - 1, -((event.clientY - frame.top) / frame.height) * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
@@ -889,7 +892,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     if (mode === 'orbit') controls.update();
     else {
       const driving = mode === 'drive';
-      const move = selecting ? 0 : T.MathUtils.clamp(Number(movement.has('up')) - Number(movement.has('down')) - stickY, -1, 1);
+      const move = selecting || fixedObservationBase !== undefined ? 0
+        : T.MathUtils.clamp(Number(movement.has('up')) - Number(movement.has('down')) - stickY, -1, 1);
       const steer = selecting ? 0 : T.MathUtils.clamp(Number(movement.has('right')) - Number(movement.has('left')) + stickX, -1, 1);
       if (move || steer || selecting) walkingTo = null;
       if (walkingTo) {
@@ -951,7 +955,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const angle = heading + viewAngle;
       if (firstPerson()) {
         const renderedFloor = isOpo ? undefined : modeledFloor;
-        const base = renderedFloor ?? (eyeLevel || studyingSunlight ? surfaceHeight : undefined);
+        const base = fixedObservationBase ?? renderedFloor ?? (eyeLevel || studyingSunlight ? surfaceHeight : undefined);
         const eye = base === undefined ? actor.position.y + 1.6 : base + observationHeight;
         camera.position.set(position.x, eye, position.z);
         const tilt = (0.17 - pitch) * Math.PI / 2;
@@ -1048,6 +1052,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     setWalkingCamera(enabled: boolean) {
       walkingAtEyeLevel = enabled;
       eyeLevel = false;
+      fixedObservationBase = undefined;
       player.visible = mode === 'walk' && !firstPerson();
       viewAngle = 0;
       pitch = 0.17;
@@ -1091,6 +1096,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
           : mode === 'drive' ? headingTo(entry.segment.a, entry.segment.b) : headingTo(position, target.position);
       }
       eyeLevel = false;
+      fixedObservationBase = undefined;
       player.visible = mode === 'walk' && !firstPerson();
       tripIndex = 0;
       walkingTo = null;
@@ -1136,9 +1142,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       movement.clear();
       return true;
     },
-    lookFrom(point: Point, bearing: number, sightlineAngle?: number) {
+    lookFrom(point: ObservationPoint, bearing: number, sightlineAngle?: number) {
       setMode('walk');
       eyeLevel = true;
+      fixedObservationBase = point.observationBase;
       walkingTo = null;
       player.visible = false;
       movement.clear();
@@ -1271,8 +1278,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     removePeer,
     clearPeers() { for (const id of peers.keys()) removePeer(id); },
     canAnalyze,
-    place(slot: Slot, location: Point) {
-      const y = observationSurface(location.x, location.z);
+    place(slot: Slot, location: ObservationPoint) {
+      const y = location.observationBase ?? observationSurface(location.x, location.z);
       markers[slot].visible = true;
       markers[slot].position.set(location.x, y, location.z);
       pinLabels.find(label => label.slot === slot)?.point.set(location.x, y + 3.2, location.z);
@@ -1312,8 +1319,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         : nearestOnLine(point, environment.greens.flatMap(shape => shape.map(ring => [...ring, ring[0]]))).distance;
       return { water, green, elevation: data.elevationAt(point.x, point.z), spread: data.spreadAt(point.x, point.z) };
     },
-    directionProfile(point: Point, bearing: number) {
-      return directionProfile(data, roofs, observationSurface(point.x, point.z), point, bearing);
+    directionProfile(point: ObservationPoint, bearing: number) {
+      return directionProfile(data, roofs, point.observationBase ?? observationSurface(point.x, point.z), point, bearing);
     },
     showTreeCover(enabled: boolean) {
       if (!treeCoverOverlay || treeCoverOverlay.visible === enabled) return;

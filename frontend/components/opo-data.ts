@@ -15,6 +15,7 @@ import jamsilLandscape from '../public/datasets/regions/jamsil-leel/landscape.js
 
 export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
 export type Point = { x: number; z: number };
+export type ObservationPoint = Point & { observationBase?: number };
 export type Shape = Point[][];
 type HeightGap = { label: string; rings: Shape; center: Point; radius: number };
 export type Building = {

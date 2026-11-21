@@ -1,0 +1,47 @@
+{
+  "source": "https://data.seoul.go.kr/dataList/OA-22424/S/1/datasetView.do",
+  "parcel": "서울특별시 송파구 가락동 95",
+  "roadNumber": 33,
+  "towers": [
+    {
+      "buildingId": "55765286",
+      "dong": "101동",
+      "heightM": 58.45,
+      "floors": 21,
+      "approvedOn": "2001-11-26",
+      "collectedOn": "2024-11-19"
+    },
+    {
+      "buildingId": "55765487",
+      "dong": "102동",
+      "heightM": 62.75,
+      "floors": 23,
+      "approvedOn": "2001-11-26",
+      "collectedOn": "2024-11-19"
+    },
+    {
+      "buildingId": "55765541",
+      "dong": "103동",
+      "heightM": 62.75,
+      "floors": 23,
+      "approvedOn": "2001-11-26",
+      "collectedOn": "2024-11-19"
+    },
+    {
+      "buildingId": "55765485",
+      "dong": "104동",
+      "heightM": 48.4,
+      "floors": 18,
+      "approvedOn": "2001-11-26",
+      "collectedOn": "2024-11-19"
+    },
+    {
+      "buildingId": "55765284",
+      "dong": "105동",
+      "heightM": 44.45,
+      "floors": 16,
+      "approvedOn": "2001-11-26",
+      "collectedOn": "2024-11-19"
+    }
+  ]
+}

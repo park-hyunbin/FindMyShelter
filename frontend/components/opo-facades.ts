@@ -1,16 +1,25 @@
-import { inShape, type OpoData, type Point } from './opo-data';
+import { inShape, outlineCenter, type ObservationPoint, type OpoData, type Point } from './opo-data';
+import { terrainSurface } from './opo-meshes';
+import register from '../public/datasets/regions/songpa/facade-elevations.json';
 
-export type FacadeView = Point & { id: string; label: string; dong: string; bearing: number; direction: string };
+type FloorReference = { floors: number; heightM: number; foundation: number; collectedOn: string };
+export type FacadeView = Point & { id: string; label: string; dong: string; bearing: number; direction: string; floorReference?: FloorReference };
+export const facadeRegisterSource = register.source;
 
 export const facadeOffsetM = 3;
 const compass = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
 
-export function facadeViews(data: Pick<OpoData, 'buildings' | 'northOffset' | 'siteOutline'>, canAnalyze: (point: Point) => boolean) {
+export function facadeViews(data: Pick<OpoData, 'buildings' | 'northOffset' | 'siteOutline' | 'ground' | 'region'>, canAnalyze: (point: Point) => boolean) {
   if (data.siteOutline.length < 3) return [];
   return data.buildings.flatMap(building => {
     const dong = building.dong;
     if (!dong) return [];
     const ring = building.shapes[0][0];
+    const recorded = data.region === 'songpa' ? register.towers.find(row =>
+      row.buildingId === building.id && row.dong === dong && row.heightM === building.height && row.floors === building.levels) : undefined;
+    const center = outlineCenter(ring);
+    const floorReference = recorded && { floors: recorded.floors, heightM: recorded.heightM,
+      foundation: terrainSurface(data.ground, center.x, center.z), collectedOn: recorded.collectedOn };
     const winding = Math.sign(ring.reduce((area, a, i) => {
       const b = ring[(i + 1) % ring.length];
       return area + a.x * b.z - b.x * a.z;
@@ -30,10 +39,21 @@ export function facadeViews(data: Pick<OpoData, 'buildings' | 'northOffset' | 's
       if (!canAnalyze(point) || !inShape(point, [data.siteOutline])) continue;
       const direction = compass[sector];
       faces.set(sector, { length, view: {
-        ...point, id: `facade-${building.id}-${sector}`, dong, direction, bearing,
+        ...point, id: `facade-${building.id}-${sector}`, dong, direction, bearing, floorReference,
         label: `${dong} ${direction}쪽 외벽 바깥`,
       } });
     }
     return [...faces.values()].map(({ view }) => view);
   }).sort((a, b) => a.dong.localeCompare(b.dong) || a.bearing - b.bearing);
+}
+
+export function facadeObservation(view: FacadeView, floor: number): ObservationPoint & FacadeView {
+  const reference = view.floorReference;
+  if (!reference || !Number.isInteger(floor) || floor < 1 || floor > reference.floors) return view;
+  return {
+    ...view,
+    id: `${view.id}-floor-${floor}`,
+    label: `${view.dong} ${floor}층 높이 · ${view.direction}쪽 외벽 바깥`,
+    observationBase: reference.foundation + (floor - 1) * reference.heightM / reference.floors,
+  };
 }

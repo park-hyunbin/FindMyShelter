@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { courtyard, courtyardGarden } from './opo-courtyard';
 import { courtyardStairs } from './opo-garden';
-import { loadOpoData, type CrossingLanding, type Point } from './opo-data';
+import { loadOpoData, type CrossingLanding, type ObservationPoint, type Point } from './opo-data';
 import { entranceRoadView, entranceRoadViewDate, opoEntranceBridgeId } from './opo-entrance';
 import { horizonChartStep, horizonRange, type DirectionProfile } from './opo-horizon';
 import { routeAscent, routeTerrainStep, type RouteSlopeDirection, type RouteTerrainProfile, type RouteTerrainSample } from './opo-route-profile';
 import { interval, nearSurfaceHeight, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
-import { facadeOffsetM, type FacadeView } from './opo-facades';
+import { facadeObservation, facadeOffsetM, facadeRegisterSource, type FacadeView } from './opo-facades';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
@@ -425,6 +425,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [open, setOpen] = useState(false);
   const [placeCategory, setPlaceCategory] = useState('all');
   const [facadeId, setFacadeId] = useState<string | null>(null);
+  const [facadeFloor, setFacadeFloor] = useState(0);
+  const [fixedFacade, setFixedFacade] = useState<FacadeView | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [schoolZoneVisible, setSchoolZoneVisible] = useState(false);
   const [tab, setTab] = useState<AnalysisTab>(region === 'songpa' ? 'checklist' : region === 'jamsil-leel' ? 'site' : 'sun');
@@ -659,20 +661,23 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, open, tab, points, bearing]);
 
   const facade = world?.facades.find(view => view.id === facadeId) ?? world?.facades[0];
+  const facadePoint = useMemo(() => facade && facadeObservation(facade, facadeFloor), [facade, facadeFloor]);
   const facing = useMemo(() => {
-    if (!world || !open || tab !== 'site' || !facade) return;
-    const { nearest, range } = world.buildingAhead(facade);
-    const { hit, nearestHeightGap } = world.directionProfile(facade, facade.bearing);
+    if (!world || !open || tab !== 'site' || !facadePoint) return;
+    const { nearest, range } = world.buildingAhead(facadePoint);
+    const { hit, nearestHeightGap } = world.directionProfile(facadePoint, facadePoint.bearing);
     return {
       building: nearest ? `앞 건물 · ${nearest.name} · 직선 약 ${Math.round(nearest.distance)}m`
         : `앞 건물 · 자료 범위 약 ${Math.round(range)}m 안에서 미확인`,
+      coverage: nearest ? `이 방향의 건물 자료는 관찰점에서 약 ${Math.round(range)}m까지 있어요.` : null,
       horizon: hit ? `자료상 차폐각 ${hit.angle < 0.1 ? '0.1° 미만' : `약 ${hit.angle.toFixed(1)}°`} · ${hit.source}`
         : nearestHeightGap ? '높이 자료 부족 · 차폐 여부 미판정' : '확인 범위에서 수평선 위 차폐 없음',
       heightGap: nearestHeightGap && `높이 미확인 · ${nearestHeightGap.label} · 약 ${Math.round(nearestHeightGap.distance)}m${hit ? ' · 추가 차폐 가능' : ''}`,
     };
-  }, [world, facade, tab, open]);
+  }, [world, facadePoint, tab, open]);
 
   function chooseMode(next: ViewMode) {
+    setFixedFacade(null);
     setWinterViewing(false);
     setAmbientStopId(null);
     setHomeStep(null);
@@ -779,8 +784,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world.showGreenAccess(next);
   }
 
-  function lookFromPoint(point: Point, direction: number, sightlineAngle?: number) {
+  function lookFromPoint(point: ObservationPoint, direction: number, sightlineAngle?: number) {
     if (!world) return;
+    setFixedFacade(null);
     setSelectedSlot(null);
     setStatus('');
     hideTreeCover();
@@ -791,12 +797,16 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
   }
 
-  function viewFacade(view: FacadeView) {
-    if (!world) return;
+  function viewFacade(view: FacadeView, floor = 0) {
+    if (!world) return false;
+    const point = facadeObservation(view, floor);
+    if (floor && point.observationBase === undefined) return false;
     pendingAnalysisSection.current = { tab: 'site', selector: '[data-site-card="facades"]' };
-    lookFromPoint(view, view.bearing);
+    lookFromPoint(point, view.bearing);
+    setFixedFacade(floor ? view : null);
     setStreet(world.streetStatus());
     world.focus();
+    return true;
   }
 
   function lookAtRoutePoint(point: Pick<RouteTerrainSample, 'position' | 'bearing'>) {
@@ -913,8 +923,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       setReturnChecklistItem('visit-plan');
       chooseTab('site');
       setFacadeId(view.id);
-      viewFacade(view);
-      return true;
+      setFacadeFloor(scene.floor ?? 0);
+      return viewFacade(view, scene.floor);
     }
     if (scene.kind === 'home') {
       const stops = world.greenAccessProfiles.find(route => route.id === scene.routeId)?.homeWalk?.stops;
@@ -1001,6 +1011,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (!world) return;
     const next = world.goTo(id, observation);
     if (!next) return;
+    setFixedFacade(null);
     setWinterViewing(Boolean(observation));
     setAmbientStopId(null);
     setFloodStopId(null);
@@ -1196,7 +1207,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
     <nav className="view-controls" aria-label="3D 탐색 모드">
       {(Object.keys(modeLabels) as ViewMode[]).map(key => <button key={key} disabled={!world} aria-pressed={mode === key} onClick={() => chooseMode(key)}>{modeLabels[key]}</button>)}
-      {mode === 'walk' && <button disabled={!world} aria-pressed={walkingAtEyeLevel} onClick={() => {
+      {mode === 'walk' && fixedFacade && <button disabled={!world} onClick={() => {
+        setFacadeFloor(0);
+        viewFacade(fixedFacade);
+      }}>지상 눈높이</button>}
+      {mode === 'walk' && !fixedFacade && <button disabled={!world} aria-pressed={walkingAtEyeLevel} onClick={() => {
         if (!world) return;
         setWalkingAtEyeLevel(!walkingAtEyeLevel);
         world.setWalkingCamera(!walkingAtEyeLevel);
@@ -1205,6 +1220,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       <button className="recenter" aria-label="시작 위치로 돌아가기" title="시작 위치로 돌아가기" disabled={!world} onClick={() => {
         setAmbientStopId(null);
         setHomeStep(null);
+        setFixedFacade(null);
         world?.locate();
       }}>⌖</button>
     </nav>
@@ -1285,7 +1301,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 {slots.map(slot => <option key={slot} value={slot} disabled={!points[slot]}>{slot} · {points[slot]?.label ?? '지점 미선택'}</option>)}
               </select>
             </label>
-            <p className="season-caption">{seasonYear}년 계절 대표일 · 관측 높이 {observationHeight}m<br/>일조 막대를 눌러 공통 시각을 바꿀 수 있어요.</p>
+              <p className="season-caption">{seasonYear}년 계절 대표일 · 선택한 기준면 위 {observationHeight}m<br/>일조 막대를 눌러 공통 시각을 바꿀 수 있어요.</p>
             {world && seasonPoint && <SeasonalSunlight
               key={`${seasonSlot}-${seasonPoint.x}-${seasonPoint.z}-${seasonYear}`}
               world={world} point={seasonPoint} year={seasonYear} minute={minute} onTime={setMinute}
@@ -1321,7 +1337,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 if (next) choosePoint(slot, next);
               }}>
                 <option value="" disabled>지점 선택</option>
-                {point?.id === 'custom' && <option value="custom">{point.label}</option>}
+                {(point?.id === 'custom' || point?.observationBase !== undefined) && <option value={point.id}>{point.label}</option>}
                 {world?.presets.map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
               </select>
               <button aria-label={`3D 공간에서 지점 ${slot} 선택`} title={`3D 공간에서 지점 ${slot} 선택`} aria-pressed={selectedSlot === slot} disabled={!world} onClick={() => {
@@ -1330,6 +1346,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               }}>⌖</button>
             </div>
             {tab === 'sun' && report && sample && <>
+              {point?.observationBase !== undefined && <p className="site-status">외벽 바깥 · 선택한 층의 추정 바닥 위 {observationHeight}m</p>}
               <div className="sun-total"><strong>{duration(report.sunMinutes)}</strong><span>모델상 직사광</span></div>
               <Timeline report={report} minute={minute} label={`지점 ${slot} 일조 시간 선택`} onTime={setMinute} />
               <p className="site-status">{lightStatus(sample)}</p>
@@ -1697,10 +1714,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           </div>
         </article>
         <article className="site-card" data-site-card="facades" tabIndex={-1}>
-          <h3>동별 외벽과 앞 건물</h3>
+          <h3>동·층별 외벽 조망</h3>
           {facade && <label className="facade-select">
             동과 외벽 방향
-            <select value={facade.id} onChange={event => setFacadeId(event.target.value)}>
+            <select value={facade.id} onChange={event => {
+              setFacadeId(event.target.value);
+              setFacadeFloor(0);
+            }}>
               {songpaComplex.towers.map(({ dong }) => {
                 const sides = world?.facades.filter(view => view.dong === dong);
                 return sides?.length ? <optgroup key={dong} label={dong}>
@@ -1709,32 +1729,51 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               })}
             </select>
           </label>}
+          {facade?.floorReference && <label className="facade-select">
+            관찰 높이
+            <select value={facadeFloor} onChange={event => {
+              const floor = Number(event.target.value);
+              setFacadeFloor(floor);
+              if (fixedFacade?.id === facade.id) viewFacade(facade, floor);
+            }}>
+              <option value={0}>지상 눈높이</option>
+              {Array.from({ length: facade.floorReference.floors }, (_, index) => index + 1).map(floor =>
+                <option key={floor} value={floor}>{floor}층 높이</option>)}
+            </select>
+          </label>}
           {facade && facing && <div aria-live="polite">
             <p>{facing.building}</p>
             <p>{facing.horizon}</p>
             {facing.heightGap && <p>{facing.heightGap}</p>}
+            {facing.coverage && <p>{facing.coverage}</p>}
           </div>}
-          <p>외벽 가운데에서 바깥쪽 {facadeOffsetM}m, 모델 바닥 위 {observationHeight}m에서 봐요. 앞 건물은 이 방향에서 가장 먼저 만나는 건물이에요. 차폐각은 지형과 높이가 확인된 건물이 시야를 가장 높이 가리는 각도예요.</p>
+          <p>외벽에서 {facadeOffsetM}m 떨어진 바깥 시점이에요. 층 높이는 건축물대장의 동별 높이를 층수로 나눠 추정해요. 실제 창 방향과 실내 밝기는 세대별 확인이 필요해요.</p>
           <div className="site-actions">
-            <button disabled={!world || !facade} onClick={() => facade && viewFacade(facade)}>이 방향을 눈높이로 보기</button>
-            <button disabled={!world || !facade} onClick={() => {
-              if (!facade) return;
+            <button disabled={!world || !facade} onClick={() => facade && viewFacade(facade, facadeFloor)}>선택한 높이에서 조망 보기</button>
+            <button disabled={!world || !facadePoint} onClick={() => {
+              if (!facade || !facadePoint) return;
               chooseMode('orbit');
-              choosePoint('B', facade);
+              if (facadePoint.observationBase !== undefined) setPoints({ A: facade, B: facadePoint });
+              else choosePoint('B', facadePoint);
               pendingAnalysisSection.current = { tab: 'sun', selector: '.site-card.site-B' };
               chooseTab('sun');
-            }}>이 지점을 일조 비교 B에 넣기</button>
-            <button disabled={!facade || !facing} onClick={() => {
-              if (!facade || !facing) return;
+            }}>{facadePoint?.observationBase !== undefined ? '지상과 이 층의 실외 일조 비교' : '이 지점을 일조 비교 B에 넣기'}</button>
+            <button disabled={!facadePoint || !facing} onClick={() => {
+              if (!facade || !facadePoint || !facing) return;
               field.save({
-                scene: { kind: 'facade', viewId: facade.id },
-                place: facade.label,
-                finding: [`실외 모델 눈높이 ${observationHeight}m`, facing.building, facing.horizon, facing.heightGap].filter(Boolean).join(' / '),
+                scene: { kind: 'facade', viewId: facade.id, floor: facadeFloor || undefined },
+                place: facadePoint.label,
+                finding: [facadeFloor ? `실외 모델 ${facadeFloor}층 높이` : `실외 모델 눈높이 ${observationHeight}m`,
+                  facing.building, facing.horizon, facing.heightGap].filter(Boolean).join(' / '),
                 note: '관심 층·호수의 거실 창은 어느 방향인가요?\n창에서 보이는 앞동과 방문 시각의 채광은 어떤가요?\n창호·누수·결로·곰팡이·수압·층간소음은 어떤가요?',
               });
               openVisitPlan();
             }}>이 방향을 현장 메모에 담기</button>
           </div>
+          {facade?.floorReference && <div className="basis">
+            <p>{facade.dong} · 높이 {facade.floorReference.heightM}m · 지상 {facade.floorReference.floors}층 · 대장 수집일 {facade.floorReference.collectedOn}</p>
+            <a href={facadeRegisterSource} target="_blank" rel="noreferrer">서울시 건축물대장 표제부 ↗</a>
+          </div>}
           <details className="basis">
             <summary>공급 141㎡·170㎡ 기본형 평면도</summary>
             <p>두 기본형 모두 방 4개와 욕실 2개가 있고 거실이 발코니와 맞닿아 있어요. 170㎡는 1번 방 옆에 드레스실이 표시돼요.</p>
@@ -1893,7 +1932,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       <button onClick={() => { setSelectedSlot(null); setStatus(''); }}>취소</button>
     </div>}
 
-    {mode !== 'orbit' && <div className="movement" aria-label="이동 조작">
+    {mode !== 'orbit' && !fixedFacade && <div className="movement" aria-label="이동 조작">
       {directions.map(([key, glyph, label]) => <button key={key} className={`move-${key}`} aria-label={label}
         onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); world?.movement(key, true); }}
         onLostPointerCapture={() => world?.movement(key, false)}
@@ -1902,7 +1941,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         onKeyUp={() => world?.movement(key, false)}
         onBlur={() => world?.movement(key, false)}>{glyph}</button>)}
     </div>}
-    {mode === 'walk' && !open && !selectedSlot && <div className="walk-stick" role="group" aria-label="걷기 조이스틱"
+    {mode === 'walk' && !fixedFacade && !open && !selectedSlot && <div className="walk-stick" role="group" aria-label="걷기 조이스틱"
       onPointerDown={event => {
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
@@ -1920,7 +1959,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       onLostPointerCapture={event => walkStick(event.currentTarget, 0, 0)}><span aria-hidden="true" /></div>}
 
     <div className="scene-instructions">{mode === 'orbit' ? '드래그로 회전 · 스크롤로 확대'
-      : mode === 'drive' ? 'W/S 가속·후진 · A/D 조향' : '바닥을 눌러 이동 · WASD로 걷기 · 드래그로 둘러보기'}</div>
+      : mode === 'drive' ? 'W/S 가속·후진 · A/D 조향' : fixedFacade ? '외벽 바깥 고정 시점 · 드래그로 둘러보기'
+        : '바닥을 눌러 이동 · WASD로 걷기 · 드래그로 둘러보기'}</div>
 
     {!world && <div className="loading" role="status">{error ? <><p>{error}</p><button onClick={() => { setError(''); setRetry(value => value + 1); }}>다시 열기</button></> : `${area.name}의 지형과 건물을 불러오는 중…`}</div>}
 

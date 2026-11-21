@@ -9,7 +9,7 @@ export type FieldScene =
   | { kind: 'home'; routeId: string; stopId: string }
   | { kind: 'school-gate'; routeId: string }
   | { kind: 'drainage'; stopId: string; view: FloodView; year: string }
-  | { kind: 'facade'; viewId: string };
+  | { kind: 'facade'; viewId: string; floor?: number };
 
 export type FieldVisit = {
   scene: FieldScene;
@@ -28,7 +28,7 @@ export function fieldSceneId(scene: FieldScene) {
     case 'home': return `home:${scene.routeId}:${scene.stopId}`;
     case 'school-gate': return `school-gate:${scene.routeId}`;
     case 'drainage': return `drainage:${scene.stopId}:${scene.view}:${scene.year}`;
-    case 'facade': return `facade:${scene.viewId}`;
+    case 'facade': return `facade:${scene.viewId}${scene.floor ? `:${scene.floor}` : ''}`;
   }
 }
 
@@ -45,7 +45,8 @@ function validScene(value: unknown): value is FieldScene {
     return typeof scene.pointId === 'string' && dateValue(scene.date) && typeof scene.minute === 'number'
       && Number.isInteger(scene.minute) && scene.minute >= 0 && scene.minute < 1440;
   }
-  if (scene.kind === 'facade') return typeof scene.viewId === 'string' && scene.viewId.length > 0;
+  if (scene.kind === 'facade') return typeof scene.viewId === 'string' && scene.viewId.length > 0
+    && (scene.floor === undefined || (Number.isInteger(scene.floor) && scene.floor > 0));
   if (scene.kind === 'school-gate') return typeof scene.routeId === 'string' && scene.routeId.length > 0;
   if (scene.kind === 'drainage') return typeof scene.stopId === 'string' && typeof scene.view === 'string'
     && ['closest', 'area', 'forecast', 'slope', 'pond', 'river'].includes(scene.view)
