@@ -272,6 +272,7 @@ h1, h2, p { margin: 0; }
 .walk-legend i { flex: 0 0 12px; align-self: center; border-block-start: 3px solid #148b80; }
 .walk-legend .walk-gap { border-block-start: 3px dashed #d89753; }
 .walk-legend .walk-aerial { border-color: #a58ae4; }
+.walk-legend .walk-shared { border-color: #5bc8e5; }
 .walk-preview .walk-legend { display: flex; flex-wrap: wrap; gap: 3px 9px; margin: 0; color: var(--lilac); }
 .return-walk a { display: inline-block; margin: 6px 8px 0 0; }
 .route-comparison { width: 100%; margin: 8px 0; border-collapse: collapse; text-align: left; font-size: 11px; }

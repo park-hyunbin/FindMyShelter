@@ -2,13 +2,14 @@ import * as T from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { nearestOnLine, splitLineAt, type CrossingLanding, type OpoData, type Point } from './opo-data';
+import { inShape, nearestOnLine, splitLineAt, type CrossingLanding, type OpoData, type Point } from './opo-data';
 import { groundPolygon, ribbon, type createTerrainProjection } from './opo-meshes';
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile, type RouteSlopeDirection } from './opo-route-profile';
+import { pavedRoute } from './opo-paved-route';
 import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
-import { songpaGrounds, songpaPlayground } from './data/songpa-grounds';
+import { songpaCourtyard, songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
 import { songpaSchool } from './data/songpa-school';
@@ -180,10 +181,11 @@ export function addSongpaAmbientMap(data: OpoData, scene: T.Scene, grade: OpoDat
 }
 
 export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['ground'],
-  site: ReturnType<typeof addSiteDetails>, standingSurface?: OpoData['ground']) {
+  site: ReturnType<typeof addSiteDetails>, insideBuilding: (point: Point) => boolean, standingSurface?: OpoData['ground']) {
   const recorded = new LineMaterial({ color: data.region === 'songpa' ? '#148b80' : '#286e58', linewidth: 4.3 });
   const unconfirmed = new LineMaterial({ color: '#bf763a', linewidth: 4.3, dashed: true, dashSize: 9, gapSize: 5 });
   const aerialTrace = data.region === 'songpa' ? new LineMaterial({ color: '#8e69d5', linewidth: 4.3 }) : null;
+  const sharedPaving = data.region === 'songpa' ? new LineMaterial({ color: '#37b9db', linewidth: 4.3 }) : null;
   const shortConnection = data.region === 'songpa'
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
   const gradeLine = data.region === 'songpa'
@@ -196,6 +198,33 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     sum + Math.hypot(point.x - points[i].x, point.z - points[i].z), 0);
   const bearingTo = (from: Point, to: Point) =>
     T.MathUtils.radToDeg(Math.atan2(to.x - from.x, from.z - to.z) - data.northOffset);
+  const inner = songpaGrounds.points.find(point => point.id === 'inner-paving');
+  const garden = songpaCourtyard.views.find(point => point.id === 'west-garden');
+  const arrival = inner && data.project(inner.coordinate);
+  const gardenPosition = garden && data.project(garden.viewFrom ?? garden.coordinate);
+  const paving = site.paving;
+  const gardenWalk = sharedPaving && paving && arrival && gardenPosition ? (() => {
+    const surfaces = paving.walkableSurfaces();
+    const surfaceAt = (point: Point) => {
+      if (!inShape(point, [data.siteOutline]) || insideBuilding(point) || paving.fenced(point) || paving.parked(point)) return;
+      return surfaces.at(point) ?? 'gap';
+    };
+    const exact = pavedRoute(arrival, gardenPosition, point => {
+      const surface = surfaceAt(point);
+      return surface === 'gap' ? undefined : surface;
+    });
+    const route = exact ?? pavedRoute(arrival, gardenPosition, surfaceAt);
+    surfaces.clear();
+    if (!route) return;
+    const distances = route.reduce((totals, leg) => {
+      totals[leg.surface] += lengthOf(leg.points);
+      return totals;
+    }, { walk: 0, shared: 0, gap: 0 });
+    if (distances.walk <= 0) return;
+    const longestGap = route.filter(leg => leg.surface === 'gap').reduce<typeof route[number] | undefined>(
+      (longest, leg) => !longest || lengthOf(leg.points) > lengthOf(longest.points) ? leg : longest, undefined);
+    return { route, distances, longestGap };
+  })() : undefined;
   function viewPose(view?: { position: number[]; toward: number[] }) {
     if (!view) return;
     const position = data.project(view.position);
@@ -310,9 +339,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       && stationRoute ? (() => {
       const nearStation = songpaHomeLinks.stationExit.coordinates.map(data.project);
       const nearGate = songpaHomeLinks.gateApproach.coordinates.map(data.project);
-      const inner = songpaGrounds.points.find(point => point.id === 'inner-paving');
-      if (!inner) return null;
-      const arrival = data.project(inner.coordinate);
+      if (!inner || !arrival) return null;
       // Follow the same sampled curve used for the visible driveway.
       const join = driveway.slice(1).reduce((best, end, index) => {
         const candidate = nearestOnLine(arrival, [[driveway[index], end]]);
@@ -327,6 +354,10 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       if (frontage) addLine(frontage, aerialTrace, surfaceGuide);
       addLine(gateLink, shortConnection, surfaceGuide);
       addLine(inside, aerialTrace, surfaceGuide);
+      if (gardenWalk && sharedPaving) for (const leg of gardenWalk.route) {
+        const styles = { walk: aerialTrace, shared: sharedPaving, gap: shortConnection };
+        addLine(leg.points, styles[leg.surface], surfaceGuide);
+      }
       const at = (id: string, name: string, evidence: string, position: Point, toward: Point) => ({
         id, name, evidence, position,
         bearing: bearingTo(position, toward),
@@ -370,6 +401,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       intermediate.sort((a, b) => b.distance - a.distance);
       return {
         insideM: Math.round(lengthOf(inside)),
+        gardenDistances: gardenWalk?.distances ?? null,
         frontageM: frontage ? Math.round(lengthOf(frontage)) : null,
         gateLinkM,
         crossingLandings: crossingLandings.some(Boolean) ? {
@@ -401,7 +433,16 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
           at('main-gate', '정문 접근로', '차단기 옆 포장은 영상으로 확인했어요. 실제 보행 동선과 개방 여부는 현장 확인이 필요해요.',
             site.gateView ?? data.project(songpaEntrance.main.position), data.project(songpaEntrance.main.lookAt)),
           at(inner.id, inner.name, '항공영상 기반 포장 공간 근사 · 차량 통행과 단차는 현장 확인',
-            arrival, data.project(inner.lookAt)),
+            arrival, gardenWalk?.route[0]?.points[4] ?? data.project(inner.lookAt)),
+          ...(gardenWalk?.longestGap ? [
+            at('courtyard-gap', '산책로 접속 확인 지점',
+              `이 앞 약 ${Math.round(lengthOf(gardenWalk.longestGap.points))}m는 포장·보행 연결 미확인 · 안내선은 두 포장 사이의 모델상 연결`,
+              gardenWalk.longestGap.points[0], gardenWalk.longestGap.points.at(-1)!),
+          ] : []),
+          ...(gardenWalk && garden && gardenPosition ? [
+            at('courtyard-walk', garden.name, '서울시 도형과 항공영상에 근거한 산책로 · 동 출입문, 차량 통행과 단차는 현장 확인',
+              gardenPosition, data.project(garden.lookAt)),
+          ] : []),
         ],
       };
     })() : null;

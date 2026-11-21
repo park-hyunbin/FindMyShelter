@@ -214,6 +214,7 @@ export function addSiteSurfaces(
   };
   const decks: { mesh: T.Mesh<T.BufferGeometry>; bounds: T.Box3 }[] = [];
   const drivewayDecks: typeof decks = [];
+  const walkDecks: typeof decks = [];
   const ray = new T.Raycaster(undefined, new T.Vector3(0, -1, 0));
   const hits: T.Intersection[] = [];
   const parkedCars: { center: Point; direction: Point }[] = [];
@@ -234,13 +235,15 @@ export function addSiteSurfaces(
         const deck = { mesh, bounds: geometry.boundingBox };
         decks.push(deck);
         if (texture === 'asphalt') drivewayDecks.push(deck);
+        return deck;
       }
     }
   }
 
   function addWalk(deck: T.BufferGeometry, value = paving, texture?: TourSurface) {
     sidewalkSeams?.addDeck(deck);
-    add(deck, value, texture);
+    const surface = add(deck, value, texture);
+    if (surface) walkDecks.push(surface);
   }
 
   function addWalkSide(geometry: T.BufferGeometry) {
@@ -272,6 +275,19 @@ export function addSiteSurfaces(
   }
   const elevation = (point: Point) => surfaceHeight(point, decks);
   const drivewayElevation = (point: Point) => surfaceHeight(point, drivewayDecks);
+  function walkableSurfaces() {
+    const sidewalks = createSurfaceClipper(3);
+    const paving = createSurfaceClipper(3);
+    for (const { mesh } of walkDecks) sidewalks.addSurface(mesh.geometry);
+    for (const { mesh } of decks) paving.addSurface(mesh.geometry);
+    return {
+      at(point: Point) {
+        if (sidewalks.heightAt(point) !== undefined) return 'walk' as const;
+        if (paving.heightAt(point) !== undefined) return 'shared' as const;
+      },
+      clear() { sidewalks.clear(); paving.clear(); },
+    };
+  }
 
   function curve(points: Coordinate[], spacing = 1.2) {
     const line = new T.CatmullRomCurve3(points.map(data.project).map(({ x, z }) => new T.Vector3(x, 0, z)));
@@ -556,5 +572,5 @@ export function addSiteSurfaces(
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
   const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
-  return { elevation, drivewayElevation, drivewayCenterline, sidewalkCenterlines, sidewalkTreeHeights, asphaltDecks, parked, fenced };
+  return { elevation, drivewayElevation, walkableSurfaces, drivewayCenterline, sidewalkCenterlines, sidewalkTreeHeights, asphaltDecks, parked, fenced };
 }

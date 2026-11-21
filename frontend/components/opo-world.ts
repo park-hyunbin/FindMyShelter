@@ -162,7 +162,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     if (insideBuilding(position) || streets.roadClearance(position) < 0.02 || site.paving?.fenced(position)) return [];
     return [{ kind, position, toward: streets.nearest(position, 32)?.point }];
   }), observationSurface, smallScreen ? 3 : 4) : undefined;
-  const greenAccess = addGreenAccess(data, scene, streets.surface, site, observationSurface);
+  const greenAccess = addGreenAccess(data, scene, streets.surface, site, insideBuilding, observationSurface);
   const schoolCrossing = greenAccess.layers.find(layer => layer.id === songpaSchool.routeId)?.crossingView;
   const parkViews = isGarak ? [songiPark.crossingView, ...songiPark.views].map(({ name, coordinate, toward }) => {
     const position = data.project(coordinate);

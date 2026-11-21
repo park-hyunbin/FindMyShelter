@@ -1101,11 +1101,17 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <li><i aria-hidden="true" />보도 표기</li>
         <li><i className="walk-gap" aria-hidden="true" />연결 미확인</li>
         <li><i className="walk-aerial" aria-hidden="true" />영상 대조 · 위치 근사</li>
+        {homeWalk.gardenDistances && <li><i className="walk-shared" aria-hidden="true" />보행·차량 공용 포장</li>}
       </ul>
       <div className="walk-preview-actions">
         <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
         <button type="button" disabled={homeStep === homeWalk.stops.length - 1} onClick={() => viewHomeStop(accessId, homeStep + 1)}>다음</button>
         <button type="button" onClick={() => { showAccessRoute(accessId); setOpen(true); }}>경로 지도</button>
+        {currentHomeStop.id === 'courtyard-walk' && <button type="button" onClick={() => {
+          setWinterWalkSelection({ id: 'west-garden', hour: 15 });
+          openWinterWalk();
+          setOpen(true);
+        }}>이 지점의 겨울 오후 일조 보기</button>}
         <button type="button" onClick={() => {
           const route = access.routes.find(item => item.id === accessId);
           field.save({
@@ -1409,6 +1415,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                   {home.frontageM !== null && <li><i className="walk-aerial" aria-hidden="true" />정문 블록 포장까지 서쪽 보도 약 {home.frontageM}m · {songpaEntrance.capturedIn} 로드뷰 대조 · 폭과 턱 높이는 근사</li>}
                   <li><i className="walk-gap" aria-hidden="true" />정문 {home.frontageM !== null ? `차단기 옆 약 ${home.gateLinkM}m 구간의 실제 보행 연결 미확인` : `방향 약 ${home.gateLinkM}m의 연결 미확인`}</li>
                   <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>
+                  {home.gardenDistances && <>
+                    <li><i className="walk-aerial" aria-hidden="true" />103·104동 사이 산책로까지 보행 포장 약 {Math.round(home.gardenDistances.walk)}m</li>
+                    {home.gardenDistances.shared > 0 && <li><i className="walk-shared" aria-hidden="true" />같은 구간의 보행·차량 공용 포장 약 {Math.round(home.gardenDistances.shared)}m</li>}
+                    {home.gardenDistances.gap > 0 && <li><i className="walk-gap" aria-hidden="true" />산책로 방향의 포장·보행 연결 미확인 약 {Math.round(home.gardenDistances.gap)}m</li>}
+                  </>}
                 </ul>
                 {home.crossingSignals && <p>
                   보행등 있음 {home.crossingSignals.installed}곳 · 없음 {home.crossingSignals.absent}곳
@@ -1437,6 +1448,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 {route.id === songpaStationRouteId && <p>거리와 경사는 OpenStreetMap 경로와 서울시 표고를 기준으로 계산했어요.</p>}
                 <div className="site-actions">
                   <button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button>
+                  {home.gardenDistances && <button type="button" onClick={() =>
+                    viewHomeStop(route.id, home.stops.findIndex(stop => stop.id === 'courtyard-walk'))}>103·104동 사이까지 이어 보기</button>}
                   {home.crossingSignals?.viewReady && <button type="button" onClick={() =>
                     viewHomeStop(route.id, home.stops.findIndex(stop => stop.id === 'yangjae-crossing'))}>보행등 있는 횡단보도 보기</button>}
                   <button type="button" onClick={() => {

@@ -74,11 +74,12 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
     checks: [
       {
         id: 'transit', title: '역·정류장까지 걷기', evidence: 'model',
-        finding: '송파역 2번 출구에서 단지로 돌아오며 양재대로 교통섬과 가락광장 동쪽 녹지를 볼 수 있어요. 녹지 안 수목과 포장은 2025년 10월 항공영상을 참고했어요. 양재대로 남쪽 버스 정류소까지의 길도 확인할 수 있어요.',
+        finding: '송파역 2번 출구에서 양재대로 교통섬과 정문을 거쳐 103·104동 사이 산책로까지 둘러봐요. 단지 안에서 차량이 지나는 포장과 보행로, 연결이 확인되지 않은 곳을 구분해요. 양재대로 남쪽 버스 정류소 방향도 볼 수 있어요.',
         views: [{ target: 'station-home', label: '송파역에서 귀갓길 체험' }, { target: 'bus-route', label: '가락동부센트레빌아파트 정류소 보기' }],
-        followUp: '보도에서 정문까지 남은 연결과 단차, 정류소 승차 방향, 출근 시간에 실제 걸린 시간을 확인해 보세요.',
+        followUp: '정문 옆과 산책로 앞의 보행 연결, 단차와 차량 통행을 확인해 보세요. 정류소 승차 방향과 출근 시간에 실제 걸린 시간도 확인할 수 있어요.',
         sources: [walkingNetwork, { label: '서울시 가락광장·완충녹지 도형', url: garakGreenStrip.source.planning },
           { label: '정문 방향 보도 로드뷰', url: songpaEntrance.frontage.roadview },
+          { label: '단지 산책로 도형 · 서울시 에스맵', url: songpaEntrance.roadGeometry },
           { label: '서울시 버스정류소 위치정보', url: songpaBusStop.source }],
       },
       {
