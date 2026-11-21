@@ -21,6 +21,7 @@ import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
 import { createStreetOcclusion } from './opo-contact-shadows';
 import { addStreetLights } from './opo-street-lights';
+import { addPedestrianSignals } from './opo-pedestrian-signals';
 import { createStudyShadows } from './opo-study-shadows';
 import type { TourPeer, TourPose } from './tour-live-types';
 import { songpaComplex } from './data/regions';
@@ -149,6 +150,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const ground = streets.surface(x, z);
     return isOpo ? ground : walkFloor({ x, z }, ground) ?? ground;
   }
+  addPedestrianSignals(scene, data.pedestrianSignals?.crossings.flatMap(({ heads }) => heads.map(head => ({
+    position: data.project(head.coordinate), toward: data.project(head.toward),
+  }))) ?? [], observationSurface);
   const streetLights = isOpo ? undefined : addStreetLights(scene, ambientFixtures.flatMap(({ kind, coordinate }) => {
     const position = data.project(coordinate);
     if (insideBuilding(position) || streets.roadClearance(position) < 0.02 || site.paving?.fenced(position)) return [];

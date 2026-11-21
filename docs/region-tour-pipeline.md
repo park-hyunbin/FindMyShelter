@@ -102,6 +102,14 @@ node frontend/scripts/prepare-region.mjs --region songpa --refresh
 - 단지 경계 450m 이내에는 서울시 2025 도시생태현황도의 조경수목식재지 E1·E2 도형을 사용합니다. EPSG:5174 원본을 EPSG:5186으로 변환한 뒤 서울시 차도·보도, 건물 윤곽, 기존 녹지·수면을 제외합니다. 송파에서는 조사 구역 13곳에서 약 17,275㎡의 보완 면 17개를 얻었습니다. 이 면은 공원과 단지 내부의 상세 바닥 아래에서 같은 지형을 따르며 녹지까지의 직선거리에도 반영됩니다. 세부 마감과 수목의 위치·높이는 별도 자료가 필요합니다. `uv run --with pyshp --with pyproj --with shapely python backend/scripts/prepare_neighborhood_planting.py songpa <비오톱 ZIP> <차도 ZIP> <보도 ZIP>`으로 다시 생성합니다. [서울시 2025 비오톱유형도](https://data.seoul.go.kr/dataList/OA-21145/S/1/datasetView.do)
 - 가락우성1차의 가운데 주차 통로와 동쪽 주차 마당, 양옆 포장 다섯 구역은 서울시 부지안도로의 가장자리를 2025-10-28 항공영상과 대조해 약 6,900㎡의 면으로 복원합니다. `data/config/surfaces/songpa.json`에 원본 UFID와 확인한 꼭짓점 범위를 기록합니다. 동쪽 주차 마당은 UFID 끝자리 143·144를 사용하고 약 781㎡를 추가합니다. 기존 통로와 만나는 가장자리는 두 면이 같은 원본 구간을 공유합니다. 공통 생성기는 확인한 경계를 이어 면으로 만들고 기존 포장·건물·녹지를 제외합니다. 렌더러는 기존 도로에서 이미 그려진 부분을 잘라내며, 포장면과 걷기 높이는 공공 차도와 같은 지형을 따릅니다. 포장 재질과 경계 접속부는 근사이며 보행로의 공공 통행 여부와 주차 조건은 별도 확인 항목입니다. `uv run --with pyshp --with pyproj --with shapely python backend/scripts/prepare_service_paving.py songpa <부지안도로 ZIP>`으로 다시 생성합니다. [서울시 부지안도로](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1L_A0010000.zip) · [항공영상 촬영 정보](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/9/query?objectIds=5292045&outFields=SRC_DATE,NICE_DESC,SRC_RES&returnGeometry=false&f=pjson)
 
+### 횡단보도와 보행등
+
+송파역 귀갓길의 양재대로 횡단부 세 곳은 서울시 T-GIS 2026-08-24 시설 현황에서 보행등 있음 1곳(관리번호 `06-0000032304`)과 없음 2곳을 확인했습니다. 보행등이 있는 횡단부 양끝의 3.40m·3.99m 떨어진 좌표는 2026-02-13에 갱신된 서울시 보행등 분포도에서 찾았습니다. 두 좌표는 양쪽 교통섬 안에 있습니다. 공통 생성기는 횡단 도형에서 시설 항목을 찾고, 양끝에서 가까운 보행등 좌표와 보도·교통섬 도형을 대조합니다. 위치나 연결이 불확실하면 보행등 모형을 생성하지 않습니다. 공통 렌더러는 같은 지면에 기둥을 세우고 반대쪽 횡단부를 향해 등기구를 배치합니다. 등기구의 치수와 방향은 근사입니다. 실제 점등과 대기 시간에는 해당 교차로의 별도 신호 자료가 필요합니다. [횡단보도 시설 현황](https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do) · [보행등 분포도](https://data.seoul.go.kr/dataList/OA-22356/F/1/datasetView.do) · [서울시 V2X 신호 API](https://t-data.seoul.go.kr/dataprovide/trafficdataviewopenapi.do?data_id=10381)
+
+```sh
+uv run --with openpyxl --with pyproj --with shapely python backend/scripts/prepare_pedestrian_signals.py frontend/public/datasets/regions/songpa/station-crossings.json frontend/public/datasets/regions/songpa/pavement.json <시설-현황.xlsx> <보행등-분포도.csv> 송파구 frontend/public/datasets/regions/songpa/pedestrian-signals.json --inventory-date 2026-08-24 --pole-file-date 2026-02-13
+```
+
 ## 송파에서 서울로 확장하는 데이터 설계
 
 2026년 11월 18일 기준 확보 경로를 확인했다. **새 단지에 주소와 단지 코드를 등록하면 공통 데이터로 주변 기본 3D가 생성되고, 확인한 출입구·보행로·시설만 단지 데이터로 추가되는 구조**를 목표로 한다. 같은 동네의 건물·지형·도로는 인접 단지가 재사용한다. 아래는 목표 설계이며, 송파 이외 구역의 원본과 실제 제공 범위는 아직 확보·검증이 필요하다.

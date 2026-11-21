@@ -1383,21 +1383,33 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={songpaStationAccess.guide} target="_blank" rel="noreferrer">서울교통공사 송파역 안내도 ({songpaStationAccess.guideDate}) ↗</a>
                 <a href={songpaStationAccess.elevatorSource} target="_blank" rel="noreferrer">국가철도공단 설치 목록 ({songpaStationAccess.elevatorDate}) ↗</a>
                 <a href={songpaStationAccess.elevatorLocation.source} target="_blank" rel="noreferrer">서울시 엘리베이터 위치 ({songpaStationAccess.elevatorLocation.sourceYear}년 기준) ↗</a>
+                {home.crossingSignals && <>
+                  <a href={home.crossingSignals.inventorySource} target="_blank" rel="noreferrer">서울시 횡단보도 시설 목록 ({home.crossingSignals.inventoryRecorded}) ↗</a>
+                  <a href={home.crossingSignals.poleSource} target="_blank" rel="noreferrer">서울시 보행등 위치 (파일 갱신 {home.crossingSignals.poleFileUpdated}) ↗</a>
+                </>}
                 <ul className="walk-legend">
                   <li><i className="walk-mapped" aria-hidden="true" />지도상 보도 경로 {route.walkwayM}m · 양재대로60길 일부는 서울시 보도면을 따라 표시</li>
                   <li><i className="walk-mapped" aria-hidden="true" />2번 출구 앞 약 {songpaHomeLinks.stationExit.lengthM}m · 같은 서울시 보도면 안에 위치</li>
                   {route.id === songpaStationRouteId && <>
                     <li><i className="walk-mapped" aria-hidden="true" />양재대로 횡단보도 {songpaStationCrossings.crossings.length}곳과 연결 보도 · 서울시 도형 기준</li>
                     <li><i className="walk-aerial" aria-hidden="true" />교통섬 안의 보행로 · 항공영상에서 확인한 포장 위치</li>
-                    <li><i className="walk-gap" aria-hidden="true" />횡단보도와 교통섬이 맞닿는 곳의 짧은 점선 · 연결부 턱과 신호는 현장 확인</li>
+                    <li><i className="walk-gap" aria-hidden="true" />횡단보도와 교통섬이 맞닿는 곳의 짧은 점선 · 연결부 턱은 현장 확인</li>
                   </>}
                   {home.frontageM !== null && <li><i className="walk-aerial" aria-hidden="true" />정문 블록 포장까지 서쪽 보도 약 {home.frontageM}m · {songpaEntrance.capturedIn} 로드뷰 대조 · 폭과 턱 높이는 근사</li>}
                   <li><i className="walk-gap" aria-hidden="true" />정문 {home.frontageM !== null ? `차단기 옆 약 ${home.gateLinkM}m 구간의 실제 보행 연결 미확인` : `방향 약 ${home.gateLinkM}m의 연결 미확인`}</li>
                   <li><i className="walk-aerial" aria-hidden="true" />단지 안 포장 공간까지 약 {home.insideM}m · 항공영상 기반 추정</li>
                 </ul>
+                {home.crossingSignals && <p>
+                  보행등 있음 {home.crossingSignals.installed}곳 · 없음 {home.crossingSignals.absent}곳
+                  {home.crossingSignals.unknown > 0 && ` · 미확인 ${home.crossingSignals.unknown}곳`}
+                  {home.crossingSignals.heads > 0 && ` · 서울시 좌표로 보행등 ${home.crossingSignals.heads}개 표시`}
+                  {' · 실제 점등 시각과 대기 시간은 현장 확인'}
+                </p>}
                 {route.id === songpaStationRouteId && <p>거리와 경사는 OpenStreetMap 경로와 서울시 표고를 기준으로 계산했어요.</p>}
                 <div className="site-actions">
                   <button type="button" onClick={() => viewHomeStop(route.id, 0)}>귀갓길 체험 시작</button>
+                  {home.crossingSignals?.viewReady && <button type="button" onClick={() =>
+                    viewHomeStop(route.id, home.stops.findIndex(stop => stop.id === 'yangjae-crossing'))}>보행등 있는 횡단보도 보기</button>}
                   <button type="button" onClick={() => {
                     if (!world) return;
                     if (!selected) showAccessRoute(route.id);

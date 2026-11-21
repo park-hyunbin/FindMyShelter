@@ -334,22 +334,43 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       const uphill = profile?.returnSteepest;
       const elevator = data.project(songpaStationAccess.elevatorLocation.coordinate);
       const elevatorFrom = data.project(songpaStationAccess.elevatorLocation.viewFrom);
+      const signalArchive = stationTrace ? data.pedestrianSignals : null;
+      const signalCrossings = signalArchive?.crossings.filter(record =>
+        stationTrace?.crossings.some(({ ufid }) => ufid === record.ufid)) ?? [];
+      const signalView = signalCrossings.find(record => record.returnView && record.heads.length)?.returnView;
       const intermediate = [];
       if (uphill) intermediate.push({
         distance: uphill.end,
         id: 'return-uphill', name: '귀갓길에서 가장 가파른 30m', evidence: `서울시 표고 기반 모델 · 약 ${uphill.gradient.toFixed(1)}%`,
         ...uphill.view,
       });
-      if (stationTrace) intermediate.push({
-        distance: stationTrace.view.distance,
-        ...at('yangjae-crossing', '양재대로 횡단보도', '교통섬 2곳은 서울시 도형 · 섬 안 보행로는 항공영상 기준 · 신호와 턱은 현장 확인',
-          data.project(stationTrace.view.position), data.project(stationTrace.view.toward)),
-      });
+      if (stationTrace) {
+        const view = signalView ?? stationTrace.view;
+        const position = data.project(view.position);
+        intermediate.push({
+          distance: signalView ? lengthOf(splitLineAt(projected.flat(), position).before) : stationTrace.view.distance,
+          ...at('yangjae-crossing', '양재대로 횡단보도', signalView
+            ? '교통섬 양쪽 보행등 위치는 서울시 자료 · 설치 모형 · 실제 신호 타이밍과 턱은 현장 확인'
+            : '교통섬 2곳은 서울시 도형 · 섬 안 보행로는 항공영상 기준 · 신호와 턱은 현장 확인',
+            position, data.project(view.toward)),
+        });
+      }
       intermediate.sort((a, b) => b.distance - a.distance);
       return {
         insideM: Math.round(lengthOf(inside)),
         frontageM: frontage ? Math.round(lengthOf(frontage)) : null,
         gateLinkM,
+        crossingSignals: signalArchive && signalCrossings.length > 0 ? {
+          installed: signalCrossings.filter(record => record.installed === true).length,
+          absent: signalCrossings.filter(record => record.installed === false).length,
+          unknown: signalCrossings.filter(record => record.installed === null).length,
+          heads: signalCrossings.reduce((total, record) => total + record.heads.length, 0),
+          inventorySource: signalArchive.inventorySource,
+          inventoryRecorded: signalArchive.inventoryRecorded,
+          poleSource: signalArchive.poleSource,
+          poleFileUpdated: signalArchive.poleFileUpdated,
+          viewReady: Boolean(signalView),
+        } : null,
         elevator: {
           position: elevatorFrom, bearing: bearingTo(elevatorFrom, elevator),
           target: new T.Vector3(elevator.x, surfaceGuide(elevator) + 2.2, elevator.z),

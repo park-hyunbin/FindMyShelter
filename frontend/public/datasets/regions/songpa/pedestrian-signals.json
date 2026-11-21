@@ -1,0 +1,65 @@
+{
+  "inventorySource": "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do",
+  "inventoryRecorded": "2026-08-24",
+  "poleSource": "https://data.seoul.go.kr/dataList/OA-22356/F/1/datasetView.do",
+  "poleFileUpdated": "2026-02-13",
+  "crossings": [
+    {
+      "ufid": "1000377090303A00410000000000000016",
+      "inventoryId": "06-0000032295",
+      "junctionId": 2098,
+      "junction": "가락시장",
+      "installed": false,
+      "heads": []
+    },
+    {
+      "ufid": "1000377090303A00410000000000000009",
+      "inventoryId": "06-0000032304",
+      "junctionId": 2098,
+      "junction": "가락시장",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.114537301,
+            37.497792423
+          ],
+          "toward": [
+            127.114264202,
+            37.498052103
+          ],
+          "distanceFromCrossingEndM": 3.4
+        },
+        {
+          "coordinate": [
+            127.114282596,
+            37.498084933
+          ],
+          "toward": [
+            127.114499717,
+            37.497785851
+          ],
+          "distanceFromCrossingEndM": 3.99
+        }
+      ],
+      "returnView": {
+        "position": [
+          127.114263971,
+          37.498128673
+        ],
+        "toward": [
+          127.114499717,
+          37.497785851
+        ]
+      }
+    },
+    {
+      "ufid": "1000377090303A00410000000000000011",
+      "inventoryId": "06-0000032305",
+      "junctionId": 2098,
+      "junction": "가락시장",
+      "installed": false,
+      "heads": []
+    }
+  ]
+}

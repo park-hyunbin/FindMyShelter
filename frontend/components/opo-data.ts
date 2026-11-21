@@ -78,6 +78,14 @@ type PavementFile = {
 };
 type NeighborhoodPlantingFile = { patches: Position[][][] };
 type ServicePavingFile = { surfaces: Position[][][] };
+type PedestrianSignalFile = {
+  inventorySource: string; inventoryRecorded: string; poleSource: string; poleFileUpdated: string;
+  crossings: {
+    ufid: string; installed: boolean | null; junction?: string;
+    heads: { coordinate: Position; toward: Position }[];
+    returnView?: { position: Position; toward: Position };
+  }[];
+};
 
 export type Environment = EnvironmentProperties & { lines: Point[][]; shapes: Shape[] };
 export type OpoData = Awaited<ReturnType<typeof loadOpoData>>;
@@ -141,7 +149,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const area = regions.find(r => r.id === region)!;
   const empty = {type: 'FeatureCollection' as const, features: []};
   const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings, pavement,
-    planting, servicePaving] = await Promise.all([
+    planting, servicePaving, pedestrianSignals] = await Promise.all([
     loadBuildingDataset(region, signal),
     json<EnvironmentFile>(area.environment, signal),
     json<TerrainFile>(area.terrain, signal),
@@ -154,6 +162,10 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     area.pavement ? json<PavementFile>(area.pavement, signal) : Promise.resolve(null),
     area.planting ? json<NeighborhoodPlantingFile>(area.planting, signal) : Promise.resolve(null),
     area.servicePaving ? json<ServicePavingFile>(area.servicePaving, signal) : Promise.resolve(null),
+    area.pedestrianSignals ? json<PedestrianSignalFile>(area.pedestrianSignals, signal).catch(error => {
+      if (signal.aborted) throw error;
+      return null;
+    }) : Promise.resolve(null),
   ]);
   const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
@@ -336,6 +348,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     features, siteRoads, siteOutline, project, northOffset, buildingRadius, streets, streetPoints, parking,
     neighborhoodPlanting: planting?.patches.map(toShape) ?? [],
     servicePaving: servicePaving?.surfaces.map(toShape) ?? [],
+    pedestrianSignals,
     treeCover: region === 'opo' ? treeCover : null,
     streetSource: neighborhood?.metadata.source ?? environment.metadata.tile_source,
     buildingRegister: region === 'opo' ? { ...register, towers: registerRows.sort((a, b) => a.dong.localeCompare(b.dong)) } : null,
