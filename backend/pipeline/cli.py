@@ -223,7 +223,7 @@ def publish(c, frame, report):
         props['review_status'] = props.pop('rev_status')
         props.pop('rev_note'); props.pop('rev_date')  # Keep manual evidence in canonical data, not every client request.
         features.append({'type': 'Feature', 'geometry': mapping(wgs.geometry.iloc[i]), 'properties': props})
-    output = path(f"frontend/public/datasets/buildings/{c['region']}")
+    output = path(c.get('output_directory', f"frontend/public/datasets/buildings/{c['region']}"))
     max_bytes = c.get('max_chunk_bytes', 180000)
     if not 10000 <= max_bytes <= 1000000:
         raise ValueError('max_chunk_bytes must be 10000..1000000')

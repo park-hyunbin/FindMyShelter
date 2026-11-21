@@ -79,4 +79,37 @@ uv run --with openpyxl python backend/scripts/link_seoul_apartment_register.py \
 
 필지고유번호 엑셀 SHA-256은 `327b29d8266b2c3ae7c9e7a62c574fe64283cb3687fa1da211febb7cd9f4611f`이고, 표제부 ZIP은 `dfab53ee7e07e37f31477d6190b4718564dd860b0de91627e7a4b16562216b7a`다.
 
-다음 검증에서는 연결된 주동 관리번호를 지도 건물 윤곽과 결합해 공통 장면을 일괄 생성한다. 신축·노후·언덕 지역에 같은 과정을 적용한다. 지도 검수는 동 번호나 지번이 충돌하거나, 지하도·육교의 층위가 불명확하거나, 보행망이 끊긴 곳에 집중한다. 자치구별 보행망과 일조 분석 범위는 공통 공간 조각이 생성된 뒤 집계한다.
+## 주동을 지도 윤곽에 연결
+
+서울특별시 에스맵-오픈랩의 건물면 `N1A_B0010000`으로 주동 위치를 확인했다. 도로명·건물 본번·부번·우편번호가 일치하는 주거 윤곽 중 동 이름이 정확히 맞는 것을 연결했다. 단지에 주동과 윤곽이 각각 하나이고 지도에 동명이 없다면 층수가 일치할 때 연결했다. 여러 윤곽이 같은 동 이름을 쓰거나 도형이 깨지면 검토 목록에 남긴다. 지도 층수와 대장이 다른 877개 윤곽에서는 자료별 층수를 따로 기록했다. 3D에 전달하는 높이와 층수는 건축물대장 값을 사용한다. [서울특별시 에스맵-오픈랩 건물면](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_B0010000.zip) · [오픈랩 이용 조건](https://openlab.eseoul.go.kr/)
+
+| 범위 | 대장 연결 단지 | 전 주동 윤곽 연결 | 대장 연결 주동 | 윤곽 연결 주동 | 높이값 보유 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 서울 25개 구 | 1,963 | 1,238 | 11,405 | 9,086 | 7,193 |
+| 송파구 | 118 | 79 | 1,082 | 959 | 651 |
+
+가락동부센트레빌 5개 동과 가락금호 8개 동 모두 기존 송파 모델에서 가장 많이 겹치는 윤곽의 동 번호와 일치했다. 두 데이터의 교집합을 합집합으로 나눈 면적 비율의 평균은 각각 96.1%, 91.6%였다. 원본 건물면 파일은 2024년 7월 4일자이며, 최신 공사와 신축 단지는 별도 갱신 자료가 필요하다. 잠실 르엘은 해당 건물면 파일에 도로명주소 333의 윤곽을 찾지 못했다. 기존 OSM의 13개 동 윤곽을 근거로 장면을 제공한다.
+
+연결된 서울 건물 윤곽은 UFID당 한 번 저장한다. 아래 명령으로 공유 윤곽과 검토 목록을 생성하고, 가락동부센트레빌·가락금호·잠실엘스의 주변 건물까지 같은 형식으로 잘라 기존 웹 건물 파이프라인을 실행한다. 원본 해시를 비교해 서로 다른 시점의 건물면과 연결 결과가 섞이는 것을 막는다. 주변 건물은 윤곽과 지도 층수를 사용하며, 대장 연결 높이값이 빈 건물의 높이는 비어 있다.
+
+| 송파 샘플 | 범위 내 건물 | 해당 단지 주동 | 범위 내 대장 높이값 보유 |
+| --- | ---: | ---: | ---: |
+| 가락동부센트레빌 | 1,786 | 5 | 22 |
+| 가락금호 | 1,455 | 8 | 15 |
+| 잠실엘스 | 1,407 | 72 | 73 |
+
+가락 두 단지의 영역이 겹치는 건물 1,292개는 각 웹 조각에서 식별자, 윤곽, 속성이 모두 같았다. 웹 조각의 해시, 건물 수와 지형 결합에 사용할 EPSG:5186 원점도 검증했다.
+
+```sh
+uv run --with openpyxl --with pyshp --with pyproj --with shapely python backend/scripts/match_seoul_building_footprints.py \
+  data/processed/complexes/seoul-register-links.json /path/to/N1A_B0010000.zip --output-dir data/processed/complexes/seoul-footprints
+uv run --with openpyxl --with pyshp --with pyproj --with shapely python backend/scripts/prepare_seoul_building_windows.py \
+  data/processed/complexes/seoul-footprints /path/to/N1A_B0010000.zip --complex A13816002 --complex A13880407 --complex A13822004 \
+  --output-dir data/processed/complexes/seoul-building-windows
+for code in A13816002 A13880407 A13822004; do
+  uv run --with geopandas --with shapely --with pyproj python -m backend.pipeline build-geojson \
+    --config "data/processed/complexes/seoul-building-windows/$code/config.json"
+done
+```
+
+이번 생성 범위는 건물 데이터다. 웹에서 단지 밖까지 이어지는 임장으로 연결하려면 동일 좌표계의 지형, 도로·보행, 녹지 데이터를 같은 범위에 맞춘다. 자치구별 보행망과 일조 분석 범위는 공통 공간 조각이 생성된 뒤 집계한다.

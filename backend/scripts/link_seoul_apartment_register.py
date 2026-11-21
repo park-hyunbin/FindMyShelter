@@ -56,6 +56,7 @@ def read_catalog(path):
                 raise ValueError(f'Invalid or duplicate catalog code {code!r}')
             catalog[code] = {
                 'name': row['단지명'].strip(), 'district': row['시군구'].strip(), 'address': row['도로명주소'].strip(),
+                'postalCode': row['우편번호'].strip() or None,
                 'expectedBuildings': number(row['동수']), 'expectedHouseholds': number(row['세대수']),
             }
         return catalog
