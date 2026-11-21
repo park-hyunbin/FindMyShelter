@@ -110,12 +110,9 @@ def load_national_links(path, city_bounds):
                    references, np.asarray(kinds))
 
 
-def station_geometry(rows):
-    geometries = from_wkb([row[6] for row in rows])
-    starts = np.asarray([row[1] for row in rows])
-    lengths = np.asarray([row[2] - row[1] for row in rows])
+def sample_spans(geometries, starts, lengths):
     counts = np.ceil(lengths / SPACING_M).astype(int)
-    indices = np.repeat(np.arange(len(rows)), counts)
+    indices = np.repeat(np.arange(len(geometries)), counts)
     weights = (lengths / counts)[indices]
     origins = np.repeat(np.cumsum(counts) - counts, counts)
     along = starts[indices] + weights * (np.arange(len(indices)) - origins + 0.5)
@@ -129,7 +126,7 @@ def station_geometry(rows):
     return counts, indices, weights, get_coordinates(line_interpolate_point(lines, along)), tangents
 
 
-def select_axes(network, coordinates, tangent, road_geometries, is_stop):
+def select_axes(network, coordinates, tangent, road_geometries, is_stop, *, require_projection=False):
     selected = np.full(len(coordinates), MISSING, dtype=int)
     if not len(coordinates):
         return selected
@@ -139,9 +136,11 @@ def select_axes(network, coordinates, tangent, road_geometries, is_stop):
     samples, edges, owners = samples[keep], edges[keep], owners[keep]
     starts, vectors = network.start[edges], network.vectors[edges]
     relative = coordinates[samples] - starts
-    positions = np.clip(np.sum(relative * vectors, axis=1) / network.lengths[edges] ** 2, 0, 1)
-    feet = starts + positions[:, None] * vectors
+    positions = np.sum(relative * vectors, axis=1) / network.lengths[edges] ** 2
+    feet = starts + np.clip(positions, 0, 1)[:, None] * vectors
     keep = covers(road_geometries[samples], points(feet))
+    if require_projection:
+        keep &= (positions >= 0) & (positions <= 1)
     samples, owners = samples[keep], owners[keep]
     distances = np.linalg.norm(coordinates[samples] - feet[keep], axis=1)
     order = np.lexsort((owners, distances, samples))
@@ -166,7 +165,10 @@ def structure_evidence(network, coordinates):
 
 
 def analyze_batch(rows, axes, national, road_at, districts):
-    counts, indices, weights, coordinates, tangents = station_geometry(rows)
+    counts, indices, weights, coordinates, tangents = sample_spans(
+        from_wkb([row[6] for row in rows]), np.asarray([row[1] for row in rows]),
+        np.asarray([row[2] - row[1] for row in rows]),
+    )
     roads = np.asarray([row[4] or 0 for row in rows])[indices]
     stop = np.asarray([row[5] == "stop" for row in rows])[indices]
     usable = roads != 0
