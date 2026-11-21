@@ -55,6 +55,14 @@
 
 같은 검사를 서울 전체의 3m 이상 도로면 밖 구간 38,561개에 적용했다. 정지선을 제외하고 최대 5m 간격으로 단면을 만들었으며, 양옆 18m 안에서 동일한 원본 경계 한 쌍이 계속 확인되는 경우만 후보로 집계했다. 검사한 약 1,191km 가운데 1,156개 구간, 약 22.8km(1.9%)에서 양쪽 경계 후보를 찾았다. 후보마다 차선 관리번호와 양쪽 경계 UFID를 기록했다. 포장과 접속부가 확인되면 해당 구간을 다시 검증하고, 다른 구간은 최신 차도면과 층위 자료로 보강한다.
 
+### 서울 전역 실폭도로 대조
+
+브이월드에는 행정안전부의 `(도로명주소)실폭도로_서울.zip`이 서울 전체 한 파일로 올라와 있다. 2026-11 상태로 표시된 자료의 갱신일은 2026-11-13, 표시 용량은 26MB, 카탈로그 좌표계는 EPSG:5179다. 원본 다운로드에는 로그인이 필요하며 브이월드 자료 담당자는 이 레이어의 API를 제공하지 않는다고 안내한다. [실폭도로 다운로드와 데이터 문의](https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=MK&dsId=30057) · [행정안전부 도로명주소 전자지도](https://www.data.go.kr/data/15050413/fileData.do)
+
+이 자료를 확보하면 동일한 좌표계로 변환해 기존 차도·보도 둘 다 밖에 있는 차선 구간 60,713개, 약 1,221.3km를 한 번에 검사할 수 있다. 겹친 길이는 실폭도로 폴리곤 하나에 포함된 부분, 여러 폴리곤에 겹친 부분, 여전히 도로 밖인 부분으로 나눠 기록한다. 차선 관리번호에 연결되는 구간 키와 실폭도로의 파일명·레코드 번호를 보존한다. 기존 서울시 차도면을 대조군으로 입력했을 때 25개 구의 전체 길이와 가락 정문의 도로면 밖 30.81m가 그대로 재현됐다. [실폭도로 비교 코드](../../backend/scripts/compare_seoul_road_surface.py)
+
+서울 25개 구를 대상으로 한 연구에서 2025년 10월 실폭도로의 도로 경계 꺾임점 3,768개를 항공 정사영상과 대조했을 때 평균 거리 오차는 1.87m였다. 따라서 이 레이어와 겹친다는 사실은 포장 후보의 근거로 사용한다. 차선 위치와 도로 층위는 최신 노면표시 선형과 구조물 자료로 각각 확인한 뒤 연결한다. 가락 정문을 포함한 실제 2026년 실폭도로의 수록 여부는 ZIP을 받아 검사해야 한다. [도로명주소 실폭도로 위치오차 연구](https://www.ksgpc.or.kr/jksgpc/journal/thesisPrint/Vol/1554.pdf)
+
 ## 서울 전체 도로중심선·입체도로 검사
 
 위 인덱스의 806,797개 구간을 서울시 에스맵 도로중심선과 대조했다. 차선이 도로면 하나와 겹치는 부분을 최대 4m 간격으로 검사했다. 16m 안에서 같은 도로면 위의 중심선을 찾고, 진행 축과 25° 이내로 나란한지 확인했다. 정지선은 중심선과 직각에 가까운지 봤다. 서로 다른 중심선의 거리 차가 1m 이내면 여러 후보로 남겼다. 원본 차선 좌표, 중심선 UFID와 분류별 길이를 저장했다.
@@ -127,3 +135,9 @@ uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/
 ```
 
 [정밀도로지도 공개 목록 일괄 확인 코드](../../backend/scripts/inspect_seoul_hdmap_catalog.ps1)
+
+서울 실폭도로 ZIP을 내려받은 뒤 아래처럼 저장 경로를 지정해 비교한다. 출력 SQLite의 `surface_check`는 원래 인덱스와 같은 차선 구간 키를 쓰며 `--marking-id`는 가락 정문처럼 특정 관리번호를 결과 요약에 포함한다.
+
+```powershell
+uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/compare_seoul_road_surface.py ../road-source-cache/seoul-marking-index.sqlite ../road-source-cache/vworld-seoul-road-width.zip ../road-source-cache/seoul-road-width-check.sqlite --marking-id 11-0000104759
+```
