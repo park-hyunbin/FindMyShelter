@@ -149,7 +149,7 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'drainage', title: '물길·침수·배수', evidence: 'document',
-        finding: '서울시 과거 침수흔적과 한 시간 100mm 강우를 가정한 예상 영역을 단지 경계와 비교해요. 정문·단지 포장 공간·102동 주차장 덮개 끝에서는 가장 가까운 영역까지의 거리도 볼 수 있어요.',
+        finding: '서울시 과거 침수흔적과 한 시간 100mm 강우를 가정한 예상 영역을 단지 경계와 비교해요. 정문·단지 포장 공간·102동 주차장 입구에서는 주변 지형이 어느 쪽으로 낮아지는지 보고, 비가 그친 뒤 살펴볼 지점을 저장할 수 있어요.',
         followUp: '비가 그친 뒤 물이 모인 곳, 빗물받이와 지하주차장 차수 시설을 확인해 보세요.',
         views: [{ target: 'flood', label: '침수 기록과 물길 보기' }],
         sources: [{ label: '서울시 침수흔적도 원본', url: floodSource }, { label: '서울시 침수예상도 원본', url: floodForecast.source }],

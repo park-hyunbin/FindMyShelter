@@ -19,7 +19,8 @@ import { songpaCourtyard, songpaFacilities, songpaFrontage, songpaGrounds, songp
 import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
-import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
+import { drainageStops, floodYears, latestLocalFloodYear, type FloodView } from './data/songpa-flood';
+import { terrainComparisonM } from './opo-terrain-fall';
 import { songpaSchool, songpaSchoolApproach } from './data/songpa-school';
 import { songiPark, songiParkSurvey } from './data/songi-park';
 import { songpaWinterCaptures, winterPixelGridSize, winterPixelSampleCount, type SongpaWinterCapture } from './data/songpa-winter-capture';
@@ -718,6 +719,28 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     chooseMode('orbit');
   }
 
+  function visitDrainageStop(id: string) {
+    if (!visitAtEyeLevel(id)) return false;
+    setFloodStopId(id);
+    return true;
+  }
+
+  function saveDrainageStop(id: string) {
+    const stop = drainageStops.find(item => item.id === id);
+    if (!world || !stop) return;
+    const fall = world.drainageTerrainFalls?.[id];
+    const distance = floodView === 'forecast' ? world.floodDistances?.forecast[id]
+      : floodView === 'closest' || floodView === 'area' ? world.floodDistances?.history[floodYear]?.[id] : null;
+    const finding = floodView === 'slope' && fall
+      ? `모델 지면은 ${fall.direction}쪽 ${terrainComparisonM}m가 약 ${Math.abs(fall.change).toFixed(1)}m 낮게 표시돼요.`
+      : distance != null
+        ? `${floodView === 'forecast' ? '1시간 100mm 예상 영역' : `${floodYear}년 침수흔적`}까지 지도상 직선거리 약 ${Math.round(distance)}m.`
+        : stop.pin;
+    field.save({ scene: { kind: 'drainage', stopId: id, view: floodView, year: floodYear }, place: stop.name,
+      finding, note: stop.check });
+    openVisitPlan();
+  }
+
   function selectPlace(id: string) {
     if (id === selectedPlaceId && mode === 'orbit' && !schoolZoneVisible) world?.focusPlace(id);
     setSchoolZoneVisible(false);
@@ -906,6 +929,15 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       setReturnChecklistItem('visit-plan');
       chooseTab('nature');
       return viewSchoolGate(scene.routeId);
+    }
+    if (scene.kind === 'drainage') {
+      if (!drainageStops.some(stop => stop.id === scene.stopId) || !floodYears.includes(scene.year)
+        || !world.destinations.some(place => place.id === scene.stopId)) return false;
+      setReturnChecklistItem('visit-plan');
+      chooseTab('flood');
+      setFloodYear(scene.year);
+      setFloodView(scene.view);
+      return visitDrainageStop(scene.stopId);
     }
     const point = world.presets.find(item => item.id === scene.pointId);
     if (!point || !world.destinations.some(item => item.id === point.id)) return false;
@@ -1216,8 +1248,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           if (mode === 'orbit') world?.showAmbient(true, true, ambientReference?.id);
         }} />}
       {region === 'songpa' && tab === 'flood' && <SongpaFlood year={floodYear} view={floodView} sceneReady={Boolean(world)} mapVisible={mode === 'orbit'}
-        distances={world?.floodDistances} activeStopId={mode === 'walk' ? floodStopId : null}
-        onView={openFloodLocation} onVisit={id => { if (visitAtEyeLevel(id)) setFloodStopId(id); }} />}
+        distances={world?.floodDistances} terrainFalls={world?.drainageTerrainFalls} activeStopId={mode === 'walk' ? floodStopId : null}
+        onView={openFloodLocation} onVisit={visitDrainageStop} onSave={saveDrainageStop} />}
 
       {tab === 'sun' && <>
         {region === 'jamsil-leel' && <p>잠실 르엘의 동별 높이는 확인 중이에요. 건물 높이 자료가 빠져 그림자를 확정할 수 없는 시간대는 미판정으로 표시해요.</p>}

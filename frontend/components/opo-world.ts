@@ -1220,6 +1220,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       frameSurface(ambientMap.frames, bounds.getCenter(new T.Vector3()), new T.Vector3(scale * 0.10, scale * 1.1, scale * 0.22), { clearTitle: true });
     },
     floodDistances: floodMap?.distances,
+    drainageTerrainFalls: floodMap?.terrainFalls,
     showFlood(year: string | null, view: FloodView, eyeStop: string | null = null) {
       if (!floodMap) return;
       const points = floodMap.show(year, view, eyeStop);

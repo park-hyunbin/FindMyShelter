@@ -36,7 +36,7 @@ export const floodDepth = [
   { label: '2.0~3.0m', color: '#d976b5' },
   { label: '3.0m 이상', color: '#f58b9b' },
 ];
-export type FloodView = 'closest' | 'area' | 'forecast' | keyof typeof archive.water;
+export type FloodView = 'closest' | 'area' | 'forecast' | 'slope' | keyof typeof archive.water;
 export type DrainageDistances = {
   forecast: Record<string, number | null>;
   history: Record<string, Record<string, number | null>>;

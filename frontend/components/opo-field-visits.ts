@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { FloodView } from './data/songpa-flood';
 
 const storageKey = 'find-my-shelter:field-visits:A13816002:v1';
 export const fieldVisitNoteLimit = 700;
@@ -7,6 +8,7 @@ export type FieldScene =
   | { kind: 'winter'; pointId: string; date: string; minute: number }
   | { kind: 'home'; routeId: string; stopId: string }
   | { kind: 'school-gate'; routeId: string }
+  | { kind: 'drainage'; stopId: string; view: FloodView; year: string }
   | { kind: 'facade'; viewId: string };
 
 export type FieldVisit = {
@@ -25,6 +27,7 @@ export function fieldSceneId(scene: FieldScene) {
     case 'winter': return `winter:${scene.pointId}:${scene.date}:${scene.minute}`;
     case 'home': return `home:${scene.routeId}:${scene.stopId}`;
     case 'school-gate': return `school-gate:${scene.routeId}`;
+    case 'drainage': return `drainage:${scene.stopId}:${scene.view}:${scene.year}`;
     case 'facade': return `facade:${scene.viewId}`;
   }
 }
@@ -44,6 +47,9 @@ function validScene(value: unknown): value is FieldScene {
   }
   if (scene.kind === 'facade') return typeof scene.viewId === 'string' && scene.viewId.length > 0;
   if (scene.kind === 'school-gate') return typeof scene.routeId === 'string' && scene.routeId.length > 0;
+  if (scene.kind === 'drainage') return typeof scene.stopId === 'string' && typeof scene.view === 'string'
+    && ['closest', 'area', 'forecast', 'slope', 'pond', 'river'].includes(scene.view)
+    && typeof scene.year === 'string' && /^20\d{2}$/.test(scene.year);
   return scene.kind === 'home' && typeof scene.routeId === 'string' && typeof scene.stopId === 'string';
 }
 

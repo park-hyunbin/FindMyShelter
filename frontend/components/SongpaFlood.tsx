@@ -2,6 +2,8 @@ import type { CSSProperties } from 'react';
 import { drainageStops, floodDepth, floodDistance, floodForecast, floodHistory, floodSource, floodWaterSource, floodYears,
   type DrainageDistances, type FloodView } from './data/songpa-flood';
 import { songpaComplex } from './data/regions';
+import { songpaRouteElevation } from './data/songpa-route-elevation';
+import { terrainComparisonM, type terrainFallAt } from './opo-terrain-fall';
 
 type Props = {
   year: string;
@@ -9,28 +11,42 @@ type Props = {
   sceneReady: boolean;
   mapVisible: boolean;
   distances?: DrainageDistances;
+  terrainFalls?: Record<string, ReturnType<typeof terrainFallAt>> | null;
   activeStopId: string | null;
   onView: (view: FloodView, year?: string) => void;
   onVisit: (id: string) => void;
+  onSave: (id: string) => void;
 };
 
-export default function SongpaFlood({ year, view, sceneReady, mapVisible, distances, activeStopId, onView, onVisit }: Props) {
+export default function SongpaFlood({ year, view, sceneReady, mapVisible, distances, terrainFalls, activeStopId, onView, onVisit, onSave }: Props) {
   const record = floodHistory.years[year];
   const nearest = record.nearestM == null ? null : floodDistance(record.nearestM);
   const showingWater = view === 'pond' || view === 'river';
   const showingForecast = view === 'forecast';
+  const showingGrade = view === 'slope';
   const touchesSite = floodForecast.stages.some(stage => stage.touchesSite);
   const closestForecast = floodForecast.nearest;
-  const stopDistances = showingWater ? undefined : showingForecast ? distances?.forecast : distances?.history[year];
+  const stopDistances = showingWater || showingGrade ? undefined : showingForecast ? distances?.forecast : distances?.history[year];
   const hasDistances = stopDistances && Object.values(stopDistances).some(distance => distance !== null);
   return <section className="flood-panel" aria-label="물길과 침수 기록">
     <article className="site-card">
-      <h3>서울시 침수지도</h3>
-      <div className="site-actions" role="group" aria-label="침수지도 종류">
-        <button disabled={!sceneReady} aria-pressed={mapVisible && !showingForecast && !showingWater} onClick={() => onView('closest')}>과거 침수흔적</button>
+      <h3>침수지도와 주변 지형</h3>
+      <div className="site-actions" role="group" aria-label="물길 지도 종류">
+        <button disabled={!sceneReady} aria-pressed={mapVisible && (view === 'closest' || view === 'area')} onClick={() => onView('closest')}>과거 침수흔적</button>
         <button disabled={!sceneReady} aria-pressed={mapVisible && showingForecast} onClick={() => onView('forecast')}>1시간 100mm 예상도</button>
+        <button disabled={!terrainFalls} aria-pressed={mapVisible && showingGrade} onClick={() => onView('slope')}>주변 지형의 낮은 방향</button>
       </div>
-      {showingForecast ? <>
+      {showingGrade ? <>
+        <div className="flood-result flood-result-grade" aria-live="polite">
+          <p>세 관찰점에서 {terrainComparisonM}m 떨어진 8방향의 모델 지면을 비교했어요. 화살표는 그중 <strong>표고가 가장 낮은 방향</strong>을 가리켜요.</p>
+          <p>빗물의 실제 이동은 연석, 배수로, 차수판과 지하 진입로의 경사에 따라 달라져요.</p>
+        </div>
+        <details className="basis">
+          <summary>지형 자료와 비교 기준</summary>
+          <p>서울시 수치지형도 1:5,000의 등고선과 표고점을 10m 간격으로 보간한 지형을 사용했어요. 높이차는 관찰점의 모델 지면이 기준이에요.</p>
+          <a href={songpaRouteElevation.source} target="_blank" rel="noreferrer">서울시 등고선·표고점 원본 ↗</a>
+        </details>
+      </> : showingForecast ? <>
         <div className="flood-result flood-result-forecast" aria-live="polite">
           <p>서울시가 한 시간에 100mm가 내린다고 가정한 <strong>지표면 침수예상 범위</strong>예요.</p>
           <p>{touchesSite ? '예상 영역이 지도상 단지 경계와 맞닿거나 겹쳐요.'
@@ -105,11 +121,21 @@ export default function SongpaFlood({ year, view, sceneReady, mapVisible, distan
       {hasDistances && <p>지도에 번호로 표시한 지점에서 {showingForecast ? '100mm 예상' : `${year}년 기록`} 영역까지의 가장 짧은 직선거리예요.</p>}
       {drainageStops.map((stop, index) => {
         const distance = stopDistances?.[stop.id];
+        const fall = terrainFalls?.[stop.id];
         return <div className="flood-stop" key={stop.id}>
           <div className="site-actions"><button disabled={!sceneReady} aria-pressed={activeStopId === stop.id}
             onClick={() => onVisit(stop.id)}><span className="flood-stop-number" aria-hidden="true">{index + 1}</span>{stop.name} 눈높이 보기</button></div>
+          {showingGrade && <p className="flood-stop-grade">{fall
+            ? <><strong>{fall.direction}쪽 {terrainComparisonM}m</strong>의 모델 지면이 이 지점보다 약 <strong>{Math.abs(fall.change).toFixed(1)}m</strong> 낮아요.</>
+            : '비교한 8방향에서 더 낮게 표시할 뚜렷한 차이를 찾지 못했어요.'}</p>}
+          {showingGrade && fall && <details className="basis">
+            <summary>{fall.direction}쪽 지면의 거리별 높이차</summary>
+            <ul>{fall.changes.map(sample => <li key={sample.distance}>{sample.distance}m · {sample.change > 0 ? '+' : ''}{sample.change.toFixed(1)}m</li>)}</ul>
+          </details>}
           {distance != null && <p className="flood-stop-distance">{stop.pin} · <strong>{distance === 0 ? '영역 안' : distance < 1 ? '1m 이내' : `약 ${Math.round(distance)}m`}</strong></p>}
           <p>{stop.check}</p>
+          <div className="site-actions"><button disabled={!sceneReady} onClick={() => onSave(stop.id)}
+            aria-label={`${stop.name} · 현장 메모에 담기`}>현장 메모에 담기</button></div>
         </div>;
       })}
     </article>

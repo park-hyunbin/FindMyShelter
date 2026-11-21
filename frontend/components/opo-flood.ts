@@ -5,6 +5,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { drainageStops, floodDepth, floodDistance, floodForecast, floodHistory, type DrainageDistances, type FloodView } from './data/songpa-flood';
 import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
 import { groundPolygon } from './opo-meshes';
+import { terrainFallAt } from './opo-terrain-fall';
 
 export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData['ground']) {
   const group = new T.Group();
@@ -123,6 +124,19 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
     scene.add(pin);
     return { ...stop, number: String(index + 1), mesh: pin, label };
   });
+  const gradeLayer = new T.Group();
+  group.add(gradeLayer);
+  const terrainFalls = data.localTerrain ? Object.fromEntries(stops.map(stop => [
+    stop.id, terrainFallAt(stop.position, data.ground, data.northOffset),
+  ])) : null;
+  for (const stop of stops) {
+    const fall = terrainFalls?.[stop.id];
+    if (!fall) continue;
+    const start = pointAt(stop.position, 2.6);
+    const arrow = new T.ArrowHelper(new T.Vector3(fall.axis.x, 0, fall.axis.z), start, 13, '#8ee5c9', 4.6, 4.3);
+    arrow.line.renderOrder = arrow.cone.renderOrder = 16;
+    gradeLayer.add(arrow);
+  }
   const distances: DrainageDistances = {
     forecast: distancesFromStops(forecastPolygons),
     history: Object.fromEntries([...years.entries()].map(([year, layer]) => [year, layer.stops])),
@@ -139,14 +153,17 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   return {
     group,
     distances,
+    terrainFalls,
     labels,
     show(year: string | null, view: FloodView, eyeStop: string | null) {
       group.visible = year !== null;
       const traceView = view === 'closest' || view === 'area';
       const forecastView = view === 'forecast';
+      const gradeView = view === 'slope';
+      gradeLayer.visible = year !== null && gradeView;
       for (const stop of drainagePins) {
         const atEyeLevel = eyeStop === stop.id;
-        stop.mesh.visible = atEyeLevel || (year !== null && (traceView || forecastView));
+        stop.mesh.visible = atEyeLevel || (year !== null && (traceView || forecastView || gradeView));
         if (!stop.mesh.visible) continue;
         stop.mesh.position.copy(pointAt(stop.position, atEyeLevel ? 0.6 : 2));
         stop.mesh.scale.setScalar(atEyeLevel ? 0.07 : 0.34);
@@ -158,11 +175,12 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
       for (const [key, { layer }] of Object.entries(water)) layer.visible = year !== null && view === key;
       const selected = year === null ? undefined : years.get(year);
       const nearest = selected?.nearest;
-      const boundary = traceView ? selected?.boundary : forecastView ? null : water[view].boundary;
+      const boundary = traceView ? selected?.boundary : forecastView || gradeView ? null : water[view].boundary;
       boundaryMarker.visible = year !== null && Boolean(boundary);
       if (boundary) boundaryMarker.position.copy(boundary);
       nearestMarker.visible = traceView && Boolean(nearest);
       if (!selected) return [];
+      if (gradeView) return [...site, ...drainagePins.map(stop => stop.mesh.position)];
       if (forecastView) return [...site, forecastLabel.point];
       if (nearest && traceView) {
         nearestMarker.position.copy(nearest);

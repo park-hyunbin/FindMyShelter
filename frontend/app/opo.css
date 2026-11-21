@@ -444,6 +444,8 @@ h1, h2, p { margin: 0; }
 .flood-result strong { color: #ffe6bf; }
 .flood-result-forecast { border-color: #62b9ff; }
 .flood-result-forecast strong { color: #bde4ff; }
+.flood-result-grade { border-color: #8ee5c9; }
+.flood-result-grade strong, .flood-stop-grade strong { color: #aff1da; }
 .flood-periods { margin: 6px 0; font-size: 11px; }
 .flood-periods ul { margin: 3px 0 6px; padding-left: 16px; font-variant-numeric: tabular-nums; }
 .flood-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: var(--muted); font-size: 10px; }
