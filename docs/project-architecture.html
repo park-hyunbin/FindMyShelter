@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Find My Shelter의 데이터 수집, 3D 임장, 주거 환경 분석과 서울 확장 구조">
-  <title>Find My Shelter · 프로젝트 구조</title>
+  <meta name="description" content="Find My Shelter를 처음 보는 사람을 위한 온라인 임장, 시스템 구조, 지도 데이터와 전체 문서 안내">
+  <title>Find My Shelter · 처음 보는 사람을 위한 안내</title>
   <style>
     :root {
       color-scheme: light;
@@ -21,10 +21,12 @@
     h1, h2, h3 { letter-spacing: -.035em; line-height: 1.24; }
     h2 { font-size: clamp(1.48rem, 3vw, 2.1rem); }
     h3 { font-size: 1.12rem; }
+    h4 { margin: 0 0 .18rem; font-size: 1rem; line-height: 1.4; }
     code { font: .9em/1.5 ui-monospace, Consolas, monospace; }
     .wrap { width: min(1060px, calc(100% - 3rem)); margin-inline: auto; }
     .skip { position: absolute; top: .5rem; left: .75rem; z-index: 1; padding: .5rem; background: white; transform: translateY(-200%); }
     .skip:focus { transform: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .hero {
       background: radial-gradient(ellipse at 90% 10%, #2a5740 0, transparent 55%), var(--forest);
       color: #fffef1; padding: 1.65rem 0 3rem;
@@ -53,7 +55,21 @@
     .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
     .module ul { padding-left: 1.15rem; }
     .module p + p, .module li + li { margin-top: .35rem; }
-    .boundary { margin-top: .85rem; padding: .75rem .9rem; border-left: 3px solid #58836c; background: #ebf0e4; }
+    .module h3 a { color: inherit; }
+    .module .source { margin-top: .55rem; }
+    .scenario { padding: 1rem 1.15rem; border: 1px solid var(--line); border-radius: .65rem; background: var(--wash); }
+    .scenario p + p { margin-top: .45rem; }
+    .document-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+    .document-list ul { display: grid; gap: .7rem; padding: 0; margin: 0; list-style: none; }
+    .document-list a { font-weight: 700; }
+    .document-list li { border-top: 1px solid var(--line); padding-top: .6rem; }
+    .document-list li p { color: var(--muted); font-size: .92rem; }
+    .document-list li a { display: inline-block; padding-block: .25rem; font-size: .88rem; }
+    details.module { margin-top: .7rem; }
+    details.module summary { cursor: pointer; font-weight: 700; }
+    details.module dl { margin-top: .55rem; }
+    details.module dt { font-weight: 700; margin-top: .4rem; }
+    details.module dd { margin: 0; color: var(--muted); }
     .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
     .stat { display: flex; flex-direction: column; padding: .8rem .95rem; }
     .stat dt { font-weight: 640; }
@@ -73,7 +89,7 @@
     @media (max-width: 520px) {
       .wrap { width: calc(100% - 1.5rem); }
       .hero { padding-bottom: 1.8rem; }
-      .flow, .two, .layer { grid-template-columns: minmax(0, 1fr); }
+      .flow, .two, .layer, .document-list { grid-template-columns: minmax(0, 1fr); }
       .flow li, .module, .layer { padding: .8rem; }
       .files-table th, .files-table td { padding: .48rem; }
     }
@@ -94,90 +110,137 @@
   <header class="hero">
     <div class="wrap">
       <p class="brand">FIND MY SHELTER</p>
-      <h1>온라인 임장은 어떻게 만들어지나</h1>
-      <p class="intro">공개 지도와 건축·지형 자료를 3D 동네로 연결하고, 후보 아파트의 실외 일조와 귀갓길, 주변 녹지를 비교한다.</p>
+      <h1>집을 보러 가기 전에, 동네를 먼저 걸어보세요</h1>
+      <p class="intro">Find My Shelter는 지도와 건축·지형 자료로 아파트 주변을 3D로 만들어 보여줘요. 볕과 그늘, 역에서 집까지의 오르막, 공원까지 이어지는 길을 보면서 현장에서 어디를 볼지 정할 수 있어요.</p>
       <a class="public" href="https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/seoul/">공개 임장 열기</a>
     </div>
   </header>
 
   <nav class="wrap" aria-label="문서 목차">
     <ul class="contents">
-      <li><a href="#flow">데이터 흐름</a></li>
-      <li><a href="#reuse">공유 구조</a></li>
-      <li><a href="#runtime">화면과 배포</a></li>
+      <li><a href="#example">임장 예시</a></li>
+      <li><a href="#flow">시스템 구조</a></li>
+      <li><a href="#data">데이터 설명</a></li>
+      <li><a href="#reuse">서울로 넓히는 방법</a></li>
       <li><a href="#coverage">현재 범위</a></li>
-      <li><a href="#files">저장소 안내</a></li>
-      <li><a href="#design">서울 확장 설계</a></li>
+      <li><a href="#documents">전체 문서</a></li>
     </ul>
   </nav>
 
   <main id="main" class="wrap">
+    <section id="example" aria-labelledby="example-title">
+      <h2 id="example-title">예를 들어, 겨울 오후에 놀이터에 볕이 들까?</h2>
+      <p class="lead">현장에 갈 시간은 한정돼 있어요. 온라인에서 확인할 수 있는 정보를 먼저 보고, 중요한 장소와 시간을 골라 갈 수 있어요.</p>
+      <div class="scenario">
+        <p><strong>가락동부센트레빌의 놀이터 옆과 산책로를 비교해요.</strong> 날짜를 12월 21일, 시각을 오후 3시로 맞추면 현재 모델에서는 놀이터 옆에 볕이 들고 103·104동 사이 산책로는 인근 주동에 가려져요.</p>
+        <p>그늘을 만든 주동을 3D에서 확인하고, 관심 지점과 시간을 현장 메모에 남길 수 있어요. 실제 나무 그늘이나 실내 채광은 방문 때 살펴볼 항목이에요.</p>
+      </div>
+      <p class="source"><a href="https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/?region=songpa">가락동부센트레빌 열기</a> · <a href="#guide-spec">임장 체크리스트 설명</a></p>
+    </section>
+
     <section id="flow" aria-labelledby="flow-title">
-      <h2 id="flow-title">데이터에서 3D 임장까지</h2>
-      <p class="lead">공개 원본을 오프라인에서 가공하고, 브라우저는 준비된 파일을 읽어 장면과 분석을 구성한다.</p>
+      <h2 id="flow-title">자료가 3D 화면이 되는 과정</h2>
+      <p class="lead">건물, 도로, 지형은 서로 다른 곳에서 받아요. 미리 위치를 맞추고 필요한 만큼 잘라 두면, 브라우저는 선택한 동네의 자료를 읽어 화면을 그릴 수 있어요.</p>
       <ol class="flow">
-        <li><h3>공개 원본 수집</h3><p>K-apt 단지 목록, 건축HUB 표제부, 서울시 건물면·도로시설·등고선, OpenStreetMap과 GEDTM30을 쓴다.</p><p class="paths"><code>data/raw</code> · <code>data/config</code></p></li>
-        <li><h3>연결하고 검사</h3><p>단지코드와 주소·동 정보를 대조한다. 건물·도로·지형을 EPSG:5186 기준으로 맞추고, 불일치와 자료 누락은 기록한다.</p><p class="paths"><code>backend/scripts</code> · <code>backend/pipeline</code></p></li>
-        <li><h3>웹용 파일 생성</h3><p>건물 윤곽을 GeoJSON 조각으로 내보내고, 도로망·고도 격자·보행 경로를 JSON으로 묶는다. 단지 목록에는 이용 가능한 장면을 연결한다.</p><p class="paths"><code>frontend/scripts</code> · <code>frontend/public/datasets</code></p></li>
-        <li><h3>브라우저에서 체험</h3><p>Next.js의 검색·분석 화면이 Three.js 장면을 열고, 걷기·운전·조감 중 고른 지점을 일조나 지형 분석과 연결한다.</p><p class="paths"><code>frontend/app</code> · <code>frontend/components</code></p></li>
+        <li><h3>자료 받기</h3><p>단지 목록에는 주소와 동수가 있고, 건축물대장에는 건물 높이가 있어요. 지도에는 길과 건물의 모양이 있어요.</p><p class="paths"><code>data/</code></p></li>
+        <li><h3>같은 위치에 맞추기</h3><p>같은 주소와 동 정보를 연결하고, 건물·길·땅의 위치를 한 기준으로 맞춰요. 서로 맞지 않거나 비어 있는 값은 표시해요.</p><p class="paths"><code>backend/</code></p></li>
+        <li><h3>동네별로 묶기</h3><p>지도와 건물을 작은 파일로 나누고, 각 단지에서 불러올 자료의 목록을 만들어요.</p><p class="paths"><code>frontend/public/datasets/</code></p></li>
+        <li><h3>화면에서 체험하기</h3><p>브라우저에서 건물과 거리를 그리고, 선택한 장소와 시각의 햇빛이나 지형을 살펴봐요.</p><p class="paths"><code>frontend/</code></p></li>
       </ol>
-      <p class="source"><a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/building-pipeline.md">건물 연결과 검사</a> · <a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/region-tour-pipeline.md">지역 장면 생성</a></p>
+      <p class="source"><a href="#guide-building">건물 파일을 만드는 과정</a> · <a href="#guide-region">지역 장면을 만드는 과정</a></p>
+    </section>
+
+    <section id="data" aria-labelledby="data-title">
+      <h2 id="data-title">어떤 자료로 무엇을 알 수 있나</h2>
+      <p class="lead">장면을 만드는 자료와 생활 조건을 판단하는 근거가 어디서 왔는지 확인할 수 있어요.</p>
+      <div class="two">
+        <article class="module">
+          <h3>아파트 찾기</h3>
+          <p>K-apt는 공동주택 단지의 이름, 주소, 세대수, 주차 같은 정보를 공개해요. 프로젝트는 단지마다 붙은 코드를 기준으로 검색 목록과 3D 장면을 연결해요.</p>
+          <p class="source"><a href="#guide-kapt">K-apt 자료 설명</a> · <a href="#guide-matching">검색과 실거래 자료 설명</a></p>
+        </article>
+        <article class="module">
+          <h3>건물과 햇빛</h3>
+          <p>건물의 위에서 본 모양은 서울시 지도, 높이는 연결된 건축물대장에서 가져와요. 이 자료와 태양 위치를 이용해 어느 건물이나 지형이 빛을 가릴 수 있는지 계산해요. 필요한 높이가 비어 있으면 일조 결과가 미판정으로 남을 수 있어요.</p>
+          <p class="source"><a href="#guide-coverage-record">서울 건물과 높이 연결 기록</a></p>
+        </article>
+        <article class="module">
+          <h3>땅의 높이와 오르막</h3>
+          <p>지형 높이 지도에는 땅의 높이가 격자마다 들어 있어요. 일부 경로는 서울시 등고선과 높이 표본을 더해 오르내림을 계산해요. 연석, 계단, 보도 표면의 실제 경사는 현장에서 확인할 수 있어요.</p>
+          <p class="source"><a href="#guide-pilot">지형과 보행 경로 대조 기록</a></p>
+        </article>
+        <article class="module">
+          <h3>길·공원·물길</h3>
+          <p>OpenStreetMap으로 길과 주변 환경의 위치를 찾고 서울시 자료로 도로 폭, 보도, 횡단보도와 보행 신호의 배치를 보강해요. 경로는 연결이 확인된 곳까지 표시하며, 개방 여부와 신호 대기 시간은 추가 확인이 필요해요.</p>
+          <p class="source"><a href="#guide-region">횡단보도·보도·신호 자료 설명</a></p>
+        </article>
+      </div>
+      <details class="module">
+        <summary>문서에 자주 나오는 용어</summary>
+        <dl>
+          <dt>건물 윤곽</dt><dd>건물을 위에서 내려다봤을 때의 바깥 모양이에요.</dd>
+          <dt>좌표계 · EPSG:5186</dt><dd>서로 다른 지도에서 같은 장소를 같은 좌표로 표현하는 기준이에요. 이 프로젝트는 거리 비교에 미터 단위를 써요.</dd>
+          <dt>수치표고모델 · DEM</dt><dd>땅의 높이를 일정 간격으로 기록한 자료예요. GEDTM30은 동네의 큰 지형을 만드는 데 써요.</dd>
+          <dt>데이터 레이어</dt><dd>건물, 길, 녹지처럼 같은 종류의 정보를 모은 지도 한 겹이에요.</dd>
+          <dt>미판정</dt><dd>현재 자료로 결과를 확정하기 어려운 상태예요. 예를 들어 햇빛 방향에 높이를 모르는 건물이 있는 경우예요.</dd>
+        </dl>
+      </details>
     </section>
 
     <section id="reuse" aria-labelledby="reuse-title">
-      <h2 id="reuse-title">어떤 데이터를 함께 쓰나</h2>
-      <p class="lead">서울 목록에서 단지를 찾고, 생활권의 공간 데이터 위에 선택한 단지의 경계와 분석 지점을 얹는다.</p>
+      <h2 id="reuse-title">아파트가 늘어나면 무엇을 다시 만들어야 할까?</h2>
+      <p class="lead">이웃한 아파트는 같은 길과 공원을 바라봐요. 위치가 같은 도로와 지형은 한 번 만들어 공유하고, 선택한 단지에 필요한 정보만 불러오는 구조예요.</p>
       <div class="layers">
         <article class="layer">
           <h3>서울 단지 목록</h3>
-          <div><p>K-apt 코드로 단지를 식별한다. 자치구, 주소, 전 주동 윤곽 연결, 3D와 보행 경로의 제공 상태를 집계한다.</p><p class="files"><code>seoul-tour-catalog.json</code></p></div>
+          <div><p>자치구와 주소로 단지를 찾고, 모든 주거동의 모양과 3D·보행 경로가 준비됐는지 확인해요.</p><p class="files"><code>seoul-tour-catalog.json</code></p></div>
         </article>
         <article class="layer">
           <h3>생활권 공유</h3>
-          <div><p>마포 용강·성동 청계천·성북 길음의 이웃 단지는 같은 도로망, 녹지·수계, 생활시설, 지형 격자를 읽는다. 같은 지도 좌표에서 같은 지면을 계산한다.</p><p class="files"><code>datasets/neighborhoods/&lt;생활권&gt;/</code></p></div>
+          <div><p>마포 용강·성동 청계천·성북 길음의 이웃 단지는 같은 도로와 녹지·물길·지형을 사용해요. 두 장면에서 같은 장소를 보면 같은 높이의 땅이 나타나요.</p><p class="files"><code>datasets/neighborhoods/&lt;생활권&gt;/</code></p></div>
         </article>
         <article class="layer">
           <h3>단지별 장면</h3>
-          <div><p>건물 조각, 단지 경계, 시작 시점과 확보된 경로·보행 시설 레이어를 연결한다. 일조와 시야에 사용하는 건물 자료 범위는 단지별로 설정한다. 사진과 로드뷰는 입구·외장·경관의 외형을 대조하는 데 쓴다.</p><p class="files"><code>datasets/buildings/&lt;단지&gt;/</code> · <code>datasets/regions/&lt;단지&gt;/</code></p></div>
+          <div><p>지도에서 어디부터 볼지, 어느 동이 포함되는지, 어디까지 걸을 수 있는지 연결해요. 입구와 외장 같은 실제 모습은 사진과 로드뷰를 참고해 보강해요.</p><p class="files"><code>datasets/buildings/&lt;단지&gt;/</code> · <code>datasets/regions/&lt;단지&gt;/</code></p></div>
         </article>
       </div>
-      <p class="source"><a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-21-seoul-pilot-validation.md">공유 구조와 장면 간 지형 검증 기록</a></p>
+      <p class="source"><a href="#guide-pilot">공유 구조와 장면 간 지형 검증 기록</a> · <a href="#guide-rollout">서울 확장 기획안</a></p>
     </section>
 
     <section id="runtime" aria-labelledby="runtime-title">
-      <h2 id="runtime-title">검색, 3D, 분석은 어떻게 이어지나</h2>
-      <p class="lead"><code>/seoul/</code>에서 단지를 검색하고, 3D가 준비된 곳은 <code>/?region=&lt;ID&gt;</code>로 들어간다.</p>
+      <h2 id="runtime-title">서버와 브라우저는 무엇을 하나</h2>
+      <p class="lead">검색 화면에서 단지를 누르면 그 동네의 자료만 내려받아요. 화면을 그리고 일조를 계산하는 일은 브라우저에서 해요.</p>
       <div class="two">
         <article class="module">
-          <h3>3D 장면과 주거 환경 분석</h3>
+          <h3>브라우저에서 하는 일</h3>
           <ul>
-            <li><code>opo-data.ts</code>가 지도·건물·지형을 불러와 좌표를 맞춘다.</li>
-            <li><code>opo-world.ts</code>가 지형 위에 건물과 길을 그리고 카메라와 이동을 관리한다.</li>
-            <li><code>OpoTour.tsx</code>에서 시간대별 실외 일조, 방향별 지형과 차폐, 보행 경로와 고도 단면을 연다.</li>
+            <li>Next.js는 목록과 버튼을 보여주고, Three.js는 3D 동네를 그려요.</li>
+            <li>고른 지점의 햇빛, 보이는 방향과 경사를 계산하거나 준비된 결과를 보여줘요.</li>
+            <li>송파의 개인 체크리스트와 현장 메모는 사용 중인 브라우저에 저장해요.</li>
           </ul>
         </article>
         <article class="module">
-          <h3>운영과 기록</h3>
+          <h3>배포와 함께 임장</h3>
           <ul>
-            <li>Next.js 정적 결과물과 <code>frontend/worker</code>를 묶어 공개 Sites에 배포한다. 함께 임장의 서버 기능은 Worker와 D1을 쓴다.</li>
-            <li>송파 개인 체크리스트와 현장 메모는 브라우저에 저장된다.</li>
-            <li><code>backend/app</code>은 별도의 실험용 FastAPI 코드다. 공개 3D 장면과 기본 분석은 준비된 파일과 브라우저 계산으로 동작한다.</li>
+            <li>공개 Sites는 준비된 화면과 지도 파일을 보내줘요.</li>
+            <li>함께 임장의 접속 정보는 Worker와 D1에서 처리해요. Worker는 서버 요청을 받고 D1은 그 기능에 쓰는 데이터베이스예요.</li>
+            <li>저장소의 <code>backend/app</code>은 별도의 주소 분석 실험 코드예요.</li>
           </ul>
         </article>
       </div>
-      <p class="boundary"><strong>자료와 추정의 경계.</strong> 차폐에 필요한 건물 높이가 부족한 경우 일조가 미판정으로 남을 수 있다. 경로 경사는 지형에서 계산하고, 실제 보도 단차·출입 조건과 신호 대기는 현장 확인 항목으로 표시한다.</p>
+      <p class="source"><a href="#files">개발자가 찾아볼 파일과 폴더</a></p>
     </section>
 
     <section id="coverage" aria-labelledby="coverage-title">
-      <h2 id="coverage-title">지금 어디까지 이용할 수 있나</h2>
-      <p class="lead">서울 25개 구의 K-apt 목록과 공개 3D 표본을 서로 다른 단계로 집계한다.</p>
+      <h2 id="coverage-title">현재 볼 수 있는 서울의 범위</h2>
+      <p class="lead">목록에 있는 단지 중에서 주거동의 모양과 주변 자료가 준비된 곳부터 3D 임장을 연결하고 있어요.</p>
       <dl class="stats">
         <div class="stat"><dt>검색 목록</dt><dd>3,158곳</dd></div>
         <div class="stat"><dt>전 주동 윤곽 연결</dt><dd>1,238곳</dd></div>
         <div class="stat"><dt>공개 3D</dt><dd>10곳</dd></div>
         <div class="stat"><dt>보행 경로와 고도 단면</dt><dd>6곳</dd></div>
       </dl>
-      <p class="source">K-apt 목록은 2026-11-20 기준이며, 소규모 단지 등은 원본에 빠질 수 있다. 3D는 송파 4곳과 마포·성동·성북 각 2곳이다. <a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-21-seoul-tour-coverage.md">자치구별 데이터 현황</a></p>
+      <p class="source">K-apt 목록은 2026-11-20 기준이며, 소규모 단지 등은 원본에 빠질 수 있어요. 3D는 송파 4곳과 마포·성동·성북 각 2곳이에요. <a href="#guide-coverage-record">자치구별 데이터 현황</a></p>
     </section>
 
     <section id="files" aria-labelledby="files-title">
@@ -192,7 +255,7 @@
           <tr><th scope="row"><code>backend/pipeline/</code></th><td>공간 도형 정리, 필드 매핑, 건물 조각과 매니페스트 생성.</td></tr>
           <tr><th scope="row"><code>frontend/scripts/</code></th><td>지도·지형 가공, 장면 등록, 공개 Sites 배포 묶음 생성.</td></tr>
           <tr><th scope="row"><code>frontend/public/datasets/</code></th><td>브라우저에서 읽는 결과물. <code>buildings</code>, <code>neighborhoods</code>, <code>regions</code>로 구성.</td></tr>
-          <tr><th scope="row"><code>frontend/app/</code> · <code>frontend/components/</code></th><td>서울 단지 목록, 3D 화면, 분석과 체크리스트.</td></tr>
+          <tr><th scope="row"><code>frontend/app/</code> · <code>frontend/components/</code></th><td>서울 단지 목록과 3D 화면. <code>opo-data.ts</code>에서 자료를 읽고 <code>opo-world.ts</code>에서 장면과 이동을 구성해요. <code>OpoTour.tsx</code>에서 분석 화면을 열어요.</td></tr>
           <tr><th scope="row"><code>docs/</code> · <code>notebooks/</code></th><td>제작·검증 기록과 기획서, 지형 분석 실험.</td></tr>
         </tbody>
       </table>
@@ -206,10 +269,50 @@
         <li><strong>3D 장면과 분석의 공개 기준.</strong> 경계·주동·좌표·높이 연결을 점검하고, 보행로 단절처럼 남은 자료 부족은 이용자가 결과 화면에서 볼 수 있게 한다.</li>
         <li><strong>현실과 대조할 조건.</strong> 지형과 도로의 이음새, 서로 다른 날짜의 그림자, 출입구까지의 보행 연결을 표본에서 검증한다. 단지 간 연속 이동도 별도로 검증한다.</li>
       </ol>
-      <p class="source"><a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-21-seoul-rollout-plan.md">서울 확장 기획안</a> · <a href="https://github.com/koomily/find-my-shelter/blob/f4218ec/docs/planning/2026-11-17-complex-online-tour-spec.md">온라인 임장과 체크리스트 기획</a></p>
+      <p class="source"><a href="#guide-rollout">서울 확장 기획안</a></p>
     </section>
 
-    <footer>2026-11-21 기록 · 공개 버전의 구조와 데이터 범위는 GitHub <code>f4218ec</code> 기준.</footer>
+    <section id="documents" aria-labelledby="documents-title">
+      <h2 id="documents-title">전체 문서에서 찾아보기</h2>
+      <p class="lead">각 문서의 요점은 여기서 읽을 수 있어요. 자세한 원문은 저장소에 접근할 수 있는 GitHub 계정에서 열려요.</p>
+      <div class="document-list">
+        <article class="module">
+          <h3>무엇을 만들고 있나</h3>
+          <ul>
+            <li id="guide-why"><h4>프로젝트를 시작한 이유</h4><p>집을 지을 땅을 알아보며 시작한 관심이 아파트 임장 문제로 이어졌어요. 목표는 현장에서 한 번에 보기 어려운 햇빛과 경사, 주변 자연환경을 미리 확인해 방문할 장소와 시간을 고르는 데 도움을 주는 거예요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/planning/2026-11-15-why-find-my-shelter.md">GitHub 원문 보기<span class="sr-only"> · 프로젝트를 시작한 이유</span></a></li>
+            <li id="guide-spec"><h4>온라인 임장 기획과 체크리스트</h4><p>송파 시범 단지에는 실외 일조, 귀갓길, 단지 시설, 통학, 소음·야간 등 14개 항목이 있어요. 항목에서 3D 시점이나 자료 출처를 열고, 현장에서 확인할 내용을 기록할 수 있어요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/planning/2026-11-17-complex-online-tour-spec.md">GitHub 원문 보기<span class="sr-only"> · 온라인 임장 기획과 체크리스트</span></a></li>
+            <li id="guide-rollout"><h4>서울 전역 확장안</h4><p>서울 전체를 하나의 제품 범위로 보고 이웃 단지가 공통 지형과 도로를 쓰도록 설계해요. 단지 경계·건물 위치·보행 연결을 점검해 자료가 준비된 항목부터 공개하는 계획이에요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/planning/2026-11-21-seoul-rollout-plan.md">GitHub 원문 보기<span class="sr-only"> · 서울 전역 확장안</span></a></li>
+          </ul>
+        </article>
+        <article class="module">
+          <h3>데이터를 읽고 싶을 때</h3>
+          <ul>
+            <li id="guide-kapt"><h4>공동주택 기본정보 · K-apt</h4><p>단지별 이름과 주소, 세대수, 주차 정보는 공동주택 공개 자료에서 가져와요. 검색·기본 정보는 11월 13일 자료를 참고하고 서울 목록 집계는 11월 20일 자료를 써요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/data/kapt-complexes.md">GitHub 원문 보기<span class="sr-only"> · 공동주택 기본정보 · K-apt</span></a></li>
+            <li id="guide-matching"><h4>검색 조건과 실거래 자료</h4><p>예산과 주차·놀이터 같은 조건으로 단지를 고르고 이전 계약을 참고할 수 있어요. 실거래의 계약 시점과 현재 매물 정보의 확인 상태를 구분해 보여줘요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/data/tour-matching.md">GitHub 원문 보기<span class="sr-only"> · 검색 조건과 실거래 자료</span></a></li>
+            <li id="guide-coverage-record"><h4>서울 단지별 데이터 현황</h4><p>서울 25개 구에서 목록 3,158곳, 전 주동 윤곽 연결 1,238곳, 공개 3D 10곳을 집계했어요. 단지코드·건물 주소·동수·세대수 등을 대조해서 3D 후보를 가려요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/planning/2026-11-21-seoul-tour-coverage.md">GitHub 원문 보기<span class="sr-only"> · 서울 단지별 데이터 현황</span></a></li>
+            <li id="guide-gyeonggi"><h4>경기도 건물 데이터 항목 조사</h4><p>초기 경기도 건물 파일의 주소·높이·층수 후보를 조사한 기록이에요. 공식 항목 정의를 확인하지 못한 경우에는 값의 의미를 후보로 남겼어요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/data/gyeonggi-columns.md">GitHub 원문 보기<span class="sr-only"> · 경기도 건물 데이터 항목 조사</span></a></li>
+          </ul>
+        </article>
+        <article class="module">
+          <h3>3D 장면을 만드는 방법</h3>
+          <ul>
+            <li id="guide-building"><h4>건물 파일 만들기</h4><p>지도에서 건물의 바깥 모양을 꺼내 높이와 층수를 연결하고, 깨진 도형·빠진 값을 찾아요. 검사한 건물을 작은 조각으로 나누면 화면에서 필요한 범위만 읽을 수 있어요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/building-pipeline.md">GitHub 원문 보기<span class="sr-only"> · 건물 파일 만들기</span></a></li>
+            <li id="guide-region"><h4>한 지역의 3D 장면 만들기</h4><p>건물에 지형, 도로, 보도, 물길·녹지·생활시설을 맞춰 지역 장면을 만들어요. 확인된 횡단보도와 보행 신호의 위치를 쓰고, 모델이나 자료의 확인 범위도 표시해요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/region-tour-pipeline.md">GitHub 원문 보기<span class="sr-only"> · 한 지역의 3D 장면 만들기</span></a></li>
+            <li id="guide-jamsil"><h4>잠실 르엘 제작 사례</h4><p>잠실 르엘의 주동 윤곽 13곳과 두 진입부를 확인해 주변 도로·보도·보행 신호와 함께 장면에 연결했어요. 대장 높이가 확보되지 않은 주동은 일조 판정에서 그 한계를 표시해요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/planning/2026-11-21-jamsil-leel-build.md">GitHub 원문 보기<span class="sr-only"> · 잠실 르엘 제작 사례</span></a></li>
+            <li id="guide-pilot"><h4>서울 4개 구에서 확인한 결과</h4><p>마포·성동·성북에서 각 두 단지를 더해 서울 4개 구에서 같은 제작 방식을 시험했어요. 지형을 공유하는 이웃 단지의 겹치는 범위에서 5,105개 좌표의 높이가 일치하는 걸 확인했어요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/planning/2026-11-21-seoul-pilot-validation.md">GitHub 원문 보기<span class="sr-only"> · 서울 4개 구에서 확인한 결과</span></a></li>
+          </ul>
+        </article>
+        <article class="module">
+          <h3>별도로 조사하고 있는 주제</h3>
+          <ul>
+            <li id="guide-ridges"><h4>지형의 능선을 찾는 실험 계획</h4><p>등고선은 높이가 같은 점을 이은 선이에요. 이 자료를 써서 산등성이 후보를 찾고 실제 지형과 대조하는 방법을 조사했어요. 문서에 적힌 내용은 실험 계획이에요.</p><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/experiments/ridges.md">GitHub 원문 보기<span class="sr-only"> · 지형의 능선을 찾는 실험 계획</span></a></li>
+          </ul>
+        </article>
+      </div>
+      <p class="source"><a href="https://github.com/koomily/find-my-shelter/blob/main/docs/README.md">GitHub 문서 목차</a></p>
+    </section>
+
+    <footer>2026-11-21 기준 · <a href="https://github.com/koomily/find-my-shelter">프로젝트 저장소</a></footer>
   </main>
 </body>
 </html>
