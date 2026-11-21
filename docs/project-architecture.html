@@ -39,13 +39,43 @@
     .contents a { display: inline-block; padding-block: .25rem; font-weight: 640; }
     section { margin-top: 2.6rem; }
     .lead { margin: .55rem 0 1.15rem; color: var(--muted); max-width: 64ch; }
-    .flow { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
-    .flow li, .module, .layer, .stat { background: var(--surface); border: 1px solid var(--line); border-radius: .65rem; padding: 1rem; }
-    .flow li { position: relative; border-top: 4px solid #438164; }
-    .flow li + li::before { content: ""; position: absolute; top: 1.22rem; left: -.87rem; width: .85rem; height: 2px; background: #438164; }
-    .flow h3, .module h3, .layer h3 { margin-bottom: .45rem; }
-    .flow p, .module p, .layer p { font-size: .97rem; }
-    .flow .paths { margin-top: .55rem; color: var(--muted); }
+    .module, .layer, .stat { background: var(--surface); border: 1px solid var(--line); border-radius: .65rem; padding: 1rem; }
+    .module h3, .layer h3 { margin-bottom: .45rem; }
+    .module p, .layer p { font-size: .97rem; }
+    #graph-view { padding: .9rem; border: 1px solid #b8cabb; border-radius: .9rem; background: #eff3e9; }
+    .graph-tools, .graph-links { display: flex; flex-wrap: wrap; gap: .45rem; }
+    .graph-tools { padding-bottom: .85rem; border-bottom: 1px solid var(--line); }
+    .graph-filter, .graph-link, .graph-node {
+      cursor: pointer; font: inherit; color: inherit; border: 1px solid #a9bdab; background: var(--surface);
+    }
+    .graph-filter, .graph-link { border-radius: 999px; padding: .35rem .72rem; min-height: 42px; font-size: .9rem; }
+    .graph-filter[aria-pressed="true"] { background: var(--forest); color: #fff; border-color: var(--forest); }
+    .graph-board { position: relative; isolation: isolate; padding: 0 .12rem .4rem; }
+    .graph-wires { position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .graph-columns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(1.25rem, 4vw, 3.2rem); }
+    .graph-column { min-width: 0; display: flex; flex-direction: column; }
+    .graph-column h3 { margin: .75rem 0 .6rem; color: var(--forest); font-size: .89rem; letter-spacing: -.015em; }
+    .graph-column ol { flex: 1; display: grid; align-content: space-between; gap: .5rem; padding: 0; list-style: none; }
+    .graph-node { width: 100%; min-height: 57px; padding: .46rem .55rem; text-align: left; border-radius: .5rem; line-height: 1.25; box-shadow: 0 1px 2px #23463012; }
+    .graph-node strong, .graph-node small { display: block; }
+    .graph-node strong { font-size: .94rem; }
+    .graph-node small { color: var(--muted); font-size: .79rem; margin-top: .2rem; }
+    .graph-node[data-related="false"] { border-color: #c4cec2; background: #f8fbf5; color: #4c6556; }
+    .graph-node[data-related="true"] { border-color: #58906d; }
+    .graph-node[aria-pressed="true"] { border-color: #235338; background: #dcedb5; color: #173d2b; box-shadow: 0 0 0 1px #235338; }
+    .graph-filter:hover, .graph-link:hover, .graph-node:hover { border-color: var(--forest); }
+    .graph-detail { margin-top: .65rem; padding: 1rem; border: 1px solid #b7c9b6; border-radius: .65rem; background: var(--surface); scroll-margin: .5rem; }
+    .graph-detail header { display: flex; gap: .5rem 1rem; align-items: baseline; flex-wrap: wrap; }
+    .graph-detail header span { color: #356349; font-size: .87rem; font-weight: 700; }
+    .graph-detail h3 { font-size: 1.3rem; }
+    .graph-back { display: inline-block; margin-top: .75rem; font-size: .9rem; }
+    .graph-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; margin-top: .8rem; }
+    .graph-detail dt { font-size: .89rem; font-weight: 750; }
+    .graph-detail dd { margin: .12rem 0 0; color: var(--muted); }
+    .graph-neighbors { margin-top: .85rem; padding-top: .6rem; border-top: 1px solid var(--line); display: grid; gap: .4rem; }
+    .graph-neighbors strong { min-width: 5rem; font-size: .89rem; }
+    .graph-references { padding-left: 0; margin-top: .7rem; list-style: none; display: flex; flex-wrap: wrap; gap: .25rem .95rem; }
+    .graph-references a { display: inline-block; padding-block: .2rem; }
     .source { margin-top: .8rem; font-size: .9rem; color: var(--muted); }
     .layers { display: grid; gap: .55rem; }
     .layer { display: grid; grid-template-columns: 10rem minmax(0, 1fr); align-items: start; gap: .35rem 1.2rem; }
@@ -82,15 +112,29 @@
     .roadmap { padding-left: 1.35rem; }
     .roadmap li + li { margin-top: .55rem; }
     footer { margin: 2.5rem 0 0; padding: 1rem 0 1.65rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+    @media (min-width: 1120px) {
+      .wrap { width: min(1190px, calc(100% - 3rem)); }
+      #graph-view:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) 16.5rem; column-gap: 1rem; }
+      .graph-tools { grid-column: 1 / -1; }
+      .graph-detail { align-self: start; }
+      .graph-detail dl { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+      .graph-columns { gap: clamp(1rem, 2.8vw, 2.4rem); }
+    }
     @media (max-width: 780px) {
-      .flow, .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .flow li + li::before { display: none; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 650px) {
+      .graph-columns { grid-template-columns: minmax(0, 1fr); gap: 1.05rem; }
+      .graph-column h3 { margin: .44rem 0 .45rem; justify-self: start; }
+      .graph-column ol { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+      .graph-column li:only-child { grid-column: 1 / -1; width: min(100%, 16rem); justify-self: center; }
+      .graph-detail dl { grid-template-columns: minmax(0, 1fr); gap: .6rem; }
     }
     @media (max-width: 520px) {
       .wrap { width: calc(100% - 1.5rem); }
       .hero { padding-bottom: 1.8rem; }
-      .flow, .two, .layer, .document-list { grid-template-columns: minmax(0, 1fr); }
-      .flow li, .module, .layer { padding: .8rem; }
+      .two, .layer, .document-list { grid-template-columns: minmax(0, 1fr); }
+      .module, .layer { padding: .8rem; }
       .files-table th, .files-table td { padding: .48rem; }
     }
     @media print {
@@ -98,10 +142,10 @@
       .wrap { width: 100%; }
       .hero { padding: 0; background: white; color: black; }
       .hero .intro, .brand { color: black; }
-      .contents, .skip, .public { display: none !important; }
+      .contents, .skip, .public, .graph-tools { display: none !important; }
       section { margin-top: 1.25rem; }
       h2, h3 { break-after: avoid; }
-      .flow li, .module, .layer, .stat, tr { break-inside: avoid; }
+      .graph-node, .module, .layer, .stat, tr { break-inside: avoid; }
     }
   </style>
 </head>
@@ -110,16 +154,16 @@
   <header class="hero">
     <div class="wrap">
       <p class="brand">FIND MY SHELTER</p>
-      <h1>집을 보러 가기 전에, 동네를 먼저 걸어보세요</h1>
-      <p class="intro">Find My Shelter는 지도와 건축·지형 자료로 아파트 주변을 3D로 만들어 보여줘요. 볕과 그늘, 역에서 집까지의 오르막, 공원까지 이어지는 길을 보면서 현장에서 어디를 볼지 정할 수 있어요.</p>
+      <h1>온라인 임장의 데이터 연결 지도</h1>
+      <p class="intro">건물의 높이, 땅의 기울기, 길의 위치가 어디서 오고 3D 임장에서 어떤 역할을 하는지 화살표를 따라가 보세요.</p>
       <a class="public" href="https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/seoul/">공개 임장 열기</a>
     </div>
   </header>
 
   <nav class="wrap" aria-label="문서 목차">
     <ul class="contents">
+      <li><a href="#flow">데이터 연결 그래프</a></li>
       <li><a href="#example">임장 예시</a></li>
-      <li><a href="#flow">시스템 구조</a></li>
       <li><a href="#data">데이터 설명</a></li>
       <li><a href="#reuse">서울로 넓히는 방법</a></li>
       <li><a href="#coverage">현재 범위</a></li>
@@ -128,6 +172,28 @@
   </nav>
 
   <main id="main" class="wrap">
+    <section id="flow" aria-labelledby="flow-title">
+      <h2 id="flow-title">자료가 3D 화면이 되는 과정</h2>
+      <p class="lead">상자를 누르면 앞뒤로 이어지는 자료가 강조돼요. 선택한 항목의 출처와 가져오는 방법, 쓰이는 곳은 그래프 아래에서 볼 수 있어요.</p>
+      <div id="graph-view" hidden>
+        <div class="graph-tools" role="group" aria-label="데이터 흐름 선택"></div>
+        <div class="graph-board">
+          <canvas class="graph-wires" aria-hidden="true"></canvas>
+          <div class="graph-columns" aria-label="공개 원본부터 사용자 화면까지"></div>
+        </div>
+        <section class="graph-detail" aria-labelledby="graph-detail-title">
+          <header><h3 id="graph-detail-title" tabindex="-1"></h3><span class="graph-stage-label"></span></header>
+          <dl></dl>
+          <div class="graph-neighbors"></div>
+          <ul class="graph-references"></ul>
+          <a class="graph-back" href="#flow">그래프로 돌아가기</a>
+        </section>
+        <p class="graph-announcement sr-only" role="status"></p>
+      </div>
+      <noscript><p>공개 원본을 받아 위치를 맞추고, 동네별 웹 파일로 준비합니다. 브라우저의 3D 장면과 분석 화면은 이 파일들을 읽습니다.</p></noscript>
+      <p class="source"><a href="#guide-building">건물 파일 제작 기록</a> · <a href="#guide-region">지역 장면 제작 기록</a></p>
+    </section>
+
     <section id="example" aria-labelledby="example-title">
       <h2 id="example-title">예를 들어, 겨울 오후에 놀이터에 볕이 들까?</h2>
       <p class="lead">현장에 갈 시간은 한정돼 있어요. 온라인에서 확인할 수 있는 정보를 먼저 보고, 중요한 장소와 시간을 골라 갈 수 있어요.</p>
@@ -136,18 +202,6 @@
         <p>그늘을 만든 주동을 3D에서 확인하고, 관심 지점과 시간을 현장 메모에 남길 수 있어요. 실제 나무 그늘이나 실내 채광은 방문 때 살펴볼 항목이에요.</p>
       </div>
       <p class="source"><a href="https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/?region=songpa">가락동부센트레빌 열기</a> · <a href="#guide-spec">임장 체크리스트 설명</a></p>
-    </section>
-
-    <section id="flow" aria-labelledby="flow-title">
-      <h2 id="flow-title">자료가 3D 화면이 되는 과정</h2>
-      <p class="lead">건물, 도로, 지형은 서로 다른 곳에서 받아요. 미리 위치를 맞추고 필요한 만큼 잘라 두면, 브라우저는 선택한 동네의 자료를 읽어 화면을 그릴 수 있어요.</p>
-      <ol class="flow">
-        <li><h3>자료 받기</h3><p>단지 목록에는 주소와 동수가 있고, 건축물대장에는 건물 높이가 있어요. 지도에는 길과 건물의 모양이 있어요.</p><p class="paths"><code>data/</code></p></li>
-        <li><h3>같은 위치에 맞추기</h3><p>같은 주소와 동 정보를 연결하고, 건물·길·땅의 위치를 한 기준으로 맞춰요. 서로 맞지 않거나 비어 있는 값은 표시해요.</p><p class="paths"><code>backend/</code></p></li>
-        <li><h3>동네별로 묶기</h3><p>지도와 건물을 작은 파일로 나누고, 각 단지에서 불러올 자료의 목록을 만들어요.</p><p class="paths"><code>frontend/public/datasets/</code></p></li>
-        <li><h3>화면에서 체험하기</h3><p>브라우저에서 건물과 거리를 그리고, 선택한 장소와 시각의 햇빛이나 지형을 살펴봐요.</p><p class="paths"><code>frontend/</code></p></li>
-      </ol>
-      <p class="source"><a href="#guide-building">건물 파일을 만드는 과정</a> · <a href="#guide-region">지역 장면을 만드는 과정</a></p>
     </section>
 
     <section id="data" aria-labelledby="data-title">
@@ -314,5 +368,341 @@
 
     <footer>2026-11-21 기준 · <a href="https://github.com/koomily/find-my-shelter">프로젝트 저장소</a></footer>
   </main>
+  <script>
+    const stages = [
+      {
+        title: '어디서 가져오나',
+        nodes: [
+          { id: 'kapt', title: 'K-apt 단지 목록', note: '이름·주소·단지코드',
+            get: 'K-apt의 단지 기본정보 엑셀을 내려받아 서울 아파트 기록을 뽑아요.',
+            use: '단지코드로 검색 데이터를 묶고, 주소와 동수를 건축물대장과 대조해요.',
+            output: '서울 단지 목록의 이름·주소와 동별 건물 연결의 기준이 돼요.',
+            links: [['K-apt 원본', 'https://www.data.go.kr/data/15073271/fileData.do'], ['자료 설명', '#guide-kapt']] },
+          { id: 'trades', title: '아파트 실거래 자료', note: '이전 계약 금액·시점',
+            get: '국토교통부 실거래 공개시스템에서 매매·임대차 자료를 내려받아요.',
+            use: '주소와 단지를 맞춘 이전 계약을 예산 비교와 동네 수첩에 보여줘요.',
+            output: '계약 시점과 면적을 함께 보여주는 실거래 기록이 돼요.',
+            links: [['실거래 원본', 'https://rt.molit.go.kr/pt/xls/xls.do'], ['검색 자료 설명', '#guide-matching']] },
+          { id: 'registry', title: '건축물대장', note: '동 이름·높이·층수',
+            get: '건축HUB의 표제부 자료를 내려받고 주소·필지·동수·세대수를 대조해 어느 단지의 주거동인지 확인해요.',
+            use: '서울시 지도에 그려진 주거동의 윤곽에 확인된 높이와 층수를 붙여요.',
+            output: '3D 건물의 높이와 햇빛을 가리는 건물 체적을 만드는 데 쓰여요.',
+            links: [['건축HUB 표제부', 'https://www.hub.go.kr/portal/opn/lps/idx-lgcpt-pvsn-srvc-list.do?opnLgcptTaskSeCd=03'], ['건물 연결 기록', '#guide-coverage-record']] },
+          { id: 'footprints', title: '서울시 건물 지도', note: '건물의 위치·바깥 모양',
+            get: '서울시 에스맵-오픈랩에서 건물면 파일을 받아 필요한 지역만 잘라요.',
+            use: '지도 도형에 대장 정보를 연결해 건물의 모양과 높이를 함께 사용할 수 있게 해요.',
+            output: '아파트와 주변 건물의 3D 배치, 일조 계산에 쓰는 건물의 밑면이 돼요.',
+            links: [['서울시 건물면', 'https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_B0010000.zip'], ['건물 파일 제작', '#guide-building']] },
+          { id: 'dem', title: '동네 지형 높이 지도', note: 'GEDTM30 · 땅의 높이',
+            get: '공개 GEDTM30 파일에서 필요한 지역의 높이 표본을 읽어요.',
+            use: '동네의 전체 지형을 만들고 그 위에 길과 건물을 놓아요. 지형이 햇빛과 시야를 가리는지도 계산해요.',
+            output: '눈높이에서 보이는 언덕과 낮은 곳, 넓은 범위의 지형 단면을 구성해요.',
+            links: [['GEDTM30 원본', 'https://zenodo.org/records/15689805'], ['공유 지형 대조 기록', '#guide-pilot']] },
+          { id: 'levels', title: '서울시 등고선·표고점', note: '높이가 같은 선과 높이 표본',
+            get: '서울시가 공개한 수치지형도에서 등고선과 표고점 파일을 받아 해당 구간을 잘라요.',
+            use: '송파 일부의 지형을 보강하고, 확보된 보행 경로의 고도 단면과 변화율을 계산해요.',
+            output: '경로의 오르락내리락하는 모양과 방향별 오르막 구간을 보여줘요.',
+            links: [['서울시 표고점과 등고선', 'https://data.seoul.go.kr/dataList/OA-22241/F/1/datasetView.do'], ['경로 대조 기록', '#guide-pilot']] },
+          { id: 'osm', title: 'OpenStreetMap 지도', note: '길 연결·공원·물길',
+            get: 'OpenStreetMap에서 지역 범위의 지도 파일을 받아 길의 연결과 단지 경계를 읽어요. OpenFreeMap 지도 조각에서는 녹지·물길과 생활시설을 읽어요.',
+            use: '도로·보행로가 지도에서 어떻게 이어지는지 확인하고, 공원과 역 출입구를 경로 후보와 연결해요.',
+            output: '3D 속 길·공원·물길과 보행 경로의 뼈대가 돼요.',
+            links: [['OpenStreetMap 범위 API', 'https://wiki.openstreetmap.org/wiki/API_v0.6'], ['지역 자료 연결', '#guide-region']] },
+          { id: 'street-survey', title: '서울시 도로시설 자료', note: '보도·횡단보도·보행등',
+            get: '서울시 도로면과 보도면, 횡단보도 도형, 시설 관리대장과 보행 신호 위치 자료를 받아요.',
+            use: '지도 위 도로 폭과 보도 모양을 보강하고, 자료에서 연결되는 횡단 위치와 신호등 위치를 표시해요.',
+            output: '3D에서 볼 수 있는 포장, 차선, 횡단 표시와 보행 신호등을 구성해요.',
+            links: [['서울시 횡단 시설 대장', 'https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do'], ['지역 자료 연결', '#guide-region']] }
+        ]
+      },
+      {
+        title: '어떻게 정리하나',
+        nodes: [
+          { id: 'catalog-build', title: '단지별 자료 묶기', note: '검색 목록과 공개 상태 검사',
+            get: 'K-apt의 단지코드를 읽고 주소·구 이름을 정리해요. 이전 계약은 단지와 대조해 검색용 자료로 만들어요.',
+            use: '단지마다 지도가 준비됐는지, 경로를 제공하는지 집계해요.',
+            output: '서울 단지 목록과 조건 맞춤 검색에 쓰는 자료가 생겨요.',
+            links: [['서울 목록 집계 방법', '#guide-coverage-record']] },
+          { id: 'building-match', title: '건물 윤곽과 높이 연결', note: '주소·필지·동 이름 대조',
+            get: 'K-apt의 단지 정보, 대장의 높이와 서울시 지도 윤곽을 주소와 동 이름으로 대조해요.',
+            use: '주동 숫자와 중복 번호를 검사하고, 확인된 높이와 미확인 상태를 분리해 저장해요.',
+            output: '동별 높이가 붙은 건물 조각과 윤곽 연결 현황을 만들어요.',
+            links: [['건물 파일을 만드는 과정', '#guide-building']] },
+          { id: 'terrain-build', title: '같은 좌표에 높이 맞추기', note: '동네별 높이 격자',
+            get: 'GEDTM30을 미터 단위의 좌표로 맞춰 높이를 일정 간격으로 뽑아요. 송파 일부는 서울시 높이 표본으로 보강해요.',
+            use: '같은 생활권의 이웃 단지가 같은 위치에서 같은 땅 높이를 쓰도록 맞춰요.',
+            output: '두 장면이 함께 읽을 수 있는 동네 지형 파일을 만들어요.',
+            links: [['이웃 단지 높이 검증', '#guide-pilot']] },
+          { id: 'street-build', title: '길과 주변 환경 맞추기', note: '도로망에 서울시 시설을 결합',
+            get: '지도상의 길을 먼저 읽고, 서울시가 제공한 도로·보도·횡단 도형을 같은 위치에 맞춰요.',
+            use: '차도와 보도 면을 그리거나, 연결된 지주에 보행 신호를 표현해요.',
+            output: '도로망, 보도·횡단시설, 녹지와 물길 파일을 만들어요.',
+            links: [['지역 자료 연결', '#guide-region']] },
+          { id: 'walk-build', title: '보행 연결과 오르막 계산', note: '이어지는 길 따라 경로 생성',
+            get: '지도상 길의 연결을 따라 단지 근처에서 역이나 공원 방향으로 경로를 만들고, 서울시 높이 자료를 따라 표고를 계산해요.',
+            use: '지도 보도 표기와 목적지까지의 미확인 연결, 가는 길과 오는 길의 변화율을 정리해요.',
+            output: '경로 좌표와 거리, 고도를 따라 그린 단면 파일을 만들어요.',
+            links: [['보행 경로 자료 범위', '#guide-pilot']] }
+        ]
+      },
+      {
+        title: '어떤 파일이 되나',
+        nodes: [
+          { id: 'catalog-files', title: '단지 목록 파일', note: '검색과 3D 제공 상태',
+            get: '단지 목록 집계와 건물·경로 검수 결과를 합쳐 seoul-tour-catalog.json을 생성해요. 조건 검색의 실거래는 별도 파일이에요.',
+            use: '자치구와 단지명으로 찾고 3D·보행 경로가 준비된 단지를 구분해요.',
+            output: '서울 목록과 아파트 찾기 화면의 검색·결과 정보를 구성해요.',
+            links: [['공개 서울 단지 목록', '/seoul/'], ['데이터 범위', '#guide-coverage-record']] },
+          { id: 'building-files', title: '건물 파일', note: '윤곽·높이·동 번호',
+            get: '연결된 건물을 GeoJSON 조각과 그 조각의 목록인 manifest.json으로 저장해요.',
+            use: '선택한 단지 주변의 건물을 놓고, 확인된 높이를 일조·시야 계산에 써요.',
+            output: '3D 주동과 주변 건물, 태양 광선을 가리는 건물 모형을 만들어요.',
+            links: [['건물 파일 구성', '#guide-building']] },
+          { id: 'terrain-files', title: '지형 파일', note: '위치별 땅 높이',
+            get: '기준 좌표와 격자마다 기록한 표고를 terrain.json으로 저장해요. 상세 지형이 있는 곳은 별도로 보강해요.',
+            use: '3D 땅 표면과 그 위의 길 높이를 맞추고, 방향별로 높아지는 곳을 찾아요.',
+            output: '장면 바닥과 언덕, 지형 그림자와 시야 단면을 구성해요.',
+            links: [['공유 지형 사례', '#guide-pilot']] },
+          { id: 'street-files', title: '도로·보도·주변 환경 파일', note: '이동할 길과 주변 시설',
+            get: 'streets.json과 environment.geojson에 길·녹지·물길을 저장하고, 준비된 곳에는 별도로 도로 표시와 보행 신호 자료를 붙여요.',
+            use: '카메라가 움직일 길과 눈앞에 보이는 도로·공원·시설을 배치해요.',
+            output: '동네에서 걷고 운전하는 장면과 보행 길 주변의 환경을 구성해요.',
+            links: [['지역별 웹 파일 구성', '#guide-region']] },
+          { id: 'walk-files', title: '경로·고도 단면 파일', note: '거리·표고·보도 표기',
+            get: '경로와 지도 근거를 access.json에, 위치에 따른 높이를 route-elevation.json에 저장해요.',
+            use: '역이나 공원까지 지도상 연결과 방향별 누적 오르막을 보여줘요.',
+            output: '경로선, 고도 그래프, 눈높이 보기 지점이 생겨요.',
+            links: [['경로를 만든 사례', '#guide-pilot']] }
+        ]
+      },
+      {
+        title: '어디에 쓰이나',
+        nodes: [
+          { id: 'search', title: '아파트 찾기', note: '단지를 찾아 3D에 입장',
+            get: '서울 목록과 검색용 공시·실거래 파일을 브라우저에서 읽어요.',
+            use: '자치구나 주소로 찾고 3D가 준비된 곳에 들어가요.',
+            output: '단지 목록, 공개 범위, 예산을 살펴보는 조건 검색 화면을 보여줘요.',
+            links: [['서울 단지 찾기', '/seoul/'], ['조건 검색 설명', '#guide-matching']] },
+          { id: 'world', title: '3D에서 걷기·운전·조감', note: '건물·도로·지형이 만나는 곳',
+            get: '선택한 단지의 건물, 땅 높이, 도로와 주변 환경 파일을 불러와 Three.js로 그려요.',
+            use: '걷기와 운전, 위에서 내려다보기를 바꿔 가며 같은 동네를 둘러봐요.',
+            output: '실제 지도를 바탕으로 만든 브라우저 3D 장면을 보여줘요.',
+            links: [['송파 3D 임장', '/?region=songpa'], ['신축 단지 제작 사례', '#guide-jamsil']] },
+          { id: 'sun', title: '일조·시야 분석', note: '빛과 시야를 막는 곳',
+            get: '건물 윤곽·높이와 지형 파일에 선택한 날짜, 시각, 관측 높이를 적용해요.',
+            use: '태양 방향이나 선택한 시야를 막는 건물과 지형을 찾고, 자료가 부족한 곳은 미판정으로 표시해요.',
+            output: '직사광과 그늘 비교, 차폐 원인 3D 표시, 방향별 시야 단면을 보여줘요.',
+            links: [['일조 예시', '#example'], ['임장 체크리스트', '#guide-spec']] },
+          { id: 'access', title: '귀갓길·공원 가는 길', note: '경로 연결과 오르막',
+            get: '지도 경로와 계산한 고도 단면을 읽고, 경로를 주변 도로와 지형 위에 표시해요.',
+            use: '어느 길로 이어지고 어디서 오르막이 생기는지 확인해요. 보도 표기 미확인 구간이나 종점의 연결 공백도 보여줘요.',
+            output: '지도 경로선과 고도 단면, 같은 위치의 눈높이 화면을 보여줘요.',
+            links: [['보행 표본 대조', '#guide-pilot'], ['성북 표본 열기', '/?region=seoul-a10023926']] }
+        ]
+      }
+    ];
+
+    const edges = [
+      ['kapt', 'catalog-build'], ['kapt', 'building-match'], ['trades', 'catalog-build'],
+      ['registry', 'building-match'], ['footprints', 'building-match'],
+      ['dem', 'terrain-build'], ['levels', 'terrain-build'], ['levels', 'walk-build'],
+      ['osm', 'street-build'], ['osm', 'walk-build'], ['street-survey', 'street-build'],
+      ['catalog-build', 'catalog-files'], ['building-match', 'building-files'], ['building-match', 'catalog-files'],
+      ['terrain-build', 'terrain-files'], ['street-build', 'street-files'], ['walk-build', 'walk-files'], ['walk-build', 'catalog-files'],
+      ['catalog-files', 'search'], ['building-files', 'world'], ['building-files', 'sun'],
+      ['terrain-files', 'world'], ['terrain-files', 'sun'], ['terrain-files', 'access'],
+      ['street-files', 'world'], ['street-files', 'access'], ['walk-files', 'access']
+    ];
+    const filters = [
+      { id: 'all', label: '전체', first: 'registry' },
+      { id: 'search', label: '단지 검색', first: 'kapt', nodes: ['kapt', 'trades', 'catalog-build', 'catalog-files', 'search'] },
+      { id: 'light', label: '건물·일조', first: 'registry', nodes: ['registry', 'footprints', 'dem', 'building-match', 'terrain-build', 'building-files', 'terrain-files', 'world', 'sun'] },
+      { id: 'grade', label: '지형·경사', first: 'levels', nodes: ['levels', 'dem', 'osm', 'terrain-build', 'walk-build', 'terrain-files', 'walk-files', 'access'] },
+      { id: 'road', label: '길·공원', first: 'osm', nodes: ['osm', 'street-survey', 'levels', 'street-build', 'walk-build', 'street-files', 'walk-files', 'world', 'access'] }
+    ];
+
+    const graph = document.querySelector('#graph-view');
+    const tools = graph.querySelector('.graph-tools');
+    const columns = graph.querySelector('.graph-columns');
+    const board = graph.querySelector('.graph-board');
+    const canvas = graph.querySelector('canvas');
+    const detail = graph.querySelector('.graph-detail');
+    const detailTitle = detail.querySelector('h3');
+    const mobile = matchMedia('(max-width: 650px)');
+    const allNodes = new Map(stages.flatMap(stage => stage.nodes.map(node => [node.id, { ...node, stage: stage.title }])));
+    const visibleButtons = new Map();
+    let selected;
+
+    function element(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function button(label, className, onClick) {
+      const node = element('button', className, label);
+      node.type = 'button';
+      node.addEventListener('click', onClick);
+      return node;
+    }
+
+    function neighbors(id, backward) {
+      return edges.flatMap(([from, to]) => backward
+        ? (to === id ? [from] : []) : (from === id ? [to] : []));
+    }
+
+    function connected(id, backward) {
+      const result = new Set([id]);
+      const queue = [id];
+      for (const step of queue) {
+        for (const next of neighbors(step, backward)) {
+          if (result.has(next)) continue;
+          result.add(next);
+          queue.push(next);
+        }
+      }
+      return result;
+    }
+
+    function draw() {
+      const bounds = board.getBoundingClientRect();
+      const width = bounds.width, height = bounds.height;
+      if (!width || !height) return;
+      const scale = window.devicePixelRatio || 1;
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.scale(scale, scale);
+      const before = connected(selected, true);
+      const after = connected(selected, false);
+      const active = ([from, to]) => (before.has(from) && before.has(to)) || (after.has(from) && after.has(to));
+      const links = edges.filter(([from, to]) => visibleButtons.has(from) && visibleButtons.has(to));
+      const routes = [...links.filter(edge => !active(edge)), ...links.filter(active)];
+      for (const edge of routes) {
+        const [from, to] = edge;
+        const a = visibleButtons.get(from).getBoundingClientRect();
+        const b = visibleButtons.get(to).getBoundingClientRect();
+        const vertical = mobile.matches;
+        const x = (vertical ? a.left + a.width / 2 : a.right) - bounds.left;
+        const y = (vertical ? a.bottom : a.top + a.height / 2) - bounds.top;
+        const endX = (vertical ? b.left + b.width / 2 : b.left) - bounds.left;
+        const endY = (vertical ? b.top : b.top + b.height / 2) - bounds.top;
+        const bend = (vertical ? endY - y : endX - x) * .62;
+        const dx = vertical ? 0 : bend, dy = vertical ? bend : 0;
+        context.strokeStyle = context.fillStyle = active(edge) ? '#317449' : '#a9bcab';
+        context.lineWidth = active(edge) ? 2.1 : 1.05;
+        context.beginPath();
+        context.moveTo(x, y);
+        context.bezierCurveTo(x + dx, y + dy, endX - dx, endY - dy, endX, endY);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(endX, endY);
+        context.lineTo(endX + (vertical ? -4 : -6), endY + (vertical ? -6 : -4));
+        context.lineTo(endX + (vertical ? 4 : -6), endY + (vertical ? -6 : 4));
+        context.closePath();
+        context.fill();
+      }
+    }
+
+    function relatedGroup(label, ids) {
+      const row = element('div', 'graph-links');
+      row.append(element('strong', '', label));
+      if (!ids.length) row.append(element('span', '', '이 단계가 시작점 또는 도착점이에요.'));
+      for (const id of ids) {
+        row.append(button(allNodes.get(id).title, 'graph-link', () => select(id, true)));
+      }
+      return row;
+    }
+
+    function select(id, reveal = false) {
+      if (!visibleButtons.has(id)) {
+        showFilter(filters[0], id, reveal);
+        return;
+      }
+      selected = id;
+      const node = allNodes.get(id);
+      const related = new Set([...connected(id, true), ...connected(id, false)]);
+      for (const [key, control] of visibleButtons) {
+        control.setAttribute('aria-pressed', String(key === id));
+        control.dataset.related = String(related.has(key));
+      }
+      detailTitle.textContent = node.title;
+      detail.querySelector('.graph-stage-label').textContent = node.stage;
+      detail.querySelector('dl').replaceChildren(...[
+        ['어떻게 가져오나', node.get],
+        ['어디에 쓰이나', node.use],
+        ['무엇을 구성하나', node.output]
+      ].map(([label, description]) => {
+        const item = element('div');
+        item.append(element('dt', '', label), element('dd', '', description));
+        return item;
+      }));
+      detail.querySelector('.graph-neighbors').replaceChildren(
+        relatedGroup('앞에서 연결', neighbors(id, true)), relatedGroup('다음으로 연결', neighbors(id, false))
+      );
+      detail.querySelector('.graph-references').replaceChildren(...node.links.map(([label, href]) => {
+        const li = element('li');
+        const link = element('a', '', label);
+        link.href = href.startsWith('/') ? new URL(href, 'https://find-my-shelter-opo-tour.roankoala1.chatgpt.site').href : href;
+        li.append(link);
+        return li;
+      }));
+      graph.querySelector('.graph-announcement').textContent = node.title + ' 상세 정보를 표시했어요.';
+      draw();
+      if (reveal) {
+        history.replaceState(null, '', '#node-' + id);
+        if (mobile.matches || detail.getBoundingClientRect().top > window.innerHeight - 120) {
+          detailTitle.focus({ preventScroll: true });
+          detail.scrollIntoView({ block: 'start' });
+        }
+      }
+    }
+
+    function showFilter(next, id = next.first, reveal = false) {
+      for (const control of tools.querySelectorAll('button')) {
+        control.setAttribute('aria-pressed', String(control.dataset.filter === next.id));
+      }
+      visibleButtons.clear();
+      columns.replaceChildren(...stages.map(stage => {
+        const column = element('div', 'graph-column');
+        const group = element('ol');
+        group.setAttribute('aria-label', stage.title);
+        for (const node of stage.nodes) {
+          if (next.nodes && !next.nodes.includes(node.id)) continue;
+          const item = element('li');
+          const control = button('', 'graph-node', () => select(node.id, true));
+          control.id = 'node-' + node.id;
+          control.setAttribute('aria-controls', 'graph-detail-title');
+          control.append(element('strong', '', node.title), element('small', '', node.note));
+          item.append(control);
+          group.append(item);
+          visibleButtons.set(node.id, control);
+        }
+        column.append(element('h3', '', stage.title), group);
+        return column;
+      }));
+      select(id, reveal);
+    }
+
+    for (const option of filters) {
+      const control = button(option.label, 'graph-filter', () => {
+        showFilter(option);
+        if (location.hash.startsWith('#node-')) history.replaceState(null, '', '#flow');
+      });
+      control.dataset.filter = option.id;
+      tools.append(control);
+    }
+    graph.hidden = false;
+    const initialId = location.hash.startsWith('#node-') ? location.hash.slice(6) : '';
+    const initialFilter = filters[mobile.matches ? 2 : 0];
+    if (allNodes.has(initialId)) {
+      showFilter(initialFilter, initialId);
+      requestAnimationFrame(() => detail.scrollIntoView({ block: 'start' }));
+    } else showFilter(initialFilter);
+    new ResizeObserver(draw).observe(board);
+    mobile.addEventListener('change', draw);
+  </script>
 </body>
 </html>

@@ -4,6 +4,8 @@
 
 [프로젝트 전체 안내](https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/docs/project-architecture/) · [서울 단지 목록과 3D 임장](https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/seoul/)
 
+**[클릭하는 데이터 연결 그래프](https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/docs/project-architecture/#flow)**에서 건축물대장, 지형, 도로 같은 상자를 누르면 어디서 가져오고 어떤 파일이나 임장 화면을 만드는지 확인할 수 있습니다. [건축물대장이 연결되는 예](https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/docs/project-architecture/#node-registry)
+
 ## 한 번의 임장이 만들어지는 과정
 
 1. 공개 자료에서 단지 목록, 건물의 모양과 높이, 도로와 지형을 가져옵니다.
