@@ -11,13 +11,13 @@ export function createLightPath(scene: T.Scene, objects: T.Mesh[], ground: OpoDa
   group.visible = false;
   scene.add(group);
   const geometry = new LineGeometry().setPositions([0, 0, 0, 0, 0, 0]);
-  const foreground = new LineMaterial({ linewidth: 3, color: '#f8d78b', depthTest: false, depthWrite: false, dashSize: 3, gapSize: 2 });
+  const foreground = new LineMaterial({ linewidth: 3, color: '#dcc18d', depthTest: false, depthWrite: false, dashSize: 3, gapSize: 2 });
   const backing = new LineMaterial({ linewidth: 6, color: '#263143', depthTest: false, depthWrite: false, dashSize: 3, gapSize: 2 });
   const line = new Line2(geometry, foreground);
   const stroke = new Line2(geometry, backing);
   stroke.renderOrder = 10;
   line.renderOrder = 11;
-  const pointMaterial = new T.MeshBasicMaterial({ color: '#f8d78b', depthTest: false, depthWrite: false });
+  const pointMaterial = new T.MeshBasicMaterial({ color: '#dcc18d', depthTest: false, depthWrite: false });
   const pointGeometry = new T.SphereGeometry(1.1, 12, 8);
   const start = new T.Mesh(pointGeometry, pointMaterial);
   const end = new T.Mesh(pointGeometry, pointMaterial);
@@ -25,7 +25,7 @@ export function createLightPath(scene: T.Scene, objects: T.Mesh[], ground: OpoDa
   const arrow = new T.Mesh(new T.ConeGeometry(1.8, 5, 12), pointMaterial);
   arrow.renderOrder = 12;
   const outlineMaterial = new T.LineBasicMaterial({
-    color: '#f8d78b', depthTest: false, depthWrite: false, transparent: true, opacity: 0.8,
+    color: '#dcc18d', depthTest: false, depthWrite: false, transparent: true, opacity: 0.8,
   });
   const outline = new T.LineSegments(new T.BufferGeometry(), outlineMaterial);
   outline.matrixAutoUpdate = false;
@@ -39,7 +39,7 @@ export function createLightPath(scene: T.Scene, objects: T.Mesh[], ground: OpoDa
     group.visible = sample.status !== 'night';
     bounds.makeEmpty();
     if (!group.visible) return;
-    const color = slot === 'A' ? '#f8d78b' : '#91ded0';
+    const color = slot === 'A' ? '#dcc18d' : '#9bb5af';
     const isUncertain = sample.status === 'unknown';
     foreground.color.set(isUncertain ? '#e5bc86' : color);
     foreground.dashed = backing.dashed = isUncertain;

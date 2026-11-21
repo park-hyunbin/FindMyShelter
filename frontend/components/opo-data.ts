@@ -1,5 +1,7 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
+import { buildingUseCode } from './data/building-use-code';
+import buildingUseEvidence from './data/building-use-evidence.generated.json';
 import { catalogScene, jamsilLeel, regions, songpaComplex, type RegionId } from './data/regions';
 import { routesFor, type AccessDataset } from './data/visit-routes';
 import { songpaRouteElevation, type RouteElevationDataset } from './data/songpa-route-elevation';
@@ -22,10 +24,12 @@ export type Shape = Point[][];
 type HeightGap = { label: string; rings: Shape; center: Point; radius: number };
 export type Building = {
   id: string; label: string; dong: string | null; height: number | null;
+  bd_code_type: string | null;
   levels: number | null; visualHeight?: number; category: string; roof: string | null; shapes: Shape[];
 };
 type BuildingProperties = {
   id: string; name: string | null; dong: string | null; height_m: number | null;
+  bd_code_type?: string | null;
   levels?: number | null; floors?: number | null; building?: string; use?: string; roof?: string | null; area_m2?: number;
 };
 type StreetProperties = {
@@ -244,6 +248,11 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const officialHeights = new Map(register.towers.map(row => [row.outlineId, row]));
   const registerRows: (typeof register.towers[number] & { outlineAreaM2: number })[] = [];
   const referenceFloors: Readonly<Record<string, number>> = jamsilLeel.referenceFloors;
+  const songpaCodes: Readonly<Record<string, string | null>> = buildingUseEvidence.songpaCodes;
+  const seoulKinds: Readonly<Record<string, string | null>> = buildingUseEvidence.seoulKinds;
+  const seoulVersions: Readonly<Partial<Record<RegionId, string>>> = buildingUseEvidence.seoulVersions;
+  const hasSongpaEvidence = source.version === buildingUseEvidence.songpaVersion;
+  const hasSeoulEvidence = catalog !== undefined && source.version === seoulVersions[region];
   const toBuilding = ({ geometry, properties }: BuildingFile['features'][number]): Building => {
     const dong = region === 'opo' && properties.name === '오포 롯데캐슬 포레스트' ? properties.dong
       : region === 'songpa' ? songpaComplex.towers.find(tower => tower.id === properties.id)?.dong ?? null
@@ -262,6 +271,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
       id: properties.id,
       label: unit && !name.endsWith(unit) ? `${name} ${unit}` : name,
       dong,
+      bd_code_type: buildingUseCode(properties,
+        region === 'songpa' ? (hasSongpaEvidence ? songpaCodes[properties.id] ?? null : null) : undefined,
+        hasSeoulEvidence ? seoulKinds[properties.id] : undefined),
       height: positiveDimension(recorded?.heightM ?? properties.height_m),
       levels, visualHeight,
       category: properties.use || properties.building || '',

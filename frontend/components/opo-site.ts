@@ -44,8 +44,8 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
   group.visible = false;
   scene.add(group);
   const pointAt = ({ x, z }: Point, lift = 2) => new T.Vector3(x, grade(x, z) + lift, z);
-  const zoneStroke = new LineMaterial({ color: '#bacbff', linewidth: 3.4, depthTest: false, depthWrite: false });
-  const siteStroke = new LineMaterial({ color: '#70ead1', linewidth: 4.1, depthTest: false, depthWrite: false });
+  const zoneStroke = new LineMaterial({ color: '#9ba8be', linewidth: 3.4, depthTest: false, depthWrite: false });
+  const siteStroke = new LineMaterial({ color: '#84967e', linewidth: 4.1, depthTest: false, depthWrite: false });
   const fill = new T.MeshBasicMaterial({ color: '#697cb6', opacity: 0.16, transparent: true,
     depthTest: false, depthWrite: false, side: T.DoubleSide });
   function outline(points: T.Vector3[], material: LineMaterial) {
@@ -74,7 +74,7 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
   const school = data.places.find(place => place.id === songpaSchool.placeId);
   if (school) {
     const pin = new T.Mesh(new T.SphereGeometry(7, 12, 9),
-      new T.MeshBasicMaterial({ color: '#bacbff', depthTest: false, depthWrite: false }));
+      new T.MeshBasicMaterial({ color: '#9ba8be', depthTest: false, depthWrite: false }));
     pin.position.copy(pointAt(school.point, 28));
     pin.renderOrder = 14;
     group.add(pin);

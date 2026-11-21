@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import SeoulCatalog from './SeoulCatalog';
-import './seoul.css';
+import ShelterHome from '../../components/ShelterHome';
 
 export const metadata: Metadata = {
   title: '서울 아파트 임장 목록 · Find My Shelter',
@@ -8,12 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function SeoulPage() {
-  return <main className="seoul-catalog">
-    <header className="seoul-catalog-header">
-      <a href="/">Find My Shelter</a>
-    </header>
-    <h1>서울 아파트 임장 목록</h1>
-    <p className="seoul-catalog-intro">단지를 찾아보고 3D 장면과 보행 경로가 준비된 곳에 들어가 보세요.</p>
-    <SeoulCatalog />
-  </main>;
+  return <ShelterHome initialQuery="서울" />;
 }

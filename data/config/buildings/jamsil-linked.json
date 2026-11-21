@@ -1,0 +1,15 @@
+{
+  "region": "jamsil-linked",
+  "source": "data/raw/buildings/ngii-buildings-202610/(연속수치지형도)건물_001.zip",
+  "source_layer": "N3A_B0010000_001",
+  "encoding": "CP949",
+  "center_lnglat": [127.1071, 37.5177],
+  "radius_m": 350,
+  "attributes_config": "data/config/buildings/songpa.json",
+  "simplify_m": 0.1,
+  "max_chunk_bytes": 180000,
+  "require_verified": false,
+  "mapping_status": "linked_candidates_pending_qgis_review",
+  "provenance": {"geometry":"NGII continuous topographic building ZIP 001", "attributes":"AL_D198_11710_20260715", "geometry_license":"CC BY as displayed on VWorld", "attribute_license":"unconfirmed", "description":"Jamsil technical window, not a verified complex boundary; inspect candidates in QGIS."},
+  "fields": {"bldg_id":"UFID", "name":"NAME", "floors":"NMLY"}
+}

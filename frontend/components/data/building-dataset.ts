@@ -4,6 +4,7 @@ type Properties = { id: string; name: string | null; dong: string | null; height
 type Buildings = FeatureCollection<Polygon | MultiPolygon, Properties>;
 type Manifest = {
   schema_version: number;
+  version: string;
   count: number;
   metadata: { center_lnglat: [number, number]; local_origin_xy: [number, number]; radius_m: number };
   chunks: { url: string; count: number; bytes: number; bounds: number[] }[];
@@ -37,5 +38,5 @@ export async function loadBuildingDataset(region: string, signal: AbortSignal) {
   if (features.length !== manifest.count || new Set(features.map(f => f.properties.id)).size !== manifest.count) {
     throw new Error('건물 데이터가 중복되거나 누락되었습니다.');
   }
-  return { type: 'FeatureCollection' as const, features, metadata: manifest.metadata };
+  return { type: 'FeatureCollection' as const, features, metadata: manifest.metadata, version: manifest.version };
 }

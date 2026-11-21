@@ -1,0 +1,20 @@
+{
+  "region": "jamsil-topo001",
+  "source": "data/raw/buildings/ngii-buildings-202610/(연속수치지형도)건물_001.zip",
+  "source_layer": "N3A_B0010000_001",
+  "encoding": "CP949",
+  "center_lnglat": [127.1071, 37.5177],
+  "radius_m": 350,
+  "simplify_m": 0.1,
+  "max_chunk_bytes": 180000,
+  "require_verified": false,
+  "mapping_status": "candidate_ngii_columns_pending_qgis_review",
+  "provenance": {
+    "source_dataset": "VWorld continuous topographic building layer, archive 001",
+    "source_url": "https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=MK&dsId=30162",
+    "license": "CC BY, as displayed on VWorld dataset page",
+    "description": "Technical comparison window near Jamsil; center is a search reference, not a verified complex centroid or boundary.",
+    "height_note": "NMLY floor count is retained; measured height is unavailable in this source."
+  },
+  "fields": {"bldg_id":"UFID", "name":"NAME", "floors":"NMLY"}
+}

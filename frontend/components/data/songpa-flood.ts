@@ -29,12 +29,12 @@ export const floodWaterSource = {
 };
 export const floodForecast = forecast;
 export const floodDepth = [
-  { label: '0.5m 이하', color: '#62b9ff' },
-  { label: '0.5~1.0m', color: '#7a92ff' },
-  { label: '1.0~1.5m', color: '#b288ff' },
-  { label: '1.5~2.0m', color: '#d082df' },
-  { label: '2.0~3.0m', color: '#d976b5' },
-  { label: '3.0m 이상', color: '#f58b9b' },
+  { label: '0.5m 이하', color: '#85a5b0' },
+  { label: '0.5~1.0m', color: '#6d879c' },
+  { label: '1.0~1.5m', color: '#857f9c' },
+  { label: '1.5~2.0m', color: '#9d7b90' },
+  { label: '2.0~3.0m', color: '#af7a80' },
+  { label: '3.0m 이상', color: '#a9655d' },
 ];
 export type FloodView = 'closest' | 'area' | 'forecast' | 'slope' | keyof typeof archive.water;
 export type DrainageDistances = {

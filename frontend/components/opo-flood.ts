@@ -12,8 +12,8 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   group.visible = false;
   scene.add(group);
 
-  const siteStroke = new LineMaterial({ color: '#70ead1', linewidth: 4, depthTest: false, depthWrite: false });
-  const traceStroke = new LineMaterial({ color: '#f0af54', linewidth: 2.6, depthTest: false, depthWrite: false });
+  const siteStroke = new LineMaterial({ color: '#84967e', linewidth: 4, depthTest: false, depthWrite: false });
+  const traceStroke = new LineMaterial({ color: '#c19b67', linewidth: 2.6, depthTest: false, depthWrite: false });
   const distanceStroke = new LineMaterial({
     color: '#fff3cf', linewidth: 2.3, dashed: true, dashSize: 6, gapSize: 4, depthTest: false, depthWrite: false,
   });
@@ -94,12 +94,12 @@ export function addSongpaFloodMap(data: OpoData, scene: T.Scene, grade: OpoData[
   const nearestMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({ color: '#f7bf66', depthTest: false, depthWrite: false }));
   nearestMarker.scale.setScalar(0.65);
   nearestMarker.renderOrder = 14;
-  const boundaryMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({ color: '#70ead1', depthTest: false, depthWrite: false }));
+  const boundaryMarker = new T.Mesh(pinGeometry, new T.MeshBasicMaterial({ color: '#84967e', depthTest: false, depthWrite: false }));
   boundaryMarker.scale.setScalar(0.5);
   boundaryMarker.renderOrder = 14;
   group.add(nearestMarker, boundaryMarker);
   const labelPoint = new T.Vector3();
-  const waterMaterial = new T.MeshBasicMaterial({ color: '#8fe4ff', depthTest: false, depthWrite: false });
+  const waterMaterial = new T.MeshBasicMaterial({ color: '#9bb4be', depthTest: false, depthWrite: false });
   const water = Object.fromEntries(Object.entries(floodHistory.water).map(([key, record]) => {
     const layer = new T.Group();
     const pin = new T.Mesh(pinGeometry, waterMaterial);

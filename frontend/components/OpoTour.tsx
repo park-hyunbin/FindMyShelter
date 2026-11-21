@@ -410,6 +410,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [winterWalkOpen, setWinterWalkOpen] = useState(false);
   const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
   const [world, setWorld] = useState<OpoWorld | null>(null);
+  const [targetHighlighted, setTargetHighlighted] = useState(true);
   const access = world?.access ?? routesFor(region);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
@@ -501,6 +502,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   useEffect(() => {
     world?.setStudyLighting(winterStreet);
   }, [world, winterStreet]);
+
+  useEffect(() => {
+    world?.setTargetHighlight(targetHighlighted);
+  }, [world, targetHighlighted]);
 
   useEffect(() => {
     if (!world) return;
@@ -1140,71 +1145,87 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }}>
     <div className="world" ref={host} />
 
-    <header className="tour-title">
-      <div className="brand"><span aria-hidden="true" className="brand-icon">⌂</span> Find My Shelter</div>
-      <div className="place"><h1>{area.name}</h1><p>{area.area}</p></div>
-      {(onChangeRegion || region === 'opo' || mode !== 'orbit' || world) && <div className="street-controls">
-        {onChangeRegion && <button className="region-return" type="button" aria-haspopup="dialog" aria-controls="region-picker" onClick={onChangeRegion}>지역 바꾸기</button>}
-        {(region === 'opo' || world?.destinations.length) ? <select aria-label="동네에서 장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
-          <option value="" disabled>동네에서 장소로 이동</option>
-          {world?.destinations.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
-        </select> : null}
-        {mode !== 'orbit' && <span className="street-position">{street.name}{mode === 'drive' && <b>{street.speed} km/h</b>}</span>}
-        {world && <TourLive world={world} region={region} />}
-      </div>}
-    </header>
-
-    {homeWalk && currentHomeStop && accessId && homeStep !== null && <section className="light-inspection walk-preview" aria-label="귀갓길 체험">
-      <div aria-live="polite"><strong>{homeStep + 1}/{homeWalk.stops.length} · {currentHomeStop.name}</strong>
-        <p>{currentHomeStop.evidence}</p></div>
-      <ul className="walk-legend" aria-label="귀갓길 선 표시">
-        <li><i aria-hidden="true" />보도 표기</li>
-        <li><i className="walk-gap" aria-hidden="true" />연결 미확인</li>
-        <li><i className="walk-aerial" aria-hidden="true" />영상 대조 · 위치 근사</li>
-        {homeWalk.gardenDistances && <li><i className="walk-shared" aria-hidden="true" />보행·차량 공용 포장</li>}
-      </ul>
-      <div className="walk-preview-actions">
-        <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
-        <button type="button" disabled={homeStep === homeWalk.stops.length - 1} onClick={() => viewHomeStop(accessId, homeStep + 1)}>다음</button>
-        <button type="button" onClick={() => { showAccessRoute(accessId); setOpen(true); }}>경로 지도</button>
-        {currentHomeStop.id === 'courtyard-walk' && <button type="button" onClick={() => {
-          setWinterWalkSelection({ id: 'west-garden', hour: 15 });
-          openWinterWalk();
-          setOpen(true);
-        }}>이 지점의 겨울 오후 일조 보기</button>}
-        <button type="button" onClick={() => {
-          const route = access.routes.find(item => item.id === accessId);
-          field.save({
-            scene: { kind: 'home', routeId: accessId, stopId: currentHomeStop.id },
-            place: `${currentHomeStop.name} · ${route?.comparisonLabel ?? '보도 위주 경로'}`,
-            finding: currentHomeStop.evidence,
-          });
-          openVisitPlan();
-        }}>현장 메모에 담기</button>
-      </div>
-    </section>}
-
-    {lightSlot && lightPoint && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
-      <div aria-live="polite"><strong>{lightPoint.label}</strong><p>{date} · {timeLabel(minute)} KST</p>
-        <p>{lightStatus(moment[lightSlot])}</p></div>
-      <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
-    </section>}
-    {winterStreet && <section className="light-inspection" aria-label="겨울 일조 산책 시각">
-      <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자 · 보행면 위 {observationHeight}m</p>
-        {walkLight?.date === date && walkLight.minute === minute && <div aria-live="polite">
-          <p className="walking-light" data-status={walkLight.status}>현재 위치 · {walkLight.text}</p>
-          {walkLight.floor && <p>발밑 · {walkLight.floor}</p>}
+    <div className="tour-title">
+      <header className="tour-header">
+        <div className="tour-header-top">
+          <div className="tour-brand"><span aria-hidden="true" className="tour-brand-icon">⌂</span> Find My Shelter</div>
+          {onChangeRegion && <button className="region-return" type="button" aria-haspopup="dialog" aria-controls="region-picker" onClick={onChangeRegion}>지역 바꾸기</button>}
+        </div>
+        <div className="tour-identity">
+          <h1>{area.name}</h1>
+          <p>{area.area}</p>
+        </div>
+        {mode !== 'orbit' && <p className="street-position">
+          <span>현재 위치</span> <strong>{street.name}</strong>{mode === 'drive' && <b>{street.speed} km/h</b>}
+        </p>}
+        {(region === 'opo' || world) && <div className="street-controls">
+          {(region === 'opo' || world?.destinations.length) ? <select aria-label="장소로 이동" value="" disabled={!world} onChange={event => visit(event.target.value)}>
+            <option value="" disabled>장소로 이동</option>
+            {world?.destinations.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
+          </select> : null}
+          {world?.hasTourTarget && <button type="button" className="tour-target-toggle" aria-pressed={targetHighlighted}
+            onClick={() => setTargetHighlighted(current => !current)}>임장 대상 강조</button>}
+          {world && <TourLive world={world} region={region} />}
         </div>}
-      </div>
-    </section>}
-    {ambientStop && <section className="light-inspection walk-preview" aria-label="소음·야간 3D 장면">
-      <div aria-live="polite"><strong>{ambientStop.name}</strong>
-        <p>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST · 하늘과 조명 모형</p></div>
-      <div className="walk-preview-actions">
-        {!open && otherAmbientStop && <button type="button" onClick={() => visitAmbientStop(otherAmbientStop.id)}>{otherAmbientStop.name} 보기</button>}
-        <button type="button" aria-label="관측 시각 미리보기 닫기" onClick={() => setAmbientStopId(null)}>닫기</button>
-      </div>
-    </section>}
+      </header>
+
+      {homeWalk && currentHomeStop && accessId && homeStep !== null && <section className="light-inspection walk-preview" aria-label="귀갓길 체험">
+        <div aria-live="polite"><strong>{homeStep + 1}/{homeWalk.stops.length} · {currentHomeStop.name}</strong>
+          <p>{currentHomeStop.evidence}</p></div>
+        <ul className="walk-legend" aria-label="귀갓길 선 표시">
+          <li><i aria-hidden="true" />보도 표기</li>
+          <li><i className="walk-gap" aria-hidden="true" />연결 미확인</li>
+          <li><i className="walk-aerial" aria-hidden="true" />영상 대조 · 위치 근사</li>
+          {homeWalk.gardenDistances && <li><i className="walk-shared" aria-hidden="true" />보행·차량 공용 포장</li>}
+        </ul>
+        <div className="walk-preview-actions">
+          <button type="button" disabled={homeStep === 0} onClick={() => viewHomeStop(accessId, homeStep - 1)}>이전</button>
+          <button type="button" disabled={homeStep === homeWalk.stops.length - 1} onClick={() => viewHomeStop(accessId, homeStep + 1)}>다음</button>
+          <button type="button" onClick={() => { showAccessRoute(accessId); setOpen(true); }}>경로 지도</button>
+          {currentHomeStop.id === 'courtyard-walk' && <button type="button" onClick={() => {
+            setWinterWalkSelection({ id: 'west-garden', hour: 15 });
+            openWinterWalk();
+            setOpen(true);
+          }}>이 지점의 겨울 오후 일조 보기</button>}
+          <button type="button" onClick={() => {
+            const route = access.routes.find(item => item.id === accessId);
+            field.save({
+              scene: { kind: 'home', routeId: accessId, stopId: currentHomeStop.id },
+              place: `${currentHomeStop.name} · ${route?.comparisonLabel ?? '보도 위주 경로'}`,
+              finding: currentHomeStop.evidence,
+            });
+            openVisitPlan();
+          }}>현장 메모에 담기</button>
+        </div>
+      </section>}
+
+      {lightSlot && lightPoint && moment[lightSlot] && <section className="light-inspection" aria-label="선택한 햇빛 경로">
+        <div aria-live="polite"><strong>{lightPoint.label}</strong><p>{date} · {timeLabel(minute)} KST</p>
+          <p>{lightStatus(moment[lightSlot])}</p></div>
+        <button aria-label="햇빛 경로 닫기" onClick={() => setLightSlot(null)}>×</button>
+      </section>}
+      {winterStreet && <section className="light-inspection" aria-label="겨울 일조 산책 시각">
+        <div><strong>{date} · {timeLabel(minute)} KST</strong><p>건물·지형 그림자 · 보행면 위 {observationHeight}m</p>
+          {walkLight?.date === date && walkLight.minute === minute && <div aria-live="polite">
+            <p className="walking-light" data-status={walkLight.status}>현재 위치 · {walkLight.text}</p>
+            {walkLight.floor && <p>발밑 · {walkLight.floor}</p>}
+          </div>}
+        </div>
+      </section>}
+      {ambientStop && <section className="light-inspection walk-preview" aria-label="소음·야간 3D 장면">
+        <div aria-live="polite"><strong>{ambientStop.name}</strong>
+          <p>{ambientMoment.day} · {ambientTime(ambientMoment.hour)} KST · 하늘과 조명 모형</p></div>
+        <div className="walk-preview-actions">
+          {!open && otherAmbientStop && <button type="button" onClick={() => visitAmbientStop(otherAmbientStop.id)}>{otherAmbientStop.name} 보기</button>}
+          <button type="button" aria-label="관측 시각 미리보기 닫기" onClick={() => setAmbientStopId(null)}>닫기</button>
+        </div>
+      </section>}
+      {selectedSlot && <div className="light-inspection selection-notice" role="status">
+        <span>{status || `비교 지점 ${selectedSlot}에 넣을 실외 위치를 선택하세요.`}</span>
+        {mode !== 'orbit' && <button onClick={useCurrentPosition}>현재 위치</button>}
+        <button onClick={() => { setSelectedSlot(null); setStatus(''); }}>취소</button>
+      </div>}
+    </div>
 
     <nav className="view-controls" aria-label="3D 탐색 모드">
       {(Object.keys(modeLabels) as ViewMode[]).map(key => <button key={key} disabled={!world} aria-pressed={mode === key} onClick={() => chooseMode(key)}>{modeLabels[key]}</button>)}
@@ -1943,12 +1964,6 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </details>
       </div>}
     </aside>}
-
-    {selectedSlot && <div className="selection-notice" role="status">
-      <span>{status || `비교 지점 ${selectedSlot}에 넣을 실외 위치를 선택하세요.`}</span>
-      {mode !== 'orbit' && <button onClick={useCurrentPosition}>현재 위치</button>}
-      <button onClick={() => { setSelectedSlot(null); setStatus(''); }}>취소</button>
-    </div>}
 
     {mode !== 'orbit' && !fixedFacade && <div className="movement" aria-label="이동 조작">
       {directions.map(([key, glyph, label]) => <button key={key} className={`move-${key}`} aria-label={label}

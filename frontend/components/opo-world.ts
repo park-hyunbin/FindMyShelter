@@ -115,7 +115,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const terrainProjection = isOpo ? undefined : createTerrainProjection(terrain.geometry);
   terrain.castShadow = true;
   scene.add(terrain);
-  const { occluders, anchors, roofs } = buildMeshes(data, scene);
+  const { occluders, anchors, roofs, targetOutline } = buildMeshes(data, scene);
   const insideBuilding = buildingCollision(data.buildings);
   const sidewalkSeams = isOpo ? undefined : createSidewalkSeams();
   const streets = addStreets(data, scene, finish, terrainProjection, insideBuilding, sidewalkSeams);
@@ -411,13 +411,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   stepMarker.visible = false;
   scene.add(stepMarker);
 
-  const labels: { point: T.Vector3; element: HTMLSpanElement; enabled: () => boolean; keepInFrame?: boolean; limit?: number }[] = anchors.map(({ point, building }) => {
+  const targetLabels = anchors.map(({ point, building }) => {
     const element = document.createElement('span');
-    element.className = 'building-label';
+    element.className = 'building-label tour-target-label';
     element.textContent = building.dong;
     host.appendChild(element);
     return { point, element, enabled: () => !browsingPlaces && !analysisMapVisible() };
   });
+  const labels: { point: T.Vector3; element: HTMLSpanElement; enabled: () => boolean; keepInFrame?: boolean; limit?: number }[] = [...targetLabels];
+  let targetHighlighted = true;
   const ambientLabels = (ambientMap?.labels ?? []).map(label => {
     const element = document.createElement('span');
     element.className = `building-label ${label.kind === 'station' ? 'ambient-sensor-label' : 'ambient-stop-label'}`;
@@ -1011,6 +1013,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
     }
     updatePlaceLabels();
+    if (targetOutline) targetOutline.visible = targetHighlighted && !browsingPlaces && !analysisMapVisible();
     sky.follow(camera);
     updateShadows(now);
     environment.waterNormal?.offset.set(now * 0.000018, -now * 0.000033);
@@ -1022,6 +1025,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   });
 
   return {
+    hasTourTarget: targetOutline !== null,
+    setTargetHighlight(enabled: boolean) {
+      targetHighlighted = enabled;
+      for (const { element } of targetLabels) element.classList.toggle('tour-target-label', enabled);
+    },
     presets,
     facades,
     buildingAhead: (view: FacadeView) => firstBuildingAhead(data, view, view.bearing),

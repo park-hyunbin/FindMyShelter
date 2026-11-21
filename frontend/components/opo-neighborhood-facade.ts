@@ -17,6 +17,26 @@ const openings = {
 
 export type NeighborhoodPalette = { wall: string; glass: string; trim: string; roof: string; accent?: string };
 
+export function withFacadeDistance(material: T.MeshStandardMaterial, wall: string, range: [number, number], atlas?: {
+  uv: string;
+  sample: string;
+}) {
+  material.customProgramCacheKey = () => atlas?.uv ?? 'facade-distance';
+  material.onBeforeCompile = shader => {
+    shader.uniforms.facadePlain = { value: new T.Color(wall) };
+    shader.uniforms.facadeRange = { value: new T.Vector2(...range) };
+    const map = T.ShaderChunk.map_fragment
+      .replace('texture2D( map, vMapUv )', atlas?.sample ?? 'texture2D( map, vMapUv )')
+      .replace('diffuseColor *= sampledDiffuseColor;', `
+        float detail = 1.0 - smoothstep( facadeRange.x, facadeRange.y, length( vViewPosition ) );
+        diffuseColor.rgb *= mix( facadePlain, sampledDiffuseColor.rgb, detail );
+      `);
+    shader.fragmentShader = `uniform vec3 facadePlain; uniform vec2 facadeRange;\n${shader.fragmentShader}`
+      .replace('#include <map_fragment>', `${atlas?.uv ?? ''}\n${map}`);
+  };
+  return material;
+}
+
 export function neighborhoodFacade(use: BuildingUse, style: NeighborhoodPalette = buildingProfiles[use]) {
   const canvas = document.createElement('canvas');
   canvas.width = variants * bay;
@@ -86,10 +106,9 @@ export function neighborhoodFacade(use: BuildingUse, style: NeighborhoodPalette 
   map.wrapS = T.RepeatWrapping;
   map.colorSpace = T.SRGBColorSpace;
   map.anisotropy = 4;
-  const material = new T.MeshStandardMaterial({ map, roughness: 0.86 });
-  material.onBeforeCompile = shader => {
-    // Negative U selects the end-wall row while keeping both wall corners within one tile.
-    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+  // Negative U selects the apartment end-wall row.
+  return withFacadeDistance(new T.MeshStandardMaterial({ map, roughness: 0.86 }), style.wall, [260, 680], {
+    uv: `
       #ifdef USE_MAP
         bool endWall = vMapUv.x < 0.0;
         bool groundFloor = vMapUv.y < 1.0;
@@ -98,11 +117,9 @@ export function neighborhoodFacade(use: BuildingUse, style: NeighborhoodPalette 
         vec2 facadeUv = vec2(endWall ? -vMapUv.x - 1.0 : vMapUv.x, (atlasRow + mix(0.012, 0.988, floorV)) / 3.0);
         vec2 facadeScale = vec2(1.0, 0.976 / 3.0);
       #endif
-      ${T.ShaderChunk.map_fragment.replace('texture2D( map, vMapUv )',
-      'textureGrad( map, facadeUv, dFdx(vMapUv) * facadeScale, dFdy(vMapUv) * facadeScale )')}
-    `);
-  };
-  return material;
+    `,
+    sample: 'textureGrad( map, facadeUv, dFdx(vMapUv) * facadeScale, dFdy(vMapUv) * facadeScale )',
+  });
 }
 
 function deepApartmentEnd(outline: Point[], start: Point, end: Point, length: number) {
@@ -120,7 +137,10 @@ function deepApartmentEnd(outline: Point[], start: Point, end: Point, length: nu
     inShape(at(fraction, depth * 0.5), rings) && inShape(at(fraction, depth), rings));
 }
 
-export function facadeUV(bayWidth: number, floorHeight: number, skirt: number, apartmentOutline?: Point[]): T.UVGenerator {
+export function facadeUV(bayWidth: number, floorHeight: number, skirt: number, apartmentOutline?: Point[], lowRise?: {
+  minWallM: number;
+  front?: [Point, Point];
+}): T.UVGenerator {
   return {
     generateTopUV(_geometry, positions, a, b, c) {
       return [a, b, c].map(vertex => new T.Vector2(positions[vertex * 3], positions[vertex * 3 + 1]));
@@ -129,6 +149,9 @@ export function facadeUV(bayWidth: number, floorHeight: number, skirt: number, a
       const x = positions[a * 3], y = positions[a * 3 + 1];
       const bx = positions[b * 3], by = positions[b * 3 + 1];
       const length = Math.hypot(bx - x, by - y);
+      const front = lowRise?.front;
+      const facesStreet = front && ((front[0].x === x && front[0].z === -y && front[1].x === bx && front[1].z === -by)
+        || (front[1].x === x && front[1].z === -y && front[0].x === bx && front[0].z === -by));
       const start = Math.abs(Math.round(x * 3 + y * 7)) % variants;
       // The wall's own length sets its bay spacing, including on diagonal footprint edges.
       const bays = Math.max(1, Math.round(length / bayWidth));
@@ -136,7 +159,9 @@ export function facadeUV(bayWidth: number, floorHeight: number, skirt: number, a
       const endWall = apartmentOutline && deepApartmentEnd(apartmentOutline, { x, z: -y }, { x: bx, z: -by }, length);
       return [a, b, c, d].map((vertex, index) => {
         const first = index === 0 || index === 3;
-        const u = endWall ? (first ? -1 : -2) : (first ? start : end) / variants;
+        const u = lowRise && length < lowRise.minWallM ? -0.5
+          : facesStreet ? -1 - (first ? 0 : Math.min(variants, bays) / variants)
+            : endWall ? (first ? -1 : -2) : (first ? start : end) / variants;
         return new T.Vector2(u, (positions[vertex * 3 + 2] - skirt) / floorHeight);
       });
     },

@@ -44,7 +44,7 @@ export function readTreeCover(grid: TreeCoverGrid) {
           if (!isTree(row * size + column)) continue;
           // PlaneGeometry uses v=1 at the north edge. Raster rows are stored north first.
           const offset = ((size - 1 - row) * size + column) * 4;
-          pixels.set([166, 233, 92, 220], offset);
+          pixels.set([130, 154, 103, 220], offset);
         }
       }
       const map = new T.DataTexture(pixels, size, size);

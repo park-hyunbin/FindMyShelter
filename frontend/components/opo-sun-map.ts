@@ -4,9 +4,9 @@ import { observationHeight, type LightSample } from './opo-sunlight';
 
 export const sunGridSpacing = 8;
 export const sunMapLegend = {
-  sun: { name: '직사광', color: '#ffcf68', shape: 'circle' },
-  building: { name: '건물 그늘', color: '#91aafa', shape: 'diamond' },
-  terrain: { name: '지형 그늘', color: '#77d8c2', shape: 'triangle' },
+  sun: { name: '직사광', color: '#d5b780', shape: 'circle' },
+  building: { name: '건물 그늘', color: '#8493b2', shape: 'diamond' },
+  terrain: { name: '지형 그늘', color: '#81988c', shape: 'triangle' },
   unknown: { name: '미판정', color: '#d0d5df', shape: 'ring' },
   night: { name: '야간', color: '#8995aa', shape: 'circle' },
 } as const;

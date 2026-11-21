@@ -1,5 +1,5 @@
 {
-  "startDate": "2026-09-18",
+  "startDate": "2026-08-18",
   "endDate": "2026-11-18",
   "complexes": {
     "opo": [
@@ -37,8 +37,2798 @@
         "area": 127.8968,
         "amount": 60500,
         "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-20",
+        "area": 133.4858,
+        "amount": 62000,
+        "monthly": null
       }
     ],
-    "songpa": []
+    "songpa": [
+      {
+        "kind": "jeonse",
+        "date": "2026-09-17",
+        "area": 143.02,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-10",
+        "area": 115.93,
+        "amount": 89300,
+        "monthly": 8
+      }
+    ],
+    "seoul-a10023926": [
+      {
+        "kind": "monthly",
+        "date": "2026-11-10",
+        "area": 38.017,
+        "amount": 2869,
+        "monthly": 15
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-09",
+        "area": 59.8826,
+        "amount": 60000,
+        "monthly": 55
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-07",
+        "area": 112.5059,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-31",
+        "area": 59.8745,
+        "amount": 63000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-29",
+        "area": 59.8826,
+        "amount": 60000,
+        "monthly": 70
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 84.9757,
+        "amount": 30000,
+        "monthly": 240
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-23",
+        "area": 59.8826,
+        "amount": 85000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-23",
+        "area": 59.7812,
+        "amount": 77000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 59.7812,
+        "amount": 20000,
+        "monthly": 240
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 59.7812,
+        "amount": 20000,
+        "monthly": 240
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-23",
+        "area": 59.7812,
+        "amount": 80000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-22",
+        "area": 59.7812,
+        "amount": 66000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-20",
+        "area": 84.7694,
+        "amount": 197000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-20",
+        "area": 84.9757,
+        "amount": 50000,
+        "monthly": 200
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-20",
+        "area": 59.8745,
+        "amount": 72000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-17",
+        "area": 84.9757,
+        "amount": 84000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-17",
+        "area": 112.5059,
+        "amount": 110000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-15",
+        "area": 38.01,
+        "amount": 2869,
+        "monthly": 15
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-09",
+        "area": 59.8745,
+        "amount": 65100,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-09",
+        "area": 84.9757,
+        "amount": 30000,
+        "monthly": 270
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-08",
+        "area": 59.7812,
+        "amount": 154000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-08",
+        "area": 59.7812,
+        "amount": 154000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-30",
+        "area": 84.9757,
+        "amount": 78750,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-30",
+        "area": 84.9757,
+        "amount": 60000,
+        "monthly": 160
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-22",
+        "area": 84.7694,
+        "amount": 105000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-19",
+        "area": 59.8745,
+        "amount": 63000,
+        "monthly": 60
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-17",
+        "area": 59.8745,
+        "amount": 63000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-15",
+        "area": 84.9757,
+        "amount": 193000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-15",
+        "area": 59.8745,
+        "amount": 154500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-12",
+        "area": 59.7812,
+        "amount": 150000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-12",
+        "area": 59.7812,
+        "amount": 65100,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-10",
+        "area": 38.017,
+        "amount": 2869,
+        "monthly": 15
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-05",
+        "area": 59.8745,
+        "amount": 159000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-04",
+        "area": 84.9757,
+        "amount": 75000,
+        "monthly": 100
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 59.7812,
+        "amount": 10000,
+        "monthly": 210
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-27",
+        "area": 112.5059,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-26",
+        "area": 84.7694,
+        "amount": 1000,
+        "monthly": 80
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-25",
+        "area": 59.7812,
+        "amount": 155000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-22",
+        "area": 59.7812,
+        "amount": 20000,
+        "monthly": 210
+      }
+    ],
+    "seoul-a12187501": [
+      {
+        "kind": "jeonse",
+        "date": "2026-11-09",
+        "area": 114.97,
+        "amount": 160000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-27",
+        "area": 84.99,
+        "amount": 10000,
+        "monthly": 430
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-17",
+        "area": 84.97,
+        "amount": 125000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-14",
+        "area": 84.97,
+        "amount": 5000,
+        "monthly": 480
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-09",
+        "area": 59.99,
+        "amount": 100000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-09",
+        "area": 84.97,
+        "amount": 125000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-02",
+        "area": 59.98,
+        "amount": 91300,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-22",
+        "area": 114.97,
+        "amount": 136500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-22",
+        "area": 84.96,
+        "amount": 87000,
+        "monthly": 150
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-20",
+        "area": 84.98,
+        "amount": 94500,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-19",
+        "area": 84.97,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-19",
+        "area": 84.97,
+        "amount": 115000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-18",
+        "area": 51.99,
+        "amount": 9745,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-18",
+        "area": 84.97,
+        "amount": 65000,
+        "monthly": 200
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-16",
+        "area": 84.98,
+        "amount": 90000,
+        "monthly": 100
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-15",
+        "area": 41.62,
+        "amount": 7799,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-15",
+        "area": 41.62,
+        "amount": 4097,
+        "monthly": 21
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-15",
+        "area": 41.62,
+        "amount": 2597,
+        "monthly": 24
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-11",
+        "area": 59.98,
+        "amount": 65000,
+        "monthly": 140
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-30",
+        "area": 59.98,
+        "amount": 20000,
+        "monthly": 300
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-29",
+        "area": 84.98,
+        "amount": 250000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-27",
+        "area": 114.66,
+        "amount": 151000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-27",
+        "area": 84.98,
+        "amount": 112000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 84.98,
+        "amount": 115000,
+        "monthly": null
+      }
+    ],
+    "seoul-a12187602": [
+      {
+        "kind": "monthly",
+        "date": "2026-09-16",
+        "area": 114.03,
+        "amount": 60000,
+        "monthly": 270
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 84.2,
+        "amount": 10000,
+        "monthly": 265
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-24",
+        "area": 84.2,
+        "amount": 94500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-22",
+        "area": 84.2,
+        "amount": 40000,
+        "monthly": 240
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-20",
+        "area": 59.98,
+        "amount": 184000,
+        "monthly": null
+      }
+    ],
+    "seoul-a13305006": [
+      {
+        "kind": "jeonse",
+        "date": "2026-11-14",
+        "area": 59.76,
+        "amount": 60000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-11",
+        "area": 84.93,
+        "amount": 75000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-07",
+        "area": 84.93,
+        "amount": 20000,
+        "monthly": 150
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-07",
+        "area": 59.76,
+        "amount": 3000,
+        "monthly": 145
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-06",
+        "area": 59.76,
+        "amount": 30000,
+        "monthly": 79
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-04",
+        "area": 134.97,
+        "amount": 20000,
+        "monthly": 250
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-23",
+        "area": 84.93,
+        "amount": 79000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-23",
+        "area": 84.93,
+        "amount": 79000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-23",
+        "area": 84.93,
+        "amount": 79000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-22",
+        "area": 59.76,
+        "amount": 63000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-05",
+        "area": 59.76,
+        "amount": 40000,
+        "monthly": 70
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-05",
+        "area": 59.76,
+        "amount": 30000,
+        "monthly": 110
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 59.76,
+        "amount": 60000,
+        "monthly": null
+      }
+    ],
+    "seoul-a13381608": [
+      {
+        "kind": "jeonse",
+        "date": "2026-11-12",
+        "area": 84.91,
+        "amount": 65000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-11",
+        "area": 134.79,
+        "amount": 60000,
+        "monthly": 65
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-06",
+        "area": 84.91,
+        "amount": 47000,
+        "monthly": 50
+      },
+      {
+        "kind": "sale",
+        "date": "2026-11-04",
+        "area": 59.94,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-24",
+        "area": 59.91,
+        "amount": 54000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 59.94,
+        "amount": 35000,
+        "monthly": 90
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-20",
+        "area": 59.91,
+        "amount": 30000,
+        "monthly": 100
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-13",
+        "area": 59.91,
+        "amount": 48000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-12",
+        "area": 59.91,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-12",
+        "area": 84.91,
+        "amount": 147500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-08",
+        "area": 59.91,
+        "amount": 134800,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-19",
+        "area": 134.79,
+        "amount": 20000,
+        "monthly": 160
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 84.91,
+        "amount": 72000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 59.94,
+        "amount": 50000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 59.94,
+        "amount": 50000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-05",
+        "area": 59.94,
+        "amount": 33000,
+        "monthly": 80
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-28",
+        "area": 59.91,
+        "amount": 138000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-28",
+        "area": 84.91,
+        "amount": 43000,
+        "monthly": 100
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-28",
+        "area": 84.91,
+        "amount": 43000,
+        "monthly": 100
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-19",
+        "area": 84.91,
+        "amount": 60000,
+        "monthly": 40
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-19",
+        "area": 59.91,
+        "amount": 56000,
+        "monthly": null
+      }
+    ],
+    "seoul-a13611103": [
+      {
+        "kind": "jeonse",
+        "date": "2026-11-13",
+        "area": 84.96,
+        "amount": 54490,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-07",
+        "area": 84.96,
+        "amount": 40000,
+        "monthly": 71
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-03",
+        "area": 59.99,
+        "amount": 52500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-29",
+        "area": 84.96,
+        "amount": 3000,
+        "monthly": 132
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-24",
+        "area": 59.0,
+        "amount": 45600,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-24",
+        "area": 59.99,
+        "amount": 47000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 84.96,
+        "amount": 25000,
+        "monthly": 200
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-17",
+        "area": 59.99,
+        "amount": 10000,
+        "monthly": 200
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-15",
+        "area": 59.99,
+        "amount": 50000,
+        "monthly": 40
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-15",
+        "area": 84.96,
+        "amount": 90000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-14",
+        "area": 59.99,
+        "amount": 125600,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-14",
+        "area": 114.98,
+        "amount": 142500,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-10",
+        "area": 59.99,
+        "amount": 65000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-23",
+        "area": 59.99,
+        "amount": 48300,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-19",
+        "area": 59.99,
+        "amount": 64000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-18",
+        "area": 59.99,
+        "amount": 128000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-10",
+        "area": 59.99,
+        "amount": 64000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-09",
+        "area": 59.99,
+        "amount": 42000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-09",
+        "area": 59.99,
+        "amount": 48300,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 59.99,
+        "amount": 60000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-25",
+        "area": 59.99,
+        "amount": 44000,
+        "monthly": 9
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-25",
+        "area": 84.96,
+        "amount": 58000,
+        "monthly": 20
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-25",
+        "area": 84.96,
+        "amount": 58000,
+        "monthly": 20
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-25",
+        "area": 84.96,
+        "amount": 80000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-23",
+        "area": 59.99,
+        "amount": 40000,
+        "monthly": 70
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-22",
+        "area": 59.99,
+        "amount": 128800,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-18",
+        "area": 59.99,
+        "amount": 49500,
+        "monthly": null
+      }
+    ],
+    "seoul-a13822004": [
+      {
+        "kind": "monthly",
+        "date": "2026-11-17",
+        "area": 84.8,
+        "amount": 100000,
+        "monthly": 160
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-16",
+        "area": 84.88,
+        "amount": 100000,
+        "monthly": 160
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-16",
+        "area": 84.8,
+        "amount": 136500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-14",
+        "area": 84.8,
+        "amount": 84000,
+        "monthly": 147
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-14",
+        "area": 59.96,
+        "amount": 100800,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-14",
+        "area": 84.8,
+        "amount": 90000,
+        "monthly": 180
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-14",
+        "area": 84.8,
+        "amount": 143000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-14",
+        "area": 84.8,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-13",
+        "area": 84.8,
+        "amount": 149000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-13",
+        "area": 59.96,
+        "amount": 20000,
+        "monthly": 340
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-13",
+        "area": 84.8,
+        "amount": 100000,
+        "monthly": 160
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-12",
+        "area": 84.88,
+        "amount": 80000,
+        "monthly": 240
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-11",
+        "area": 119.93,
+        "amount": 180000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-11",
+        "area": 84.88,
+        "amount": 144000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-11",
+        "area": 84.8,
+        "amount": 40000,
+        "monthly": 450
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-10",
+        "area": 84.8,
+        "amount": 92000,
+        "monthly": 105
+      },
+      {
+        "kind": "sale",
+        "date": "2026-11-09",
+        "area": 84.8,
+        "amount": 310000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-09",
+        "area": 84.88,
+        "amount": 65000,
+        "monthly": 280
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-07",
+        "area": 84.8,
+        "amount": 75000,
+        "monthly": 150
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-07",
+        "area": 59.96,
+        "amount": 80000,
+        "monthly": 150
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-07",
+        "area": 84.8,
+        "amount": 20000,
+        "monthly": 382
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-06",
+        "area": 84.8,
+        "amount": 120000,
+        "monthly": 75
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-06",
+        "area": 59.96,
+        "amount": 125000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-06",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 510
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-06",
+        "area": 119.93,
+        "amount": 160000,
+        "monthly": 160
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-05",
+        "area": 84.88,
+        "amount": 30000,
+        "monthly": 400
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-05",
+        "area": 84.8,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-05",
+        "area": 84.8,
+        "amount": 126000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-05",
+        "area": 59.96,
+        "amount": 115500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-04",
+        "area": 59.96,
+        "amount": 40000,
+        "monthly": 280
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-04",
+        "area": 84.8,
+        "amount": 145000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-04",
+        "area": 84.8,
+        "amount": 145000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-04",
+        "area": 59.96,
+        "amount": 115500,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-31",
+        "area": 84.8,
+        "amount": 123900,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-31",
+        "area": 84.8,
+        "amount": 131250,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-31",
+        "area": 59.96,
+        "amount": 110250,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-31",
+        "area": 59.96,
+        "amount": 20000,
+        "monthly": 400
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-31",
+        "area": 84.8,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-30",
+        "area": 59.96,
+        "amount": 288000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-30",
+        "area": 84.8,
+        "amount": 142000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-30",
+        "area": 84.8,
+        "amount": 126000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-29",
+        "area": 59.96,
+        "amount": 50000,
+        "monthly": 265
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-29",
+        "area": 84.97,
+        "amount": 145000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-29",
+        "area": 84.8,
+        "amount": 128100,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-28",
+        "area": 59.96,
+        "amount": 97000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-28",
+        "area": 84.8,
+        "amount": 95000,
+        "monthly": 160
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-28",
+        "area": 84.8,
+        "amount": 84000,
+        "monthly": 166
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-27",
+        "area": 84.88,
+        "amount": 30000,
+        "monthly": 395
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-27",
+        "area": 84.8,
+        "amount": 100000,
+        "monthly": 140
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-26",
+        "area": 84.8,
+        "amount": 120000,
+        "monthly": 70
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-26",
+        "area": 59.96,
+        "amount": 100800,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 84.8,
+        "amount": 70000,
+        "monthly": 280
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-24",
+        "area": 84.8,
+        "amount": 133300,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 59.96,
+        "amount": 10000,
+        "monthly": 212
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-24",
+        "area": 59.96,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 84.8,
+        "amount": 60000,
+        "monthly": 300
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 84.88,
+        "amount": 94925,
+        "monthly": 140
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 84.88,
+        "amount": 50000,
+        "monthly": 360
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 84.8,
+        "amount": 40000,
+        "monthly": 400
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-23",
+        "area": 84.88,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 59.96,
+        "amount": 89250,
+        "monthly": 100
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-23",
+        "area": 84.0,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 84.8,
+        "amount": 40000,
+        "monthly": 400
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-23",
+        "area": 84.8,
+        "amount": 120750,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-23",
+        "area": 84.8,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-22",
+        "area": 84.8,
+        "amount": 320000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-22",
+        "area": 84.88,
+        "amount": 313000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-22",
+        "area": 59.96,
+        "amount": 77800,
+        "monthly": 165
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-22",
+        "area": 119.93,
+        "amount": 184000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-22",
+        "area": 84.8,
+        "amount": 150000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-21",
+        "area": 84.8,
+        "amount": 82700,
+        "monthly": 70
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-21",
+        "area": 84.8,
+        "amount": 147000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-21",
+        "area": 84.8,
+        "amount": 85000,
+        "monthly": 220
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-21",
+        "area": 84.8,
+        "amount": 143000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-20",
+        "area": 59.96,
+        "amount": 284500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-20",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 510
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-20",
+        "area": 119.93,
+        "amount": 150000,
+        "monthly": 150
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-19",
+        "area": 84.88,
+        "amount": 310000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-19",
+        "area": 84.88,
+        "amount": 310000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-19",
+        "area": 84.8,
+        "amount": 101000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-16",
+        "area": 84.8,
+        "amount": 310000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-16",
+        "area": 84.88,
+        "amount": 143000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-16",
+        "area": 84.97,
+        "amount": 143000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-16",
+        "area": 84.97,
+        "amount": 160000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-16",
+        "area": 84.88,
+        "amount": 120000,
+        "monthly": 40
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-16",
+        "area": 59.96,
+        "amount": 20000,
+        "monthly": 315
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-16",
+        "area": 84.97,
+        "amount": 120900,
+        "monthly": 15
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-16",
+        "area": 119.93,
+        "amount": 178500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-15",
+        "area": 84.8,
+        "amount": 120000,
+        "monthly": 70
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-15",
+        "area": 84.8,
+        "amount": 50000,
+        "monthly": 225
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-15",
+        "area": 59.96,
+        "amount": 99750,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-15",
+        "area": 84.8,
+        "amount": 50000,
+        "monthly": 350
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-15",
+        "area": 84.8,
+        "amount": 30000,
+        "monthly": 353
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-14",
+        "area": 84.8,
+        "amount": 330000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-14",
+        "area": 84.0,
+        "amount": 132000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-14",
+        "area": 84.8,
+        "amount": 30000,
+        "monthly": 420
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-14",
+        "area": 119.93,
+        "amount": 138400,
+        "monthly": 160
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-14",
+        "area": 84.8,
+        "amount": 53000,
+        "monthly": 360
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-13",
+        "area": 84.8,
+        "amount": 75600,
+        "monthly": 180
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-12",
+        "area": 59.96,
+        "amount": 105000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-10",
+        "area": 59.96,
+        "amount": 265000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-10",
+        "area": 84.8,
+        "amount": 90000,
+        "monthly": 200
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-10",
+        "area": 84.8,
+        "amount": 120750,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-10",
+        "area": 84.97,
+        "amount": 30000,
+        "monthly": 440
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-10",
+        "area": 84.97,
+        "amount": 100000,
+        "monthly": 146
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-10",
+        "area": 59.96,
+        "amount": 99750,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-10",
+        "area": 59.96,
+        "amount": 105000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-10",
+        "area": 84.88,
+        "amount": 40000,
+        "monthly": 380
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-10",
+        "area": 59.96,
+        "amount": 50000,
+        "monthly": 270
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-09",
+        "area": 84.8,
+        "amount": 120000,
+        "monthly": 80
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-09",
+        "area": 84.97,
+        "amount": 40000,
+        "monthly": 260
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-09",
+        "area": 59.96,
+        "amount": 20000,
+        "monthly": 380
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-08",
+        "area": 84.8,
+        "amount": 30000,
+        "monthly": 315
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-08",
+        "area": 84.88,
+        "amount": 126000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-07",
+        "area": 84.8,
+        "amount": 22000,
+        "monthly": 470
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-07",
+        "area": 119.93,
+        "amount": 40000,
+        "monthly": 480
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-07",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 500
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-07",
+        "area": 119.93,
+        "amount": 180000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-06",
+        "area": 84.88,
+        "amount": 20000,
+        "monthly": 370
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-05",
+        "area": 84.8,
+        "amount": 126000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-05",
+        "area": 59.96,
+        "amount": 60000,
+        "monthly": 190
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-04",
+        "area": 84.8,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-03",
+        "area": 59.96,
+        "amount": 20000,
+        "monthly": 360
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-03",
+        "area": 59.96,
+        "amount": 20000,
+        "monthly": 365
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-03",
+        "area": 84.8,
+        "amount": 60000,
+        "monthly": 280
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-02",
+        "area": 59.96,
+        "amount": 101800,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-02",
+        "area": 84.97,
+        "amount": 35940,
+        "monthly": 370
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-01",
+        "area": 84.88,
+        "amount": 331500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-01",
+        "area": 84.8,
+        "amount": 337000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-01",
+        "area": 84.97,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-01",
+        "area": 84.8,
+        "amount": 123900,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-29",
+        "area": 84.8,
+        "amount": 60000,
+        "monthly": 340
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-28",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 480
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-23",
+        "area": 84.8,
+        "amount": 100000,
+        "monthly": 160
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-23",
+        "area": 84.88,
+        "amount": 125000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-23",
+        "area": 119.93,
+        "amount": 180000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-22",
+        "area": 84.8,
+        "amount": 139000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-22",
+        "area": 84.8,
+        "amount": 144000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-22",
+        "area": 119.93,
+        "amount": 170000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-22",
+        "area": 59.96,
+        "amount": 96500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-21",
+        "area": 84.8,
+        "amount": 320000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-21",
+        "area": 59.96,
+        "amount": 10000,
+        "monthly": 420
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-18",
+        "area": 59.96,
+        "amount": 294000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-18",
+        "area": 84.8,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-18",
+        "area": 59.96,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-18",
+        "area": 84.88,
+        "amount": 113400,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-18",
+        "area": 84.8,
+        "amount": 30000,
+        "monthly": 430
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-17",
+        "area": 59.96,
+        "amount": 50000,
+        "monthly": 270
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-16",
+        "area": 84.88,
+        "amount": 142000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-16",
+        "area": 84.97,
+        "amount": 10000,
+        "monthly": 520
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-15",
+        "area": 84.8,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-15",
+        "area": 84.8,
+        "amount": 120750,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-14",
+        "area": 84.8,
+        "amount": 30000,
+        "monthly": 330
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-14",
+        "area": 84.97,
+        "amount": 135000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-12",
+        "area": 84.88,
+        "amount": 332500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-12",
+        "area": 84.8,
+        "amount": 345000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 84.8,
+        "amount": 15000,
+        "monthly": 520
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-12",
+        "area": 84.97,
+        "amount": 135000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 59.96,
+        "amount": 100000,
+        "monthly": 60
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 84.8,
+        "amount": 80000,
+        "monthly": 180
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-12",
+        "area": 84.8,
+        "amount": 126000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-12",
+        "area": 84.97,
+        "amount": 135000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 84.8,
+        "amount": 110000,
+        "monthly": 110
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 500
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-12",
+        "area": 59.96,
+        "amount": 104000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 119.93,
+        "amount": 145000,
+        "monthly": 80
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-11",
+        "area": 59.96,
+        "amount": 292000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-11",
+        "area": 84.8,
+        "amount": 60000,
+        "monthly": 300
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-11",
+        "area": 84.8,
+        "amount": 138000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-11",
+        "area": 84.8,
+        "amount": 138000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-10",
+        "area": 84.8,
+        "amount": 360000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-10",
+        "area": 84.8,
+        "amount": 150000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-10",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 448
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-10",
+        "area": 84.8,
+        "amount": 90000,
+        "monthly": 200
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-09",
+        "area": 84.8,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-07",
+        "area": 84.8,
+        "amount": 55000,
+        "monthly": 350
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-05",
+        "area": 84.8,
+        "amount": 329000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 59.96,
+        "amount": 100000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 84.8,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 84.8,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-05",
+        "area": 59.96,
+        "amount": 85000,
+        "monthly": 100
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 84.8,
+        "amount": 126000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-03",
+        "area": 84.8,
+        "amount": 134000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-03",
+        "area": 84.88,
+        "amount": 110000,
+        "monthly": 160
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-03",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 435
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-01",
+        "area": 84.8,
+        "amount": 80000,
+        "monthly": 240
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-31",
+        "area": 59.96,
+        "amount": 130000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 84.8,
+        "amount": 98000,
+        "monthly": 100
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-29",
+        "area": 84.8,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 84.88,
+        "amount": 10000,
+        "monthly": 450
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 59.96,
+        "amount": 90000,
+        "monthly": 40
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 84.88,
+        "amount": 10000,
+        "monthly": 450
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-29",
+        "area": 119.93,
+        "amount": 189000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 84.8,
+        "amount": 100000,
+        "monthly": 130
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-29",
+        "area": 84.97,
+        "amount": 120750,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 84.97,
+        "amount": 115000,
+        "monthly": 24
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 84.88,
+        "amount": 40000,
+        "monthly": 400
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 84.8,
+        "amount": 60000,
+        "monthly": 320
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-29",
+        "area": 59.96,
+        "amount": 109200,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-28",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 441
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-28",
+        "area": 84.8,
+        "amount": 123900,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-27",
+        "area": 84.8,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-27",
+        "area": 119.93,
+        "amount": 171000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-26",
+        "area": 59.96,
+        "amount": 60000,
+        "monthly": 210
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-25",
+        "area": 84.8,
+        "amount": 117600,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-25",
+        "area": 84.8,
+        "amount": 10000,
+        "monthly": 500
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-24",
+        "area": 59.96,
+        "amount": 80000,
+        "monthly": 79
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-24",
+        "area": 84.8,
+        "amount": 25000,
+        "monthly": 351
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-24",
+        "area": 84.97,
+        "amount": 100000,
+        "monthly": 160
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-24",
+        "area": 84.8,
+        "amount": 92500,
+        "monthly": 140
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 84.88,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 59.96,
+        "amount": 99750,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 84.8,
+        "amount": 120500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-22",
+        "area": 59.96,
+        "amount": 92000,
+        "monthly": 100
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-22",
+        "area": 84.97,
+        "amount": 60000,
+        "monthly": 320
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 84.88,
+        "amount": 140000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-21",
+        "area": 84.97,
+        "amount": 341000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-21",
+        "area": 84.88,
+        "amount": 115000,
+        "monthly": 40
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-21",
+        "area": 84.8,
+        "amount": 60000,
+        "monthly": 150
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-21",
+        "area": 84.8,
+        "amount": 133000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-20",
+        "area": 84.8,
+        "amount": 325000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-20",
+        "area": 84.88,
+        "amount": 135000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-20",
+        "area": 84.8,
+        "amount": 20000,
+        "monthly": 420
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-19",
+        "area": 119.93,
+        "amount": 120000,
+        "monthly": 280
+      }
+    ],
+    "seoul-a13880407": [
+      {
+        "kind": "monthly",
+        "date": "2026-11-14",
+        "area": 59.91,
+        "amount": 60000,
+        "monthly": 30
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-09",
+        "area": 85.0,
+        "amount": 95000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-09",
+        "area": 59.91,
+        "amount": 58800,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-06",
+        "area": 59.91,
+        "amount": 30000,
+        "monthly": 180
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-04",
+        "area": 84.85,
+        "amount": 95000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-04",
+        "area": 85.0,
+        "amount": 90000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-30",
+        "area": 59.91,
+        "amount": 185000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-29",
+        "area": 59.91,
+        "amount": 52000,
+        "monthly": 60
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 85.0,
+        "amount": 10000,
+        "monthly": 300
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-20",
+        "area": 59.91,
+        "amount": 54600,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-13",
+        "area": 84.85,
+        "amount": 63000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-12",
+        "area": 85.0,
+        "amount": 68250,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-12",
+        "area": 85.0,
+        "amount": 65000,
+        "monthly": 80
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-11",
+        "area": 59.66,
+        "amount": 80000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-10",
+        "area": 59.91,
+        "amount": 75000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-10",
+        "area": 85.0,
+        "amount": 65000,
+        "monthly": 13
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-09",
+        "area": 59.91,
+        "amount": 52500,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-09",
+        "area": 85.0,
+        "amount": 83000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-08",
+        "area": 85.0,
+        "amount": 37000,
+        "monthly": 200
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-07",
+        "area": 59.91,
+        "amount": 56700,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-06",
+        "area": 59.91,
+        "amount": 25000,
+        "monthly": 92
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-05",
+        "area": 59.91,
+        "amount": 50000,
+        "monthly": 90
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-02",
+        "area": 59.91,
+        "amount": 185000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-19",
+        "area": 59.91,
+        "amount": 177000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-18",
+        "area": 59.91,
+        "amount": 186000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-16",
+        "area": 59.91,
+        "amount": 10000,
+        "monthly": 260
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-15",
+        "area": 59.91,
+        "amount": 73000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-14",
+        "area": 85.0,
+        "amount": 68000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 85.0,
+        "amount": 75000,
+        "monthly": 60
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-12",
+        "area": 59.91,
+        "amount": 56000,
+        "monthly": 55
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-06",
+        "area": 59.91,
+        "amount": 54500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-06",
+        "area": 85.0,
+        "amount": 65000,
+        "monthly": 80
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 59.66,
+        "amount": 9000,
+        "monthly": 175
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-29",
+        "area": 59.91,
+        "amount": 64000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 59.91,
+        "amount": 57000,
+        "monthly": 55
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 59.91,
+        "amount": 57750,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-21",
+        "area": 85.0,
+        "amount": 68250,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-21",
+        "area": 59.91,
+        "amount": 68000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-18",
+        "area": 59.91,
+        "amount": 64000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-18",
+        "area": 59.91,
+        "amount": 74000,
+        "monthly": null
+      }
+    ],
+    "jamsil-leel": []
   }
 }

@@ -1,0 +1,23 @@
+{
+  "region": "opo-topo-footprints",
+  "source": "data/raw/buildings/ngii-buildings-202610/(연속수치지형도)건물_001.zip",
+  "encoding": "CP949",
+  "center_lnglat": [
+    127.16416784034332,
+    37.35082637772431
+  ],
+  "radius_m": 350,
+  "export_profile": "footprint-floors",
+  "mapping_status": "source_floors_pending_qgis_review",
+  "provenance": {
+    "source_dataset": "국토지리정보원 연속수치지형도 건물 · VWorld 배포 ZIP 001",
+    "source_url": "https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=MK&dsId=30162",
+    "floors": "NMLY",
+    "description": "오포 롯데캐슬 임장 기준점 주변; 001번 ZIP의 부분 수록 범위"
+  },
+  "fields": {
+    "bldg_id": "UFID",
+    "floors": "NMLY",
+    "name": "NAME"
+  }
+}
