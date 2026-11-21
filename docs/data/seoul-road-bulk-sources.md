@@ -33,6 +33,8 @@
 
 차선 후보가 한 번도 나오지 않은 링크는 20,693개에서 18,634개로 줄었다. 이 중 2,315개는 2차로 이상이고 표준링크가 2024년 1월 1일 이후 갱신됐다. 이 그룹부터 정밀도로지도와 대조하고, 정밀도로지도에 빠진 골목·단지 내부는 별도 부지 도로 자료에서 확인한다. 차선이 있는지 모르는 도로와 공식 자료에서 차선이 없다고 확인한 도로를 구분한다. [국가교통정보센터 표준노드링크](https://www.its.go.kr/nodelink/nodelinkRef)
 
+같은 새 인덱스로 입체도로도 다시 대조했다. 일반도로와 입체도로 링크가 모두 16m 안에 잡힌 차선 길이는 922.6km였다. 이 길이는 구조물이 가까워 별도 검증이 필요한 범위다. 정밀도로지도나 구조물 도형에서 해당 차도의 높이와 연결이 확인되면 차선을 올리고, 평면 좌표만 겹치는 경우에는 층위를 미확정으로 둔다. [도로중심선·입체도로 대조 코드](../../backend/scripts/reconcile_seoul_marking_links.py)
+
 ### 자동으로 갱신하고 검사하는 명령
 
 SQLite와 타일 캐시는 원본 자료 보관 경로에 둔다. 새 차선 자료를 받을 때 같은 범위의 차도와 보도를 함께 갱신한다. 다음 명령으로 단지별 다운로드 없이 다시 검사할 수 있다.
@@ -43,6 +45,8 @@ uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/
 uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/audit_seoul_link_coverage.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/national-road-links-2026-11-11.zip ../road-source-cache/tgis-link-coverage.sqlite
 uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/audit_seoul_scene_markings.py ../road-source-cache/seoul-marking-index.sqlite ../road-source-cache/tgis-live-index.sqlite
 ```
+
+장면 검사 JSON의 `identical_markings`에는 두 원본에서 관리번호가 각각 하나이며 종류와 좌표가 모두 같은 차선만 모은 대조 결과가 들어간다. 자료의 구성 변화와 차도면 변경의 영향을 따로 확인할 수 있다.
 
 시민용 지도 스냅샷은 수집·검수에 사용했다. 공개 장면용으로 가공할 때는 제공처의 이용 조건과 출처표기 범위를 확인한다. 서울 열린데이터광장의 차선·횡단보도 공개 파일은 공공누리 1유형이고, 이 파일의 이용 조건과 시민용 지도 조회의 이용 조건은 출처별로 기록한다. [서울시 차선 공개 파일](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [서울시 횡단보도 공개 파일](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do)
 

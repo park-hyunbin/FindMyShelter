@@ -42,15 +42,45 @@ def inspect_windows(index, regions):
     return {"sources": metadata["sources"], "scenes": report}
 
 
+def compare_identical_markings(baseline, candidate):
+    with closing(sqlite3.connect(candidate.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        db.execute("ATTACH DATABASE ? AS baseline", (baseline.resolve().as_uri() + "?mode=ro",))
+        # Only use unique management numbers with identical style and line geometry.
+        # This keeps changes to the marking inventory out of the surface comparison.
+        db.execute("""CREATE TEMP TABLE shared AS
+            WITH old_ids AS (
+                SELECT min(id) id, management_id FROM baseline.marking
+                WHERE management_id<>'' GROUP BY management_id HAVING count(*)=1
+            ), new_ids AS (
+                SELECT min(id) id, management_id FROM main.marking
+                WHERE management_id<>'' GROUP BY management_id HAVING count(*)=1
+            )
+            SELECT old.id old_id, new.id new_id FROM old_ids JOIN new_ids USING(management_id)
+            JOIN baseline.marking old ON old.id=old_ids.id JOIN main.marking new ON new.id=new_ids.id
+            WHERE old.style=new.style AND old.geometry=new.geometry
+        """)
+        records = db.execute("SELECT count(*) FROM shared").fetchone()[0]
+        report = {"records": records}
+        for name, schema, reference in (("baseline", "baseline", "old_id"), ("candidate", "main", "new_id")):
+            total, matched = db.execute(f"""SELECT sum(end_m-start_m),
+                sum(CASE WHEN status='single_road' THEN end_m-start_m ELSE 0 END)
+                FROM shared JOIN {schema}.span ON marking_id={reference}""").fetchone()
+            report[name] = {"length_m": total, "single_road_m": matched}
+        return report
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("baseline", type=Path, help="Baseline EPSG:5186 marking index")
     parser.add_argument("candidate", type=Path, help="Candidate EPSG:5186 marking index")
     parser.add_argument("--regions", type=Path, default=REGIONS)
     args = parser.parse_args()
-    baseline = inspect_windows(args.baseline, args.regions)
-    candidate = inspect_windows(args.candidate, args.regions)
-    print(json.dumps({"baseline": baseline, "candidate": candidate}, indent=2))
+    report = {
+        "baseline": inspect_windows(args.baseline, args.regions),
+        "candidate": inspect_windows(args.candidate, args.regions),
+        "identical_markings": compare_identical_markings(args.baseline, args.candidate),
+    }
+    print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
