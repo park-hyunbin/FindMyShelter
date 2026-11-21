@@ -154,14 +154,14 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'interior', title: '세대 내부', evidence: 'visit',
-        finding: '공개 기본형 평면도에서 거실과 발코니 배치를 확인할 수 있어요. 3D에서는 101~105동 외벽 바깥에서 앞 건물과 실외 일조를 비교할 수 있어요.',
-        followUp: '관심 세대의 층과 거실 창 방향, 실제 채광, 창호, 결로·누수, 수압, 층간소음을 확인해 보세요.',
+        finding: '공개 기본형 평면도에서 거실과 발코니 배치를 확인할 수 있어요. 3D에서는 101~105동 외벽 바깥에서 앞 건물과 시야를 보고, 관심 방향을 현장 메모에 담을 수 있어요.',
+        followUp: '관심 세대의 층과 거실 창 방향, 실제 채광, 창호, 결로·곰팡이·누수, 수압, 층간소음을 확인해 보세요.',
         views: [{ target: 'facades', label: '동별 외벽과 앞 건물 보기' }],
         sources: [{ label: 'KB부동산 기본형 평면도', url: songpaArchitecture.basicPlans }],
       },
       {
         id: 'visit-plan', title: '방문 장소·시간 정하기', evidence: 'visit',
-        finding: '귀갓길과 겨울 일조 비교에서 담은 장소에 방문 예정 시각과 확인할 질문을 적을 수 있어요.',
+        finding: '귀갓길, 겨울 일조 비교, 동별 외벽에서 담은 장소에 방문 예정 시각과 확인할 질문을 적을 수 있어요.',
       },
     ],
   },

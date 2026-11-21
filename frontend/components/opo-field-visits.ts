@@ -5,7 +5,8 @@ export const fieldVisitNoteLimit = 700;
 
 export type FieldScene =
   | { kind: 'winter'; pointId: string; date: string; minute: number }
-  | { kind: 'home'; routeId: string; stopId: string };
+  | { kind: 'home'; routeId: string; stopId: string }
+  | { kind: 'facade'; viewId: string };
 
 export type FieldVisit = {
   scene: FieldScene;
@@ -15,13 +16,15 @@ export type FieldVisit = {
   note: string;
 };
 
-type VisitDraft = Pick<FieldVisit, 'scene' | 'place' | 'finding'>;
+type VisitDraft = Pick<FieldVisit, 'scene' | 'place' | 'finding'> & { note?: string };
 type VisitChange = Partial<Pick<FieldVisit, 'plannedAt' | 'note'>>;
 
 export function fieldSceneId(scene: FieldScene) {
-  return scene.kind === 'winter'
-    ? `winter:${scene.pointId}:${scene.date}:${scene.minute}`
-    : `home:${scene.routeId}:${scene.stopId}`;
+  switch (scene.kind) {
+    case 'winter': return `winter:${scene.pointId}:${scene.date}:${scene.minute}`;
+    case 'home': return `home:${scene.routeId}:${scene.stopId}`;
+    case 'facade': return `facade:${scene.viewId}`;
+  }
 }
 
 function dateValue(value: unknown, includeTime = false): value is string {
@@ -37,6 +40,7 @@ function validScene(value: unknown): value is FieldScene {
     return typeof scene.pointId === 'string' && dateValue(scene.date) && typeof scene.minute === 'number'
       && Number.isInteger(scene.minute) && scene.minute >= 0 && scene.minute < 1440;
   }
+  if (scene.kind === 'facade') return typeof scene.viewId === 'string' && scene.viewId.length > 0;
   return scene.kind === 'home' && typeof scene.routeId === 'string' && typeof scene.stopId === 'string';
 }
 
@@ -92,7 +96,7 @@ export function useFieldVisits(enabled: boolean) {
   function save(draft: VisitDraft) {
     const id = fieldSceneId(draft.scene);
     write(current => current.some(visit => fieldSceneId(visit.scene) === id)
-      ? current : [...current, { ...draft, plannedAt: '', note: '' }]);
+      ? current : [...current, { ...draft, plannedAt: '', note: draft.note?.slice(0, fieldVisitNoteLimit) ?? '' }]);
   }
 
   function update(scene: FieldScene, change: VisitChange) {

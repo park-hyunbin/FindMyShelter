@@ -11,6 +11,10 @@ export const songpaArchitecture = {
   layout: 'https://m.richgo.ai/api/og/danji-map/a9phoJw',
   builder: 'https://www.centreville.co.kr/construction/movein_view?seq=24',
   basicPlans: 'https://kbland.kr/se/c/1953',
+  planTypes: [
+    { area: 141, url: 'https://file.kbland.kr/image/kbstar/land/img/alian/kms/complex/plane/basic/objctidnfr/KBM002223/2223_1_20210113194114.jpg' },
+    { area: 170, url: 'https://file.kbland.kr/image/kbstar/land/img/alian/kms/complex/plane/basic/objctidnfr/KBM002223/2223_2_20210113194114.jpg' },
+  ],
   towers: new Map<string, TowerExterior>([
     // Edge indices refer to the ordered outer rings in the current Songpa building dataset.
     ['55765286', { endFaces: [0, 11, 22], numberFaces: [11], roofRadiusM: 4.6 }],

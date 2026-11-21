@@ -10,7 +10,7 @@ import { routeAscent, routeTerrainStep, type RouteSlopeDirection, type RouteTerr
 import { interval, nearSurfaceHeight, observationHeight, type LightReport, type LightSample } from './opo-sunlight';
 import { sunGridSpacing, sunMapLegend, type SunMapCounts } from './opo-sun-map';
 import { openOpoWorld, type OpoWorld, type SitePoint, type Slot, type ViewMode } from './opo-world';
-import { facadeOffsetM } from './opo-facades';
+import { facadeOffsetM, type FacadeView } from './opo-facades';
 import satelliteMetadata from '../public/opo-sentinel.json';
 import { songpaBusStop, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId, visitRoutes } from './data/visit-routes';
 import architecture from '../public/opo-architecture.json';
@@ -649,8 +649,18 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, open, tab, points, bearing]);
 
   const facade = world?.facades.find(view => view.id === facadeId) ?? world?.facades[0];
-  const facing = useMemo(() => open && tab === 'site' && facade ? world?.buildingAhead(facade) : undefined,
-    [world, facade, tab, open]);
+  const facing = useMemo(() => {
+    if (!world || !open || tab !== 'site' || !facade) return;
+    const { nearest, range } = world.buildingAhead(facade);
+    const { hit, nearestHeightGap } = world.directionProfile(facade, facade.bearing);
+    return {
+      building: nearest ? `앞 건물 · ${nearest.name} · 직선 약 ${Math.round(nearest.distance)}m`
+        : `앞 건물 · 자료 범위 약 ${Math.round(range)}m 안에서 미확인`,
+      horizon: hit ? `자료상 차폐각 ${hit.angle < 0.1 ? '0.1° 미만' : `약 ${hit.angle.toFixed(1)}°`} · ${hit.source}`
+        : nearestHeightGap ? '높이 자료 부족 · 차폐 여부 미판정' : '확인 범위에서 수평선 위 차폐 없음',
+      heightGap: nearestHeightGap && `높이 미확인 · ${nearestHeightGap.label} · 약 ${Math.round(nearestHeightGap.distance)}m${hit ? ' · 추가 차폐 가능' : ''}`,
+    };
+  }, [world, facade, tab, open]);
 
   function chooseMode(next: ViewMode) {
     setWinterViewing(false);
@@ -747,6 +757,14 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     world.lookFrom(point, direction, sightlineAngle);
     setMode('walk');
     if (window.matchMedia('(max-width: 780px)').matches) setOpen(false);
+  }
+
+  function viewFacade(view: FacadeView) {
+    if (!world) return;
+    pendingAnalysisSection.current = { tab: 'site', selector: '[data-site-card="facades"]' };
+    lookFromPoint(view, view.bearing);
+    setStreet(world.streetStatus());
+    world.focus();
   }
 
   function lookAtRoutePoint(point: Pick<RouteTerrainSample, 'position' | 'bearing'>) {
@@ -846,6 +864,15 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
 
   function openFieldVisit(scene: FieldScene) {
     if (!world) return false;
+    if (scene.kind === 'facade') {
+      const view = world.facades.find(item => item.id === scene.viewId);
+      if (!view) return false;
+      setReturnChecklistItem('visit-plan');
+      chooseTab('site');
+      setFacadeId(view.id);
+      viewFacade(view);
+      return true;
+    }
     if (scene.kind === 'home') {
       const stops = world.greenAccessProfiles.find(route => route.id === scene.routeId)?.homeWalk?.stops;
       const index = stops?.findIndex(stop => stop.id === scene.stopId) ?? -1;
@@ -1540,18 +1567,13 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             </select>
           </label>}
           {facade && facing && <div aria-live="polite">
-            <p>앞 건물 · {facing.nearest ? `${facing.nearest.name} · 직선 약 ${Math.round(facing.nearest.distance)}m`
-              : `이 방향의 건물 자료 범위 약 ${Math.round(facing.range)}m 안에서 미확인`}</p>
+            <p>{facing.building}</p>
+            <p>{facing.horizon}</p>
+            {facing.heightGap && <p>{facing.heightGap}</p>}
           </div>}
-          <p>건물 윤곽의 외벽 가운데에서 바깥쪽 {facadeOffsetM}m 지점에 서서, 모델 바닥 위 {observationHeight}m 높이에서 봐요. 앞 건물 거리는 그 방향으로 지도 윤곽에 처음 닿는 지점까지예요.</p>
+          <p>외벽 가운데에서 바깥쪽 {facadeOffsetM}m, 모델 바닥 위 {observationHeight}m에서 봐요. 앞 건물은 이 방향에서 가장 먼저 만나는 건물이에요. 차폐각은 지형과 높이가 확인된 건물이 시야를 가장 높이 가리는 각도예요.</p>
           <div className="site-actions">
-            <button disabled={!world || !facade} onClick={() => {
-              if (!world || !facade) return;
-              pendingAnalysisSection.current = { tab: 'site', selector: '[data-site-card="facades"]' };
-              lookFromPoint(facade, facade.bearing);
-              setStreet(world.streetStatus());
-              world.focus();
-            }}>이 방향을 눈높이로 보기</button>
+            <button disabled={!world || !facade} onClick={() => facade && viewFacade(facade)}>이 방향을 눈높이로 보기</button>
             <button disabled={!world || !facade} onClick={() => {
               if (!facade) return;
               chooseMode('orbit');
@@ -1559,12 +1581,27 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
               pendingAnalysisSection.current = { tab: 'sun', selector: '.site-card.site-B' };
               chooseTab('sun');
             }}>이 지점을 일조 비교 B에 넣기</button>
+            <button disabled={!facade || !facing} onClick={() => {
+              if (!facade || !facing) return;
+              field.save({
+                scene: { kind: 'facade', viewId: facade.id },
+                place: facade.label,
+                finding: [`실외 모델 눈높이 ${observationHeight}m`, facing.building, facing.horizon, facing.heightGap].filter(Boolean).join(' / '),
+                note: '관심 층·호수의 거실 창은 어느 방향인가요?\n창에서 보이는 앞동과 방문 시각의 채광은 어떤가요?\n창호·누수·결로·곰팡이·수압·층간소음은 어떤가요?',
+              });
+              openVisitPlan();
+            }}>이 방향을 현장 메모에 담기</button>
           </div>
-          <p>공급 141㎡와 170㎡ 기본형 평면도에서 거실과 발코니 배치를 볼 수 있어요. 관심 세대의 창 방향, 층별 채광과 실내 상태는 현장에서 확인해 주세요.</p>
-          <div className="basis">
-            <a href={songpaArchitecture.basicPlans} target="_blank" rel="noreferrer">KB부동산 기본형 평면도 ↗</a>
+          <details className="basis">
+            <summary>공급 141㎡·170㎡ 기본형 평면도</summary>
+            <p>두 기본형 모두 방 4개와 욕실 2개가 있고 거실이 발코니와 맞닿아 있어요. 170㎡는 1번 방 옆에 드레스실이 표시돼요.</p>
+            <p>동·호수별 창 방향, 층별 채광과 실내 상태는 현장에서 확인해 주세요.</p>
+            {songpaArchitecture.planTypes.map(({ area, url }) => <a key={area} href={url} target="_blank" rel="noreferrer">
+              공급 {area}㎡ KB부동산 평면도 열기
+            </a>)}
+            <a href={songpaArchitecture.basicPlans} target="_blank" rel="noreferrer">KB부동산 단지 페이지에서 타입 비교</a>
             <a href={songpaArchitecture.builder} target="_blank" rel="noreferrer">시공사 가락동 센트레빌 단지 안내 ↗</a>
-          </div>
+          </details>
         </article>
         <article className="site-card" data-site-card="paving" tabIndex={-1}>
           <h3>단지 안 산책로와 놀이터</h3>
