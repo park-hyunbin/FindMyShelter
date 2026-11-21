@@ -34,6 +34,7 @@ LAYERS = {
     "walk": "N1A_A0033320",
     "axis": "N1L_A0020000",
     "crossing": "N1A_A0043325",
+    "internal-road-edges": "N1L_A0010000",
 }
 LANE_FIELDS = ["STAT_CDE", "VIEW_CDE", "GU_CDE", "MGRNU", "LINE_MGRNU", "SIXID", "RN_CDE",
                "A058_KND_C", "A058_KND2_"]
@@ -160,7 +161,8 @@ def layer_metadata(directory, name):
 
 
 def audit(directory, spacing):
-    layers = {name: layer_metadata(directory, name) for name in LAYERS}
+    layers = {name: layer_metadata(directory, name) for name in LAYERS
+              if name != "internal-road-edges" or (directory / f"{name}.zip").exists()}
     road = polygon_index(directory, "road")
     walk = polygon_index(directory, "walk")
     districts = defaultdict(Counter)

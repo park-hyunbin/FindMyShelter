@@ -10,8 +10,9 @@
 | 서울시 차선 시설물 현황 | 2023-07-24 XLSX에 자치구, 차선 종류·중분류, 도로 구분과 대표 X/Y 좌표가 있다. 한 행당 좌표 한 쌍이 들어 있다. |
 | 서울시 에스맵 도로·보행 도형 | 도로 면 `N1A_A0010000` 311,290건, 보도 면 `N1A_A0033320` 60,715건, 도로중심선 `N1L_A0020000` 562,230건, 횡단보도 `N1A_A0043325` 43,038건. SHP 색인 파일 날짜는 2024-07-04이다. |
 | 서울시 버스전용차로 | 2026-02-13 공개 SHP에 서로 다른 관리번호 3,248개가 있다. 그중 3,033개가 2021년 파일의 상태·표출 조건을 통과한 관리번호와 같다. 변경·신규 후보를 찾는 데 쓸 수 있는 버스전용차로 자료다. |
+| 서울시 부지안도로 경계 | `N1L_A0010000` 선형 214,931건. 일반 도로면 자료에서 빠진 단지 진입로나 내부 포장의 경계 후보를 찾을 때 쓴다. |
 
-다섯 기본 도형과 버스전용차로의 좌표계는 EPSG:5186이다. 파일 날짜는 원본 관측일을 보장하지 않으므로 출처, 파일 버전, 관측일과 좌표계를 각각 기록한다. [서울시 차선 자료](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [에스맵 오픈랩](https://openlab.eseoul.go.kr/) · [2026년 버스전용차로 자료](https://data.seoul.go.kr/dataList/OA-22396/F/1/datasetView.do)
+표에 있는 선·면 자료의 좌표계는 EPSG:5186이다. 파일 날짜는 원본 관측일을 보장하지 않으므로 출처, 파일 버전, 관측일과 좌표계를 각각 기록한다. [서울시 차선 자료](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [에스맵 오픈랩](https://openlab.eseoul.go.kr/) · [2026년 버스전용차로 자료](https://data.seoul.go.kr/dataList/OA-22396/F/1/datasetView.do)
 
 관리번호가 일치한 버스전용차로 중 두 시점의 선형 거리를 계산할 수 있었던 3,032개를 대조했다. 615개는 두 선형의 최대 이격 거리(Hausdorff 거리)가 1m를 넘었고, 그중 414개는 5m를 넘었다. 선형이 이동한 경우와 길이·분할 범위가 달라진 경우가 함께 들어 있는 값이다. 오래된 원본의 차선을 옮겨 맞추기 전에 최신 도형을 확인해야 하는 이유다.
 
@@ -28,6 +29,28 @@
 | 나머지 차도 밖 | 5.4% |
 
 차도에만 포함되는 비율은 구별로 81.2~92.4%였다. 도로 층위나 방향을 가리지 않은 평면 검사여서, 교량 위 차선이 아래 차도와 겹치는 경우도 있을 수 있다. 누락 원인과 현재 차선 상태는 도로 구간별 연결과 최신 원본으로 검증한다. 기존 공개 장면의 렌더러 탈락 집계는 도로 생성·횡단 표시 절단까지 적용한 별도 지표다. [공개 장면 기준선](road-markings.md#공개-장면-전수-점검)
+
+## 서울 전체 도로면 연결 결과
+
+25개 구의 2021년 기본 차선과 2026년의 유효한 버스전용차로 도형을 하나의 공간 인덱스에 넣었다. 최신 버스전용차로 관리번호 3,247개 가운데 기본 차선과 일치한 3,032개를 교체하고 최신 도형의 출처를 기록했다. 인덱스에는 도로면 311,290건, 보도면 60,715건, 차선 도형 340,162개와 위치별 연결 구간 806,797개가 들어 있다.
+
+이 단계는 원본 선형과 도로면·보도면이 실제로 만나는 위치에서 구간을 나눈다. 원래 선의 좌표와 관리번호를 유지하고 각 구간에 시작·끝 거리, 겹치는 도로면 후보, 해당 후보의 UFID를 기록한다. 단순 평면 표본 조사와 달리 연결 구간 길이를 직접 합산할 수 있다.
+
+| 연결 상태 | 차선 길이 |
+| --- | ---: |
+| 보도와 겹치지 않고 도로면 하나에만 포함 | 13,633.5km (86.6%) |
+| 도로면 여러 개와 겹침 | 278.2km |
+| 도로면과 보도면에 모두 포함 | 599.9km |
+| 보도면에만 포함 | 1.3km |
+| 도로·보도면 밖 | 1,221.3km |
+
+가락과 강서에서 원본을 다시 내려받지 않고 각각 필요한 범위의 GeoJSON을 뽑았다. 차도·보도 형상과 차선 상태를 함께 내보내 가락에서 719개, 강서에서 1,795개의 차선 조각을 검토할 수 있었다. 도로면 하나와 겹친 기록에도 방향과 높이 판단이 남아 있다. 여러 후보가 있는 곳의 차선과 원본 도형도 인덱스에 보존해 정밀도로지도와 최신 서울시 원본이 들어오면 같은 위치를 다시 대조할 수 있다.
+
+### 가락 정문처럼 도로면이 빠진 곳
+
+지금까지 문제가 반복된 가락 정문 황색 실선 `11-0000104759`의 30.81m 전부가 서울시 일반 도로면 범위 밖이었다. 부지안도로 원본의 양쪽 경계를 자동으로 대조하자 일곱 단면 모두에서 UFID 끝자리 216과 151인 선이 이어졌다. 두 선 사이의 간격은 약 14.9~16.1m였다. 주변 경계선을 폐합하면 이 실선을 포함하는 면이 나오지 않아, 실제 차량 포장 폭과 양끝 접속은 추가 근거로 확인해야 한다. [서울시 부지안도로 원본](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1L_A0010000.zip) · [가락 정문에서 확인한 원인](road-markings.md#가락-정문에서-확인한-원인)
+
+같은 검사를 서울 전체의 3m 이상 도로면 밖 구간 38,561개에 적용했다. 정지선을 제외하고 최대 5m 간격으로 단면을 만들었으며, 양옆 18m 안에서 동일한 원본 경계 한 쌍이 계속 확인되는 경우만 후보로 집계했다. 검사한 약 1,191km 가운데 1,156개 구간, 약 22.8km(1.9%)에서 양쪽 경계 후보를 찾았다. 후보마다 차선 관리번호와 양쪽 경계 UFID를 기록했다. 포장과 접속부가 확인되면 해당 구간을 다시 검증하고, 다른 구간은 최신 차도면과 층위 자료로 보강한다.
 
 ## 수작업을 줄이는 생성 방식
 
@@ -50,3 +73,13 @@ uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/
 ```
 
 [일괄 수집·평면 대조 코드](../../backend/scripts/audit_seoul_road_sources.py)
+
+도시 단위 인덱스를 만든 뒤에는 원하는 범위만 반복해서 내보낼 수 있다. 각 GeoJSON의 차선 조각에는 원본 종류, 관리번호, 위치 판정과 단일 후보인 경우 차도 UFID가 포함된다. `--bbox`는 서·남·동·북 순서의 WGS84 경도·위도다.
+
+```powershell
+uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/index_seoul_road_markings.py ../road-source-cache ../road-source-cache/seoul-marking-index.sqlite --latest-bus
+uv run --with pyshp --with shapely --with pyproj python backend/scripts/extract_seoul_road_window.py ../road-source-cache/seoul-marking-index.sqlite ../road-source-cache/garak-markings.geojson --bbox 127.1125 37.4965 127.1195 37.5005
+uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/probe_seoul_internal_road_edges.py ../road-source-cache ../road-source-cache/seoul-marking-index.sqlite ../road-source-cache/internal-edge-candidates.json
+```
+
+[도시 인덱스 생성](../../backend/scripts/index_seoul_road_markings.py) · [생활권 추출](../../backend/scripts/extract_seoul_road_window.py) · [부지안도로 경계 후보 검사](../../backend/scripts/probe_seoul_internal_road_edges.py)
