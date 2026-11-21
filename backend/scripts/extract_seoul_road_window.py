@@ -38,7 +38,7 @@ def surfaces(db, window, table):
             yield feature(polygon, layer=table, source_id=id_, ufid=ufid)
 
 
-def markings(db, window, single_road_only):
+def marking_lines(db, window, single_road_only=False):
     query = """SELECT marking.id, marking.management_id, marking.style, marking.source,
             marking.geometry, span.start_m, span.end_m, span.status, road.ufid
         FROM marking_bounds bounds JOIN marking ON marking.id=bounds.id
@@ -53,8 +53,13 @@ def markings(db, window, single_road_only):
             previous_id, original = id_, from_wkb(geometry)
         segment = substring(original, begin, end)
         for line in parts(segment.intersection(window), "LineString"):
-            yield feature(line, layer="marking", management_id=management, style=style,
-                          source=source, status=status, road_ufid=road)
+            yield line, management, style, source, status, road
+
+
+def markings(db, window, single_road_only):
+    for line, management, style, source, status, road in marking_lines(db, window, single_road_only):
+        yield feature(line, layer="marking", management_id=management, style=style,
+                      source=source, status=status, road_ufid=road)
 
 
 def extract(database, bbox, single_road_only):

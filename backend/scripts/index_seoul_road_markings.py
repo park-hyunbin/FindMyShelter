@@ -2,6 +2,9 @@
 
 import argparse
 from collections import Counter, defaultdict
+from contextlib import closing
+from datetime import date, datetime, timedelta, timezone
+import hashlib
 from itertools import groupby, islice
 import json
 import logging
@@ -11,13 +14,14 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 from shapely import (
-    STRtree, get_coordinates, get_parts, get_point, get_type_id,
+    STRtree, from_geojson, get_coordinates, get_parts, get_point, get_type_id,
     intersection, is_valid, line_locate_point, linestrings, make_valid,
     to_wkb,
 )
 from shapely.geometry import MultiPolygon, shape
 
 from audit_seoul_road_sources import LANE_FIELDS, layer_metadata, open_layer
+from collect_seoul_tgis_wfs import MAP as TGIS_MAP
 from prepare_neighborhood_pavement import parts
 from prepare_songpa_road_markings import lane_style
 
@@ -54,24 +58,26 @@ def rect(id_, geometry):
     return id_, min_x, max_x, min_y, max_y
 
 
-def surface_index(directory, db, layer):
-    polygons, owners = [], []
+def surface_records(directory, layer):
     with open_layer(directory, layer, attributes=True) as reader:
         for row in reader.iterShapeRecords(fields=["UFID"]):
-            if not row.shape.points:
-                continue
-            geometry = shape(row.shape.__geo_interface__)
-            if not is_valid(geometry):
-                geometry = make_valid(geometry)
-            faces = list(parts(geometry, "Polygon"))
-            if not faces:
-                continue
-            geometry = faces[0] if len(faces) == 1 else MultiPolygon(faces)
-            id_ = row.record.oid + 1
-            db.execute(f"INSERT INTO {layer} VALUES (?,?,?)", (id_, row.record["UFID"], to_wkb(geometry)))
-            db.execute(f"INSERT INTO {layer}_bounds VALUES (?,?,?,?,?)", rect(id_, geometry))
-            polygons.extend(faces)
-            owners.extend([id_] * len(faces))
+            if row.shape.points:
+                yield row.record.oid + 1, row.record["UFID"], shape(row.shape.__geo_interface__)
+
+
+def surface_index(records, db, layer):
+    polygons, owners = [], []
+    for id_, reference, geometry in records:
+        if not is_valid(geometry):
+            geometry = make_valid(geometry)
+        faces = list(parts(geometry, "Polygon"))
+        if not faces:
+            continue
+        geometry = faces[0] if len(faces) == 1 else MultiPolygon(faces)
+        db.execute(f"INSERT INTO {layer} VALUES (?,?,?)", (id_, reference, to_wkb(geometry)))
+        db.execute(f"INSERT INTO {layer}_bounds VALUES (?,?,?,?,?)", rect(id_, geometry))
+        polygons.extend(faces)
+        owners.extend([id_] * len(faces))
     if not polygons:
         raise ValueError(f"No usable {layer} polygons")
     return STRtree(polygons), np.asarray(owners)
@@ -176,6 +182,95 @@ def insert_markings(db, records, roads, road_owners, walks, counts, next_id):
     return next_id + len(rows)
 
 
+def mark_totals(counts):
+    total = Counter()
+    for district in counts.values():
+        total.update(district)
+    measured = sum(value for key, value in total.items() if key.endswith("_m") and key != "source_length_m")
+    if not total["parts"] or abs(measured - total["source_length_m"]) > 0.01:
+        raise ValueError("Road spans do not account for the original marking length")
+    return dict(total)
+
+
+def snapshot_features(source, layer, condition):
+    records = source.execute(f"""SELECT id, properties, geometry FROM feature
+        WHERE layer=? AND geometry<>'null' AND {condition} ORDER BY id""", (layer,))
+    for ordinal, (identifier, properties, geometry) in enumerate(records):
+        yield ordinal, identifier, json.loads(properties), from_geojson(geometry)
+
+
+def tgis_surfaces(source, layer):
+    for ordinal, identifier, attributes, geometry in snapshot_features(
+        source, layer, "json_extract(properties,'$.VIEW_CDE')='002'"
+    ):
+        yield ordinal + 1, attributes.get("UFID") or identifier, geometry
+
+
+def future_installation(value, snapshot_day):
+    if not isinstance(value, str) or len(value) != 8 or not value.isascii() or not value.isdecimal():
+        return False
+    try:
+        return date.fromisoformat(value) > snapshot_day
+    except ValueError:
+        return False
+
+
+def tgis_markings(source, index, snapshot_day, excluded):
+    visible = " AND ".join(f"json_extract(properties,'$.{key}')='{value}'"
+                           for key, value in (("VIEW_CDE", "002"), ("STAT_CDE", "001"), ("EVE_CDE", "001")))
+    for ordinal, identifier, tags, geometry in snapshot_features(source, "A058_L", visible):
+        kind = tags["A058_KND_CDE"]
+        style = lane_style(kind, tags["A058_KND2_CDE"])
+        if style is None:
+            excluded["unsupported_style"] += 1
+            continue
+        if future_installation(tags.get("ESB_YMD"), snapshot_day):
+            excluded["future_installation"] += 1
+            continue
+        index.execute("INSERT INTO tgis_marking_source VALUES (?,?,?,?,?)",
+                      (ordinal, identifier, kind, tags.get("ESB_YMD"), tags.get("CAE_YMD")))
+        for part, line in enumerate(parts(geometry, "LineString")):
+            if line.length > 0.25 and np.isfinite(line.length):
+                yield ("tgis-lanes", ordinal, part, tags["MGRNU"] or "", tags["GU_CDE"] or "", style, line)
+
+
+def build_tgis(snapshot, output):
+    with snapshot.open("rb") as stream:
+        sha = hashlib.file_digest(stream, "sha256").hexdigest()
+    with NamedTemporaryFile(dir=output.parent, prefix=output.name + ".", suffix=".part", delete=False) as stream:
+        temporary = Path(stream.name)
+    try:
+        with closing(sqlite3.connect(snapshot.resolve().as_uri() + "?mode=ro", uri=True)) as source, \
+             closing(sqlite3.connect(temporary)) as db:
+            metadata = json.loads(source.execute("SELECT value FROM metadata WHERE key='report'").fetchone()[0])
+            if metadata["epsg"] != 5186 or not {"A058_L", "A001_A", "A003_A"} <= metadata["layers"].keys():
+                raise ValueError("T-GIS snapshot requires road, walk and lane layers in EPSG:5186")
+            db.execute("PRAGMA foreign_keys = ON")
+            db.executescript(SCHEMA + """CREATE TABLE tgis_marking_source (
+              source_row INTEGER PRIMARY KEY, feature_id TEXT NOT NULL, kind TEXT NOT NULL,
+              installed TEXT, exchanged TEXT);""")
+            roads, owners = surface_index(tgis_surfaces(source, "A001_A"), db, "road")
+            walks, _ = surface_index(tgis_surfaces(source, "A003_A"), db, "walk")
+            counts = defaultdict(Counter)
+            excluded = Counter()
+            next_id = 1
+            snapshot_day = datetime.fromisoformat(metadata["requested_at"]).astimezone(timezone(timedelta(hours=9))).date()
+            markings = tgis_markings(source, db, snapshot_day, excluded)
+            while batch := list(islice(markings, 2048)):
+                next_id = insert_markings(db, batch, roads, owners, walks, counts, next_id)
+            report = {
+                "epsg": 5186, "tgis": metadata, "districts": dict(sorted(counts.items())), "total": mark_totals(counts),
+                "excluded_records": dict(excluded),
+                "sources": {"tgis-lanes": {"url": TGIS_MAP, "retrieved_at": metadata["requested_at"], "sha256": sha}},
+            }
+            db.execute("INSERT INTO metadata VALUES (?,?)", ("report", json.dumps(report, ensure_ascii=False)))
+            db.commit()
+        temporary.replace(output)
+        return report
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def build(directory, output, latest_bus):
     archives = {name: layer_metadata(directory, name) for name in SOURCE_LAYERS
                 if name != "bus-lanes" or latest_bus}
@@ -187,8 +282,8 @@ def build(directory, output, latest_bus):
         try:
             db.execute("PRAGMA foreign_keys = ON")
             db.executescript(SCHEMA)
-            roads, road_owners = surface_index(directory, db, "road")
-            walks, _ = surface_index(directory, db, "walk")
+            roads, road_owners = surface_index(surface_records(directory, "road"), db, "road")
+            walks, _ = surface_index(surface_records(directory, "walk"), db, "walk")
             updated_bus = list(marking_parts(directory, "bus-lanes")) if latest_bus else []
             bus_ids = {row[3] for row in updated_bus if row[3]}
             replaced = set()
@@ -203,17 +298,10 @@ def build(directory, output, latest_bus):
                         remaining.append(record)
                 if remaining:
                     next_id = insert_markings(db, remaining, roads, road_owners, walks, counts, next_id)
-            total = Counter()
-            for district in counts.values():
-                total.update(district)
-            if not total["parts"] or abs(sum(value for key, value in total.items()
-                                               if key.endswith("_m") and key != "source_length_m")
-                                          - total["source_length_m"]) > 0.01:
-                raise ValueError("Road spans do not account for the original marking length")
             report = {"epsg": 5186, "sources": archives, "latest_bus": latest_bus,
                       "bus_source_ids": len(bus_ids), "bus_replacement_ids": len(replaced),
                       "districts": dict(sorted(counts.items())),
-                      "total": dict(total)}
+                      "total": mark_totals(counts)}
             db.execute("INSERT INTO metadata VALUES (?,?)", ("report", json.dumps(report, ensure_ascii=False)))
             db.commit()
         finally:
@@ -226,7 +314,7 @@ def build(directory, output, latest_bus):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("directory", type=Path, help="Directory with the downloaded Seoul source bundle")
+    parser.add_argument("source", type=Path, help="Directory of official ZIPs or the collected T-GIS SQLite snapshot")
     parser.add_argument("output", type=Path, help="New SQLite spatial index")
     parser.add_argument("--latest-bus", action="store_true",
                         help="Use valid 2026 bus linework in place of matching 2021 management IDs")
@@ -234,7 +322,13 @@ def main():
     if args.output.suffix.lower() != ".sqlite":
         parser.error("output must have a .sqlite suffix")
     logging.getLogger("shapefile").setLevel(logging.ERROR)
-    print(json.dumps(build(args.directory, args.output, args.latest_bus), ensure_ascii=False))
+    if args.source.suffix.lower() == ".sqlite":
+        if args.latest_bus or args.output.resolve() == args.source.resolve():
+            parser.error("the T-GIS snapshot already includes bus lanes and requires a separate output file")
+        report = build_tgis(args.source, args.output)
+    else:
+        report = build(args.source, args.output, args.latest_bus)
+    print(json.dumps(report, ensure_ascii=False))
 
 
 if __name__ == "__main__":
