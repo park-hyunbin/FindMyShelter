@@ -6,6 +6,8 @@
 
 **[클릭하는 데이터 연결 그래프](https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/docs/project-architecture/#flow)**에서 건축물대장, 지형, 도로 같은 상자를 누르면 어디서 가져오고 어떤 파일이나 임장 화면을 만드는지 확인할 수 있습니다. [건축물대장이 연결되는 예](https://find-my-shelter-opo-tour.roankoala1.chatgpt.site/docs/project-architecture/#node-registry)
 
+공간 데이터의 출처와 확인 범위를 다루는 원칙, 공동으로 쓰는 `main`의 작업 절차는 [프로젝트 전역 규칙](../AGENTS.md)에 있습니다. 차선 원본과 렌더링은 [차선과 포장 이음새](region-tour-pipeline.md#차선과-포장-이음새)에서 확인할 수 있습니다.
+
 ## 한 번의 임장이 만들어지는 과정
 
 1. 공개 자료에서 단지 목록, 건물의 모양과 높이, 도로와 지형을 가져옵니다.
