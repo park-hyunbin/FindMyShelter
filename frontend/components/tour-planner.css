@@ -22,6 +22,7 @@
 .planner-modes { display: flex; flex-wrap: wrap; gap: 5px; }
 .planner .planner-tab { min-height: 36px; border-color: transparent; background: transparent; box-shadow: none; color: #4e5d4a; }
 .planner .planner-tab[aria-pressed="true"] { border-color: #cfddbd; background: #e5eed7; color: #285446; }
+.planner-catalog-link { display: inline-flex; align-items: center; min-height: 36px; padding: 0 10px; color: #285446; font-size: 0.875rem; font-weight: 650; text-underline-offset: 3px; }
 .planner-welcome {
   display: flex;
   flex-wrap: wrap;

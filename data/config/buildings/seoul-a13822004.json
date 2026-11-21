@@ -8,5 +8,9 @@
     "households": 5678,
     "towerCount": 72
   },
-  "osm": {"bounds": [127.068, 37.504, 127.095, 37.525], "boundaryRelation": 6114967}
+  "osm": {"bounds": [127.068, 37.504, 127.095, 37.525], "boundaryRelation": 6114967},
+  "walking": [
+    {"id": "jamsil-els-station", "name": "잠실새내역 5번 출구", "node": 4650887402, "endLabel": "잠실새내역 5번 출구 방향"},
+    {"id": "jamsil-els-park", "name": "아시아공원", "way": 73581553, "endLabel": "공원 경계 인근의 지도상 보행로"}
+  ]
 }

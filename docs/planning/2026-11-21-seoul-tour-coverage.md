@@ -6,7 +6,7 @@
 
 ## 단지 목록과 3D 연결
 
-첫 집계는 가락동부센트레빌과 잠실 르엘 두 장면을 기준으로 한다. 가락금호와 잠실엘스를 추가한 뒤 같은 검사기가 송파의 3D 장면을 4곳으로 집계했다.
+현재 집계는 가락동부센트레빌·잠실 르엘·가락금호·잠실엘스의 3D 장면 4곳을 포함한다. 보행 경로가 있는 단지는 가락동부센트레빌·가락금호·잠실엘스 3곳이다.
 
 K-apt의 관리비 공개 의무 단지 원본에서 서울 3,200개 기록을 확인했다. 그중 아파트·주상복합과 해당 유형의 도시형생활주택 3,158개를 집계했다. 소규모 비의무관리 단지는 이 분모에서 빠질 수 있다. 도로명주소가 빈 단지 3곳은 단지코드와 이름으로 보존한다. [K-apt 기본정보 자료실](https://www.k-apt.go.kr/web/board/webReference/boardList.do) · [공공데이터포털 항목 정의](https://www.data.go.kr/data/15073271/fileData.do)
 
@@ -29,7 +29,7 @@ K-apt의 관리비 공개 의무 단지 원본에서 서울 3,200개 기록을 �
 | 서초구 | 173 | 173 | 0 | 0 |
 | 성동구 | 123 | 123 | 0 | 0 |
 | 성북구 | 136 | 136 | 0 | 0 |
-| 송파구 | 161 | 161 | 2 | 1 |
+| 송파구 | 161 | 161 | 4 | 3 |
 | 양천구 | 139 | 138 | 0 | 0 |
 | 영등포구 | 178 | 177 | 0 | 0 |
 | 용산구 | 81 | 81 | 0 | 0 |
@@ -37,7 +37,7 @@ K-apt의 관리비 공개 의무 단지 원본에서 서울 3,200개 기록을 �
 | 종로구 | 32 | 32 | 0 | 0 |
 | 중구 | 47 | 47 | 0 | 0 |
 | 중랑구 | 126 | 126 | 0 | 0 |
-| **합계** | **3,158** | **3,155** | **2** | **1** |
+| **합계** | **3,158** | **3,155** | **4** | **3** |
 
 ## 송파 검증 사례
 
@@ -131,4 +131,38 @@ done
 node frontend/scripts/prepare-catalog-scene.mjs seoul-a13880407 \
   data/processed/complexes/seoul-building-windows/A13880407 /path/to/garak-geumho-osm.json
 uv run --with pyproj --with shapely python backend/scripts/prepare_tour_postcard.py --region seoul-a13880407
+```
+
+## 역·공원 보행 경로와 서울 목록
+
+가락금호와 잠실엘스에서 OSM 연결망의 보행로를 따라 경로를 생성했다. 두 단지 모두 단지 경계 밖의 가까운 보행로에서 출발한다. 지도 경로가 역 출구 또는 공원 경계 근처에서 끝나면 목적지까지의 남은 직선거리를 표시한다. 계단·횡단 표기가 있는 길은 경로 카드에 반영한다. 아래 거리는 탐방 경로의 모델 길이다. 사유지 출입 조건, 신호 대기 시간과 보도 단차는 추가 확인 항목이다. [송파역 2번 출구](https://www.openstreetmap.org/node/3401171608) · [송이공원](https://www.openstreetmap.org/way/169803431) · [잠실새내역 5번 출구](https://www.openstreetmap.org/node/4650887402) · [아시아공원](https://www.openstreetmap.org/way/73581553)
+
+| 단지 | 목적지 | 지도 경로 | 종점에서 목적지까지 직선거리 |
+| --- | --- | ---: | ---: |
+| 가락금호 | 송파역 2번 출구 | 457m | 3.4m |
+| 가락금호 | 송이공원 | 564m | 1.1m |
+| 잠실엘스 | 잠실새내역 5번 출구 | 94m | 10.5m |
+| 잠실엘스 | 아시아공원 | 922m | 4.9m |
+
+서울시 1:5,000 등고선과 표고점을 이용해 경로 고도 단면과 30m 구간 경사를 계산한다. 주변 표고점을 하나씩 뺀 내부 검증의 평균 절대차는 네 경로에서 약 0.4~1.2m였다. 이 오차는 지형 보간에 대한 값이다. 계단·연석과 실제 노면 기울기는 별도로 확인해야 한다. [서울시 등고선·표고점](https://data.seoul.go.kr/dataList/OA-22241/F/1/datasetView.do)
+
+두 단지의 경로 파일은 각 장면의 `streets.json`을 만들 때 쓴 OSM 스냅샷으로 생성한다. 가락금호 명령의 지역 ID와 지도 원본을 잠실엘스 값으로 바꿔 같은 과정을 실행한다. 마지막 카탈로그 명령은 앞 단계와 동일한 건물 창과 OSM 파일을 받는다.
+
+```sh
+uv run --with pyproj --with shapely python backend/scripts/prepare_catalog_walks.py \
+  seoul-a13880407 /path/to/garak-geumho-osm.json --retrieved 2026-11-21
+uv run --with pyshp --with pyproj --with scipy --with 'shapely>=2.1' python backend/scripts/prepare_songpa_route_elevation.py \
+  /path/to/seoul-contours.zip --region seoul-a13880407
+node frontend/scripts/prepare-catalog-scene.mjs seoul-a13880407 \
+  data/processed/complexes/seoul-building-windows/A13880407 /path/to/garak-geumho-osm.json
+```
+
+서울 목록 화면 `/seoul/`의 데이터는 K-apt 목록, 대장 연결 결과, 주동 윤곽 집계와 장면 파일을 같은 단지코드로 합쳐 생성한다. 서로 다른 기준일이나 단지 집합이 섞이면 중단한다. 경로 좌표가 고도 단면을 만들 때 사용한 좌표와 같은 경우에만 단면 제공 건수에 넣는다. 사용자는 자치구별 집계를 보거나 단지명·주소·코드로 검색해 준비된 장면에 들어갈 수 있다.
+
+```sh
+python backend/scripts/audit_seoul_tour_coverage.py data/processed/complexes/kapt/kapt-2026-11-20.csv \
+  --snapshot-date 2026-11-20 --output data/processed/complexes/seoul-tour-coverage.json \
+  --register-links data/processed/complexes/seoul-register-links.json \
+  --footprint-coverage data/processed/complexes/seoul-footprints/coverage.json \
+  --public-output frontend/public/datasets/seoul-tour-catalog.json
 ```

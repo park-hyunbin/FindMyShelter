@@ -34,6 +34,14 @@ def registered_scene_configs(root):
             yield config
 
 
+def has_route_profile(route, profiles):
+    profile = profiles.get(route['id'], {})
+    if not profile.get('samples'):
+        return False
+    path = ';'.join(f'{lon:.7f},{lat:.7f}' for segment in route['segments'] for lon, lat in segment['coordinates'])
+    return profile.get('path') == path
+
+
 def audit_scene(region, datasets):
     buildings = datasets / 'buildings' / region
     scene = datasets / 'regions' / region
@@ -76,7 +84,7 @@ def audit_scene(region, datasets):
         'buildings': len(building_ids),
         'buildingsWithHeight': with_height,
         'walkingRoutes': len(routes),
-        'walkingRoutesWithElevation': sum(bool(profiles.get(route['id'], {}).get('samples')) for route in routes),
+        'walkingRoutesWithElevation': sum(has_route_profile(route, profiles) for route in routes),
     }
 
 
@@ -125,27 +133,79 @@ def build_report(source, snapshot_date, root):
     }
 
 
+def public_catalog(report, register, footprints):
+    metadata = footprints['metadata']
+    if not (report['snapshotDate'] == register['catalogSnapshotDate'] == metadata['snapshotDate']
+            and register['registerSnapshotMonth'] == metadata['registerMonth']):
+        raise ValueError('Catalog, register and footprint snapshots disagree')
+
+    records = register['complexes']
+    outlines = footprints['complexes']
+    if records.keys() != {entry['kaptCode'] for entry in report['complexes']}:
+        raise ValueError('Catalog and register complex IDs disagree')
+    if outlines.keys() != {code for code, record in records.items() if record['status'] == 'matched'}:
+        raise ValueError('Matched register and footprint complex IDs disagree')
+
+    districts = {district: {**counts, 'fullOutlines': 0, 'withRouteProfiles': 0}
+                 for district, counts in report['districts'].items()}
+    complexes = []
+    for entry in report['complexes']:
+        code, district, tour = entry['kaptCode'], entry['district'], entry['tour']
+        register_row = records[code]
+        footprint = outlines.get(code)
+        if register_row['district'] != district or (footprint and footprint['district'] != district):
+            raise ValueError(f'{code}: district disagrees across sources')
+        geometry = 'register_pending'
+        if footprint:
+            total, matched = footprint['registeredTowers'], footprint['matchedTowers']
+            if not (0 <= matched <= total == len(register_row['buildings']) and total > 0):
+                raise ValueError(f'{code}: inconsistent matched tower counts')
+            geometry = 'complete' if matched == total else 'partial' if matched else 'outline_pending'
+
+        districts[district]['fullOutlines'] += geometry == 'complete'
+        districts[district]['withRouteProfiles'] += bool(tour and tour['walkingRoutesWithElevation'])
+        complexes.append({**entry, 'geometry': geometry})
+
+    return {
+        'snapshotDate': report['snapshotDate'], 'registerMonth': register['registerSnapshotMonth'],
+        'footprintDate': metadata['archiveFileDate'], 'districts': districts, 'complexes': complexes,
+    }
+
+
+def write_json(output, data, compact=False):
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with NamedTemporaryFile(mode='w', encoding='utf-8', newline='\n', dir=output.parent,
+                                suffix='.tmp', delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(data, stream, ensure_ascii=False, indent=None if compact else 2)
+            stream.write('\n')
+        temporary.replace(output)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', type=Path, help='CSV produced by prepare_kapt_complexes.py')
     parser.add_argument('--snapshot-date', type=date.fromisoformat, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--public-output', type=Path, help='Publish combined catalog and data availability as JSON')
+    parser.add_argument('--register-links', type=Path)
+    parser.add_argument('--footprint-coverage', type=Path)
     args = parser.parse_args()
-    temporary = None
+    if args.public_output and not (args.register_links and args.footprint_coverage):
+        parser.error('--public-output requires --register-links and --footprint-coverage')
     try:
         report = build_report(args.source, args.snapshot_date, ROOT)
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        with NamedTemporaryFile(mode='w', encoding='utf-8', newline='\n', dir=args.output.parent,
-                                suffix='.tmp', delete=False) as stream:
-            temporary = Path(stream.name)
-            json.dump(report, stream, ensure_ascii=False, indent=2)
-            stream.write('\n')
-        temporary.replace(args.output)
+        if args.public_output:
+            catalog = public_catalog(report, read_json(args.register_links), read_json(args.footprint_coverage))
+            write_json(args.public_output, catalog, compact=True)
+        write_json(args.output, report)
     except (OSError, ValueError, KeyError, TypeError) as error:
         parser.exit(1, f'Seoul tour coverage audit failed: {error}\n')
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
     print(f'{len(report["districts"])} districts, {len(report["complexes"]):,} apartment complexes')
 
 

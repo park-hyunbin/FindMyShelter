@@ -157,6 +157,7 @@ export default function TourPlanner({ mode, onMode, onEnter }: {
       <nav className="planner-modes" aria-label="임장 방식">
         <Button size="small" className="planner-tab" aria-pressed={mode === 'match'} onClick={() => onMode('match')}>아파트 찾기</Button>
         <Button size="small" className="planner-tab" aria-pressed={mode === 'explore'} onClick={() => onMode('explore')}>자유 3D 탐험</Button>
+        <a className="planner-catalog-link" href="/seoul/">서울 단지 목록</a>
       </nav>
     </header>
 

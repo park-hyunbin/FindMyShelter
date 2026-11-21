@@ -8,5 +8,9 @@
     "households": 915,
     "towerCount": 8
   },
-  "osm": {"bounds": [127.102, 37.486, 127.132, 37.506], "boundaryWay": 1459206579}
+  "osm": {"bounds": [127.102, 37.486, 127.132, 37.506], "boundaryWay": 1459206579},
+  "walking": [
+    {"id": "garak-geumho-station", "name": "송파역 2번 출구", "node": 3401171608, "endLabel": "송파역 2번 출구 방향"},
+    {"id": "garak-geumho-park", "name": "송이공원", "way": 169803431, "endLabel": "공원 경계 인근의 지도상 보행로"}
+  ]
 }

@@ -391,7 +391,6 @@ function RouteTerrain({ profile, selected, direction, startLabel, onSelect, onSl
 
 export default function OpoTour({region = 'opo', onChangeRegion}: {region?: RegionId; onChangeRegion?: () => void}) {
   const area = regions.find(r => r.id === region)!;
-  const access = routesFor(region);
   const catalog = catalogScene(region);
   const field = useFieldVisits(region === 'songpa');
   const checklist = useChecklistRecords(region === 'songpa');
@@ -411,6 +410,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [winterWalkOpen, setWinterWalkOpen] = useState(false);
   const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
   const [world, setWorld] = useState<OpoWorld | null>(null);
+  const access = world?.access ?? routesFor(region);
   const [mode, setMode] = useState<ViewMode>('walk');
   const [walkingAtEyeLevel, setWalkingAtEyeLevel] = useState(true);
   const [date, setDate] = useState(initialDate);
@@ -1419,9 +1419,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         </>}
         </>}
         {access.routes.length > 0 && <section className="green-access" aria-label="주변 접근 경로">
-          <h3>{region === 'songpa' ? '주변 시설 방향 경로' : '공원 인근 도로 연결'}</h3>
+          <h3>{catalog ? '역과 공원까지 걷기' : region === 'songpa' ? '주변 시설 방향 경로' : '공원 인근 도로 연결'}</h3>
           <p>{access.startLabel} 출발 · 실선은 지도에 보행로·보도가 표시된 구간, 점선은 보도 미확인 구간이에요.</p>
           {access.retrieved && <p>지도 확인 {access.retrieved} · 노란 고리는 지도상 횡단 구간이에요. 단지 출입구와 신호 대기는 현장에서 확인해 주세요.</p>}
+          {catalog && <p>길이는 표시한 출발점부터 지도에 연결된 종점까지예요. 단지 내부 동선과 신호 대기 시간은 개인의 이동 조건에 따라 달라요.</p>}
           {access.routes.filter(route => !route.variantOf).map(primary => {
             const alternative = access.routes.find(route => route.variantOf === primary.id);
             const route = alternative?.id === accessId ? alternative : primary;
@@ -1456,7 +1457,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 })}</tbody>
               </table>}
               <p>{schoolRoute ? `${songpaSchoolApproach.location} 보도까지` : route.endLabel}
-                {route.gapM !== null && ` · ${hospital ? '조사 출입구' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
+                {route.gapM !== null && ` · ${hospital ? '조사 출입구' : catalog ? '지도 목적지' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
               {route.crossings && <p>보행로·보도 표기 약 {Math.round(route.walkwayM + (schoolRoute ? songpaSchoolApproach.walkM : 0)).toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
               {access.retrieved && route.lengthM > route.walkwayM && <p className="route-missing-sidewalk">약 {route.lengthM - route.walkwayM}m는 지도에 보도 표시가 없어요. 3D 지도에서 주황 점선으로 표시해요.</p>}
               {route.parkEntrance && <p>같은 출발점에서 남쪽 진입부까지 경로 약 {route.parkEntrance.routeM}m · 직선 약 {route.parkEntrance.directM}m</p>}
@@ -1673,6 +1674,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <div className="site-actions">
             <button disabled={!world} onClick={() => chooseMode('orbit')}>단지 전체 보기</button>
             <button disabled={!world} onClick={() => visitAtEyeLevel('approach')}>주변 도로 눈높이 보기</button>
+            {access.routes.length > 0 && <button onClick={() => chooseTab('nature')}>역과 공원까지 걷기</button>}
           </div>
           <p>주동 윤곽은 서울시 지도, 확인된 높이는 건축물대장 기준이에요. 높이값이 비어 있는 주변 건물이 햇빛을 가릴 수 있는 시간대는 미판정으로 표시해요.</p>
           <p>{area.pavement ? '도로와 보도는 공개 지도와 서울시 도형을 사용해요.' : '도로와 보도는 공개 지도의 표기를 사용해요.'} 단지 출입 조건과 실제 보행 연결은 확인이 필요해요.</p>

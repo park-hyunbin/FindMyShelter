@@ -9,11 +9,11 @@ export type SurveyedRoute = {
   entranceSample?: number;
 };
 
-const routes: Record<string, SurveyedRoute> = dataset.routes;
+export type RouteElevationDataset = { routes: Record<string, SurveyedRoute> };
 export const songpaRouteElevation = dataset;
 
-export function surveyedRoute(id: string, coordinates: number[][]) {
-  const survey = routes[id];
+export function surveyedRoute(id: string, coordinates: number[][], source: RouteElevationDataset) {
+  const survey = source.routes[id];
   if (!survey) return undefined;
   const path = coordinates.map(([lon, lat]) => `${lon.toFixed(7)},${lat.toFixed(7)}`).join(';');
   return survey.path === path ? survey : undefined;

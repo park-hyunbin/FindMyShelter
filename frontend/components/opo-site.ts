@@ -7,7 +7,7 @@ import { groundPolygon, ribbon, type createTerrainProjection } from './opo-meshe
 import { surfaceUV, type TourMaterials } from './opo-materials';
 import { routeTerrainProfile, type RouteSlopeDirection } from './opo-route-profile';
 import { pavedRoute } from './opo-paved-route';
-import { routesFor, songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId } from './data/visit-routes';
+import { songpaHomeLinks, songpaHospital, songpaStationAccess, songpaStationCrossings, songpaStationRouteId } from './data/visit-routes';
 import { siteSurfaces } from './data/site-surfaces';
 import { songpaCourtyard, songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
@@ -188,9 +188,9 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
   const sharedPaving = data.region === 'songpa' ? new LineMaterial({ color: '#37b9db', linewidth: 4.3 }) : null;
   const shortConnection = data.region === 'songpa'
     ? new LineMaterial({ color: '#e09d55', linewidth: 4.3, dashed: true, dashSize: 1.1, gapSize: 0.65 }) : null;
-  const gradeLine = data.region === 'songpa'
+  const gradeLine = data.routeSurvey
     ? new LineMaterial({ color: '#f8d78b', linewidth: 7, depthWrite: false }) : null;
-  const routes = routesFor(data.region).routes;
+  const routes = data.access.routes;
   const surveyedWalk = site.paving?.sidewalkCenterlines.get(songpaEntrance.frontage.surveyedWalkId);
   const frontageWalk = site.frontage;
   const frontage = surveyedWalk?.length && frontageWalk?.length ? [surveyedWalk[0], ...frontageWalk] : null;
@@ -239,7 +239,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     const stationTrace = route.id === songpaStationRouteId ? songpaStationCrossings : undefined;
     const endpoint = data.project(route.end);
     const surveyedEntrance = route.id === songpaHospital.routeId ? data.project(songpaHospital.coordinate) : null;
-    const survey = data.region === 'songpa' ? surveyedRoute(route.id, route.segments.flatMap(segment => segment.coordinates)) : undefined;
+    const survey = data.routeSurvey ? surveyedRoute(route.id, route.segments.flatMap(segment => segment.coordinates), data.routeSurvey) : undefined;
     const profile = surveyedEntrance ? undefined : routeTerrainProfile(data, projected, survey);
     const group = new T.Group();
     const lines = new T.Group();

@@ -81,7 +81,7 @@ const entry = {
   id: region, ...profile.catalog, kaptCode: inputConfig.kapt_code,
   count: manifest.count, radius: manifest.metadata.radius_m, roadside: start.point, lookAt: [lng, lat],
   towers: Object.fromEntries(registered),
-  layers: await Promise.all(['pavement.json', 'road-markings.json', 'pedestrian-signals.json'].map(async file => {
+  layers: await Promise.all(['pavement.json', 'road-markings.json', 'pedestrian-signals.json', 'access.json', 'route-elevation.json'].map(async file => {
     try {
       await access(new URL(file, sceneFiles));
       return file;

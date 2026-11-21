@@ -1,4 +1,4 @@
-"""Sample the Seoul contour and spot-height archive along the Songpa walking routes."""
+"""Sample the Seoul contour and spot-height archive along mapped walking routes."""
 
 import argparse
 from collections import defaultdict
@@ -6,6 +6,7 @@ from io import BytesIO
 import json
 import math
 from pathlib import Path
+import re
 from zipfile import ZipFile
 
 import numpy as np
@@ -16,7 +17,7 @@ from scipy.spatial import cKDTree
 from shapely.geometry import LineString, Point, box, shape
 
 
-REGION = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions/songpa"
+REGIONS = Path(__file__).resolve().parents[2] / "frontend/public/datasets/regions"
 SOURCE = "https://data.seoul.go.kr/dataList/OA-22241/F/1/datasetView.do"
 ROUTES = {"songpa-station", "songpa-station-detour", "songi-park", "songi-park-distance", "singa-school"}
 STEP = 10
@@ -114,18 +115,23 @@ def sample_route(route, line, contours, spots, contour_points, estimate, support
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path, help="서울시 등고선.zip, published 2025-03-20")
+    parser.add_argument("--region", default="songpa")
     args = parser.parse_args()
-    route_set = json.loads((REGION / "access.json").read_text(encoding="utf-8"))
+    legacy = args.region == "songpa"
+    if not legacy and not re.fullmatch(r"seoul-a[0-9]{8}", args.region):
+        parser.error("Use a valid Seoul region")
+    folder = REGIONS / args.region
+    route_set = json.loads((folder / "access.json").read_text(encoding="utf-8"))
     project = Transformer.from_crs(4326, 5186, always_xy=True).transform
     paths = []
     for route in route_set["routes"]:
-        if route["id"] not in ROUTES:
+        if legacy and route["id"] not in ROUTES:
             continue
-        if route["id"] != "songi-park-distance" and not all(segment["mappedWalkway"] for segment in route["segments"]):
+        if legacy and route["id"] != "songi-park-distance" and not all(segment["mappedWalkway"] for segment in route["segments"]):
             raise ValueError(f"Expected a route tagged as footway/sidewalk for {route['id']}")
         coordinates = [coordinate for segment in route["segments"] for coordinate in segment["coordinates"]]
         paths.append((route, coordinates, LineString([project(*coordinate) for coordinate in coordinates])))
-    if {route["id"] for route, _, _ in paths} != ROUTES:
+    if not paths or (legacy and {route["id"] for route, _, _ in paths} != ROUTES):
         raise ValueError("Expected station, park and school routes")
     boxes = np.asarray([line.bounds for _, _, line in paths])
     bounds = (*np.min(boxes[:, :2], axis=0) - 240, *np.max(boxes[:, 2:], axis=0) + 240)
@@ -144,7 +150,7 @@ def main():
         "source": SOURCE, "archivePublished": "2025-03-20", "scale": 5000, "routeStepM": STEP,
         "gradeWindowM": GRADE_WINDOW, "routes": results,
     }
-    (REGION / "route-elevation.json").write_text(
+    (folder / "route-elevation.json").write_text(
         json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8",
     )
 

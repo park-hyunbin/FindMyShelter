@@ -42,7 +42,7 @@ type AccessRoute = {
   comparisonLabel?: string;
 };
 
-type AccessDataset = { startLabel: string; routes: AccessRoute[]; retrieved?: string; source: string };
+export type AccessDataset = { startLabel: string; routes: AccessRoute[]; retrieved?: string; source: string; boundaryDistanceM?: number };
 
 const visitRoutes: Partial<Record<RegionId, AccessDataset>> = {
   opo: { ...opo, startLabel: '단지 진입부' },

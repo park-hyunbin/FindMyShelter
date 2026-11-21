@@ -1241,6 +1241,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const offset = view === 'forecast' ? new T.Vector3(-0.25, 1.55, -0.27) : new T.Vector3(0.06, 1.3, 0.25);
       frameSurface(points, bounds.getCenter(new T.Vector3()), offset.multiplyScalar(scale), { clearTitle: true });
     },
+    access: data.access,
     greenAccessProfiles: greenAccess.layers.map(({ id, profile, crossingView, entranceView, stopView, homeWalk, schoolView, schoolSignal }) =>
       ({ id, profile, crossingView, entranceView, stopView, homeWalk, schoolView, schoolSignal })),
     showAccessEntrance(id: string) { accessEntranceId = id; },

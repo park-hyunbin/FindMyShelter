@@ -1,6 +1,8 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { catalogScene, jamsilLeel, regions, songpaComplex, type RegionId } from './data/regions';
+import { routesFor, type AccessDataset } from './data/visit-routes';
+import { songpaRouteElevation, type RouteElevationDataset } from './data/songpa-route-elevation';
 import { garakGreenStrip, songpaCourtyard, songpaFrontage, songpaGrounds } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { songiPark } from './data/songi-park';
@@ -158,9 +160,10 @@ function regionalStreets(features: Environment[]): Street[] {
 export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo') {
   const area = regions.find(r => r.id === region)!;
   const catalog = catalogScene(region);
+  const regionFile = (name: string) => `/datasets/regions/${region}/${name}`;
   const empty = {type: 'FeatureCollection' as const, features: []};
   const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings, pavement,
-    planting, servicePaving, pedestrianSignals] = await Promise.all([
+    planting, servicePaving, pedestrianSignals, access, routeSurvey] = await Promise.all([
     loadBuildingDataset(region, signal),
     json<EnvironmentFile>(area.environment, signal),
     json<TerrainFile>(area.terrain, signal),
@@ -177,6 +180,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
       if (signal.aborted) throw error;
       return null;
     }) : Promise.resolve(null),
+    catalog?.layers.includes('access.json') ? json<AccessDataset>(regionFile('access.json'), signal) : routesFor(region),
+    catalog?.layers.includes('route-elevation.json') ? json<RouteElevationDataset>(regionFile('route-elevation.json'), signal)
+      : region === 'songpa' ? songpaRouteElevation : null,
   ]);
   const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
@@ -372,7 +378,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     return { ...f.properties, point, distance_m };
   }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent)
     .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id));
-  return { region, area, catalog, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
+  return { region, area, catalog, access, routeSurvey, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
     features, siteRoads, siteOutline, siteHoles, project, northOffset, buildingRadius, streets, streetPoints, parking,
     neighborhoodPlanting: planting?.patches.map(toShape) ?? [],
     servicePaving: servicePaving?.surfaces.map(toShape) ?? [],

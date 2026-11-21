@@ -94,7 +94,9 @@
     "layers": [
       "pavement.json",
       "road-markings.json",
-      "pedestrian-signals.json"
+      "pedestrian-signals.json",
+      "access.json",
+      "route-elevation.json"
     ],
     "outlineSource": "https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_B0010000.zip",
     "registerSource": "https://www.hub.go.kr/portal/opn/lps/idx-lgcpt-pvsn-srvc-list.do?opnLgcptTaskSeCd=03"
@@ -130,7 +132,9 @@
     "layers": [
       "pavement.json",
       "road-markings.json",
-      "pedestrian-signals.json"
+      "pedestrian-signals.json",
+      "access.json",
+      "route-elevation.json"
     ],
     "outlineSource": "https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_B0010000.zip",
     "registerSource": "https://www.hub.go.kr/portal/opn/lps/idx-lgcpt-pvsn-srvc-list.do?opnLgcptTaskSeCd=03"
