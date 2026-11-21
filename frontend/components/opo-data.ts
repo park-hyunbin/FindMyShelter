@@ -67,7 +67,7 @@ type EnvironmentFile = FeatureCollection<LineString | MultiLineString | Polygon 
 type TerrainFile = {
   source: string; catalog: string; verticalDatum: string; nativeResolutionM: number; sourceEpoch: string;
   originEPSG5186: [number, number]; extentM: number; spacingM: number; size: number;
-  elevation: number[]; spread: number[]; meanRelativeDifferenceFrom90M?: number;
+  elevation: number[]; spread: number[]; meanRelativeDifferenceFrom90M?: number; neighborhood?: string;
 };
 type TerrainGrid = Pick<TerrainFile, 'extentM' | 'spacingM' | 'size'>;
 type NeighborhoodTerrain = TerrainGrid & {
@@ -184,19 +184,26 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     catalog?.layers.includes('route-elevation.json') ? json<RouteElevationDataset>(regionFile('route-elevation.json'), signal)
       : region === 'songpa' ? songpaRouteElevation : null,
   ]);
-  const { center_lnglat: center, local_origin_xy: origin, radius_m: importedBuildingRadius } = source.metadata;
+  const { center_lnglat: center, local_origin_xy: buildingOrigin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
   const buildingRadius = region === 'opo' ? Math.min(300, importedBuildingRadius) : importedBuildingRadius;
+  const sharedTerrain = catalog?.neighborhood;
+  const origin = sharedTerrain ? dem.originEPSG5186 : buildingOrigin;
+  const buildingCenter = { x: buildingOrigin[0] - origin[0], z: origin[1] - buildingOrigin[1] };
   const projection = proj4('WGS84', epsg5186);
   const project = ([lng, lat]: Position): Point => {
     const [east, north] = projection.forward([lng, lat]);
     return { x: east - origin[0], z: origin[1] - north };
   };
   const north = project([center[0], center[1] + 0.001]);
-  const northOffset = Math.atan2(north.x, -north.z);
+  const northOffset = Math.atan2(north.x - buildingCenter.x, buildingCenter.z - north.z);
+  const validOrigin = sharedTerrain
+    ? dem.neighborhood === sharedTerrain && Math.max(Math.abs(buildingCenter.x), Math.abs(buildingCenter.z)) + buildingRadius <= extent
+    : buildingOrigin.every((value, i) => value === dem.originEPSG5186[i]);
   if (dem.extentM < extent || dem.spacingM * (dem.size - 1) !== dem.extentM * 2
-      || dem.elevation.length !== dem.size ** 2 || dem.spread.length !== dem.size ** 2
-      || origin.some((value, i) => value !== dem.originEPSG5186[i])) throw new Error('건물과 고도 자료의 범위가 일치하지 않아요.');
+      || dem.elevation.length !== dem.size ** 2 || dem.spread.length !== dem.size ** 2 || !validOrigin) {
+    throw new Error('건물과 고도 자료의 범위가 일치하지 않아요.');
+  }
   if (region === 'opo' && (treeCover.extentM !== extent || origin.some((value, i) => value !== treeCover.originEPSG5186[i]))) {
     throw new Error('수목 피복과 지형 자료의 범위가 일치하지 않아요.');
   }
@@ -371,7 +378,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const placeOrigin = region === 'songpa'
     ? { point: project(songpaEntrance.main.position), label: songpaEntrance.main.name }
     : region === 'jamsil-leel' ? { point: project(jamsilLeel.entrances[0].position), label: jamsilLeel.entrances[0].name }
-      : { point: { x: 0, z: 0 }, label: '단지 원점' };
+      : { point: buildingCenter, label: '단지 원점' };
   const places: Place[] = poi.features.map(f => {
     const point = project(f.geometry.coordinates);
     const distance_m = Math.round(Math.hypot(point.x - placeOrigin.point.x, point.z - placeOrigin.point.z));
@@ -379,7 +386,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent)
     .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id));
   return { region, area, catalog, access, routeSurvey, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
-    features, siteRoads, siteOutline, siteHoles, project, northOffset, buildingRadius, streets, streetPoints, parking,
+    features, siteRoads, siteOutline, siteHoles, project, northOffset, buildingCenter, buildingRadius, streets, streetPoints, parking,
     neighborhoodPlanting: planting?.patches.map(toShape) ?? [],
     servicePaving: servicePaving?.surfaces.map(toShape) ?? [],
     pedestrianSignals,
@@ -493,9 +500,10 @@ export function nearestOnLine(point: Point, lines: Point[][]) {
 }
 
 // Distance along a unit horizontal ray from a point inside the circular import window.
-export function distanceToBuildingCoverage(origin: Point, direction: Point, radius: number) {
-  const towardEdge = origin.x * direction.x + origin.z * direction.z;
-  const inside = radius ** 2 - origin.x ** 2 - origin.z ** 2;
+export function distanceToBuildingCoverage(origin: Point, direction: Point, radius: number, center: Point) {
+  const x = origin.x - center.x, z = origin.z - center.z;
+  const towardEdge = x * direction.x + z * direction.z;
+  const inside = radius ** 2 - x ** 2 - z ** 2;
   return Math.max(0, -towardEdge + Math.sqrt(Math.max(0, towardEdge ** 2 + inside)));
 }
 

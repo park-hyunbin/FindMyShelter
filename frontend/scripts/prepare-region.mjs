@@ -17,15 +17,15 @@ const profile = await readFile(new URL(`../data/config/buildings/${region}.json`
 const neighborhood = profile?.osm?.neighborhood;
 if (neighborhood && !/^[a-z0-9-]+$/.test(neighborhood)) throw new Error('Invalid neighborhood ID');
 for (const [script, output] of [['prepare-neighborhood.mjs', 'environment.geojson'], ['prepare-opo-terrain.mjs','terrain.json']]) {
-  const shared = output === 'environment.geojson' && neighborhood;
+  const shared = Boolean(neighborhood);
   const directory = shared ? `neighborhoods/${neighborhood}` : `regions/${region}`;
   const asset = new URL(`public/datasets/${directory}/${output}`, root);
-  const required = shared ? [asset, new URL('places.geojson', asset)] : [asset];
+  const required = shared && output === 'environment.geojson' ? [asset, new URL('places.geojson', asset)] : [asset];
   const exists = await Promise.all(required.map(file => access(file).then(() => true, () => false)));
   if (exists.every(Boolean) && !force) {
     if (shared) {
       const prior = JSON.parse(await readFile(asset, 'utf8'));
-      if (JSON.stringify(prior.metadata.bounds) !== JSON.stringify(profile.osm.bounds)) {
+      if (JSON.stringify(prior.metadata?.bounds ?? prior.bounds) !== JSON.stringify(profile.osm.bounds)) {
         throw new Error('Shared neighborhood bounds disagree; rebuild the neighborhood as a group');
       }
     }
@@ -40,6 +40,13 @@ for (const [script, output] of [['prepare-neighborhood.mjs', 'environment.geojso
 }
 const read = async file => JSON.parse(await readFile(new URL(file, root),'utf8'));
 const b = await read(`public/datasets/buildings/${region}/manifest.json`);
-const t = await read(`public/datasets/regions/${region}/terrain.json`);
-if (JSON.stringify(b.metadata.local_origin_xy) !== JSON.stringify(t.originEPSG5186)) throw new Error('Origin mismatch: refresh terrain after changing building region');
+const t = await read(`public/datasets/${neighborhood ? `neighborhoods/${neighborhood}` : `regions/${region}`}/terrain.json`);
+if (neighborhood) {
+  const offset = Math.max(...b.metadata.local_origin_xy.map((value, i) => Math.abs(value - t.originEPSG5186[i])));
+  if (t.neighborhood !== neighborhood || offset + b.metadata.radius_m > 1250) {
+    throw new Error('The building window falls outside its shared 3D terrain');
+  }
+} else if (JSON.stringify(b.metadata.local_origin_xy) !== JSON.stringify(t.originEPSG5186)) {
+  throw new Error('Origin mismatch: refresh terrain after changing building region');
+}
 console.log(`${region}: building, road and DEM assets ready.`);

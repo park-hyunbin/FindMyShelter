@@ -14,11 +14,21 @@ const regional = process.argv.includes('--region');
 const region = regional ? process.argv[process.argv.indexOf('--region') + 1] : 'opo';
 if (!/^[a-z0-9_-]+$/.test(region)) throw new Error('Invalid region');
 const buildings = await load(regional ? `datasets/buildings/${region}/manifest.json` : 'sample-buildings.geojson');
-const [easting, northing] = buildings.metadata.local_origin_xy;
+const profile = regional && await readFile(new URL(`../../data/config/buildings/${region}.json`, import.meta.url), 'utf8')
+  .then(JSON.parse).catch(error => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+const neighborhood = profile?.osm?.neighborhood;
+if (neighborhood && !/^[a-z0-9-]+$/.test(neighborhood)) throw new Error('Invalid neighborhood ID');
 const local = '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs';
 const projection = proj4(local, 'WGS84');
 const span = 1300;
 const step = 25;
+const bounds = neighborhood ? profile.osm.bounds : null;
+const midpoint = bounds && [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2];
+const [easting, northing] = midpoint ? projection.inverse(midpoint).map(value => Math.round(value / step) * step)
+  : buildings.metadata.local_origin_xy;
 const size = span * 2 / step + 1;
 const coordinates = [];
 for (let z = -span; z <= span; z += step) for (let x = -span; x <= span; x += step) {
@@ -91,11 +101,13 @@ const output = {
   source: 'GEDTM30 v1.1 · Ho & Hengl', catalog, license: 'https://creativecommons.org/licenses/by/4.0/',
   sources, nativeResolutionM: 30, verticalDatum: 'EGM2008 (EPSG:3855)',
   originEPSG5186: [easting, northing], extentM: span, spacingM: step, size,
+  ...(neighborhood ? { neighborhood, bounds } : {}),
   sourceEpoch: '2006–2015', processing: 'Subset and bilinear interpolation onto an EPSG:5186 grid; no new native detail.',
   meanRelativeDifferenceFrom90M: meanDifference === null ? null : Number(meanDifference.toFixed(1)),
   elevation, spread,
 };
-const outputRoot = regional ? new URL(`datasets/regions/${region}/`, root) : root;
+const outputRoot = neighborhood ? new URL(`datasets/neighborhoods/${neighborhood}/`, root)
+  : regional ? new URL(`datasets/regions/${region}/`, root) : root;
 await mkdir(outputRoot, {recursive:true});
 await writeFile(new URL(regional ? 'terrain.json' : 'opo-terrain.json', outputRoot), JSON.stringify(output) + '\n');
 console.log(JSON.stringify({ samples: elevation.length, min: Math.min(...elevation), max: Math.max(...elevation),

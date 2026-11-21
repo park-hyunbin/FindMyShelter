@@ -47,8 +47,13 @@ def audit_scene(region, datasets, neighborhood=None):
     scene = datasets / 'regions' / region
     context = datasets / 'neighborhoods' / neighborhood if neighborhood else scene
     manifest = read_json(buildings / 'manifest.json')
-    terrain = read_json(scene / 'terrain.json')
-    if manifest['metadata']['local_origin_xy'] != terrain['originEPSG5186']:
+    terrain = read_json(context / 'terrain.json')
+    origin = manifest['metadata']['local_origin_xy']
+    if neighborhood:
+        offset = max(abs(value - tile_origin) for value, tile_origin in zip(origin, terrain['originEPSG5186']))
+        if terrain.get('neighborhood') != neighborhood or offset + manifest['metadata']['radius_m'] > 1250:
+            raise ValueError(f'{region}: building window lies outside shared terrain')
+    elif origin != terrain['originEPSG5186']:
         raise ValueError(f'{region}: terrain and building origins disagree')
     for filename, field in ((scene / 'site.geojson', 'features'), (context / 'environment.geojson', 'features'),
                             (context / 'streets.json', 'roads')):

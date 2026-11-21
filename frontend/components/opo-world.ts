@@ -178,7 +178,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     || Boolean(entrance?.occupied(point) || garden?.blocked(point) || site.paving?.fenced(point));
   const blockedForMovement = (point: Point) => occupied(point) || site.paving?.parked(point);
   const analysisRadius = isOpo ? Math.min(precinct, data.buildingRadius) : data.buildingRadius;
-  const canAnalyze = (point: Point) => !occupied(point) && Math.hypot(point.x, point.z) <= analysisRadius;
+  const distanceFromComplex = (point: Point) => Math.hypot(point.x - data.buildingCenter.x, point.z - data.buildingCenter.z);
+  const canAnalyze = (point: Point) => !occupied(point) && distanceFromComplex(point) <= analysisRadius;
   const siteSamples = data.siteOutline.length ? sunGridPoints(data.siteOutline,
     point => canAnalyze(point) && !data.siteHoles.some(ring => inShape(point, [ring]))) : [];
   const sunMap = siteSamples.length ? createSunMap(scene, data.siteOutline, siteSamples, observationSurface) : undefined;
@@ -679,8 +680,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     if (!occupied(courtyard.position)) presets.push({ ...courtyard.position, id: courtyard.id, label: courtyard.name });
   } else if (!presets.length) {
     const candidates = data.streets.filter(road => road.motor).flatMap(road => road.points)
-      .filter(p => Math.hypot(p.x, p.z) < 280 && !occupied(p))
-      .sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+      .filter(p => distanceFromComplex(p) < 280 && !occupied(p))
+      .sort((a, b) => distanceFromComplex(a) - distanceFromComplex(b));
     const first = candidates[0];
     const second = first && candidates.find(p => Math.hypot(p.x-first.x, p.z-first.z) > 60);
     for (const [index, point] of [first, second].entries()) if (point) {

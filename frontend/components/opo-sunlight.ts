@@ -48,7 +48,7 @@ function possibleUnmappedShade(data: OpoData, origin: Vector3, direction: Vector
         rings: gap.rings, center: gap.center } };
   }
 
-  const leaveAt = distanceToBuildingCoverage(origin, { x: dx, z: dz }, data.buildingRadius);
+  const leaveAt = distanceToBuildingCoverage(origin, { x: dx, z: dz }, data.buildingRadius, data.buildingCenter);
   for (let distance = leaveAt; distance < maxDistance; distance += 30) {
     if (heightNeeded({ x: origin.x + dx * distance, z: origin.z + dz * distance }, distance) <= data.referenceHeight) {
       return { cause: '건물 표본 밖에서 차폐 가능' };

@@ -11,10 +11,10 @@ export type DirectionProfile = {
   terrainRange: number; buildingRange: number;
 };
 
-export function firstBuildingAhead(data: Pick<OpoData, 'buildings' | 'northOffset' | 'buildingRadius'>, point: Point, bearing: number) {
+export function firstBuildingAhead(data: Pick<OpoData, 'buildings' | 'northOffset' | 'buildingRadius' | 'buildingCenter'>, point: Point, bearing: number) {
   const angle = bearing * Math.PI / 180 + data.northOffset;
   const direction = { x: Math.sin(angle), z: -Math.cos(angle) };
-  const range = Math.min(horizonRange, distanceToBuildingCoverage(point, direction, data.buildingRadius));
+  const range = Math.min(horizonRange, distanceToBuildingCoverage(point, direction, data.buildingRadius, data.buildingCenter));
   let nearest: { name: string; distance: number } | null = null;
   for (const building of data.buildings) {
     for (const rings of building.shapes) {
@@ -25,14 +25,14 @@ export function firstBuildingAhead(data: Pick<OpoData, 'buildings' | 'northOffse
   return { nearest, range };
 }
 
-export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 'heightGaps' | 'buildingRadius'>, roofs: RoofOutline[],
+export function directionProfile(data: Pick<OpoData, 'ground' | 'northOffset' | 'heightGaps' | 'buildingRadius' | 'buildingCenter'>, roofs: RoofOutline[],
     standingHeight: number, point: Point, bearing: number): DirectionProfile {
   const angle = bearing * Math.PI / 180 + data.northOffset;
   const direction = { x: Math.sin(angle), z: -Math.cos(angle) };
   const base = terrainSurface(data.ground, point.x, point.z);
   const eye = standingHeight + observationHeight;
   const { range: terrainRange, distances } = terrainRayBreaks(point, direction, horizonRange);
-  const buildingRange = Math.min(horizonRange, distanceToBuildingCoverage(point, direction, data.buildingRadius));
+  const buildingRange = Math.min(horizonRange, distanceToBuildingCoverage(point, direction, data.buildingRadius, data.buildingCenter));
   const heightAt = (distance: number) => terrainSurface(data.ground,
     point.x + direction.x * distance, point.z + direction.z * distance);
   const heights: (number | null)[] = [0];

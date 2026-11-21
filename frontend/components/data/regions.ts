@@ -64,7 +64,7 @@ const catalogRegions = (seoulScenes as SeoulScene[]).map(scene => {
   return {
     id, name: scene.name, area: scene.area, count: scene.count, radius: scene.radius,
     description: `${scene.towerCount}개 동과 주변 도로·생활환경`, keywords: `${scene.roadName} ${scene.kaptCode}`,
-    terrain: `${path}/terrain.json`, environment: `${context}/environment.geojson`, places: `${context}/places.geojson`,
+    terrain: `${context}/terrain.json`, environment: `${context}/environment.geojson`, places: `${context}/places.geojson`,
     site: `${path}/site.geojson`, streets: `${context}/streets.json`, surrounding: null,
     roadMarkings: optional('road-markings.json'), neighborhoodTerrain: null, pavement: optional('pavement.json'),
     planting: null, servicePaving: null, pedestrianSignals: optional('pedestrian-signals.json'),
