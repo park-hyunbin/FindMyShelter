@@ -1,5 +1,8 @@
 import type { MultiPolygon, Polygon } from 'geojson';
 import archive from '../../public/datasets/regions/songpa/school.json';
+import approach from '../../public/datasets/regions/songpa/school-approach.json';
+
+export const songpaSchoolApproach = approach;
 
 export const songpaSchool = {
   ...archive,

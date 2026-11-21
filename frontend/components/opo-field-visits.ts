@@ -6,6 +6,7 @@ export const fieldVisitNoteLimit = 700;
 export type FieldScene =
   | { kind: 'winter'; pointId: string; date: string; minute: number }
   | { kind: 'home'; routeId: string; stopId: string }
+  | { kind: 'school-gate'; routeId: string }
   | { kind: 'facade'; viewId: string };
 
 export type FieldVisit = {
@@ -23,6 +24,7 @@ export function fieldSceneId(scene: FieldScene) {
   switch (scene.kind) {
     case 'winter': return `winter:${scene.pointId}:${scene.date}:${scene.minute}`;
     case 'home': return `home:${scene.routeId}:${scene.stopId}`;
+    case 'school-gate': return `school-gate:${scene.routeId}`;
     case 'facade': return `facade:${scene.viewId}`;
   }
 }
@@ -41,6 +43,7 @@ function validScene(value: unknown): value is FieldScene {
       && Number.isInteger(scene.minute) && scene.minute >= 0 && scene.minute < 1440;
   }
   if (scene.kind === 'facade') return typeof scene.viewId === 'string' && scene.viewId.length > 0;
+  if (scene.kind === 'school-gate') return typeof scene.routeId === 'string' && scene.routeId.length > 0;
   return scene.kind === 'home' && typeof scene.routeId === 'string' && typeof scene.stopId === 'string';
 }
 

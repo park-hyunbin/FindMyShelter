@@ -4,7 +4,7 @@ import { inShape, nearestOnLine, type OpoData, type Point } from './opo-data';
 import { curbWalk, sidewalkFascia, sidewalkRise, type createSidewalkSeams } from './opo-curb-walk';
 import type { CrosswalkArea } from './opo-crosswalks';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
-import { groundPolygon, ribbon, streetDeckLift, type createTerrainProjection } from './opo-meshes';
+import { groundPolygon, ribbon, shapeFrom, streetDeckLift, type createTerrainProjection } from './opo-meshes';
 import { createSurfaceClipper } from './opo-surface-clip';
 import { makeCar } from './opo-vehicle';
 import { buildingEntry, type BuildingEntryLayout } from './opo-building-entry';
@@ -57,6 +57,7 @@ export type SiteSurfaceLayout = {
   plantingBeds?: { outline: Coordinate[]; hedge: Coordinate[]; width: number; height: number }[];
   plantedGround?: Coordinate[][][];
   ironFences?: IronFence[];
+  gatePosts?: { outline: Coordinate[]; height: number; color: string }[];
   buildingEntries?: BuildingEntryLayout[];
   pavedDrive?: Coordinate[];
   drivewayFinishes?: { outline: Coordinate[]; color: string; surface?: 'asphalt' | 'pavers' }[];
@@ -514,6 +515,20 @@ export function addSiteSurfaces(
     fence.castShadow = fence.receiveShadow = true;
     scene.add(fence);
   }
+  const gatePosts = (layout.gatePosts ?? []).map(({ outline, height, color }) => {
+    const ring = outline.map(data.project);
+    const elevations = ring.map(({ x, z }) => grade(x, z));
+    const base = Math.min(...elevations);
+    const mesh = new T.Mesh(new T.ExtrudeGeometry(shapeFrom([ring]), {
+      depth: height + Math.max(...elevations) - base, bevelEnabled: false,
+    }), material(color));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = base;
+    mesh.name = '문주';
+    mesh.castShadow = mesh.receiveShadow = true;
+    scene.add(mesh);
+    return ring;
+  });
   if (layout.plantedGround?.length) {
     const groundCover = material('#c0bd9f', 'forest');
     groundCover.vertexColors = true;
@@ -571,6 +586,7 @@ export function addSiteSurfaces(
     const dx = point.x - center.x, dz = point.z - center.z;
     return Math.abs(x * dx + z * dz) < 2.24 && Math.abs(z * dx - x * dz) < 1.05;
   });
-  const fenced = (point: Point) => fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19;
+  const fenced = (point: Point) => gatePosts.some(ring => inShape(point, [ring]))
+    || (fenceLines.length > 0 && nearestOnLine(point, fenceLines).distance < 0.19);
   return { elevation, drivewayElevation, walkableSurfaces, drivewayCenterline, sidewalkCenterlines, sidewalkTreeHeights, asphaltDecks, parked, fenced };
 }

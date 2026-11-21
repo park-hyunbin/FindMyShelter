@@ -1,6 +1,7 @@
 import type { SiteSurfaceLayout } from '../opo-site-surfaces';
 import type { PlaygroundLayout } from '../opo-playground';
 import { songpaEntrance, songpaStreetEdge } from './songpa-entrance';
+import { songpaSchoolApproach } from './songpa-school';
 import { songiParkSurvey } from './songi-park';
 import { songpaStationCrossings } from './visit-routes';
 import streetTreeArchive from '../../public/datasets/regions/songpa/street-trees.json';
@@ -559,7 +560,14 @@ export const songpaSurfaceLayout = {
     ...courtyardWalkArchive.plantingMargins.map(rings => rings.map(ring => ring.slice(0, -1)
       .map(([lng, lat]): Coordinate => [lng, lat]))),
   ],
-  ironFences: [...songpaFrontage.ironFences.map(points => ({ points })), ...playgroundFences],
+  ironFences: [...songpaFrontage.ironFences.map(points => ({ points })), ...playgroundFences,
+    ...songpaSchoolApproach.fences.map(points => ({
+      points: points.map(([lon, lat]): Coordinate => [lon, lat]),
+      color: '#49564a', height: 1.43, plinth: { width: 0.24, height: 0.55, color: '#ac8d69' },
+    })),
+  ],
+  gatePosts: [{ outline: songpaSchoolApproach.postOutline.map(([lon, lat]): Coordinate => [lon, lat]),
+    height: 2.15, color: '#6b473a' }],
   // The pavers and entrance style are photo references. The door placement and dimensions are illustrative.
   buildingEntries: [
     { buildingId: '55765541', wall: [127.1160945, 37.4976121], path: [127.1160462, 37.4976100], width: 3.10 },

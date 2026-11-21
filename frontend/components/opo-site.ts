@@ -12,7 +12,7 @@ import { siteSurfaces } from './data/site-surfaces';
 import { songpaCourtyard, songpaGrounds, songpaPlayground } from './data/songpa-grounds';
 import { songpaEntrance } from './data/songpa-entrance';
 import { ambientArchive, ambientStops, yangjaeRoad } from './data/songpa-ambient';
-import { songpaSchool } from './data/songpa-school';
+import { songpaSchool, songpaSchoolApproach } from './data/songpa-school';
 import { songiPark, songiParkApproach, songiParkSurvey } from './data/songi-park';
 import { surveyedRoute } from './data/songpa-route-elevation';
 import { addParkingCanopy } from './opo-songpa-entrance';
@@ -290,6 +290,14 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       }
     }
     const parkGuide = route.parkEntrance && shortConnection;
+    const schoolApproach = route.id === songpaSchoolApproach.routeId ? songpaSchoolApproach : undefined;
+    const schoolView = viewPose(schoolApproach?.view);
+    const schoolSignalRecord = schoolApproach && data.pedestrianSignals?.crossings.find(
+      item => item.inventoryId === schoolApproach.crossingInventoryId);
+    const schoolSignal = schoolSignalRecord && data.pedestrianSignals ? {
+      installed: schoolSignalRecord.installed, heads: schoolSignalRecord.heads.length,
+      source: data.pedestrianSignals.inventorySource, date: data.pedestrianSignals.inventoryRecorded,
+    } : undefined;
     function addRouteLeg(points: Point[], style: LineMaterial) {
       if (stationTrace && shortConnection && points.length > 1) {
         const from = data.project(stationTrace.from);
@@ -311,6 +319,15 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     route.segments.forEach((segment, index) => {
       const line = projected[index];
       const style = segment.mappedWalkway ? recorded : unconfirmed;
+      if (schoolApproach && shortConnection && index === projected.length - 1) {
+        const start = data.project(songiParkApproach[0].coordinates[0]);
+        addLine(splitLineAt(line, start).before, style, surfaceGuide);
+        for (const leg of songiParkApproach.slice(0, 3)) {
+          addLine(leg.coordinates.map(data.project), leg.confirmed ? recorded : shortConnection, surfaceGuide);
+        }
+        addLine([data.project(songiParkSurvey.crosswalks[0].end), endpoint], shortConnection, surfaceGuide);
+        return;
+      }
       if (parkGuide && index === projected.length - 1) {
         const confirmedLegs = route.variantOf ? songiParkApproach.slice(4) : songiParkApproach;
         const first = data.project(confirmedLegs[0].coordinates[0]);
@@ -333,6 +350,11 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
       addLine([surveyedWalk[surveyedWalk.length - 1], end.point], shortConnection, stationTrace ? surfaceGuide : undefined);
       addRouteLeg(end.after, style);
     });
+    if (schoolApproach && shortConnection) {
+      const path = schoolApproach.path.map(data.project);
+      addLine(path, recorded, surfaceGuide);
+      addLine([path.at(-1)!, data.project(schoolApproach.post)], shortConnection, surfaceGuide);
+    }
     if (route.stopView && shortConnection) addLine(songpaHomeLinks.gateApproach.coordinates.map(data.project), shortConnection, surfaceGuide);
     const driveway = site.paving?.drivewayCenterline;
     const homeWalk = aerialTrace && shortConnection && driveway && driveway.length >= 2
@@ -449,7 +471,8 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     for (const crossing of route.crossings ?? []) {
       const parkCrossing = parkGuide && (crossing.wayId === 544143915 ? songiParkSurvey.crosswalks[0]
         : crossing.wayId === 544143913 ? songiParkSurvey.crosswalks[1] : undefined);
-      const surveyedCrossing = stationTrace?.crossings.find(item => item.wayId === crossing.wayId) || parkCrossing;
+      const surveyedCrossing = stationTrace?.crossings.find(item => item.wayId === crossing.wayId) || parkCrossing
+        || (schoolApproach && crossing.wayId === 544143915 ? songiParkSurvey.crosswalks[0] : undefined);
       const a = data.project(surveyedCrossing ? surveyedCrossing.start : crossing.coordinate);
       const b = surveyedCrossing ? data.project(surveyedCrossing.end) : a;
       const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
@@ -485,7 +508,7 @@ export function addGreenAccess(data: OpoData, scene: T.Scene, grade: OpoData['gr
     }
     scene.add(group);
     return { id: route.id, name: route.name, group, lines, pavingGuides, slopeLines, bounds, endpoint, entranceLabel, entranceView, routePoints, profile,
-      crossingView: viewPose(route.crossingView), stopView: viewPose(route.stopView), homeWalk };
+      crossingView: viewPose(route.crossingView), stopView: viewPose(route.stopView), homeWalk, schoolView, schoolSignal };
   });
   const marker = new T.Group();
   marker.visible = false;

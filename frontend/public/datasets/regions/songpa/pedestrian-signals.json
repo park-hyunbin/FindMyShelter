@@ -153,6 +153,33 @@
       "junction": "가락시장"
     },
     {
+      "inventoryId": "06-0000003114",
+      "installed": true,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.03,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.12,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.119070207,
+              37.500114413
+            ],
+            "toward": [
+              127.119056198,
+              37.500106468
+            ]
+          }
+        }
+      ],
+      "junctionId": 2099,
+      "junction": "신가초교앞"
+    },
+    {
       "inventoryId": "06-0000003115",
       "installed": false,
       "heads": [],
@@ -205,6 +232,58 @@
       ],
       "junctionId": 4756,
       "junction": "가락대림아파트(경보)"
+    },
+    {
+      "inventoryId": "06-0000003406",
+      "installed": false,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.03,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.05,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.11996802,
+              37.499076205
+            ],
+            "toward": [
+              127.11995864,
+              37.499086948
+            ]
+          }
+        }
+      ],
+      "junctionId": 6025,
+      "junction": "신가초교정문"
+    },
+    {
+      "inventoryId": "06-0000003407",
+      "installed": null,
+      "heads": [],
+      "landings": [
+        {
+          "gapM": 0.0,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 1.66,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.11936889,
+              37.499384465
+            ],
+            "toward": [
+              127.119349669,
+              37.499407367
+            ]
+          }
+        }
+      ]
     },
     {
       "inventoryId": "06-0000009225",
@@ -559,6 +638,45 @@
       ],
       "junctionId": 5917,
       "junction": "근화제약앞"
+    },
+    {
+      "inventoryId": "06-0000031217",
+      "installed": true,
+      "heads": [
+        {
+          "coordinate": [
+            127.119851638,
+            37.499195605
+          ],
+          "toward": [
+            127.11965288,
+            37.49912911
+          ],
+          "distanceFromCrossingEndM": 4.21
+        }
+      ],
+      "landings": [
+        {
+          "gapM": 0.02,
+          "surface": "sidewalk"
+        },
+        {
+          "gapM": 0.13,
+          "surface": "sidewalk",
+          "view": {
+            "position": [
+              127.119826891,
+              37.499225293
+            ],
+            "toward": [
+              127.119812634,
+              37.499217413
+            ]
+          }
+        }
+      ],
+      "junctionId": 6025,
+      "junction": "신가초교정문"
     },
     {
       "inventoryId": "06-0000032298",
@@ -1332,13 +1450,13 @@
     }
   },
   "coverage": {
-    "crossings": 31,
-    "installed": 5,
-    "absent": 7,
-    "unknown": 19,
-    "crossingsWithHeads": 5,
-    "heads": 8,
-    "landingEnds": 62,
-    "landingEndsMapped": 52
+    "crossings": 35,
+    "installed": 7,
+    "absent": 8,
+    "unknown": 20,
+    "crossingsWithHeads": 6,
+    "heads": 9,
+    "landingEnds": 70,
+    "landingEndsMapped": 60
   }
 }

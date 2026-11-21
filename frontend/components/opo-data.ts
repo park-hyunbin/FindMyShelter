@@ -89,7 +89,7 @@ type PedestrianSignalFile = {
   landingRangeM?: number;
   islands?: { ufid: string; shape: Position[][] }[];
   crossings: {
-    ufid?: string; installed: boolean | null; junction?: string;
+    ufid?: string; inventoryId?: string; installed: boolean | null; junction?: string;
     heads: { coordinate: Position; toward: Position }[];
     landings?: [CrossingLanding, CrossingLanding];
     returnView?: { position: Position; toward: Position };

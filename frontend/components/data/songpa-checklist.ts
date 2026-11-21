@@ -3,7 +3,7 @@ import { garakGreenStrip, songpaCourtyard, songpaFacilities, songpaGrounds, song
 import { songpaEntrance } from './songpa-entrance';
 import { ambientSources } from './songpa-ambient';
 import { floodForecast, floodSource } from './songpa-flood';
-import { songpaSchool } from './songpa-school';
+import { songpaSchool, songpaSchoolApproach } from './songpa-school';
 import { songpaBusStop, songpaHospital, songpaStationAccess } from './visit-routes';
 import { songiPark } from './songi-park';
 import { songpaWinterCaptures } from './songpa-winter-capture';
@@ -108,11 +108,12 @@ export const songpaChecklist: readonly { title: string; checks: readonly Check[]
       },
       {
         id: 'school', title: '통학·통원', evidence: 'document',
-        finding: '공식 학구도에서 단지 전체가 서울신가초 통학구역에 들어가요. 송이로 횡단보도와 뉴스타트병원 보조출입구 조사 위치를 3D에서 볼 수 있어요.',
-        followUp: '등교 시간 신호 대기와 교문까지의 보도 연결, 병원 출입구까지 실제 이어지는 길을 확인해 보세요.',
-        views: [{ target: 'school', label: '공식 통학구역 보기' }, { target: 'school-route', label: '통학 방향 경로 보기' },
+        finding: '공식 학구도에서 단지 전체가 서울신가초 통학구역에 들어가요. 송이로 횡단보도에서 송이로15길 쪽 교문 앞까지 이어지는 보도와 뉴스타트병원 보조출입구 조사 위치를 3D에서 볼 수 있어요.',
+        followUp: '등교 시간 신호 대기, 교문 앞 턱과 개방 여부, 병원 출입구까지 실제 이어지는 길을 확인해 보세요.',
+        views: [{ target: 'school', label: '공식 통학구역 보기' }, { target: 'school-route', label: '서울신가초 교문 앞까지 보기' },
           { target: 'hospital-route', label: '병원 방향 보기' }],
-        sources: [{ label: '한국교육시설안전원 통학구역 원본', url: songpaSchool.zoneSource }, hospitalEntrances],
+        sources: [{ label: '한국교육시설안전원 통학구역 원본', url: songpaSchool.zoneSource },
+          { label: '서울시 학교 담장·문주 도형', url: songpaSchoolApproach.wallsSource }, hospitalEntrances],
       },
       {
         id: 'services', title: '장보기·병원·공원', evidence: 'model',

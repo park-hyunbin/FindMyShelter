@@ -20,7 +20,7 @@ import { songpaEntrance } from './data/songpa-entrance';
 import { songpaStreets } from './data/songpa-streets';
 import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment } from './data/songpa-ambient';
 import { latestLocalFloodYear, type FloodView } from './data/songpa-flood';
-import { songpaSchool } from './data/songpa-school';
+import { songpaSchool, songpaSchoolApproach } from './data/songpa-school';
 import { songiPark, songiParkSurvey } from './data/songi-park';
 import { songpaWinterCaptures, winterPixelGridSize, winterPixelSampleCount, type SongpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaArchitecture } from './data/songpa-architecture';
@@ -780,6 +780,17 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     lookFromPoint(point.position, point.bearing);
   }
 
+  function viewSchoolGate(routeId: string) {
+    const view = world?.greenAccessProfiles.find(route => route.id === routeId)?.schoolView;
+    if (!world || !view) return false;
+    if (accessId !== routeId) showAccessRoute(routeId);
+    const point = { ...view.position, label: songpaSchoolApproach.location };
+    lookFromPoint(point, view.bearing);
+    setStreet(world.streetStatus());
+    world.focus();
+    return true;
+  }
+
   function visitAmbientStop(id: string) {
     const stop = world?.ambientScene?.stops.find(stop => stop.id === id);
     if (!world || !stop) return;
@@ -890,6 +901,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       chooseTab('nature');
       viewHomeStop(scene.routeId, index);
       return true;
+    }
+    if (scene.kind === 'school-gate') {
+      setReturnChecklistItem('visit-plan');
+      chooseTab('nature');
+      return viewSchoolGate(scene.routeId);
     }
     const point = world.presets.find(item => item.id === scene.pointId);
     if (!point || !world.destinations.some(item => item.id === point.id)) return false;
@@ -1364,6 +1380,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const profile = accessDetails?.profile;
             const crossing = accessDetails?.crossingView;
             const entrance = accessDetails?.entranceView;
+            const schoolRoute = route.id === songpaSchoolApproach.routeId;
             const busView = accessDetails?.stopView;
             const home = accessDetails?.homeWalk;
             const crossingLandings = home?.crossingLandings;
@@ -1371,7 +1388,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             const routeVisible = selected && mode === 'orbit';
             return <div key={primary.id} ref={selected ? activeAccessCard : undefined}
               data-route-selected={selected || undefined} className="site-card access-card">
-              <div className="access-heading"><strong>{route.name}</strong><span>{access.retrieved ? `${route.lengthM.toLocaleString()}m` : meters(route.lengthM)}</span></div>
+              <div className="access-heading"><strong>{schoolRoute ? '서울신가초 교문 앞' : route.name}</strong>
+                <span>{schoolRoute ? `약 ${Math.round(route.lengthM + songpaSchoolApproach.walkM)}m`
+                  : access.retrieved ? `${route.lengthM.toLocaleString()}m` : meters(route.lengthM)}</span></div>
               {alternative && <table className="route-comparison" tabIndex={-1}>
                 <caption>같은 출발점과 종점 · 모델 누적 상승</caption>
                 <thead><tr><th scope="col">경로</th><th scope="col">거리</th><th scope="col">가는 길 ↑</th><th scope="col">오는 길 ↑</th></tr></thead>
@@ -1386,8 +1405,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                   </tr>;
                 })}</tbody>
               </table>}
-              <p>{route.endLabel}{route.gapM !== null && ` · ${hospital ? '조사 출입구' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
-              {route.crossings && <p>보행로·보도 표기 약 {route.walkwayM.toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
+              <p>{schoolRoute ? `${songpaSchoolApproach.location} 보도까지` : route.endLabel}
+                {route.gapM !== null && ` · ${hospital ? '조사 출입구' : '등록 위치'}까지 직선 약 ${route.gapM}m`}</p>
+              {route.crossings && <p>보행로·보도 표기 약 {Math.round(route.walkwayM + (schoolRoute ? songpaSchoolApproach.walkM : 0)).toLocaleString()}m · 지도상 횡단 구간 {route.crossings.length}개</p>}
               {access.retrieved && route.lengthM > route.walkwayM && <p className="route-missing-sidewalk">약 {route.lengthM - route.walkwayM}m는 지도에 보도 표시가 없어요. 3D 지도에서 주황 점선으로 표시해요.</p>}
               {route.parkEntrance && <p>같은 출발점에서 남쪽 진입부까지 경로 약 {route.parkEntrance.routeM}m · 직선 약 {route.parkEntrance.directM}m</p>}
               {!hospital && route.stepWays !== undefined && <p>지도상 보행 경로의 계단 기록 {route.stepWays ? `${route.stepWays}개` : '없음'} · {home ? '역 출구 계단은 아래 참고' : '실제 턱·계단은 현장 확인'}</p>}
@@ -1494,8 +1514,26 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                 <a href={hospital.source} target="_blank" rel="noreferrer">서울시 보행자 출입구 조사 ↗</a>
               </div>}
               {selected && crossing && <div data-route-section="school-crossing" tabIndex={-1}>
-                <div className="site-actions"><button onClick={() => lookAtRoutePoint(crossing)}>송이로 횡단보도 눈높이 보기</button></div>
-                <p>경로는 횡단보도 건너 학교 쪽 보행로까지 이어져요. 줄무늬 폭은 근사이며, 교문까지의 연결은 현장에서 확인해 주세요.</p>
+                <div className="site-actions"><button onClick={() => lookAtRoutePoint(crossing)}>송이로 횡단보도 눈높이 보기</button>
+                  {accessDetails?.schoolView && <button onClick={() => viewSchoolGate(route.id)}>교문 앞 눈높이 보기</button>}
+                </div>
+                {schoolRoute && <div className="route-terrain">
+                  <strong>송이로 횡단보도에서 교문 앞까지</strong>
+                  {accessDetails?.schoolSignal?.installed === true && <p>송이로 횡단보도는 서울시 목록에 보행등이 등록돼 있어요.
+                    {accessDetails.schoolSignal.heads === 0 && ' 이 횡단보도에 대응하는 보행등 좌표는 확인되지 않았어요.'}</p>}
+                  <p>학교 쪽 보도 {songpaSchoolApproach.walkM}m를 서울시 보도면 안에서 이어 그렸어요. 보도 끝에서 문주까지 약 {songpaSchoolApproach.unmappedM}m는 점선으로 표시했어요.</p>
+                  <p>담장과 문주는 서울시 도형을 따르고 높이와 외장은 근사로 표현했어요. 현재 개방 여부와 턱, 등교 시간 신호 대기는 현장에서 확인해 주세요.</p>
+                  {profile && <p>경사 단면은 횡단보도 학교 쪽까지 약 {route.lengthM}m에 대한 계산이에요.</p>}
+                  {accessDetails?.schoolView && <div className="site-actions"><button onClick={() => {
+                    field.save({ scene: { kind: 'school-gate', routeId: route.id }, place: songpaSchoolApproach.location,
+                      finding: `서울시 보도면과 문주 사이 약 ${songpaSchoolApproach.unmappedM}m · 턱과 개방 여부 현장 확인` });
+                    openVisitPlan();
+                  }}>교문 앞을 현장 메모에 담기</button></div>}
+                  <a href={songpaSchoolApproach.sidewalkSource} target="_blank" rel="noreferrer">서울시 보도면 ({songpaSchoolApproach.sidewalkArchiveDate}) ↗</a>
+                  {accessDetails?.schoolSignal && <a href={accessDetails.schoolSignal.source} target="_blank" rel="noreferrer">서울시 횡단보도 시설 목록 ({accessDetails.schoolSignal.date}) ↗</a>}
+                  <a href={songpaSchoolApproach.wallsSource} target="_blank" rel="noreferrer">서울시 담장·문주 ({songpaSchoolApproach.wallsArchiveDate}) ↗</a>
+                  <a href={songpaSchoolApproach.roadview} target="_blank" rel="noreferrer">출입구 과거 로드뷰 ({songpaSchoolApproach.roadviewDate}) ↗</a>
+                </div>}
               </div>}
               {selected && route.parkEntrance && <div className="route-terrain" data-route-section="park-entry" tabIndex={-1}>
                 <strong>송이공원 진입부와 산책로</strong>

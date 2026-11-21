@@ -1,0 +1,10 @@
+{
+  "region": "songpa",
+  "routeId": "singa-school",
+  "location": "송이로15길 쪽 교문 앞",
+  "gatepostId": "1000377090304B00210000000000000076",
+  "fenceIds": ["1000377090304B00210000000000000151", "1000377090305B00210000000000000333"],
+  "crossingInventoryId": "06-0000003114",
+  "roadview": "https://map.kakao.com/?panoid=4536880&pan=322.9&zoom=0&map_type=TYPE_MAP&map_attribute=ROADVIEW&urlX=526510.0&urlY=1111061.0",
+  "roadviewDate": "2009년 6월"
+}

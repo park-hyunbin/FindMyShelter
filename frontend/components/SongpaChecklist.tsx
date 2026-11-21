@@ -156,7 +156,7 @@ export default function SongpaChecklist({ onView, sceneReady, checklist, field, 
               {check.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.label} ↗</a></li>)}
             </ul>}
             {check.id === 'visit-plan' && <section className="checklist-field-visits" aria-label="저장한 방문 장소">
-              {field.visits.length === 0 && <p>겨울 일조 비교, 귀갓길, 동별 외벽에서 장소를 담을 수 있어요.</p>}
+              {field.visits.length === 0 && <p>겨울 일조, 귀갓길, 통학길과 동별 외벽에서 장소를 담을 수 있어요.</p>}
               {field.visits.map(visit => {
                 const id = fieldSceneId(visit.scene);
                 const time = modelTime(visit.scene);
