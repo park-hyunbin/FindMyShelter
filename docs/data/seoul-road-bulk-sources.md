@@ -65,6 +65,8 @@
 
 같은 행정안전부 원본의 다른 확보 경로는 주소정보누리집이다. 전자지도에서 서울특별시 전체를 지정해 시·도 단위로 신청할 수 있다. 이 경로는 본인 확인과 관할 기관의 이용목적 심사를 거친다. [공공데이터포털의 도로명주소 전자지도 안내](https://www.data.go.kr/data/15050413/fileData.do)
 
+국토지리정보원의 연속수치지형도 도로경계면도 브이월드에서 전국 묶음으로 제공한다. 2026-11-22 확인 당시 지역별 ZIP 목록은 전국 ZIP 두 개로 바뀌어 있었다. 두 파일의 표시 갱신일은 2026-10-01이고, 합계는 1,682MB다. 카탈로그 좌표계는 EPSG:5179이며 기준일은 비어 있다. 로그인 후 두 파일을 선택다운로드하는 경로이며 실제 수록 범위와 관측일은 ZIP을 열어 확인한다. [브이월드 연속수치지형도 도로경계면](https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=MK&dsId=30179)
+
 ### 서울시 도로·도로시설물 공간정보와 수치지형도
 
 서울시는 2021~2025년에 서울 전역 1:1,000 수치지형도를 갱신했다고 안내한다. 시가 운영하는 기본도는 도엽을 지형지물별로 이은 연속수치지도다. 서울시의회 자료에는 도로 관련 시스템이 시·구 도로의 도로면·보도면·도로중심선과 고가차도·입체교차·교량·터널·지하차도 등의 공간정보를 관리한다고 나와 있다. 기존 오픈랩 파일의 SHP 색인 날짜는 2024-07-04이므로, 서울시 공간정보과와 도로관리 부서에 전역의 최신 연속 레이어와 관측·갱신 범위를 묶어서 요청한다. 내부 데이터의 제공 가능 여부와 최신 기준일은 담당 부서 회신으로 확인한다. [서울시 수치지형도 안내](https://news.seoul.go.kr/gov/archives/528208) · [서울시의회 도로정보화시스템 자료](https://ms.smc.seoul.kr/attach/record/SEOUL/appendix/a11/A0065782.pdf)
@@ -97,6 +99,12 @@
 | 차도면을 하나로 특정할 수 없음 | 2,151.6km |
 
 차도면이 특정돼도 차선 후보가 없는 구간은 25개 구 모두에 있다. 전체 길이에서 후보가 한 번도 잡히지 않은 링크는 20,693개다. 이 중 차로가 두 개 이상이고 표준링크가 2024년 1월 1일 이후 갱신된 2,777개부터 최신 노면표시와 차도면에 대조할 수 있다. 링크 갱신일은 도색일과 별개다. 5,888.7km는 양방향 링크를 각각 집계한 길이다. 표준노드링크에 없는 골목과 부지 내 도로는 서울시 연속수치지도와 별도로 대조한다. 후보는 같은 차도면 안에 나란한 표시가 있음을 뜻하며 모든 차로의 도색 또는 현재 현장과의 일치 여부는 따로 확인한다. [표준노드링크 자료실](https://www.its.go.kr/nodelink/nodelinkRef) · [도로 링크 기준 점검 코드](../../backend/scripts/audit_seoul_link_coverage.py)
+
+### 2026년 교차로별 차로 경로를 한 번에 확보
+
+서울 교통빅데이터에서 교차로 기준점, 차로 속성, 차로 노드 CSV 세 개를 로그인과 API 키 없이 받았다. 노드의 등록일은 2026-10-20이다. 교차로 ID와 차로 ID로 연결하고, J2735의 cm 단위 동쪽·북쪽 오프셋을 노드 순서대로 합산해 WGS84 기준점에서 경로를 복원했다. 도로면과 대조할 때는 EPSG:5186을 사용했다. 이 도형은 차량이 지나는 차로 중심 경로다. 도색된 실선·점선의 위치와 유형은 노면표시 선형에서 별도로 확인한다. [교차로 MAP](https://t-data.seoul.go.kr/dataprovide/trafficdataviewfile.do?data_id=10144) · [차로 MAP](https://t-data.seoul.go.kr/dataprovide/trafficdataviewfile.do?data_id=10145) · [노드 MAP](https://t-data.seoul.go.kr/dataprovide/trafficdataviewfile.do?data_id=10147) · [SAE J2735](https://webstore.ansi.org/preview-pages/SAE/preview_J2735_202409.pdf)
+
+서울시 자치구 경계로 판정한 결과 25개 구 **교차로 2,547곳, 차로 경로 41,902개**를 복원했다. 교차로 기준점 38건은 서울 경계 밖이거나 구를 하나로 특정할 수 없었고, 연결 조건을 통과한 데이터 중에서도 노드 순서가 연속되지 않은 차로 4,832개는 경로 생성에서 제외했다. 생성된 경로를 최대 4m 간격으로 대조했더니 길이의 **94.65%가 기존 차도면과 겹쳤고, 약 356.3km는 차도·보도 모두 밖**에 있었다. 교차로 사이에서 서로 겹치는 경로도 각각 센 수치다. 차도 밖에 있는 곳은 최신 차도 경계·구조물과 대조할 후보로 남긴다. 등록일은 측량일과 별개다. 교차로 기준 자료이므로 골목과 단지 안쪽의 수록 범위는 별도로 확인한다. [서울시 자치구 경계](https://data.seoul.go.kr/opendata/seoulStay/grid_viewer.html) · [일괄 수집·대조 코드](../../backend/scripts/audit_seoul_cits_lanes.py)
 
 ## 국토지리정보원 정밀도로지도 일괄 확보 경로
 
@@ -166,6 +174,12 @@ uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/
 
 ```powershell
 uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/audit_seoul_link_coverage.py ../road-source-cache/seoul-marking-index.sqlite ../road-source-cache/national-road-links-2026-11-11.zip ../road-source-cache/seoul-link-coverage.sqlite
+```
+
+C-ITS의 세 CSV와 자치구 경계는 아래 명령으로 한 번에 받아 대조한다. 결과 SQLite의 `cits_lane`에는 교차로·차로 ID, 구, 경로 도형과 차도·보도 대조 길이가 들어간다. `cits_bounds`에서 지역 범위로 조회할 수 있다. `--download` 없이 다시 실행하면 같은 원본으로 재검사한다.
+
+```powershell
+uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/audit_seoul_cits_lanes.py ../road-source-cache/cits ../road-source-cache/seoul-marking-index.sqlite ../road-source-cache/seoul-cits-lanes.sqlite --download
 ```
 
 국토지리정보원의 공개 목록을 다시 조사할 때는 PowerShell에서 아래 명령을 실행한다. JSON에는 벡터 목록의 패키지 ID와 구축현황의 연도·구간 ID를 별도 항목으로 남긴다.
