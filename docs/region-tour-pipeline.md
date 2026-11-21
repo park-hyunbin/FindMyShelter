@@ -106,9 +106,13 @@ node frontend/scripts/prepare-region.mjs --region songpa --refresh
 
 송파역 귀갓길의 양재대로 횡단부 세 곳은 서울시 T-GIS 2026-08-24 시설 현황에서 보행등 있음 1곳(관리번호 `06-0000032304`)과 없음 2곳을 확인했습니다. 보행등이 있는 횡단부 양끝의 3.40m·3.99m 떨어진 좌표는 2026-02-13에 갱신된 서울시 보행등 분포도에서 찾았습니다. 두 좌표는 양쪽 교통섬 안에 있습니다. 공통 생성기는 횡단 도형에서 시설 항목을 찾고, 양끝에서 가까운 보행등 좌표와 보도·교통섬 도형을 대조합니다. 위치나 연결이 불확실하면 보행등 모형을 생성하지 않습니다. 공통 렌더러는 같은 지면에 기둥을 세우고 반대쪽 횡단부를 향해 등기구를 배치합니다. 등기구의 치수와 방향은 근사입니다. 실제 점등과 대기 시간에는 해당 교차로의 별도 신호 자료가 필요합니다. [횡단보도 시설 현황](https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do) · [보행등 분포도](https://data.seoul.go.kr/dataList/OA-22356/F/1/datasetView.do) · [서울시 V2X 신호 API](https://t-data.seoul.go.kr/dataprovide/trafficdataviewopenapi.do?data_id=10381)
 
+수집 명령은 서울시 횡단보도 시설 목록·도형, 보행등 좌표, 교통섬 도형을 받아 파일 날짜와 SHA-256을 기록합니다. 기존 지역의 차도·보도 범위에서 횡단부를 찾고 관리번호와 지리적 위치가 함께 맞으면 시설 상태를 연결합니다. 횡단 방향을 정할 수 있고 보도·교통섬에서 다른 횡단부와 경합하지 않는 보행등 좌표를 3D에 반영합니다. `--walk-context`는 기존 귀갓길의 시점·보행로·식재 표현을 함께 쓸 때 지정합니다. 다른 단지는 지역 폴더와 자치구를 바꿔 실행하고, 캐시를 공유할 수 있습니다. `--refresh`로 공개 원본을 다시 받습니다. [서울시 횡단보도 도형](https://data.seoul.go.kr/dataList/OA-15554/F/1/datasetView.do) · [서울시 교통섬 도형](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0053326.zip)
+
 ```sh
-uv run --with openpyxl --with pyproj --with shapely python backend/scripts/prepare_pedestrian_signals.py frontend/public/datasets/regions/songpa/station-crossings.json frontend/public/datasets/regions/songpa/pavement.json <시설-현황.xlsx> <보행등-분포도.csv> 송파구 frontend/public/datasets/regions/songpa/pedestrian-signals.json --inventory-date 2026-08-24 --pole-file-date 2026-02-13
+uv run --with openpyxl --with pyproj --with shapely --with pyshp python backend/scripts/collect_seoul_pedestrian_signals.py frontend/public/datasets/regions/songpa 송파구 <서울-원본-캐시-폴더> --walk-context frontend/public/datasets/regions/songpa/station-crossings.json --refresh
 ```
+
+송파에 실행한 결과 횡단부 31곳에서 보행등 있음 5곳, 없음 7곳, 설치 여부 미확인 19곳을 얻었습니다. 설치를 확인한 횡단부 5곳에 보행등 8개를 배치했습니다. 귀갓길 자료를 빼고 실행해도 같은 5곳에서 보행등 8개를 찾았습니다. 미확인 건수에는 시설 목록과 도형을 같은 횡단부로 연결할 수 없었던 경우가 포함됩니다.
 
 ## 송파에서 서울로 확장하는 데이터 설계
 

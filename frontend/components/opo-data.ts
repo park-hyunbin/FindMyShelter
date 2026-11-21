@@ -80,8 +80,9 @@ type NeighborhoodPlantingFile = { patches: Position[][][] };
 type ServicePavingFile = { surfaces: Position[][][] };
 type PedestrianSignalFile = {
   inventorySource: string; inventoryRecorded: string; poleSource: string; poleFileUpdated: string;
+  islands?: { ufid: string; shape: Position[][] }[];
   crossings: {
-    ufid: string; installed: boolean | null; junction?: string;
+    ufid?: string; installed: boolean | null; junction?: string;
     heads: { coordinate: Position; toward: Position }[];
     returnView?: { position: Position; toward: Position };
   }[];
@@ -205,12 +206,17 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const base = elevationAt(0, 0);
   const ground = (x: number, z: number) => elevationAt(x, z) - base;
   const toShape = (rings: Position[][]) => rings.map(ring => ring.slice(0, -1).map(project));
-  const trafficIslands = region === 'songpa' ? songpaStationCrossings.islands.map(island => ({
-    shape: toShape(island.shape),
-    paving: island.paving.map(toShape),
-    planting: island.planting.map(toShape),
-    trees: island.trees.map((coordinate, index) => ({ id: `island-${island.ufid}-${index}`, position: project(coordinate) })),
-  })) : [];
+  const reviewedIslands = region === 'songpa' ? songpaStationCrossings.islands : [];
+  const trafficIslands = [
+    ...reviewedIslands.map(island => ({
+      shape: toShape(island.shape),
+      paving: island.paving.map(toShape),
+      planting: island.planting.map(toShape),
+      trees: island.trees.map((coordinate, index) => ({ id: `island-${island.ufid}-${index}`, position: project(coordinate) })),
+    })),
+    ...(pedestrianSignals?.islands ?? []).filter(island => !reviewedIslands.some(({ ufid }) => ufid === island.ufid))
+      .map(island => ({ shape: toShape(island.shape), paving: [], planting: [], trees: [] })),
+  ];
 
   const officialHeights = new Map(register.towers.map(row => [row.outlineId, row]));
   const registerRows: (typeof register.towers[number] & { outlineAreaM2: number })[] = [];

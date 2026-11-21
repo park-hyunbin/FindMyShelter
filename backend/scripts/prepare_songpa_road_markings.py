@@ -24,17 +24,17 @@ BOUNDS = (127.1095, 37.4932, 127.1241, 37.5035)
 CLIP = box(*TO_METERS.transform_bounds(*BOUNDS))
 
 
-def city_features(archive, stem):
+def city_features(archive, stem, clip=CLIP):
     filename = next(name for name in archive.namelist() if name.lower().endswith(f"{stem.lower()}.shp"))
     prefix = filename[:-4]
     if CRS.from_wkt(archive.read(prefix + ".prj").decode("ascii")).to_epsg() != 5186:
         raise ValueError(f"Unexpected coordinate reference system for {stem}")
     fields = {key: BytesIO(archive.read(prefix + "." + key)) for key in ("shp", "shx", "dbf")}
     with shapefile.Reader(**fields, encoding="cp949") as source:
-        for feature in source.iterShapeRecords(bbox=CLIP.bounds):
+        for feature in source.iterShapeRecords(bbox=clip.bounds):
             record = feature.record.as_dict()
             if record["STAT_CDE"] == "001" and record["VIEW_CDE"] == "002":
-                yield record, make_valid(shape(feature.shape.__geo_interface__)).intersection(CLIP)
+                yield record, make_valid(shape(feature.shape.__geo_interface__)).intersection(clip)
 
 
 def gps(points):
