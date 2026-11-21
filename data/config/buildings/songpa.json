@@ -1,5 +1,6 @@
 {
   "region": "songpa",
+  "kapt_code": "A13816002",
   "source": "data/raw/incoming/경기도/AL_D198_11710_20260715/AL_D198_11710_20260715.shp",
   "encoding": "CP949",
   "center_lnglat": [127.115, 37.50],

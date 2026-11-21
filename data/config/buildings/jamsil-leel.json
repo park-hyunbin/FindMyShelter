@@ -1,5 +1,6 @@
 {
   "region": "jamsil-leel",
+  "kapt_code": "A10020230",
   "source": "data/raw/osm/jamsil-leel.geojson",
   "encoding": "UTF-8",
   "center_lnglat": [
