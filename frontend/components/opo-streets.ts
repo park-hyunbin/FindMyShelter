@@ -304,6 +304,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const paintedHumps = survey?.paintedHumps?.records.map(hump => projectSiteCrossing(data.project, hump)) ?? [];
   const roadPaint = surveyedLines.length || paintedHumps.length || site?.layout.surveyedCrossings?.length || data.servicePaving.length
     ? createSurfaceClipper() : undefined;
+  const crossingPaint = surveyedLines.length ? createSurfaceClipper() : undefined;
   const edgeOffsets = new Map<number, number[]>();
   for (const { points, edge } of surveyedLines) for (const [index, a] of points.slice(0, -1).entries()) {
     if (!edge) continue;
@@ -525,9 +526,13 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
     add(color, geometry);
   }
-  function paintStrip(points: Point[], width: number, height: number, color: string) {
+  function addCrossingPaint(color: string, geometry: T.BufferGeometry, width: number) {
+    crossingPaint?.addSurface(geometry);
+    addPaint(color, geometry, width);
+  }
+  function crossingStrip(points: Point[], width: number, height: number, color: string) {
     if (data.pavement && roadPaint) deferredPaint.push({ mask: ribbon(points, width, () => 0), color, width });
-    else addPaint(color, pavementStrip(points, width, height), width);
+    else addCrossingPaint(color, pavementStrip(points, width, height), width);
   }
   function trimFallback(geometry: T.BufferGeometry) {
     if (!fallbackExclusions) return geometry;
@@ -634,9 +639,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       const line = [position(-half, offset), position(half, offset)];
       if (surveyedDeck && roadPaint) {
         const outline = ribbon(line, 0.44, () => 0);
-        addPaint(tone, roadPaint.clip(outline, 0.026), 0.44);
+        addCrossingPaint(tone, roadPaint.clip(outline, 0.026), 0.44);
         outline.dispose();
-      } else paintStrip(line, 0.44, deckLift + 0.075, tone);
+      } else crossingStrip(line, 0.44, deckLift + 0.075, tone);
     }
 
     road.sidewalks.forEach((present, index) => {
@@ -663,10 +668,14 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const width = style === 'stop' ? 0.31 : 0.14;
     const paint = (line: Point[], dashed: boolean) => {
       const segments = dashed ? lineChunks(line, style === 'yellow-dash' ? 2.7 : 4, 4.5) : [line];
-      for (const segment of segments) for (const piece of leaveCrosswalkGaps(segment, paintCrossings)) {
-        const outline = ribbon(piece, width, () => 0);
-        addPaint(color, clipper.clip(outline, 0.018), width);
+      for (const segment of segments) {
+        const outline = ribbon(segment, width, () => 0);
+        const onRoad = clipper.clip(outline, 0.018);
         outline.dispose();
+        // The lifts of paint on the same deck differ by less than 0.1m.
+        const exposed = crossingPaint?.subtract(onRoad, 0.1) ?? onRoad;
+        if (exposed !== onRoad) onRoad.dispose();
+        addPaint(color, exposed, width);
       }
     };
     if (double) {
@@ -871,7 +880,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (!roadPaint) { flushLayers(); return; }
     for (const deck of asphaltDecks) roadPaint.addSurface(deck);
     for (const { mask, color, width } of deferredPaint) {
-      addPaint(color, roadPaint.clip(mask, 0.027), width);
+      addCrossingPaint(color, roadPaint.clip(mask, 0.027), width);
       mask.dispose();
     }
     deferredPaint.length = 0;
@@ -885,23 +894,19 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const stripe = ribbon([at(-depth, offset), at(depth, offset)], 0.44, () => 0);
         const section = clipper.clip(stripe, 0);
         // Fit the surveyed paint to the asphalt, including the adjoining site driveway.
-        addPaint('#eeeee4', roadPaint.clip(section, 0.034), 0.44);
+        addCrossingPaint('#eeeee4', roadPaint.clip(section, 0.034), 0.44);
         section.dispose();
         stripe.dispose();
       }
       clipper.clear();
       mask.dispose();
     }
-    for (const { style, points } of surveyedLines) {
-      // Smooth the rendered paint within its width, keeping the original samples for road-width estimates.
-      const line = cleanMarking(points, style === 'stop' ? 0.04 : 0.14);
-      if (line.length >= 2) surveyedPaint(line, style, roadPaint);
-    }
     for (const { area, ring } of paintedHumps) {
       const mask = groundPolygon([ring], () => 0, Infinity, 0);
       const onRoad = roadPaint.clip(mask, 0.024);
       const clipper = createSurfaceClipper();
       clipper.addSurface(onRoad);
+      crossingPaint?.addSurface(onRoad);
       add('#e7b836', onRoad);
       const at = crosswalkFrame(area);
       const depth = area.depth / 2;
@@ -915,7 +920,13 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       clipper.clear();
       mask.dispose();
     }
+    for (const { style, points } of surveyedLines) {
+      // Smooth the rendered paint within its width, keeping the original samples for road-width estimates.
+      const line = cleanMarking(points, style === 'stop' ? 0.04 : 0.14);
+      if (line.length >= 2) surveyedPaint(line, style, roadPaint);
+    }
     flushLayers();
+    crossingPaint?.clear();
     roadPaint.clear();
   }
   const markers = (geometry: T.BufferGeometry, color: string, points: Point[], height: number) => {
