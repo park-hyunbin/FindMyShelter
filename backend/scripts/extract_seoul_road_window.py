@@ -28,14 +28,19 @@ def feature(geometry, **properties):
             "properties": properties}
 
 
-def surfaces(db, window, table):
+def surface_shapes(db, window, table):
     query = f"""SELECT surface.id, surface.ufid, surface.geometry
         FROM {table}_bounds bounds JOIN {table} surface ON surface.id=bounds.id
         WHERE bounds.min_x<=? AND bounds.max_x>=? AND bounds.min_y<=? AND bounds.max_y>=?
         ORDER BY surface.id"""
     for id_, ufid, geometry in db.execute(query, bounds_parameters(window)):
         for polygon in parts(from_wkb(geometry).intersection(window), "Polygon"):
-            yield feature(polygon, layer=table, source_id=id_, ufid=ufid)
+            yield id_, ufid, polygon
+
+
+def surfaces(db, window, table):
+    for id_, ufid, polygon in surface_shapes(db, window, table):
+        yield feature(polygon, layer=table, source_id=id_, ufid=ufid)
 
 
 def marking_lines(db, window, single_road_only=False):

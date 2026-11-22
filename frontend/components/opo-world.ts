@@ -1050,6 +1050,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       localTerrain: data.localTerrain,
       roadMarkings: data.roadMarkings && { lanes: data.roadMarkings.lanesSource, crosswalks: data.roadMarkings.crosswalksSource,
         inventory: data.roadMarkings.crosswalkInventory, archiveDate: data.roadMarkings.markingsArchiveDate,
+        roadDataset: data.roadMarkings.roadDataset,
         busLanes: data.roadMarkings.laneSources?.['bus-lanes'],
         inventoryDate: data.roadMarkings.crosswalkInventoryDate, paintedHumps: data.roadMarkings.paintedHumps?.source },
       streets: data.streetSource, register: data.buildingRegister,

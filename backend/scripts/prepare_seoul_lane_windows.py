@@ -63,24 +63,29 @@ def extract_lanes(db, bounds, kinds):
             if line.length <= 0.25:
                 continue
             kind = kinds[source].get(row_id)
-            dashed = style.endswith("-dash") or style == "yellow-combined"
-            if dashed:
-                begin = original.project(Point(line.coords[0]))
-                end = original.project(Point(line.coords[-1]))
-                if end < begin:
-                    line = line.reverse()
-                    begin = end
-            item = {"style": style, "points": gps(line.simplify(0.11).coords)}
-            if dashed and begin > 0.001:
-                item["dashOffsetM"] = round(begin, 3)
-            if kind in EDGE_KINDS:
-                item["edge"] = True
-            if kind in BUS_KINDS:
-                item["busLane"] = True
+            item = lane_item(line, original, style, kind)
             if source != "lanes":
                 item["source"] = source
                 item["managementId"] = management
             yield item
+
+
+def lane_item(line, original, style, kind):
+    dashed = style.endswith("-dash") or style == "yellow-combined"
+    if dashed:
+        begin = original.project(Point(line.coords[0]))
+        end = original.project(Point(line.coords[-1]))
+        if end < begin:
+            line = line.reverse()
+            begin = end
+    item = {"style": style, "points": gps(line.simplify(0.11).coords)}
+    if dashed and begin > 0.001:
+        item["dashOffsetM"] = round(begin, 3)
+    if kind in EDGE_KINDS:
+        item["edge"] = True
+    if kind in BUS_KINDS:
+        item["busLane"] = True
+    return item
 
 
 def signatures(lanes):

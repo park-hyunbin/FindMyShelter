@@ -1601,7 +1601,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
                       finding: `서울시 보도면과 문주 사이 약 ${songpaSchoolApproach.unmappedM}m · 턱과 개방 여부 현장 확인` });
                     openVisitPlan();
                   }}>교문 앞을 현장 메모에 담기</button></div>}
-                  <a href={songpaSchoolApproach.sidewalkSource} target="_blank" rel="noreferrer">서울시 보도면 ({songpaSchoolApproach.sidewalkArchiveDate}) ↗</a>
+                  <a href={songpaSchoolApproach.sidewalkSource} target="_blank" rel="noreferrer">서울시 보도면{songpaSchoolApproach.sidewalkArchiveDate && ` (${songpaSchoolApproach.sidewalkArchiveDate})`} ↗</a>
                   {accessDetails?.schoolSignal && <a href={accessDetails.schoolSignal.source} target="_blank" rel="noreferrer">서울시 횡단보도 시설 목록 ({accessDetails.schoolSignal.date}) ↗</a>}
                   <a href={songpaSchoolApproach.wallsSource} target="_blank" rel="noreferrer">서울시 담장·문주 ({songpaSchoolApproach.wallsArchiveDate}) ↗</a>
                   <a href={songpaSchoolApproach.roadview} target="_blank" rel="noreferrer">출입구 과거 로드뷰 ({songpaSchoolApproach.roadviewDate}) ↗</a>
@@ -1745,7 +1745,10 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
             <a href={songpaStreets.roadview} target="_blank" rel="noreferrer">양재대로60길 교차로 로드뷰 ↗</a>
             <a href={world?.sources.streets ?? songpaComplex.road} target="_blank" rel="noreferrer">OpenStreetMap 도로와 차로 수 ↗</a>
             {world?.sources.roadMarkings && <>
-              <p>차선 기본 선형은 {world.sources.roadMarkings.archiveDate} 서울시 자료를 사용해요. {world.sources.roadMarkings.inventoryDate} 대장에 없는 횡단보도는 현재 상태를 확인해야 해요.</p>
+              {world.sources.roadMarkings.roadDataset
+                ? <p>차도·차선은 서울특별시 T-GIS에서 {new Date(world.sources.roadMarkings.roadDataset.retrievedAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}에 함께 조회한 자료를 사용해요.</p>
+                : <p>차선 기본 선형은 {world.sources.roadMarkings.archiveDate} 서울시 자료를 사용해요.</p>}
+              <p>{world.sources.roadMarkings.inventoryDate} 대장에 없는 횡단보도는 현재 상태를 확인해야 해요.</p>
               <a href={world.sources.roadMarkings.lanes} target="_blank" rel="noreferrer">서울시 차선 선형 ↗</a>
               {world.sources.roadMarkings.busLanes && <a href={world.sources.roadMarkings.busLanes.url} target="_blank" rel="noreferrer">서울시 버스전용차로 선형 ({world.sources.roadMarkings.busLanes.archiveDate}) ↗</a>}
               <a href={world.sources.roadMarkings.crosswalks} target="_blank" rel="noreferrer">서울시 횡단보도 도형 ↗</a>
@@ -2004,6 +2007,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       {region === 'songpa' && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel}</a>
         {' · '}<a href={seoulBiotopeSource} target="_blank" rel="noreferrer">서울시 도시생태현황도 2025</a></>}
       {catalog && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">서울특별시 에스맵-오픈랩 데이터</a></>}
+      {world?.sources.roadMarkings?.roadDataset && <> · <a href={world.sources.roadMarkings.roadDataset.url} target="_blank" rel="noreferrer">서울특별시 T-GIS 차도·차선</a></>}
     </footer>
   </main>;
 }

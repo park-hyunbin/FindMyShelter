@@ -123,7 +123,7 @@ def main():
         "wallsArchiveDate": archive_date,
         "wallIds": [config["gatepostId"], *config["fenceIds"]],
         "sidewalkSource": pavement["sidewalkSource"]["source"],
-        "sidewalkArchiveDate": pavement["sidewalkSource"]["archiveFileDate"],
+        "sidewalkArchiveDate": pavement["sidewalkSource"].get("archiveFileDate"),
         "crossingInventoryId": config["crossingInventoryId"],
         "roadview": config["roadview"],
         "roadviewDate": config["roadviewDate"],

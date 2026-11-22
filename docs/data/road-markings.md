@@ -61,6 +61,18 @@
 
 가락 정문의 황색 중앙선 30.81m는 전부 새 차도면 안에 들어왔다. 서울 10개 장면 범위 모두에서 단일 차도면에 연결되는 차선 길이의 비율이 높아졌다. 오포는 서울시 자료 범위 밖이다. 이 표는 새 원본의 배포 전 검사이며, 3D에서 도색이 얼마나 보이는지는 같은 범위의 차도·차선을 넣어 별도로 검사한다. [서울시 자료 수집과 전수 검수](seoul-road-bulk-sources.md#서울시-시민용-지도-일괄-수집-결과)
 
+## 차도와 차선을 같은 범위로 내보내기
+
+공개 장면은 하나의 T-GIS 스냅샷에서 차도·보도 폴리곤과 차선·정지선을 함께 읽는다. 원본 선형과 단일 차도면이 겹치는 조각만 내보낸다. 표준노드링크에서 입체도로가 가까이 확인된 구간은 높이 자료 확보 전까지 보류한다. 도로 중심선은 이동과 포장 대체에 쓴다. 점선은 장면 경계에서 잘려도 원본 선형의 시작점을 기준으로 같은 간격을 유지한다. 화면에서 서로 다른 스냅샷이 동시에 들어오면 차선을 숨긴다.
+
+같은 렌더러로 서울 10개 장면의 실제 차도·차선 메시 생성을 확인했다. 가락 정문의 실선 주변에 그려진 황색 도색 면적은 이전 약 1.41㎡에서 약 4.02㎡로 늘었다. 30.81m에 14cm 폭을 전부 칠했을 때의 면적은 약 4.31㎡다. 횡단보도와 감속 표시는 각각의 조사 자료와 날짜를 기록하고, 차도 위에 보이는 도색 면을 기준으로 겹치는 부분을 처리한다.
+
+```powershell
+uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_road_windows.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/tgis-structure-evidence.sqlite --output ../road-source-cache/staged-regions
+```
+
+`reconcile_seoul_marking_links.py`로 먼저 동일 인덱스의 입체도로 근거를 만든다. 배치는 장면별 보류 사유와 길이를 출력한다. 검사한 `pavement.json`과 `road-markings.json`을 장면별로 함께 반영한다. [일괄 생성 코드](../../backend/scripts/prepare_seoul_road_windows.py)
+
 ## 앞으로 사용할 데이터 구조
 
 1. **서울 전역을 한 번 수집하고 생활권으로 자른다.** 서울시 T-GIS 차선·정지선·차도·보도·횡단보도를 같은 좌표계와 조회 범위로 읽는다. 감속 표시와 도로 중심선은 별도 출처를 연결한다. 차선과 차도를 같은 생활권 경계와 여유 범위로 내보내고, 서로 겹치는 장면에서 같은 구간 데이터를 공유한다. 원본의 관측·설치일과 자료 조회 시각, 좌표계와 피처 식별자를 함께 기록한다. [서울시 T-GIS 시민용 지도](https://tgis.eseoul.go.kr/map/mapMain.do) · [일괄 수집 방법](seoul-road-bulk-sources.md#자동으로-갱신하고-검사하는-명령)

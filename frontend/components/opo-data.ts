@@ -46,9 +46,11 @@ type StreetFile = {
 };
 export type StreetPaint = 'yellow' | 'yellow-dash' | 'yellow-double' | 'yellow-combined'
   | 'blue' | 'blue-dash' | 'blue-double' | 'blue-double-dash' | 'white' | 'white-dash' | 'stop';
+type RoadDataset = { url: string; retrievedAt: string; sha256: string };
 type StreetPaintFile = {
   lanesSource: string; crosswalksSource: string; crosswalkInventory: string;
-  markingsArchiveDate: string; crosswalkInventoryDate: string;
+  roadDataset?: RoadDataset;
+  markingsArchiveDate?: string; crosswalkInventoryDate: string;
   laneSources?: Record<string, { url: string; archiveDate: string }>;
   lanes: { style: StreetPaint; points: Position[]; edge?: boolean; busLane?: boolean; dashOffsetM?: number }[];
   crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][] }[];
@@ -82,6 +84,7 @@ type NeighborhoodTerrain = TerrainGrid & {
 };
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
 type PavementFile = {
+  roadDataset?: RoadDataset;
   roads: Position[][][];
   sidewalks: Position[][][];
   coveredSegments: [roadId: number, startNode: number, intervals: [from: number, to: number][]][];
@@ -112,8 +115,8 @@ export const precinct = 330;
 const epsg5186 = '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs';
 const positiveDimension = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
 
-async function json<T>(path: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(path, { signal });
+async function json<T>(path: string, signal: AbortSignal, cache?: RequestCache): Promise<T> {
+  const response = await fetch(path, { signal, cache });
   if (!response.ok) throw new Error(`자료를 불러오지 못했어요 (${response.status})`);
   return response.json();
 }
@@ -178,8 +181,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     json<FeatureCollection<import('geojson').Point, Omit<Place, 'point'>>>(area.places, signal),
     area.streets ? json<StreetFile>(area.streets, signal) : Promise.resolve(null),
     area.neighborhoodTerrain ? json<NeighborhoodTerrain>(area.neighborhoodTerrain, signal) : Promise.resolve(null),
-    area.roadMarkings ? json<StreetPaintFile>(area.roadMarkings, signal) : Promise.resolve(null),
-    area.pavement ? json<PavementFile>(area.pavement, signal) : Promise.resolve(null),
+    area.roadMarkings ? json<StreetPaintFile>(area.roadMarkings, signal, 'no-cache') : Promise.resolve(null),
+    area.pavement ? json<PavementFile>(area.pavement, signal, 'no-cache') : Promise.resolve(null),
     area.planting ? json<NeighborhoodPlantingFile>(area.planting, signal) : Promise.resolve(null),
     area.servicePaving ? json<ServicePavingFile>(area.servicePaving, signal) : Promise.resolve(null),
     area.pedestrianSignals ? json<PedestrianSignalFile>(area.pedestrianSignals, signal).catch(error => {
@@ -190,6 +193,10 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     catalog?.layers.includes('route-elevation.json') ? json<RouteElevationDataset>(regionFile('route-elevation.json'), signal)
       : region === 'songpa' ? songpaRouteElevation : null,
   ]);
+  if (roadMarkings && roadMarkings.roadDataset?.sha256 !== pavement?.roadDataset?.sha256) {
+    // An old cached surface and fresh lane linework must not be displayed as one survey.
+    roadMarkings.lanes = [];
+  }
   const { center_lnglat: center, local_origin_xy: buildingOrigin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
   const buildingRadius = region === 'opo' ? Math.min(300, importedBuildingRadius) : importedBuildingRadius;
