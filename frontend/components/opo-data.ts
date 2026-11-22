@@ -100,6 +100,7 @@ type PavementFile = {
   structureSources?: { sha256: string }[];
   roads: Position[][][];
   sidewalks: Position[][][];
+  pedestrianIslands?: { records: { managementId: string; polygons: Position[][][] }[] };
   elevatedRoads?: {
     sourceId: string; roadIds: number[]; polygons: Position[][][];
     dividers?: { managementId: string; kind: string; polygons: Position[][][] }[];
@@ -282,6 +283,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     })),
     ...(pedestrianSignals?.islands ?? []).filter(island => !reviewedIslands.some(({ ufid }) => ufid === island.ufid))
       .map(island => ({ shape: toShape(island.shape), paving: [], planting: [], trees: [] })),
+    ...(pavement?.pedestrianIslands?.records ?? []).flatMap(({ polygons }) =>
+      polygons.map(rings => ({ shape: toShape(rings), paving: [], planting: [], trees: [] }))),
   ];
 
   const officialHeights = new Map(register.towers.map(row => [row.outlineId, row]));

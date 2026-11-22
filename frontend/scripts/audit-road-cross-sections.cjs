@@ -23,7 +23,7 @@ const { alignShadowTarget } = fromTour('./components/opo-contact-shadows.ts');
 const { addSiteDetails } = fromTour('./components/opo-site.ts');
 const { createSidewalkSeams } = fromTour('./components/opo-curb-walk.ts');
 const { createSurfaceClipper } = require('../components/opo-surface-clip.ts');
-const { crossingSupport, fitCrosswalkToMeasuredRoad, surveyedCrosswalkArea, surveyedCrosswalkFrame } = require('../components/opo-crosswalks.ts');
+const { crossingSupport, fitCrosswalkToMeasuredRoad, surveyedCrosswalkArea, surveyedCrosswalkFrame, surveyedLandingFrame } = require('../components/opo-crosswalks.ts');
 const scenes = fromTour('./components/data/seoul-scenes.generated.json');
 
 // Vegetation materials need a canvas, but the road audit uses triangle positions only.
@@ -87,6 +87,18 @@ function testCrossingSupport() {
   assert.equal(frame.depth, 4);
   assert.equal(Math.abs(frame.direction.z), 1);
   assert.equal(surveyedCrosswalkFrame(rectangle(-4, 4, -4, 4)[0], road), undefined);
+  const compact = rectangle(-3.88, 3.88, -3, 3);
+  const compactPaint = surveyedSurface([compact]);
+  const landingFrame = surveyedLandingFrame(compact[0], road, walks, compactPaint);
+  assert.equal(Math.abs(landingFrame.direction.z), 1, 'Measured landings resolve a compact crossing with inset paint');
+  assert.equal(surveyedLandingFrame(compact[0], road, oneSide, compactPaint), undefined);
+  compactPaint.clear();
+  const edgeAligned = rectangle(-4.87, 4.87, -3.35, 3.35);
+  const edgePaint = surveyedSurface([edgeAligned]);
+  assert.equal(crossingSupport(area(9.74), road, oneSide, edgePaint), 'no_landing');
+  const edgeFrame = surveyedLandingFrame(edgeAligned[0], road, oneSide, edgePaint);
+  assert.equal(Math.abs(edgeFrame.direction.z), 1, 'Both measured road edges and one landing establish direction');
+  edgePaint.clear();
   assert.equal(surveyedCrosswalkFrame(rectangle(-5, 6, 20, 24)[0], road), undefined);
   assert.equal(surveyedCrosswalkFrame(measuredOutline, clippedPaint), undefined);
   const narrow = rectangle(-5, 5, -0.45, 0.45);
@@ -400,6 +412,7 @@ async function audit(region, crossingsOnly, elevatedOnly) {
     if (region === 'jamsil-leel') {
       assertCurrentCrosswalk(scene, data, checks, '06-0000051103');
       assertCurrentCrosswalk(scene, data, checks, '06-0000009350');
+      assertCurrentCrosswalk(scene, data, checks, '06-0000030331');
     }
     const counts = {};
     for (const { source, status } of checks) {

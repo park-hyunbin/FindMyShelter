@@ -7,7 +7,7 @@ import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection, type RibbonSection } from './opo-meshes';
 import {
   crossingOutline, crossingSupport, crosswalkFrame, fitCrosswalk, fitCrosswalkToMeasuredRoad,
-  leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, surveyedCrosswalkFrame, zebraOffsets, type CrossingSupport, type Crosswalk,
+  leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, surveyedCrosswalkFrame, surveyedLandingFrame, zebraOffsets, type CrossingSupport, type Crosswalk,
 } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
 import { projectSiteCrossing, sidewalkTreeWell } from './opo-site-surfaces';
@@ -528,6 +528,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const direction = { x: -dz / length, z: dx / length };
         surveyFrame = surveyedCrosswalkArea({ center, direction, depth: 0, section: { width: 0 } }, outline);
       }
+    }
+    if (!surveyFrame && !candidates.length && current) {
+      const paint = footprint([[outline]]);
+      surveyFrame = surveyedLandingFrame(outline, roadSurface, pedestrianSurface, paint);
+      paint.clear();
     }
     if (!candidates.length && !surveyFrame) {
       auditCrossing?.({ source, center, status: 'no_aligned_road', sourceId });

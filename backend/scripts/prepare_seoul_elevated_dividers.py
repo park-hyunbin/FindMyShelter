@@ -1,4 +1,4 @@
-"""Attach T-GIS traffic islands to their uniquely supported S-Map elevated deck."""
+"""Attach surveyed T-GIS islands to their verified ground or elevated surface."""
 
 import argparse
 from collections import Counter
@@ -21,6 +21,39 @@ from prepare_songpa_road_markings import REGIONS
 LAYER = "C080_A"
 KINDS = {"2": "traffic-island", "3": "median"}
 MIN_DECK_COVERAGE = 0.99
+
+
+def export_pedestrian_islands(pavement, markings, known_islands, candidates, index, source):
+    pavement.pop("pedestrianIslands", None)
+    crossings = markings.get("currentCrosswalks") or {}
+    dataset = pavement["roadDataset"]
+    if dataset != markings.get("roadDataset") or dataset["sha256"] != crossings.get("sha256"):
+        return 0
+    window = box(*TO_METRES.transform_bounds(*dataset["bounds"]))
+    current = crossings["records"]
+    outlines = STRtree([local_polygon([record["outline"]]) for record in current])
+    roads = union_all([local_polygon(rings) for rings in pavement["roads"]])
+    already_represented = union_all([local_polygon(rings) for rings in pavement["sidewalks"] + known_islands])
+    elevated = union_all([local_polygon(rings) for deck in pavement.get("elevatedRoads", [])
+                          for rings in deck["polygons"]])
+    records = []
+    for i in sorted(index.query(window, predicate="contains")):
+        management_id, island = candidates[i]
+        if island.area < 0.05 or island.intersection(roads).area < island.area * 0.99:
+            continue
+        if island.intersection(already_represented).area + island.intersection(elevated).area > 0.05:
+            continue
+        landings = []
+        for j in outlines.query(island, predicate="dwithin", distance=0.6):
+            crossing = outlines.geometries[j]
+            if island.intersection(crossing).area <= crossing.area * 0.15:
+                landings.append(current[j]["id"])
+        polygons = export_polygons(island)
+        if landings and polygons:
+            records.append({"managementId": management_id, "crossingIds": sorted(landings), "polygons": polygons})
+    if records:
+        pavement["pedestrianIslands"] = {**source, "records": records}
+    return len(records)
 
 
 def export_window(pavement, candidates, index, source):
@@ -72,16 +105,21 @@ def build(snapshot_path, regions, output):
             raise ValueError(f"The snapshot must include {LAYER} in EPSG:{EPSG}")
         rows = list(snapshot_features(snapshot, LAYER, "json_extract(properties,'$.VIEW_CDE')='002'"))
     counts = Counter(str(attributes["MGRNU"]) for _, _, attributes, _ in rows if attributes.get("MGRNU"))
-    candidates = []
+    candidates, pedestrian = [], []
     for _, _, attributes, shape in rows:
         identifier = str(attributes.get("MGRNU"))
-        kind = KINDS.get(str(attributes.get("TYPE")))
+        kind_code = str(attributes.get("TYPE"))
+        kind = KINDS.get(kind_code)
         if kind and counts[identifier] == 1:
             candidates.append((identifier, kind, make_valid(shape)))
+        if kind_code == "4" and counts[identifier] == 1:
+            pedestrian.append((identifier, make_valid(shape)))
     if not candidates:
         raise ValueError(f"No usable traffic-island records in {LAYER}")
     candidates.sort(key=lambda candidate: candidate[0])
     index = STRtree([shape for _, _, shape in candidates])
+    pedestrian.sort(key=lambda candidate: candidate[0])
+    pedestrian_index = STRtree([shape for _, shape in pedestrian])
     source = {"url": MAP, "layer": LAYER, "retrievedAt": report["requested_at"], "sha256": digest(snapshot_path)}
     results = {}
     for file in sorted(regions.glob("*/pavement.json")):
@@ -89,6 +127,12 @@ def build(snapshot_path, regions, output):
         if not pavement.get("roadDataset") or not pavement.get("structureSources"):
             continue
         counts = export_window(pavement, candidates, index, source)
+        markings_file = file.with_name("road-markings.json")
+        markings = json.loads(markings_file.read_text(encoding="utf-8")) if markings_file.exists() else {}
+        signals = file.with_name("pedestrian-signals.json")
+        signal_data = json.loads(signals.read_text(encoding="utf-8")) if signals.exists() else {}
+        islands = [island["shape"] for island in signal_data.get("islands", [])]
+        counts["pedestrian_islands"] = export_pedestrian_islands(pavement, markings, islands, pedestrian, pedestrian_index, source)
         results[file.parent.name] = pavement, counts
     if not results:
         raise ValueError(f"No paired Seoul pavement files with structures in {regions}")

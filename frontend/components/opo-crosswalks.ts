@@ -27,25 +27,33 @@ export function crosswalkFrame(crosswalk: CrosswalkArea) {
 
 export function crossingSupport(area: CrosswalkArea, roads: SectionSurface, walks: SectionSurface,
   paint?: SectionSurface): CrossingSupport {
+  return crossingSectionEvidence(area, roads, walks, paint).status;
+}
+
+function crossingSectionEvidence(area: CrosswalkArea, roads: SectionSurface, walks: SectionSurface,
+  paint?: SectionSurface, fromRoadEdge = false): { status: CrossingSupport; landings?: number; edgeGap?: number } {
   const landingRange = 1.25;
   const half = area.section.width / 2;
   const direction = { x: area.direction.z, z: -area.direction.x };
   const radius = half + landingRange * 2;
   const coversCenter = ([from, to]: [number, number]) => from <= 0 && to >= 0;
   const road = roads.section(area.center, direction, radius).find(coversCenter);
-  if (!road) return 'no_carriageway';
+  if (!road) return { status: 'no_carriageway' };
   const outline = paint?.section(area.center, direction, radius).find(coversCenter);
-  if (paint && !outline) return 'paint_ends_inside_road';
+  if (paint && !outline) return { status: 'paint_ends_inside_road' };
   const ends = outline ? [Math.max(-half, outline[0]), Math.min(half, outline[1])] : [-half, half];
-  if (ends[0] - road[0] > landingRange || road[1] - ends[1] > landingRange) return 'paint_ends_inside_road';
-  if (road[0] - ends[0] > landingRange || ends[1] - road[1] > landingRange) return 'paint_beyond_road';
+  if (ends[0] - road[0] > landingRange || road[1] - ends[1] > landingRange) return { status: 'paint_ends_inside_road' };
+  if (road[0] - ends[0] > landingRange || ends[1] - road[1] > landingRange) return { status: 'paint_beyond_road' };
   const walking = walks.section(area.center, direction, radius);
   // Each landing must lie beyond its road edge in the crossing direction.
+  const [landingStart, landingEnd] = fromRoadEdge ? road : ends;
   const onLeft = walking.some(([from, to]) =>
-    Math.min(to, road[0]) - Math.max(from, road[0] - landingRange, ends[0] - landingRange) >= 0.15);
+    Math.min(to, road[0]) - Math.max(from, road[0] - landingRange, landingStart - landingRange) >= 0.15);
   const onRight = walking.some(([from, to]) =>
-    Math.min(to, road[1] + landingRange, ends[1] + landingRange) - Math.max(from, road[1]) >= 0.15);
-  return onLeft && onRight ? 'connected' : 'no_landing';
+    Math.min(to, road[1] + landingRange, landingEnd + landingRange) - Math.max(from, road[1]) >= 0.15);
+  return { status: onLeft && onRight ? 'connected' : 'no_landing',
+    landings: Number(onLeft) + Number(onRight),
+    edgeGap: Math.max(Math.abs(ends[0] - road[0]), Math.abs(ends[1] - road[1])) };
 }
 
 export function fitCrosswalkToMeasuredRoad(crossing: Crosswalk, roads: SectionSurface): Crosswalk {
@@ -106,6 +114,36 @@ export function surveyedCrosswalkFrame(outline: Point[], roads: SectionSurface,
     return covered >= width * 0.65;
   });
   return supported.length >= 2 ? frame : undefined;
+}
+
+export function surveyedLandingFrame(outline: Point[], roads: SectionSurface, walks: SectionSurface,
+  paint: SectionSurface): CrosswalkArea | undefined {
+  const supported: { frame: CrosswalkArea; sections: number }[] = [];
+  for (const [i, a] of outline.entries()) {
+    const b = outline[(i + 1) % outline.length];
+    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    if (length < 0.01) continue;
+    const dx = (b.x - a.x) / length, dz = (b.z - a.z) / length;
+    // Test both orientations from each surveyed edge. The two road boundaries
+    // and their landings can disambiguate a nearly square paint outline.
+    for (const direction of [{ x: dx, z: dz }, { x: -dz, z: dx }]) {
+      const frame = surveyedCrosswalkArea({ center: a, direction, depth: 0, section: { width: 0 } }, outline);
+      const at = crosswalkFrame(frame);
+      // The measured paint-to-road gap is checked separately from the
+      // pedestrian landing beyond the surveyed road edge.
+      const sections = [-0.22, 0, 0.22].filter(offset => {
+        const support = crossingSectionEvidence({ ...frame, center: at(offset * frame.depth, 0) }, roads, walks, paint, true);
+        // One mapped landing also supplies direction when the paint closely
+        // spans both measured road edges on this section.
+        return support.status === 'connected' || (support.landings === 1 && (support.edgeGap ?? Infinity) <= 0.30);
+      }).length;
+      if (sections >= 2) supported.push({ frame, sections });
+    }
+  }
+  supported.sort((a, b) => b.sections - a.sections
+    || a.frame.depth * a.frame.section.width - b.frame.depth * b.frame.section.width);
+  const best = supported[0]?.frame;
+  if (best && supported.every(({ frame }) => Math.abs(dot(frame.direction, best.direction)) >= Math.cos(Math.PI / 9))) return best;
 }
 
 export function zebraOffsets(width: number, edgeGap = 0.24) {
