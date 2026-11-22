@@ -301,16 +301,22 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 같은 층의 도색은 측정된 흰 줄에 우선권을 주고 겹치는 추정 도색 조각을 잘라낸다. 보강 대상 179개를 실제 3D 삼각면으로 검사해 위치별 최대 중복 도색을 초벌 렌더의 3.08㎡에서 0.001㎡ 수준으로 줄였다. 이전에 흰 줄이 거의 없었던 위치 중 서울 10개 장면에서 166건에 도색이 생겼다. 중복 생활권을 합치면 109개 시설이다. 가락 `06-0000052539`는 기존 0㎡에서 20.90㎡로, 잠실 중앙은 0㎡에서 23.79㎡로 늘었다. 두 위치를 운영 빌드에서 검사한다. [측정 도색 렌더러](../../frontend/components/opo-streets.ts) · [회귀 검사](../../frontend/scripts/audit-road-cross-sections.cjs)
 
 ```powershell
-uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_current_crosswalks.py ../road-source-cache/tgis-live-seoul.sqlite ../road-source-cache/seoul-crossing-inventory-20260810.csv --output ../road-source-cache/staged-crosswalks
+uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_current_crosswalks.py ../road-source-cache/tgis-live-seoul.sqlite ../road-source-cache/seoul-crossing-inventory-20260810.csv --archive ../road-source-cache/tgis-archived-crosswalks.zip --output ../road-source-cache/staged-crosswalks
 ```
 
 스크립트가 기존 차선·아카이브 도형 값을 보존한 채 생활권별 `road-markings.json`에 `currentCrosswalks`를 추가한다. 파일의 해시로 같은 시점의 차도·도색이 함께 사용되는지 확인한다.
 
 ### 기존 도형과 겹치는 최신 횡단보도
 
-전체 서울 장면을 검사하니 기존 도형이 조금만 겹쳐도 최신 도형을 중복으로 분류했다. 시설 목록과 연결되지 않아 실제로 화면에 그리지 못한 기존 도형도 같은 우선순위를 갖고 있었다. 이제 시설 목록과 연결된 최신 도형이 확인되지 않은 기존 도형과 겹칠 때, 교집합이 양쪽 면적의 절반 이상인 경우 해당 외곽을 `supersedes`에 기록한다. 최신 도형을 차도에 올릴 수 있을 때에만 해당 기존 도형을 그리기에서 제외한다. 기존 도형이 이미 시설과 연결됐거나 어느 외곽을 교체할지 불분명하면 기존 검증을 유지한다.
+시설 목록과 연결된 최신 도형이 확인되지 않은 기존 도형과 겹치고, 교집합이 양쪽 면적의 절반 이상이면 해당 기존 외곽을 `supersedes`에 기록한다. 최신 도형이 실제로 그려지면 해당 외곽 하나를 사용한다.
 
-서울 공개 장면 10개의 3D 메시에서 흰 줄이 없거나 0.5㎡ 이하였던 위치 393건에 도색이 생겼다. 중복 생활권을 합치면 261개 시설이다. 기존에 최신 자료로 보강한 179건도 계속 그려졌다. 첫 검사에서는 새 도형 중 7개 시설의 횡단 방향이 확인되지 않았다. 잠실 `06-0000009350`은 0㎡에서 30.20㎡로 늘었으며 운영 빌드의 회귀 검사에 포함했다.
+이미 시설과 연결된 기존 외곽도 보관 원본에서 동일 관리번호를 확인해 최신 도형과 일대일로 대응시킨다. 양쪽 외곽이 각각 65% 이상 겹치고 서로 겹치지 않는 면적의 합이 0.25㎡를 넘을 때 갱신 후보에 넣는다. 같은 스냅샷에 따른 지상 차도와 표시 방향을 확인한 뒤 최신 외곽에 흰 줄을 그린다. 방향 근거가 부족하면 기존 외곽을 유지한다. 보관 원본의 해시는 `archiveSourceSha256`에 기록한다. [서울시 보관 원본](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do) · [동일 시설 비교 코드](../../backend/scripts/prepare_seoul_current_crosswalks.py)
+
+서울 공개 10개 장면에서 갱신 후보 184건을 다시 검사했다. 178건에서 최신 도형에 도색이 표시됐고 생활권 중복을 빼면 118개 시설이다. 이 중 잠실 `06-0000023089`와 길음 `06-0000027033`은 기존 외곽에서 방향을 확인할 수 없던 곳이다. 새 외곽 안에 각각 14.39㎡와 8.83㎡의 흰 도색이 표시됐다. [잠실 회귀 검사](../../frontend/scripts/audit-road-cross-sections.cjs)
+
+서울시 대로변 횡단보도 위치정보의 연결선 26건을 원본 외곽과 가까워 추가로 검사했다. 같은 링크를 자치구 도보 네트워크와 대조하니 모두 횡단보도 분류가 0이었다. 현재 보도와 끝점이 떨어져 있거나 고가 외곽과 겹치는 경우도 확인됐다. 연결선은 양쪽 보행 연결과 같은 층이 확인될 때 방향의 근거로 쓴다. [대로변 횡단보도 위치정보](https://data.seoul.go.kr/dataList/OA-21209/S/1/datasetView.do) · [자치구별 도보 네트워크](https://data.seoul.go.kr/dataList/OA-21208/S/1/datasetView.do)
+
+초기 중복 규칙을 고쳤을 때 서울 공개 10개 장면의 393개 위치에 도색이 생겼다. 이 집계는 이전에 도색이 0.5㎡ 이하였던 위치를 기준으로 하며, 중복 생활권을 합치면 261개 시설이다. 잠실 `06-0000009350`은 현행 방향 확인 기준에서 자료 공백으로 기록한다. [서울 도로의 원본 도형 표시](#서울-도로의-원본-도형-표시)
 
 ### 횡단보도의 방향과 보행섬
 

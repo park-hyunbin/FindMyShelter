@@ -18,6 +18,7 @@ from collect_seoul_tgis_wfs import MAP
 from extract_seoul_road_window import TO_METRES, TO_GPS
 from index_seoul_road_markings import future_installation, snapshot_features
 from prepare_neighborhood_pavement import export_polygons
+from prepare_pedestrian_signals import archive_crossings
 from prepare_songpa_road_markings import REGIONS
 
 
@@ -117,7 +118,18 @@ def companion_axis(geometry, references):
     return [[round(value, 9) for value in TO_GPS.transform(center.x + t * x, center.y + t * y)] for t in (-2, 2)]
 
 
-def export_window(markings, pavement, source, index, identifiers, references=None):
+def archive_facility(outline, archive_index, identifiers):
+    if archive_index is None:
+        return None
+    matches = {
+        identifiers[i] for i in archive_index.query(outline, predicate="intersects")
+        if outline.symmetric_difference(archive_index.geometries[i]).area <= max(0.25, outline.area * 0.02)
+    }
+    return next(iter(matches)) if len(matches) == 1 else None
+
+
+def export_window(markings, pavement, source, index, identifiers, references=None,
+                  archive_index=None, archive_ids=()):
     dataset = markings["roadDataset"]
     if dataset != pavement.get("roadDataset") or dataset["sha256"] != source["sha256"]:
         raise ValueError("Crosswalk and pavement windows must come from the same T-GIS snapshot")
@@ -138,12 +150,20 @@ def export_window(markings, pavement, source, index, identifiers, references=Non
             shared = geometry.intersection(old).area
             if shared >= 0.3 * min(geometry.area, old.area):
                 overlaps.append((j, shared))
-        if any(archive_surfaces[j][2] for j, _ in overlaps):
-            counts["already_in_archive"] += 1
-            continue
         matched = [list(archive_surfaces[j][:2]) for j, shared in overlaps
                    if shared >= 0.5 * max(geometry.area, archive.geometries[j].area)]
-        if overlaps and len(matched) != len(overlaps):
+        confirmed = any(archive_surfaces[j][2] for j, _ in overlaps)
+        if confirmed:
+            if len(overlaps) != 1:
+                counts["already_in_archive"] += 1
+                continue
+            (j, shared), = overlaps
+            old = archive.geometries[j]
+            if (shared < 0.65 * max(geometry.area, old.area) or old.symmetric_difference(geometry).area <= 0.25
+                    or archive_facility(old, archive_index, archive_ids) != identifiers[i]):
+                counts["already_in_archive"] += 1
+                continue
+        elif overlaps and len(matched) != len(overlaps):
             counts["ambiguous_archive_overlap"] += 1
             continue
         if elevated.intersects(geometry):
@@ -161,7 +181,7 @@ def export_window(markings, pavement, source, index, identifiers, references=Non
         }
         if matched:
             current["supersedes"] = sorted(matched)
-            counts["replaced_unconfirmed_archive"] += 1
+            counts["updated_confirmed_archive" if confirmed else "replaced_unconfirmed_archive"] += 1
         if references is not None and (axis := companion_axis(geometry, references)):
             current["across"] = axis
             counts["direction_from_aligned_crossings"] += 1
@@ -171,7 +191,7 @@ def export_window(markings, pavement, source, index, identifiers, references=Non
     })
 
 
-def build(snapshot_path, inventory_path, regions, output):
+def build(snapshot_path, inventory_path, regions, output, archive_path=None):
     inventory = inventory_points(inventory_path)
     with closing(sqlite3.connect(snapshot_path.resolve().as_uri() + "?mode=ro", uri=True)) as snapshot:
         raw, = snapshot.execute("SELECT value FROM metadata WHERE key='report'").fetchone()
@@ -188,12 +208,24 @@ def build(snapshot_path, inventory_path, regions, output):
     references = STRtree([geometry for _, _, geometry in matches])
     identifiers, geometries = zip(*zebras)
     index = STRtree(geometries)
+    files = [(file, json.loads(file.read_text(encoding="utf-8")))
+             for file in sorted(regions.glob("*/road-markings.json"))]
+    archive_index, archive_ids = None, ()
+    if archive_path and files:
+        extent = union_all([box(*TO_METRES.transform_bounds(*markings["roadDataset"]["bounds"]))
+                            for _, markings in files]).envelope.buffer(12)
+        archived = list(archive_crossings(archive_path, extent))
+        if not archived:
+            raise ValueError("No original crosswalk footprints inside the requested regions")
+        archive_ids, footprints = zip(*archived)
+        archive_index = STRtree(footprints)
+        source["archiveSourceSha256"] = digest(archive_path)
     results = {}
-    for file in sorted(regions.glob("*/road-markings.json")):
+    for file, markings in files:
         region = file.parent.name
-        markings = json.loads(file.read_text(encoding="utf-8"))
         pavement = json.loads(file.with_name("pavement.json").read_text(encoding="utf-8"))
-        data, counts = export_window(markings, pavement, source, index, identifiers, references)
+        data, counts = export_window(markings, pavement, source, index, identifiers, references,
+                                     archive_index, archive_ids)
         results[region] = file.name, data, counts
     for region, (filename, data, _) in results.items():
         target = output / region / filename
@@ -208,8 +240,9 @@ def main():
     parser.add_argument("inventory", type=Path)
     parser.add_argument("--regions", type=Path, default=REGIONS)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--archive", type=Path, help="Original city shapefile bundle used for the scene's archived crossings")
     args = parser.parse_args()
-    print(json.dumps(build(args.snapshot, args.inventory, args.regions, args.output), indent=2))
+    print(json.dumps(build(args.snapshot, args.inventory, args.regions, args.output, args.archive), indent=2))
 
 
 if __name__ == "__main__":

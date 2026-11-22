@@ -49,27 +49,33 @@ class CurrentCrosswalkTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "same T-GIS snapshot"):
             export_window(markings, pavement, {"sha256": "new"}, None, ())
 
-    def test_current_outline_replaces_only_a_strongly_matching_unconfirmed_archive(self):
+    def test_current_outline_replaces_matching_archive_with_a_confirmed_facility_id(self):
         current = box(200000, 550000, 200020, 550005)
         same_crossing = box(200001, 550000, 200021, 550005)
         partial_overlap = box(200014, 550000, 200024, 550005)
         dataset = {"sha256": "source", "bounds": [126.99, 37.5, 127.01, 37.6]}
         pavement = {"roadDataset": dataset, "roads": export_polygons(box(199990, 549990, 200040, 550015))}
         cases = [
-            (same_crossing, False, "replaced_unconfirmed_archive"),
-            (same_crossing, True, "already_in_archive"),
-            (partial_overlap, False, "ambiguous_archive_overlap"),
+            (same_crossing, False, (), "replaced_unconfirmed_archive"),
+            (same_crossing, True, (), "already_in_archive"),
+            (same_crossing, True, ("another_facility",), "already_in_archive"),
+            (same_crossing, True, ("verified",), "updated_confirmed_archive"),
+            (same_crossing, True, ("verified", "another_facility"), "already_in_archive"),
+            (current, True, ("verified",), "already_in_archive"),
+            (partial_overlap, False, (), "ambiguous_archive_overlap"),
         ]
-        for older, confirmed, status in cases:
-            with self.subTest(status=status):
+        for older, confirmed, identifiers, status in cases:
+            with self.subTest(status=status, archive_ids=identifiers):
                 markings = {"roadDataset": dataset, "crosswalks": [{
                     "inventoryMatch": confirmed, "surfaces": [export_polygons(older)[0][0]],
                 }]}
+                archive = STRtree([older for _ in identifiers]) if identifiers else None
                 result, report = export_window(markings, pavement, {"sha256": "source"},
-                                               STRtree([current]), ["verified"])
+                                               STRtree([current]), ["verified"], archive_index=archive,
+                                               archive_ids=identifiers)
                 self.assertEqual(report[status], 1)
                 records = result["currentCrosswalks"]["records"]
-                if status == "replaced_unconfirmed_archive":
+                if status in ("replaced_unconfirmed_archive", "updated_confirmed_archive"):
                     self.assertEqual(records[0]["supersedes"], [[0, 0]])
                 else:
                     self.assertFalse(records)

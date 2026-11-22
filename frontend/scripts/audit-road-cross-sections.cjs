@@ -558,6 +558,7 @@ async function audit(region, crossingsOnly, elevatedOnly) {
     }
     if (region === 'jamsil-leel') {
       assertCurrentCrosswalk(scene, data, checks, '06-0000051103');
+      assertCurrentCrosswalk(scene, data, checks, '06-0000023089');
       assert.ok(checks.some(check => check.sourceId === '06-0000009350' && check.status === 'unconfirmed_direction'),
         'Jamsil paint with a surveyed outline and unverified direction must be withheld');
       assertCurrentCrosswalk(scene, data, checks, '06-0000055987');

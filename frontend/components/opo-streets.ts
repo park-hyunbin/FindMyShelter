@@ -584,7 +584,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       for (const [surfaceIndex, ring] of record.surfaces.entries()) {
         const outline = ring.map(data.project);
         const center = outlineCenter(outline);
-        if (!confirmed && replacedArchive.has(`${recordIndex}:${surfaceIndex}`)) {
+        if (replacedArchive.has(`${recordIndex}:${surfaceIndex}`)) {
           auditCrossing?.({ source: 'city_archive', center, status: 'duplicate' });
           continue;
         }
