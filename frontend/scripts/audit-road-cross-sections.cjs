@@ -233,7 +233,8 @@ function testShadowGrid() {
 }
 
 function verifyElevatedPaint(data, scene) {
-  const expected = data.roadMarkings?.elevatedMarkings?.records.length ?? 0;
+  const records = data.roadMarkings?.elevatedMarkings?.records ?? [];
+  const expected = records.length;
   const paint = scene.children.filter(mesh => mesh.isMesh && mesh.name === '고가 노면표시');
   assert.equal(paint.length > 0, expected > 0, `Missing or unexpected elevated paint in ${data.region}`);
   const dividers = (data.pavement?.elevatedRoads ?? []).flatMap(deck => deck.dividers);
@@ -288,9 +289,44 @@ function verifyElevatedPaint(data, scene) {
     return { managementId, surveyedM2: round(total), renderedM2: round(visible), asphaltOverlapM2: round(asphaltOverlap) };
   });
   const cheonggye = ['seoul-a13305006', 'seoul-a13381608'].includes(data.region) && verifyCheonggyeCarriageway(data, decks);
+  const recovered = records.filter(record => record.nationalLinkIds?.length);
+  const recoveredPaint = recovered.length ? verifyRecoveredWhitePaint(recovered, paint, decks, data) : undefined;
   decks.clear();
   dividerSurface.clear();
-  return { records: expected, triangles, boundaries, ...(cheonggye ? { cheonggyeCarriageway: cheonggye } : {}) };
+  return { records: expected, triangles, boundaries, ...(cheonggye ? { cheonggyeCarriageway: cheonggye } : {}),
+    ...(recoveredPaint ? { recoveredPaint } : {}) };
+}
+
+function verifyRecoveredWhitePaint(records, paintMeshes, decks, data) {
+  const white = createSurfaceClipper();
+  for (const mesh of paintMeshes) {
+    if (mesh.material.color.getHexString() === 'f2eee3') white.addSurface(mesh.geometry);
+  }
+  let sampled = 0, shown = 0;
+  for (const record of records) {
+    const points = record.points.map(data.project);
+    const segments = record.style === 'white-dash'
+      ? surveyedDashSegments(points, record.style, record.busLane ?? false, record.dashOffsetM) : [points];
+    let expected = 0, found = 0;
+    for (const segment of segments) for (let i = 1; i < segment.length; i++) {
+      const a = segment[i - 1], b = segment[i];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const count = Math.ceil(Math.hypot(dx, dz) / 2);
+      for (let n = 0; n < count; n++) {
+        const t = (n + 0.5) / count;
+        const point = { x: a.x + t * dx, z: a.z + t * dz };
+        const deck = decks.heightAt(point), height = white.heightAt(point);
+        expected++;
+        if (deck !== undefined && height !== undefined && Math.abs(height - deck - 0.018) < 0.005) found++;
+      }
+    }
+    assert.ok(expected && found / expected >= 0.96,
+      `Recovered white paint coverage ${found}/${expected} in ${data.region} for ${record.managementId}`);
+    sampled += expected;
+    shown += found;
+  }
+  white.clear();
+  return { records: records.length, sampled, shown };
 }
 
 function verifyCheonggyeCarriageway(data, rendered) {

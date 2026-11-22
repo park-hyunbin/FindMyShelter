@@ -8,7 +8,7 @@ from shapely.geometry import GeometryCollection, LineString, box
 from shapely.ops import unary_union
 
 from prepare_seoul_elevated_alignment import connected_vertex_runs, divider_recovery, reconcile_divided_sections
-from prepare_seoul_elevated_markings import export_window, unambiguous_deck_paint
+from prepare_seoul_elevated_markings import export_window, national_deck_sections, unambiguous_deck_paint
 from prepare_seoul_lane_windows import lane_item
 from prepare_seoul_road_windows import (
     CentrelineEvidence, align_ground_ramps, find_surveyed_deck_roads, ground_link_support, separate_decks,
@@ -273,6 +273,36 @@ class DividedDeckAlignmentTest(unittest.TestCase):
 
 
 class DeckPaintTest(unittest.TestCase):
+    def test_white_bridge_lane_needs_an_independent_upper_link_and_keeps_its_dash_phase(self):
+        def coords(start, end, y):
+            return gps([(200000 + start, 550000 + y), (200000 + end, 550000 + y)])
+
+        original = LineString([(200000, 550000), (200060, 550000)])
+        observed = LineString([(200010, 550000), (200020, 550000)])
+        grade = {"sourceId": "bridge", "roadIds": [10],
+                 "polygons": [[gps(box(200002, 549997, 200058, 550003).exterior.coords)]]}
+        pavement = {"roadDataset": {"sha256": "source"}, "structureSources": [{"sha256": "structure"}],
+                    "elevatedRoads": [grade], "roads": [], "sidewalks": []}
+        road = {"id": 10, "motor": True, "bridge": True, "unpaved": False, "coordinates": coords(0, 60, 1)}
+        national = Network(np.array([LineString([(200000, 550001), (200060, 550001)])]), ["upper"], np.array(["003"]))
+        markings = {"roadDataset": pavement["roadDataset"]}
+        export_window(markings, pavement, "source", [("observed", "lane", "006", "white-dash", observed)],
+                      STRtree([observed]), [("source-line", "lane", "006", "white-dash", original)],
+                      STRtree([original]), [road], national=national)
+        base, restored = markings["elevatedMarkings"]["records"]
+        self.assertEqual(base["featureId"], "observed")
+        self.assertEqual(restored["nationalLinkIds"], ["upper"])
+        self.assertAlmostEqual(restored["dashOffsetM"], 20.5)
+        self.assertEqual(restored["points"], coords(20.5, 58, 0))
+
+    def test_parallel_national_ground_link_blocks_white_paint_on_the_bridge(self):
+        line = LineString([(0, 0), (40, 0)])
+        deck = box(-1, -3, 41, 3)
+        upper = LineString([(0, 1), (40, 1)])
+        lower = LineString([(0, -1), (40, -1)])
+        national = Network(np.array([upper, lower]), ["bridge", "ground"], np.array(["003", "000"]))
+        self.assertEqual(list(national_deck_sections(line, deck, deck, national)), [])
+
     def test_lanes_from_a_reassigned_surface_keep_their_indexed_extent_and_dash_origin(self):
         def coords(start, end, y):
             return gps([(200000 + start, 550000 + y), (200000 + end, 550000 + y)])

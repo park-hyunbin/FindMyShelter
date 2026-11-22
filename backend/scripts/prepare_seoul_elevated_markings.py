@@ -18,22 +18,28 @@ from index_seoul_road_markings import future_installation, snapshot_features
 from prepare_neighborhood_pavement import GRID_M, parts
 from prepare_seoul_current_crosswalks import digest, local_polygon
 from prepare_seoul_lane_windows import lane_item
+from prepare_seoul_ramp_lanes import SOURCE as NATIONAL_LINKS_SOURCE
 from prepare_songpa_road_markings import REGIONS, lane_style
-from reconcile_seoul_marking_links import MISSING, SPACING_M, Network, sample_spans, select_axes
+from reconcile_seoul_marking_links import (
+    MISSING, SPACING_M, Network, axis_candidates, load_national_links, sample_spans, select_axes,
+)
 
 
 LAYER = "A058_L"
 MIN_DECK_SHARE = 0.98
 SAME_PAINT_M = 0.15
 SURVEYED_PAINT_CLEARANCE_M = 0.5
+WHITE_LANE_KINDS = ("006", "007")
+ELEVATED_LINK_KINDS = ("001", "003")
 
 
-def marking_sources(snapshot, day, level):
+def marking_sources(snapshot, day, level, *, include_white_lanes=False):
     condition = " AND ".join(f"json_extract(properties,'$.{key}')='{value}'" for key, value in (
         ("VIEW_CDE", "002"), ("STAT_CDE", "001"), ("EVE_CDE", level),
     ))
     if level == "001":
-        condition += " AND json_extract(properties,'$.A058_KND_CDE')='001'"
+        kinds = ("001", *WHITE_LANE_KINDS) if include_white_lanes else ("001",)
+        condition += " AND json_extract(properties,'$.A058_KND_CDE') IN (" + ",".join(map(repr, kinds)) + ")"
     for _, identifier, tags, geometry in snapshot_features(snapshot, LAYER, condition):
         kind = tags.get("A058_KND_CDE")
         style = lane_style(kind, tags.get("A058_KND2_CDE"))
@@ -96,6 +102,29 @@ def supported_deck_sections(original, carriageway, deck, owner, ground, paint, m
                 yield verified
 
 
+def national_deck_sections(line, carriageway, outline, national):
+    _, _, _, coordinates, tangents = sample_spans(np.array([line]), np.zeros(1), np.array([line.length]))
+    stop = np.zeros(len(coordinates), dtype=bool)
+    elevated = np.isin(national.kinds, ELEVATED_LINK_KINDS)
+    samples, owners, _, _, _ = axis_candidates(
+        national, coordinates, tangents, np.full(len(coordinates), carriageway, dtype=object), stop,
+        require_projection=True, require_connected=True, owner_mask=elevated,
+    )
+    competing, _, _, _, _ = axis_candidates(
+        national, coordinates, tangents, np.full(len(coordinates), outline, dtype=object), stop,
+        require_projection=True, require_connected=True, owner_mask=~elevated,
+    )
+    supported = np.zeros(len(coordinates), dtype=bool)
+    supported[samples] = True
+    supported[competing] = False
+    boundaries = np.linspace(0, line.length, len(coordinates) + 1)
+    transitions = np.flatnonzero(np.diff(np.r_[False, supported, False]))
+    for start, end in transitions.reshape(-1, 2):
+        if boundaries[end] - boundaries[start] >= 3 * SPACING_M:
+            links = sorted({national.references[owner] for owner in owners[(samples >= start) & (samples < end)]})
+            yield substring(line, boundaries[start], boundaries[end]), links
+
+
 def reassigned_road_markings(road_index, snapshot_sha, road_ufids):
     if not road_ufids:
         return {}
@@ -118,7 +147,7 @@ def reassigned_road_markings(road_index, snapshot_sha, road_ufids):
 
 
 def export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads,
-                  reassigned_paint=None):
+                  reassigned_paint=None, national=None):
     if markings.get("roadDataset") != pavement.get("roadDataset") or (
         pavement.get("roadDataset", {}).get("sha256") != snapshot_sha
     ):
@@ -167,8 +196,12 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
         existing_paint = confirmed_paint.buffer(SAME_PAINT_M)
         isolated_carriageway = carriageway.difference(ground_and_walk)
         surveyed_clearance = confirmed_paint.buffer(SURVEYED_PAINT_CLEARANCE_M)
-        for i in sorted(ground_index.query(carriageway, predicate="intersects")):
+        ground_candidates = sorted(ground_index.query(carriageway, predicate="intersects"))
+        published_strokes = explicit_strokes.copy()
+        for i in ground_candidates:
             identifier, management, kind, style, original = ground_sources[i]
+            if kind != "001":
+                continue
             whole = (original.intersection(deck).length >= MIN_DECK_SHARE * original.length
                      and original.intersection(ground).length <= GRID_M)
             # A source line may leave the deck at its approach or cross several
@@ -181,6 +214,7 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                 item = lane_item(verified, original, style, kind)
                 item.update(deckId=source_id, featureId=identifier, managementId=management, sourceLevel="001")
                 records.append(item)
+                published_strokes.append(verified)
                 counts["length_m"] += verified.length
                 counts["inferred_deck_m"] += verified.length
                 if not whole:
@@ -196,8 +230,25 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                         item = lane_item(verified, original, style, kind)
                         item.update(deckId=source_id, featureId=identifier, managementId=management, sourceLevel="001")
                         records.append(item)
+                        published_strokes.append(verified)
                         counts["length_m"] += verified.length
                         counts["reassigned_deck_m"] += verified.length
+        if national is not None:
+            clearance = union_all(published_strokes).buffer(SURVEYED_PAINT_CLEARANCE_M)
+            for i in ground_candidates:
+                identifier, management, kind, style, original = ground_sources[i]
+                if kind not in WHITE_LANE_KINDS or style not in ("white", "white-dash"):
+                    continue
+                for verified in supported_deck_sections(original, isolated_carriageway, deck, owner, ground_network,
+                                                        clearance, 3 * SPACING_M):
+                    for line, links in national_deck_sections(verified, carriageway, deck, national):
+                        item = lane_item(line, original, style, kind, preserve_vertices=True)
+                        item.update(deckId=source_id, featureId=identifier, managementId=management, sourceLevel="001",
+                                    nationalLinkIds=links)
+                        records.append(item)
+                        clearance = clearance.union(line.buffer(SURVEYED_PAINT_CLEARANCE_M))
+                        counts["length_m"] += line.length
+                        counts["corroborated_white_m"] += line.length
     # A rerun must remove a deck whose source or boundary has ceased to support it.
     markings.pop("elevatedMarkings", None)
     if records:
@@ -206,7 +257,7 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
             **{key: round(value, 2) for key, value in counts.items()}}
 
 
-def build(snapshot_path, regions, output, road_index=None):
+def build(snapshot_path, regions, output, road_index=None, national_links=None):
     snapshot_sha = digest(snapshot_path)
     with closing(sqlite3.connect(snapshot_path.resolve().as_uri() + "?mode=ro", uri=True)) as snapshot:
         raw, = snapshot.execute("SELECT value FROM metadata WHERE key='report'").fetchone()
@@ -215,7 +266,9 @@ def build(snapshot_path, regions, output, road_index=None):
             raise ValueError("T-GIS snapshot requires the A058_L marking layer in EPSG:5186")
         day = datetime.fromisoformat(report["requested_at"]).astimezone(timezone(timedelta(hours=9))).date()
         sources = list(marking_sources(snapshot, day, "002"))
-        ground_sources = list(marking_sources(snapshot, day, "001"))
+        ground_sources = list(marking_sources(snapshot, day, "001", include_white_lanes=national_links is not None))
+    national = load_national_links(national_links, report["bounds"]) if national_links else None
+    national_source = {"url": NATIONAL_LINKS_SOURCE, "sha256": digest(national_links)} if national_links else None
     index = STRtree([line for *_, line in sources])
     ground_index = STRtree([line for *_, line in ground_sources])
     inputs = [(file, json.loads(file.with_name("pavement.json").read_text(encoding="utf-8")))
@@ -233,8 +286,11 @@ def build(snapshot_path, regions, output, road_index=None):
             neighborhood = site.get("metadata", {}).get("neighborhood")
             streets = regions.parent / "neighborhoods" / neighborhood if neighborhood else file.parent
             roads = json.loads((streets / "streets.json").read_text(encoding="utf-8"))["roads"]
-        results[file.parent.name] = markings, export_window(markings, pavement, snapshot_sha, sources, index,
-                                                            ground_sources, ground_index, roads, reassigned_paint)
+        counts = export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads,
+                               reassigned_paint, national)
+        if counts.get("corroborated_white_m"):
+            markings["elevatedMarkings"]["nationalLinks"] = national_source
+        results[file.parent.name] = markings, counts
     if not results:
         raise ValueError(f"No Seoul region markings in {regions}")
     for region, (data, _) in results.items():
@@ -250,5 +306,6 @@ if __name__ == "__main__":
     parser.add_argument("--regions", type=Path, default=REGIONS)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--road-index", type=Path, help="Matching T-GIS index for reclassified deck surfaces")
+    parser.add_argument("--national-links", type=Path, help="Standard node-link archive for corroborating white deck paint")
     args = parser.parse_args()
-    print(json.dumps(build(args.snapshot, args.regions, args.output, args.road_index), indent=2))
+    print(json.dumps(build(args.snapshot, args.regions, args.output, args.road_index, args.national_links), indent=2))

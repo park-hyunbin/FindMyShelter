@@ -328,6 +328,16 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 
 공개 서울 장면 10개에 적용해 6개 장면, 7개 고가 시설에서 원본 차선 30건을 연결했다. `node frontend/scripts/audit-road-cross-sections.cjs --verify-elevated`로 전체 장면의 고가 도색 삼각형이 실제 렌더링 차도 높이에서 1.8cm 위에 놓이는지 검사한다. 고가 외곽이 서로 겹치거나 대응하는 고가 경계가 없는 구간에는 추가 자료가 필요하다. 이 검사는 고가 차도의 현장 높이와 실제 폭을 별도로 측정한 결과와 구분한다.
 
+### 고가 흰 차선의 층위 대조
+
+T-GIS에서 지상으로 표기된 흰 차선과 길 가장자리 표시 `006`·`007`도 실제로는 조사된 교량·고가 차도 위에 있을 수 있다. 기존 차도 경계 안에서 도색 좌표와 고가 도로망 진행축을 잇고, 국가 표준노드링크의 고가·교량 진행축도 같은 차도 안에서 나란한지 대조한다. 같은 구조물에 다른 층의 진행축이 나란히 있거나 차선이 지상 차도, 보도, 분리대, 다른 상판 또는 기존 도색에 걸리면 해당 부분을 보류한다. 4m 이하 간격의 표본으로 연속된 12m 이상을 확인한다. [서울시 노면표시 원본](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [국가 표준노드링크](https://www.its.go.kr/nodelink/nodelinkRef)
+
+판정을 통과한 흰 선은 원본의 정점과 점선 시작 거리, 관리번호, 근거가 된 표준 링크 ID를 저장한다. 고가 차도 포장은 기존 조사 경계를 사용한다. 서울 공개 6개 장면에서 5개 고가 시설의 노면표시 원본 25건을 연결했다. 겹치는 장면을 합친 선형 길이는 **3.75km**다. 이 길이는 점선의 빈 간격을 포함한다. 운영 빌드는 복원한 각 선을 실제 3D 도색 메시에서 표본으로 찾아 고가 차도 위에 놓이는지 검사한다. [추출기](../../backend/scripts/prepare_seoul_elevated_markings.py) · [운영 빌드 검사](../../frontend/scripts/audit-road-cross-sections.cjs)
+
+```powershell
+uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_elevated_markings.py ../road-source-cache/tgis-live-seoul.sqlite --road-index ../road-source-cache/tgis-live-seoul-filtered-index.sqlite --national-links ../road-source-cache/national-road-links-2026-11-11.zip --output ../road-source-cache/elevated-paint
+```
+
 ### 평행 교량의 차도 경계
 
 서울의 교량 구조물 외곽, 교통시설물 차도 외곽, 항공영상은 각각 경계의 기준과 촬영 시점이 다르다. 평행한 상판에서는 가운데 빈 공간도 검수한다. 마포대교는 서울시 시설 자료에 상·하류 상판 폭이 각각 22.75m로 기록된다. 공개 항공영상의 같은 단면에서 두 상판 사이가 약 4~5m로 분리되어 보였다. 촬영본에 따라 같은 상판이 영상에서 수m씩 이동해 보이므로, 도색 위치를 볼 때 두 상판과 경계를 함께 놓고 비교한다. [서울시 마포대교 시설 제원](https://opengov.seoul.go.kr/og/com/download.php?dname=2008-PR-07_0.pdf&uri=%2Ffiles%2Fdcdata%2F100313%2F20151020%2FF0000044083766.pdf) · [항공영상 아카이브](https://livingatlas.arcgis.com/wayback/)

@@ -70,7 +70,7 @@ def extract_lanes(db, bounds, kinds):
             yield item
 
 
-def lane_item(line, original, style, kind):
+def lane_item(line, original, style, kind, *, preserve_vertices=False):
     dashed = style.endswith("-dash") or "-combined" in style
     if dashed:
         begin = original.project(Point(line.coords[0]))
@@ -79,7 +79,7 @@ def lane_item(line, original, style, kind):
             line = line.reverse()
             begin = end
     # The short intersection dashes need the surveyed curve's distance through bends.
-    points = line.coords if style == "white-guide-dash" else line.simplify(0.11).coords
+    points = line.coords if preserve_vertices or style == "white-guide-dash" else line.simplify(0.11).coords
     item = {"style": style, "points": gps(points)}
     if dashed and begin > 0.001:
         item["dashOffsetM"] = round(begin, 3)
