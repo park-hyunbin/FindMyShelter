@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
-    "build": "node scripts/audit-road-cross-sections.cjs --verify-crossings && next build && node scripts/build-tour-worker.mjs",
+    "build": "node scripts/audit-road-cross-sections.cjs --verify-crossings && node scripts/audit-road-cross-sections.cjs --verify-elevated && next build && node scripts/build-tour-worker.mjs",
     "serve:tour": "node scripts/serve-tours.mjs"
   },
   "dependencies": {

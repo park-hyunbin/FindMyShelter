@@ -32,6 +32,8 @@ LAYERS = {
     "A004_A": ("MGRNU", "GU_CDE", "STAT_CDE", "VIEW_CDE", "EVE_CDE", "ESB_YMD", "CAE_YMD", "SIXID",
                "A004_KND_CDE", "A004_KND2_CDE"),
 }
+DEFAULT_LAYERS = tuple(LAYERS)
+LAYERS["C080_A"] = ("MGRNU", "TYPE", "VIEW_CDE")
 SCHEMA = """
 CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE feature (
@@ -152,11 +154,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("cache", type=Path, help="Fresh tile cache, reusable when resuming the same collection")
     parser.add_argument("output", type=Path, help="SQLite snapshot output")
-    parser.add_argument("--layer", action="append", choices=LAYERS, help="Collect a subset of the default four layers")
+    parser.add_argument("--layer", action="append", choices=LAYERS, help="Collect a named layer instead of the defaults")
     args = parser.parse_args()
     if args.output.suffix.lower() != ".sqlite":
         parser.error("output must have a .sqlite suffix")
-    print(json.dumps(collect(args.cache, args.output, dict.fromkeys(args.layer or LAYERS)), indent=2))
+    print(json.dumps(collect(args.cache, args.output, dict.fromkeys(args.layer or DEFAULT_LAYERS)), indent=2))
 
 
 if __name__ == "__main__":

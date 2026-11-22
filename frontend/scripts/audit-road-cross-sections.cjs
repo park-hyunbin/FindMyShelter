@@ -43,8 +43,7 @@ function getSurface(mesh, masks) {
   surface?.addSurface(mesh.geometry);
 }
 
-function surveyedSurface(areas, exclusions) {
-  const surface = createSurfaceClipper();
+function surveyedSurface(areas, exclusions, surface = createSurfaceClipper()) {
   for (const rings of areas) {
     const shape = groundPolygon(rings, () => 0, 28, 0);
     const exposed = exclusions?.subtract(shape) ?? shape;
@@ -178,7 +177,10 @@ function verifyElevatedPaint(data, scene) {
   const expected = data.roadMarkings?.elevatedMarkings?.records.length ?? 0;
   const paint = scene.children.filter(mesh => mesh.isMesh && mesh.name === '고가 노면표시');
   assert.equal(paint.length > 0, expected > 0, `Missing or unexpected elevated paint in ${data.region}`);
-  if (!expected) return;
+  const dividers = (data.pavement?.elevatedRoads ?? []).flatMap(deck => deck.dividers);
+  const renderedDividers = scene.children.filter(mesh => mesh.isMesh && mesh.name === '고가 분리 경계');
+  assert.equal(renderedDividers.length > 0, dividers.length > 0, `Missing or unexpected elevated divider in ${data.region}`);
+  if (!expected && !dividers.length) return;
   const decks = createSurfaceClipper();
   for (const mesh of scene.children) {
     if (mesh.isMesh && mesh.name === '고가 차도') decks.addSurface(mesh.geometry);
@@ -197,8 +199,38 @@ function verifyElevatedPaint(data, scene) {
       triangles++;
     }
   }
+  const dividerSurface = createSurfaceClipper();
+  renderedDividers.forEach(mesh => dividerSurface.addSurface(mesh.geometry));
+  function coveredArea(outline, surface) {
+    const clipped = surface.clipOnce(outline, 0);
+    const position = clipped.getAttribute('position');
+    let area = 0;
+    for (let i = 0; i < position.count; i += 3) {
+      const x = position.getX(i), z = position.getZ(i);
+      area += Math.abs((position.getX(i + 1) - x) * (position.getZ(i + 2) - z)
+        - (position.getX(i + 2) - x) * (position.getZ(i + 1) - z)) / 2;
+    }
+    clipped.dispose();
+    return area;
+  }
+  const boundaries = dividers.map(({ managementId, shapes }) => {
+    const survey = surveyedSurface(shapes);
+    let total = 0, visible = 0, asphaltOverlap = 0;
+    for (const rings of shapes) {
+      const outline = groundPolygon(rings, () => 0, 28, 0);
+      total += coveredArea(outline, survey);
+      visible += coveredArea(outline, dividerSurface);
+      asphaltOverlap += coveredArea(outline, decks);
+      outline.dispose();
+    }
+    survey.clear();
+    assert.ok(total > 0 && visible >= total * 0.99 && asphaltOverlap < 0.5,
+      `Elevated divider ${managementId} in ${data.region}: ${visible}/${total} m² visible, ${asphaltOverlap} m² of asphalt overlaps`);
+    return { managementId, surveyedM2: round(total), renderedM2: round(visible), asphaltOverlapM2: round(asphaltOverlap) };
+  });
   decks.clear();
-  return { records: expected, triangles };
+  dividerSurface.clear();
+  return { records: expected, triangles, boundaries };
 }
 
 function assertGarakCrosswalk(scene, project, checks) {
@@ -293,16 +325,16 @@ function visibleIntervals(station, normal, surface, pavement, adjoiningPaving) {
 
 const round = value => Math.round(value * 1000) / 1000;
 
-function crossSection(station, normal, surveyed, surface, pavement, adjoiningPaving, coverage) {
-  const center = ([start, end]) => start <= 0 && end >= 0;
-  const reference = mergeIntervals(surveyed.section(station, normal, radius)).find(center);
+function crossSection(station, normal, surveyed, surface, pavement, adjoiningPaving, coverage, offset = 0) {
+  const contains = ([start, end]) => start <= offset && end >= offset;
+  const reference = mergeIntervals(surveyed.section(station, normal, radius)).find(contains);
   if (!reference) return { status: 'outside_source' };
   if (coverage && reference.some(distance => {
     const x = station.x + normal.x * distance, z = station.z + normal.z * distance;
     return Math.min(x - coverage.west, coverage.east - x, z - coverage.north, coverage.south - z) < 0.05;
   })) return { status: 'coverage_boundary' };
   if (reference.some(side => Math.abs(side) >= radius)) return { status: 'open_section' };
-  const visible = visibleIntervals(station, normal, surface, pavement, adjoiningPaving).find(center) ?? [0, 0];
+  const visible = visibleIntervals(station, normal, surface, pavement, adjoiningPaving).find(contains) ?? [offset, offset];
   const maxEdgeError = Math.max(...reference.map((side, index) => Math.abs(side - visible[index])));
   return {
     status: 'compared',
@@ -310,6 +342,21 @@ function crossSection(station, normal, surveyed, surface, pavement, adjoiningPav
     renderedM: round(visible[1] - visible[0]),
     maxEdgeErrorM: round(maxEdgeError),
   };
+}
+
+function auditDividerSection(station, normal, decks, bridge, coverage) {
+  for (const { boundary, carriageway } of decks) {
+    if (boundary.heightAt(station) === undefined) continue;
+    const island = mergeIntervals(boundary.section(station, normal, radius)).find(([a, b]) => a <= 0 && b >= 0);
+    if (!island) continue;
+    const [left, right] = island;
+    const across = mergeIntervals(carriageway.section(station, normal, radius));
+    const adjacent = across.filter(([a, b]) => Math.abs(left - b) < 0.05 || Math.abs(right - a) < 0.05);
+    return {
+      dividerM: round(right - left),
+      sides: adjacent.map(([a, b]) => crossSection(station, normal, carriageway, bridge, undefined, undefined, coverage, (a + b) / 2)),
+    };
+  }
 }
 
 async function audit(region, crossingsOnly, elevatedOnly) {
@@ -375,7 +422,21 @@ async function audit(region, crossingsOnly, elevatedOnly) {
       north: Math.min(...corners.map(point => point.z)), south: Math.max(...corners.map(point => point.z)),
     };
   }
-  const elevated = surveyedSurface((data.pavement.elevatedRoads ?? []).flatMap(({ shapes }) => shapes));
+  const elevated = createSurfaceClipper();
+  const dividedDecks = new Map();
+  for (const { roadIds, shapes, dividers } of data.pavement.elevatedRoads ?? []) {
+    if (!dividers.length) {
+      surveyedSurface(shapes, undefined, elevated);
+      continue;
+    }
+    const boundary = surveyedSurface(dividers.flatMap(divider => divider.shapes));
+    surveyedSurface(shapes, boundary, elevated);
+    const deck = { boundary, carriageway: surveyedSurface(shapes, boundary) };
+    for (const roadId of roadIds) {
+      if (!dividedDecks.has(roadId)) dividedDecks.set(roadId, []);
+      dividedDecks.get(roadId).push(deck);
+    }
+  }
   const asphalt = createSurfaceClipper();
   const bridge = createSurfaceClipper();
   const pavers = createSurfaceClipper();
@@ -390,6 +451,7 @@ async function audit(region, crossingsOnly, elevatedOnly) {
     visuallyWithinHalfMetre: 0, missing: 0, widthErrors: [] });
   const statistics = counts();
   const overpasses = counts();
+  const dividerSections = [];
   for (const road of data.streets) {
     if (!road.motor || road.unpaved || (road.bridge && !data.pavement.elevatedRoads)) continue;
     const row = road.bridge ? overpasses : statistics;
@@ -403,6 +465,13 @@ async function audit(region, crossingsOnly, elevatedOnly) {
       for (let j = 0; j < subdivisions; j++) {
         const t = (j + 0.5) / subdivisions;
         const station = { x: a.x + t * dx, z: a.z + t * dz };
+        const divided = dividedDecks.get(road.id);
+        const dividerSection = divided && auditDividerSection(station, normal, divided, bridge, coverage);
+        if (dividerSection) {
+          dividerSections.push({ road: road.name ?? road.id, roadId: road.id,
+            node: road.nodeIds[i - 1], endNode: road.nodeIds[i], atM: round(t * length), ...dividerSection });
+          continue;
+        }
         const sample = road.bridge ? crossSection(station, normal, elevated, bridge, undefined, undefined, coverage)
           : crossSection(station, normal, survey, asphalt, pavers, undefined, coverage);
         if (sample.status === 'outside_source') { row.outsideSource++; continue; }
@@ -449,9 +518,14 @@ async function audit(region, crossingsOnly, elevatedOnly) {
   }
 
   [survey, elevated, asphalt, bridge, pavers, adjoiningPaving].forEach(surface => surface.clear());
+  for (const { boundary, carriageway } of new Set([...dividedDecks.values()].flat())) {
+    boundary.clear();
+    carriageway.clear();
+  }
   ground.geometry.dispose();
   scene.traverse(object => { if (object.isMesh) object.geometry.dispose(); });
-  return { region, ...statistics, overpasses, ...(gate.length ? { garakGate: gate, gates } : {}) };
+  return { region, ...statistics, overpasses, ...(dividerSections.length ? { dividerSections } : {}),
+    ...(gate.length ? { garakGate: gate, gates } : {}) };
 }
 
 (async () => {

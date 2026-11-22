@@ -695,17 +695,37 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const asphalt = finish ? '#e2ecf8' : '#737878';
   const bridgeFootprint = elevatedRoads && createSurfaceClipper();
   const bridgePaint = new Map<string, ReturnType<typeof createSurfaceClipper>>();
-  for (const { sourceId, roadIds, shapes } of elevatedRoads ?? []) {
+  for (const { sourceId, roadIds, shapes, dividers } of elevatedRoads ?? []) {
     const paintSurface = paintedDeckIds.has(sourceId) ? createSurfaceClipper() : undefined;
     if (paintSurface) bridgePaint.set(sourceId, paintSurface);
     const owners = new Set<number>(roadIds);
+    const dividerShapes = dividers.flatMap(divider => divider.shapes);
+    const dividerBoundary = dividerShapes.length ? footprint(dividerShapes) : undefined;
+    const undividedDeck = dividerBoundary && createSurfaceClipper();
     for (const rings of shapes) {
       const deck = pavementArea(rings, deckLift, 1.45, owners);
       bridgeFootprint?.addSurface(deck);
-      paintSurface?.addSurface(deck);
       fallbackExclusions?.addSurface(deck);
-      add(asphalt, deck, 'asphalt', false, '고가 차도');
+      undividedDeck?.addSurface(deck);
+      const carriageway = dividerBoundary ? trimFallback(deck, dividerBoundary) : deck;
+      paintSurface?.addSurface(carriageway);
+      add(asphalt, carriageway, 'asphalt', false, '고가 차도');
     }
+    if (undividedDeck) {
+      // A structure outline includes its dividers. Preserve that outline for
+      // fallback exclusion while projecting paint only onto the carriageway.
+      const grade = (x: number, z: number) => undividedDeck.heightAt({ x, z }) ?? surfaceAt(x, z, owners) + deckLift;
+      for (const rings of dividerShapes) {
+        const mask = groundPolygon(rings, () => 0, 28, 0);
+        add('#a8aaa6', undividedDeck.clipOnce(mask, sidewalkRise), undefined, false, '고가 분리 경계');
+        mask.dispose();
+        for (const ring of rings) {
+          add('#888c88', sidewalkFascia(ring, grade, (x, z) => grade(x, z) + sidewalkRise));
+        }
+      }
+      undividedDeck.clear();
+    }
+    dividerBoundary?.clear();
   }
   function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface,
     roadDeck = false, trim = false, owners?: ReadonlySet<number>, roadShoulder = false) {

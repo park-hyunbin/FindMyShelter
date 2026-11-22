@@ -248,6 +248,22 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 
 공개 서울 장면 10개에 적용해 6개 장면, 7개 고가 시설에서 원본 차선 30건을 연결했다. `node frontend/scripts/audit-road-cross-sections.cjs --verify-elevated`로 전체 장면의 고가 도색 삼각형이 실제 렌더링 차도 높이에서 1.8cm 위에 놓이는지 검사한다. 고가 외곽이 서로 겹치거나 대응하는 고가 경계가 없는 구간에는 추가 자료가 필요하다. 이 검사는 고가 차도의 현장 높이와 실제 폭을 별도로 측정한 결과와 구분한다.
 
+## 고가 차도의 교통섬과 분리 경계
+
+S-Map 입체교차부 외곽은 교통섬을 포함한 구조물의 외곽이다. 이전 렌더러는 이 전체를 아스팔트로 처리했다. 차도 양쪽이 분리된 내부순환로에서 폭 검사가 섬을 지나 반대쪽 포장까지 합산할 수 있었고, 도색 투영에 사용한 포장 면도 교통섬을 포함했다. [서울시 S-Map 입체교차부](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0090000.zip)
+
+서울시 T-GIS `C080_A`는 교통섬과 중앙분리대의 평면 경계를 제공한다. 별도 층위 필드가 없어 EPSG:5186에서 생활권 내 도형 면적의 99% 이상이 고가 외곽 하나에 있으며 지상 차도·보도와 유의하게 겹치지 않는 경우에 연결한다. 여러 층이나 지상과 겹치는 위치는 근거를 더 확인할 대상으로 남긴다. [서울시 T-GIS 시민용 지도](https://tgis.eseoul.go.kr/map/mapMain.do)
+
+연결된 경계와 원본 관리번호를 `pavement.json`의 시설별 `dividers`에 저장한다. 고가 차도와 고가 도색이 같은 경계를 사용하고, 추정 포장이 섬을 다시 덮지 않도록 구조물 전체 외곽은 추정 포장 제외 범위에 남긴다. 경계의 높이는 장면의 고가 표면에서 가져오며, 교통섬 턱 14cm는 공통 표시 높이로 적용한다. 폭 검사는 두 차도를 가르는 경계를 같은 층에서 사용한다.
+
+```powershell
+python backend/scripts/collect_seoul_tgis_wfs.py .road-source-cache tgis-dividers.sqlite --layer C080_A
+python backend/scripts/prepare_seoul_elevated_dividers.py tgis-dividers.sqlite --output review-dividers
+node frontend/scripts/audit-road-cross-sections.cjs --verify-elevated
+```
+
+2026-11-22 스냅샷에서 서울 공개 장면 10개를 검사했다. 왕십리삼성과 청계천현대에 함께 들어오는 내부순환로 시설 한 곳에서 교통섬 2개를 연결했다. 도로망 중심이 분리 경계 안에 있는 단면 13곳에서 양쪽 차도 폭을 각각 비교했다. 한 단면에서 차도 폭 각각 약 13.78m와 12.15m, 사이의 교통섬 약 0.58m가 원본과 일치했다. 빌드에서 고가 도색이 포장에 붙는지와 교통섬이 원본 도형만큼 보이며 아스팔트와 거의 겹치지 않는지 검사한다.
+
 ## 앞으로 사용할 데이터 구조
 
 1. **서울 전역을 한 번 수집하고 생활권으로 자른다.** 서울시 T-GIS 차선·정지선·차도·보도·횡단보도를 같은 좌표계와 조회 범위로 읽는다. 감속 표시와 도로 중심선은 별도 출처를 연결한다. 차선과 차도를 같은 생활권 경계와 여유 범위로 내보내고, 서로 겹치는 장면에서 같은 구간 데이터를 공유한다. 원본의 관측·설치일과 자료 조회 시각, 좌표계와 피처 식별자를 함께 기록한다. [서울시 T-GIS 시민용 지도](https://tgis.eseoul.go.kr/map/mapMain.do) · [일괄 수집 방법](seoul-road-bulk-sources.md#자동으로-갱신하고-검사하는-명령)
