@@ -7,10 +7,12 @@ export const sidewalkRise = 0.14;
 
 export function createSidewalkSeams() {
   const decks = createSurfaceClipper();
-  const sides: { geometry: T.BufferGeometry; add: (geometry: T.BufferGeometry) => void }[] = [];
+  const sides: {
+    geometry: T.BufferGeometry; add: (geometry: T.BufferGeometry) => void; hidden?: (point: Point) => boolean;
+  }[] = [];
 
   function finish() {
-    for (const { geometry, add } of sides) {
+    for (const { geometry, add, hidden } of sides) {
       const positions = geometry.getAttribute('position');
       const vertices: number[] = [];
       // Wall generators emit quads along each edge. A neighboring deck on both sides
@@ -39,6 +41,7 @@ export function createSidewalkSeams() {
         }
         for (let step = 0; step < steps; step++) {
           const center = at((step + 0.5) / steps);
+          if (hidden?.(center)) continue;
           const a = at(step / steps), b = at((step + 1) / steps);
           const left = decks.heightAt({ x: center.x + nx, z: center.z + nz });
           const right = decks.heightAt({ x: center.x - nx, z: center.z - nz });
@@ -61,7 +64,8 @@ export function createSidewalkSeams() {
 
   return {
     addDeck: decks.addSurface,
-    addSide: (geometry: T.BufferGeometry, add: (geometry: T.BufferGeometry) => void) => sides.push({ geometry, add }),
+    addSide: (geometry: T.BufferGeometry, add: (geometry: T.BufferGeometry) => void, hidden?: (point: Point) => boolean) =>
+      sides.push({ geometry, add, hidden }),
     finish,
   };
 }

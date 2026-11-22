@@ -365,6 +365,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     ...pavementBounds(shape), ...detail,
   }));
   const pedestrianPavements = [...municipalWalks, ...trafficIslands];
+  const municipalSurface = data.pavement?.paired ? createSurfaceClipper() : undefined;
+  if (municipalSurface) for (const { rings } of [...municipalRoads, ...pedestrianPavements]) {
+    const footprint = groundPolygon(rings, () => 0, 28, 0);
+    municipalSurface.addSurface(footprint);
+    footprint.dispose();
+  }
   const measuredSegments = new Map<string, [number, number][]>((data.pavement?.coveredSegments ?? []).map(([road, node, spans]) => [
     `${road}:${node}`, spans,
   ] as const));
@@ -505,9 +511,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   const deferredPaint: { mask: T.BufferGeometry; color: string; width: number }[] = [];
   const layers = new Map<string, {
-    color: string; texture?: TourSurface; geometry: T.BufferGeometry[]; castsShadow: boolean; paint: boolean;
+    color: string; texture?: TourSurface; geometry: T.BufferGeometry[]; castsShadow: boolean; paint: boolean; parking: boolean;
   }>();
-  function add(color: string, geometry: T.BufferGeometry, texture?: TourSurface, castsShadow = false) {
+  function add(color: string, geometry: T.BufferGeometry, texture?: TourSurface, castsShadow = false, parking = false) {
     if (!geometry.getAttribute('position')?.count) { geometry.dispose(); return; }
     if (geometry.index) {
       const flat = geometry.toNonIndexed();
@@ -517,10 +523,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (texture && finish) surfaceUV(geometry, texture);
     else geometry.deleteAttribute('uv');
     const paint = !!geometry.getAttribute('paintWidth');
-    const key = `${color}:${texture ?? ''}:${castsShadow}:${paint}`;
+    const key = `${color}:${texture ?? ''}:${castsShadow}:${paint}:${parking}`;
     const layer = layers.get(key);
     if (layer) layer.geometry.push(geometry);
-    else layers.set(key, { color, texture, geometry: [geometry], castsShadow, paint });
+    else layers.set(key, { color, texture, geometry: [geometry], castsShadow, paint, parking });
   }
   function addPaint(color: string, geometry: T.BufferGeometry, width: number) {
     const position = geometry.getAttribute('position');
@@ -556,8 +562,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   function addSurveyedRoad(ring: Point[]) {
     // Where a junction and a surveyed road overlap, keep the junction's top surface.
     const deck = pavementArea([ring], deckLift, 1.45);
-    const exposed = priorityRoads.subtract(deck);
+    const surveyed = priorityRoads.subtract(deck);
     deck.dispose();
+    const exposed = municipalSurface?.subtract(surveyed) ?? surveyed;
+    if (exposed !== surveyed) surveyed.dispose();
     const outline = groundPolygon([ring], () => 0, 24, 0);
     priorityRoads.addSurface(outline);
     fallbackExclusions?.addSurface(outline);
@@ -575,7 +583,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   if (data.pavement) {
     const reviewed = createSurfaceClipper();
     const priorityAreas = [
-      ...[...surveyedPavements, ...junctionPavements, ...surveyedWalks].map(({ ring }) => [ring]),
+      ...(municipalSurface ? [] : [...surveyedPavements, ...junctionPavements, ...surveyedWalks].map(({ ring }) => [ring])),
       ...trafficIslands.map(({ rings }) => rings),
     ];
     for (const rings of priorityAreas) {
@@ -756,7 +764,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         if (!finish || isPath || road.bridge) {
           strip(line, width + (isPath ? 0.14 : 0.42), deckLift - (urban ? 0.024 : 0.09), isPath ? '#a29477' : '#a29f91');
         }
-        strip(line, width, deckLift, tint, texture, pavedMotorRoad, pavedMotorRoad && !road.bridge);
+        strip(line, width, deckLift, tint, texture, pavedMotorRoad, !road.bridge && (pavedMotorRoad || !!municipalSurface));
       }
       if (!isPath) for (const line of surfaces) {
         for (const point of (urban && width > 12 ? [line[0], line[line.length - 1]] : line)) {
@@ -838,8 +846,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
     paint(run);
   }
-  for (const area of data.parking) add(finish ? '#ddd9cf' : '#90918a',
-    urban ? pavementArea(area, 0.045, 2) : groundPolygon(area, (x, z) => surface(x, z) + 0.11), 'asphalt');
+  for (const area of data.parking) {
+    const deck = urban ? pavementArea(area, 0.045, 2) : groundPolygon(area, (x, z) => surface(x, z) + 0.11);
+    const exposed = municipalSurface?.subtract(deck) ?? deck;
+    if (exposed !== deck) deck.dispose();
+    add(finish ? '#ddd9cf' : '#90918a', exposed, 'asphalt', false, true);
+  }
   const busStops: Point[] = [], benches: Point[] = [];
   for (const item of data.streetPoints) {
     if (item.kind === 'bus') busStops.push(item.position);
@@ -854,7 +866,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   fallbackExclusions?.clear();
   function flushLayers() {
-    for (const { color, texture, geometry: geometries, castsShadow, paint } of layers.values()) {
+    for (const { color, texture, geometry: geometries, castsShadow, paint, parking } of layers.values()) {
       const geometry = mergeGeometries(geometries);
       geometries.forEach(item => item.dispose());
       if (!geometry) continue;
@@ -878,6 +890,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       if (texture && finish) finish(material, texture);
       if (urban && texture === 'asphalt') material.color.multiplyScalar(1.42);
       const mesh = new T.Mesh(geometry, material);
+      if (parking) mesh.name = '주차 포장';
       mesh.receiveShadow = true;
       mesh.castShadow = castsShadow;
       scene.add(mesh);
@@ -951,6 +964,13 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   markers(new T.BoxGeometry(1.45, 0.16, 0.48), '#88725a', benches, 0.62);
   markers(new T.BoxGeometry(1.15, 0.48, 0.12), '#53615b', benches, 0.31);
   const streetClearance = (point: Point) => {
+    const position = new T.Vector2(point.x, point.z);
+    if (data.pavement?.paired) {
+      const walk = pedestrianPavements.find(({ rings, bounds }) => bounds.containsPoint(position) && inShape(point, rings));
+      if (walk) return Math.max(0.01, nearestOnLine(point, walk.boundaries).distance);
+      const lane = municipalRoads.find(({ rings, bounds }) => bounds.containsPoint(position) && inShape(point, rings));
+      if (lane) return -nearestOnLine(point, lane.boundaries).distance;
+    }
     let minimum = network.nearby(point, 24).reduce((clearance, { segment, distance, t }) => {
       const key = `${segment.road.id}:${segment.aId}`;
       const approach = exitApproaches.get(key);
@@ -959,7 +979,6 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         || measuredSegments.get(key)?.some(([from, to]) => t >= from && t <= to)
         ? clearance : Math.min(clearance, distance - segment.width / 2);
     }, Infinity);
-    const position = new T.Vector2(point.x, point.z);
     for (const { ring, boundary, bounds } of streetPavements) {
       if (!bounds.containsPoint(position)) continue;
       const distance = nearestOnLine(point, [boundary]).distance;
@@ -989,6 +1008,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   };
   const roadClearance = (point: Point) => {
     const street = streetClearance(point);
+    if (data.pavement?.paired && sidewalkElevation(point) !== undefined) return street;
     if (!sitePavement?.bounds.containsPoint(new T.Vector2(point.x, point.z))) return street;
     const distance = nearestOnLine(point, [sitePavement.boundary]).distance;
     return Math.min(street, inShape(point, [sitePavement.ring]) ? -distance : distance);
@@ -1010,8 +1030,16 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       return surface(point.x, point.z) + deckLift;
     }
   }
+  function municipalRoadElevation(point: Point) {
+    if (!data.pavement?.paired || sidewalkElevation(point) !== undefined) return undefined;
+    const position = new T.Vector2(point.x, point.z);
+    if (municipalRoads.some(({ rings, bounds }) => bounds.containsPoint(position) && inShape(point, rings))) {
+      return surface(point.x, point.z) + deckLift;
+    }
+  }
   return { ...network, drive, surface, deckLift, roadClearance, streetClearance, addSurveyedPaint,
     sidewalkElevation, serviceElevation, municipalTreeHeights,
+    municipalPaving: municipalSurface && { footprint: municipalSurface, roadElevation: municipalRoadElevation, sidewalkElevation },
     setPaintProjection: (height: number, fov: number) => {
       paintProjection.value = height / (2 * Math.tan(T.MathUtils.degToRad(fov / 2)));
     } };

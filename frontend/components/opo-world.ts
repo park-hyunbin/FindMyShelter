@@ -124,8 +124,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
   if (treeCoverOverlay) scene.add(treeCoverOverlay);
   const site = addSiteDetails(data, scene, streets.surface, finish, streets.streetClearance, insideBuilding,
-    terrainProjection, sidewalkSeams);
+    terrainProjection, sidewalkSeams, streets.municipalPaving);
   sidewalkSeams?.finish();
+  streets.municipalPaving?.footprint.clear();
   streets.addSurveyedPaint(site.paving?.asphaltDecks);
   const environment = addEnvironment(data, scene, terrainProjection, finish, point => {
     const road = streets.nearest(point, 14);

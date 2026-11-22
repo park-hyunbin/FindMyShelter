@@ -17,7 +17,7 @@ import { songiPark, songiParkApproach, songiParkSurvey } from './data/songi-park
 import { surveyedRoute } from './data/songpa-route-elevation';
 import { addParkingCanopy } from './opo-songpa-entrance';
 import { addSongpaCourtyard } from './opo-songpa-courtyard';
-import { addSiteSurfaces } from './opo-site-surfaces';
+import { addSiteSurfaces, type MunicipalPaving } from './opo-site-surfaces';
 import type { createSidewalkSeams } from './opo-curb-walk';
 import { addPlayground } from './opo-playground';
 
@@ -85,10 +85,11 @@ export function addSongpaSchoolMap(data: OpoData, scene: T.Scene, grade: OpoData
 
 export function addSiteDetails(data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
   roadClearance: (point: Point) => number, insideBuilding: (point: Point) => boolean,
-  terrain?: ReturnType<typeof createTerrainProjection>, sidewalkSeams?: ReturnType<typeof createSidewalkSeams>) {
+  terrain?: ReturnType<typeof createTerrainProjection>, sidewalkSeams?: ReturnType<typeof createSidewalkSeams>,
+  municipalPaving?: MunicipalPaving) {
   const surfaces = siteSurfaces[data.region];
   const paving = surfaces && addSiteSurfaces(data, scene, grade, finish, surfaces.layout, roadClearance, insideBuilding,
-    terrain, sidewalkSeams);
+    terrain, sidewalkSeams, municipalPaving);
   if (data.region === 'songpa') {
     addParkingCanopy(data, scene, songpaEntrance.garage.canopy,
       (x, z) => paving?.drivewayElevation({ x, z }) ?? grade(x, z));

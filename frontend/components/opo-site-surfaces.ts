@@ -190,11 +190,18 @@ function fencePlinth(line: Point[], ground: OpoData['ground'], width: number, he
   return joined;
 }
 
+export type MunicipalPaving = {
+  footprint: ReturnType<typeof createSurfaceClipper>;
+  roadElevation: (point: Point) => number | undefined;
+  sidewalkElevation: (point: Point) => number | undefined;
+};
+
 export function addSiteSurfaces(
   data: OpoData, scene: T.Scene, grade: OpoData['ground'], finish: TourMaterials,
   layout: SiteSurfaceLayout, roadClearance: (point: Point) => number, insideBuilding?: (point: Point) => boolean,
   terrain?: ReturnType<typeof createTerrainProjection>,
   sidewalkSeams?: ReturnType<typeof createSidewalkSeams>,
+  municipalPaving?: MunicipalPaving,
 ) {
   const asphalt = material('#e2ecf8', 'asphalt');
   asphalt.color.multiplyScalar(1.42);
@@ -241,14 +248,24 @@ export function addSiteSurfaces(
     }
   }
 
-  function addWalk(deck: T.BufferGeometry, value = paving, texture?: TourSurface) {
+  function outsideMunicipalSurface(geometry: T.BufferGeometry) {
+    if (!municipalPaving) return geometry;
+    const visible = municipalPaving.footprint.subtract(geometry);
+    geometry.dispose();
+    return visible;
+  }
+
+  function addWalk(geometry: T.BufferGeometry, value = paving, texture?: TourSurface) {
+    const deck = outsideMunicipalSurface(geometry);
     sidewalkSeams?.addDeck(deck);
     const surface = add(deck, value, texture);
     if (surface) walkDecks.push(surface);
+    return deck;
   }
 
   function addWalkSide(geometry: T.BufferGeometry) {
-    if (sidewalkSeams) sidewalkSeams.addSide(geometry, exposed => add(exposed, edging, undefined, false));
+    const hidden = municipalPaving && ((point: Point) => municipalPaving.footprint.heightAt(point) !== undefined);
+    if (sidewalkSeams) sidewalkSeams.addSide(geometry, exposed => add(exposed, edging, undefined, false), hidden);
     else add(geometry, edging, undefined, false);
   }
 
@@ -275,7 +292,9 @@ export function addSiteSurfaces(
     return top;
   }
   const elevation = (point: Point) => surfaceHeight(point, decks);
-  const drivewayElevation = (point: Point) => surfaceHeight(point, drivewayDecks);
+  const drivewayOutline = layout.pavedDrive && [layout.pavedDrive.map(data.project)];
+  const drivewayElevation = (point: Point) => surfaceHeight(point, drivewayDecks)
+    ?? (drivewayOutline && inShape(point, drivewayOutline) ? municipalPaving?.roadElevation(point) : undefined);
   function walkableSurfaces() {
     const sidewalks = createSurfaceClipper(3);
     const paving = createSurfaceClipper(3);
@@ -340,7 +359,9 @@ export function addSiteSurfaces(
     if (divisions < 2) return;
     const bay = axis.length / divisions;
     const beds = Array.from({ length: divisions }, (_, i) => axis.at(0, (i + 0.5) * bay));
-    const floors = beds.map(drivewayElevation);
+    const floorAt = (point: Point) => drivewayElevation(point) ?? (municipalPaving
+      && (municipalPaving.sidewalkElevation(point) ?? elevation(point) ?? streetGrade(point.x, point.z)));
+    const floors = beds.map(floorAt);
     if (floors.some(y => y === undefined)) return;
 
     const group = new T.Group();
@@ -359,7 +380,7 @@ export function addSiteSurfaces(
     beds.forEach((point, i) => box(point, floors[i]! + rise / 2 - 0.015, [width, rise + 0.03, bay], curb[i % 2]));
     for (const { atM, side, lengthM, raised } of arms) {
       const point = axis.at(0, atM);
-      const floor = drivewayElevation(point);
+      const floor = floorAt(point);
       if (floor === undefined) continue;
       const base = floor + rise;
       box(point, base + 0.43, [0.27, 0.86, 0.38], cabinet);
@@ -376,9 +397,8 @@ export function addSiteSurfaces(
   }
 
   const drivewayCenterline: Point[] | undefined = layout.drive && curve(layout.drive.points);
-  if (layout.pavedDrive) {
-    const outline = [layout.pavedDrive.map(data.project)];
-    const mask = groundPolygon(outline, terrain ? () => 0 : drivewayGrade, 0.65, 0);
+  if (drivewayOutline) {
+    const mask = groundPolygon(drivewayOutline, terrain ? () => 0 : drivewayGrade, 0.65, 0);
     const deck = terrain ? terrain.fit(mask, 0) : mask;
     // Split at the same terrain triangle edges as the street before applying the approach grade.
     if (terrain) {
@@ -388,9 +408,9 @@ export function addSiteSurfaces(
       }
       deck.computeVertexNormals();
     }
-    add(deck, asphalt, 'asphalt');
+    add(outsideMunicipalSurface(deck), asphalt, 'asphalt');
   } else if (layout.drive && drivewayCenterline) {
-    add(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1), asphalt, 'asphalt');
+    add(outsideMunicipalSurface(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1)), asphalt, 'asphalt');
   }
   const walkAreas = [...(layout.walkAreas ?? []).map(outline => [outline]), ...(layout.walkSurfaces ?? [])]
     .map(polygon => polygon.map(ring => ring.map(data.project)));
@@ -420,7 +440,7 @@ export function addSiteSurfaces(
   for (const entry of layout.buildingEntries ?? []) {
     const facade = buildingEntry(data, entry, grade, pathRise);
     if (!facade) continue;
-    add(facade.connector, paving, 'pavers');
+    addWalk(facade.connector, paving, 'pavers');
     for (const deck of facade.stepDecks) add(deck, edging);
     scene.add(facade.exterior);
   }
@@ -433,8 +453,9 @@ export function addSiteSurfaces(
   const treeWellGround: T.BufferGeometry[] = [];
   for (const { id, outline, centerline } of layout.surveyedWalks ?? []) {
     const ring = outline.map(data.project);
-    const walkingSurface = terrain?.area([ring], deckLift + sidewalkRise) ?? groundPolygon([ring], walkGrade, 0.8, 0);
-    addWalk(walkingSurface, paving, 'pavers');
+    const walkingSurface = addWalk(
+      terrain?.area([ring], deckLift + sidewalkRise) ?? groundPolygon([ring], walkGrade, 0.8, 0), paving, 'pavers',
+    );
     addWalkSide(sidewalkFascia(ring, grade, walkGrade));
     if (id && centerline?.length) sidewalkCenterlines.set(id, centerline.map(data.project));
     if (id) surveyedWalks.set(id, { outline: ring, surface: walkingSurface });
@@ -480,10 +501,10 @@ export function addSiteSurfaces(
     }
     const planted = edgeFinish === 'planted';
     const visibleTop = outsideSurvey(top);
-    if (planted) add(visibleTop, plantedEdge, 'forest');
+    if (planted) add(outsideMunicipalSurface(visibleTop), plantedEdge, 'forest');
     else addWalk(visibleTop, paving, 'pavers');
     const visibleCurb = outsideSurvey(curbGeometry);
-    if (planted) add(visibleCurb, edging);
+    if (planted) add(outsideMunicipalSurface(visibleCurb), edging);
     else addWalk(visibleCurb, edging);
     addWalkSide(curbFace);
     addWalkSide(fascia);

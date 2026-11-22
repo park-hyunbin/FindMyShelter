@@ -420,6 +420,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
       edgeFeatherM: localTerrain.edgeFeatherM },
     roadMarkings, crossingWays: neighborhood?.crossingWays?.map(([a, b]) => [project(a), project(b)] as const) ?? [],
     pavement: pavement && { roads: pavement.roads.map(toShape), sidewalks: pavement.sidewalks.map(toShape), trafficIslands,
+      paired: Boolean(pavement.roadDataset),
       coveredSegments: pavement.coveredSegments },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
