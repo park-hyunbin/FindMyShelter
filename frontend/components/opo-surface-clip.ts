@@ -186,7 +186,14 @@ export function createSurfaceClipper(cellSize = 10) {
       }
       if (end > start) intervals.push([start, end]);
     }
-    return intervals;
+    const connected: [number, number][] = [];
+    for (const [from, to] of intervals.sort((a, b) => a[0] - b[0])) {
+      const last = connected.at(-1);
+      // Join triangle seams at millimetre scale without joining separate decks.
+      if (last && from <= last[1] + 0.002) last[1] = Math.max(last[1], to);
+      else connected.push([from, to]);
+    }
+    return connected;
   }
   return { addSurface, clip, subtract, heightAt, section, clear: () => cells.clear() };
 }

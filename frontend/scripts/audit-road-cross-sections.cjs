@@ -1,4 +1,5 @@
 const fs = require('node:fs/promises');
+const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');
@@ -21,6 +22,7 @@ const { addStreets } = fromTour('./components/opo-streets.ts');
 const { addSiteDetails } = fromTour('./components/opo-site.ts');
 const { createSidewalkSeams } = fromTour('./components/opo-curb-walk.ts');
 const { createSurfaceClipper } = require('../components/opo-surface-clip.ts');
+const { crossingSupport, fitCrosswalkToMeasuredRoad } = require('../components/opo-crosswalks.ts');
 const scenes = fromTour('./components/data/seoul-scenes.generated.json');
 
 // Vegetation materials need a canvas, but the road audit uses triangle positions only.
@@ -50,6 +52,49 @@ function surveyedSurface(areas, exclusions) {
     shape.dispose();
   }
   return surface;
+}
+
+function testCrossingSupport() {
+  const rectangle = (left, right, from = -8, to = 8) => [
+    [{ x: left, z: from }, { x: right, z: from }, { x: right, z: to }, { x: left, z: to }],
+  ];
+  const road = surveyedSurface([rectangle(-5, 5)]);
+  const walks = surveyedSurface([rectangle(-8, -5), rectangle(5, 8)]);
+  const oneSide = surveyedSurface([rectangle(-8, -5), rectangle(5, 8, 1, 8)]);
+  const clippedPaint = surveyedSurface([rectangle(-2, 2)]);
+  const medianRoad = surveyedSurface([rectangle(-5, 0), rectangle(1, 6)]);
+  const medianWalk = surveyedSurface([rectangle(-8, -5), rectangle(0, 1), rectangle(6, 8)]);
+  const area = (width, x = 0) => ({ center: { x, z: 0 }, direction: { x: 0, z: 1 }, depth: 3,
+    section: { width } });
+  assert.equal(crossingSupport(area(10), road, walks), 'connected');
+  assert.equal(crossingSupport(area(5, -2.5), medianRoad, medianWalk), 'connected');
+  assert.equal(crossingSupport(area(4), road, walks), 'paint_ends_inside_road');
+  assert.equal(crossingSupport(area(14), road, walks), 'paint_beyond_road');
+  assert.equal(crossingSupport(area(10), road, oneSide), 'no_landing');
+  assert.equal(crossingSupport(area(10), road, walks, clippedPaint), 'paint_ends_inside_road');
+  assert.equal(crossingSupport(area(10, 20), road, walks), 'no_carriageway');
+  const fitted = fitCrosswalkToMeasuredRoad(area(6, 1), road);
+  assert.equal(fitted.center.x, 0);
+  assert.equal(fitted.section.width, 10);
+  assert.equal(crossingSupport(fitted, road, walks, clippedPaint), 'paint_ends_inside_road');
+  for (const surface of [road, walks, oneSide, clippedPaint, medianRoad, medianWalk]) surface.clear();
+}
+
+function assertGarakCrosswalk(scene, project, checks) {
+  assert.ok(checks.some(check => check.source === 'site_estimate' && check.status === 'paint_ends_inside_road'));
+  const disputed = [[127.1168360, 37.4977930], [127.1168540, 37.4977770],
+    [127.1168082, 37.4977411], [127.1167878, 37.4977552]].map(project);
+  const paint = createSurfaceClipper();
+  scene.traverse(mesh => {
+    if (mesh.isMesh && mesh.geometry.hasAttribute('paintWidth')
+      && ['eeeee4', 'dedbd0'].includes(mesh.material.color.getHexString())) paint.addSurface(mesh.geometry);
+  });
+  const outline = groundPolygon([disputed], () => 0, 28, 0);
+  const overlap = paint.clip(outline, 0);
+  assert.equal(overlap.getAttribute('position').count, 0, 'A crosswalk was drawn inside the disputed Garak road footprint');
+  outline.dispose();
+  overlap.dispose();
+  paint.clear();
 }
 
 const radius = 45;
@@ -102,9 +147,9 @@ function crossSection(station, normal, surveyed, surface, pavement, parking) {
   };
 }
 
-async function audit(region) {
+async function audit(region, crossingsOnly) {
   const data = await loadOpoData(new AbortController().signal, region);
-  if (!data.pavement || !data.roadMarkings?.roadDataset) throw new Error(`No paired pavement in ${region}`);
+  if (!crossingsOnly && (!data.pavement || !data.roadMarkings?.roadDataset)) throw new Error(`No paired pavement in ${region}`);
   const scene = new T.Scene();
   const ground = makeGround(data);
   const projection = createTerrainProjection(ground.geometry);
@@ -115,7 +160,9 @@ async function audit(region) {
     material.userData.auditSurface = texture === 'asphalt' && material.color.getHexString() === 'ddd9cf' ? 'parking' : texture;
     return material;
   };
-  const streets = addStreets(data, scene, finish, projection, inside, seams);
+  const checks = [];
+  const streets = addStreets(data, scene, finish, projection, inside, seams,
+    crossingsOnly ? check => checks.push(check) : undefined);
   const detail = addSiteDetails(
     data, scene, streets.surface, finish, streets.streetClearance, inside, projection, seams,
     streets.municipalPaving,
@@ -124,6 +171,18 @@ async function audit(region) {
   streets.municipalPaving?.footprint.clear();
   streets.addSurveyedPaint(detail.paving?.asphaltDecks);
   projection.clear();
+
+  if (crossingsOnly) {
+    if (region === 'songpa') assertGarakCrosswalk(scene, data.project, checks);
+    const counts = {};
+    for (const { source, status } of checks) {
+      const outcomes = counts[source] ??= {};
+      outcomes[status] = (outcomes[status] ?? 0) + 1;
+    }
+    ground.geometry.dispose();
+    scene.traverse(object => { if (object.isMesh) object.geometry.dispose(); });
+    return { region, counts, checks };
+  }
 
   const islands = surveyedSurface(data.pavement.trafficIslands.map(({ shape }) => shape));
   const survey = surveyedSurface(data.pavement.roads, islands);
@@ -207,8 +266,19 @@ async function audit(region) {
 }
 
 (async () => {
-  const requested = process.argv.slice(2);
-  for (const region of requested.length ? requested : ['songpa', 'jamsil-leel', ...scenes.map(scene => scene.id)]) {
-    console.log(JSON.stringify(await audit(region)));
+  const args = process.argv.slice(2);
+  const verifyCrossings = args.includes('--verify-crossings');
+  const crossingsOnly = verifyCrossings || args.includes('--crossings-only');
+  const requested = args.filter(arg => !['--crossings-only', '--verify-crossings'].includes(arg));
+  const regions = ['songpa', 'jamsil-leel', ...scenes.map(scene => scene.id)];
+  if (crossingsOnly) {
+    testCrossingSupport();
+    regions.push('opo');
+  }
+  const selected = requested.length ? requested : verifyCrossings ? ['songpa'] : regions;
+  for (const region of selected) {
+    const report = await audit(region, crossingsOnly);
+    if (verifyCrossings) console.log(`Crosswalk verification passed for ${region}`);
+    else console.log(JSON.stringify(report));
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });
