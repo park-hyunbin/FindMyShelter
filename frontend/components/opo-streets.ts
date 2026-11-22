@@ -109,11 +109,12 @@ export function createStreetNetwork(roads: Street[]) {
     } };
   }
 
-  function raiseBridge(point: Point) {
+  function raiseBridge(point: Point, owners?: ReadonlySet<number>) {
     const nearby = bridges.get(`${Math.floor(point.x / cellSize)},${Math.floor(point.z / cellSize)}`);
     if (!nearby) return 0;
     let height = 0;
     for (const segment of nearby) {
+      if (owners && !owners.has(segment.road.id)) continue;
       const hit = segmentLocation(point, segment);
       if (hit.distance > segment.width / 2 + 0.55) continue;
       const roadStart = segment.road.points[0], roadEnd = segment.road.points.at(-1)!;
@@ -364,6 +365,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const trafficIslands = (data.pavement?.trafficIslands ?? []).map(({ shape, ...detail }) => ({
     ...pavementBounds(shape), ...detail,
   }));
+  const elevatedRoads = data.pavement?.elevatedRoads;
+  const bridgeOwners = new Map(roads.filter(road => road.bridge).map(({ id }) => [id, new Set([id])]));
   const pedestrianPavements = [...municipalWalks, ...trafficIslands];
   const municipalSurface = data.pavement?.paired ? createSurfaceClipper() : undefined;
   if (municipalSurface) for (const { rings } of [...municipalRoads, ...pedestrianPavements]) {
@@ -444,6 +447,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (exactCrossings.some(({ ring, boundary }) => inShape(center, [ring]) || nearestOnLine(center, [boundary]).distance < 4)) return;
     const radius = Math.min(45, Math.max(4, ...outline.map(point => Math.hypot(point.x - center.x, point.z - center.z))));
     for (const approximation of fitCrosswalk(outline, network.nearby(center, radius), confirmed)) {
+      if (elevatedRoads && approximation.section.road.bridge) continue;
       const patch = surveyedPavements.find(patch => !patch.siteDriveway && patch.roadId === approximation.section.road.id
         && inShape(approximation.center, [patch.ring]));
       const crossing = patch ? fitCrosswalkDeck(approximation, patch.ring) : approximation;
@@ -482,12 +486,17 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       joined.set(id, (joined.get(id) ?? 0) + edges);
     });
   }
-  const surface = (x: number, z: number) => terrainSurface(data.ground, x, z) + network.raiseBridge({ x, z });
-  function withBridgeGrade(geometry: T.BufferGeometry) {
+  function surfaceAt(x: number, z: number, owners?: ReadonlySet<number>) {
+    const ground = terrainSurface(data.ground, x, z);
+    return elevatedRoads && !owners ? ground : ground + network.raiseBridge({ x, z }, owners);
+  }
+  const surface = (x: number, z: number) => surfaceAt(x, z);
+  function withBridgeGrade(geometry: T.BufferGeometry, owners?: ReadonlySet<number>) {
+    if (elevatedRoads && !owners) return geometry;
     const position = geometry.getAttribute('position');
     let raised = false;
     for (let i = 0; i < position.count; i++) {
-      const lift = network.raiseBridge({ x: position.getX(i), z: position.getZ(i) });
+      const lift = network.raiseBridge({ x: position.getX(i), z: position.getZ(i) }, owners);
       if (!lift) continue;
       position.setY(i, position.getY(i) + lift);
       raised = true;
@@ -495,12 +504,13 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (raised) geometry.computeVertexNormals();
     return geometry;
   }
-  function pavementArea(rings: Point[][], lift: number, maxEdge: number) {
-    return terrain ? withBridgeGrade(terrain.area(rings, lift)) : groundPolygon(rings, surface, maxEdge, lift);
+  function pavementArea(rings: Point[][], lift: number, maxEdge: number, owners?: ReadonlySet<number>) {
+    return terrain ? withBridgeGrade(terrain.area(rings, lift), owners)
+      : groundPolygon(rings, (x, z) => surfaceAt(x, z, owners), maxEdge, lift);
   }
-  function pavementStrip(points: Point[], width: number, lift: number) {
-    return terrain ? withBridgeGrade(terrain.fit(ribbon(points, width, () => 0), lift))
-      : ribbon(points, width, (x, z) => surface(x, z) + lift, urban ? 1.25 : Infinity);
+  function pavementStrip(points: Point[], width: number, lift: number, owners?: ReadonlySet<number>) {
+    return terrain ? withBridgeGrade(terrain.fit(ribbon(points, width, () => 0), lift), owners)
+      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + lift, urban ? 1.25 : Infinity);
   }
   const paintProjection = { value: 1 };
   const fallbackExclusions = (data.pavement || tracedDrive) && createSurfaceClipper();
@@ -511,9 +521,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   const deferredPaint: { mask: T.BufferGeometry; color: string; width: number }[] = [];
   const layers = new Map<string, {
-    color: string; texture?: TourSurface; geometry: T.BufferGeometry[]; castsShadow: boolean; paint: boolean; parking: boolean;
+    color: string; texture?: TourSurface; geometry: T.BufferGeometry[]; castsShadow: boolean; paint: boolean; name?: string;
   }>();
-  function add(color: string, geometry: T.BufferGeometry, texture?: TourSurface, castsShadow = false, parking = false) {
+  function add(color: string, geometry: T.BufferGeometry, texture?: TourSurface, castsShadow = false, name?: string) {
     if (!geometry.getAttribute('position')?.count) { geometry.dispose(); return; }
     if (geometry.index) {
       const flat = geometry.toNonIndexed();
@@ -523,10 +533,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (texture && finish) surfaceUV(geometry, texture);
     else geometry.deleteAttribute('uv');
     const paint = !!geometry.getAttribute('paintWidth');
-    const key = `${color}:${texture ?? ''}:${castsShadow}:${paint}:${parking}`;
+    const key = `${color}:${texture ?? ''}:${castsShadow}:${paint}:${name ?? ''}`;
     const layer = layers.get(key);
     if (layer) layer.geometry.push(geometry);
-    else layers.set(key, { color, texture, geometry: [geometry], castsShadow, paint, parking });
+    else layers.set(key, { color, texture, geometry: [geometry], castsShadow, paint, name });
   }
   function addPaint(color: string, geometry: T.BufferGeometry, width: number) {
     const position = geometry.getAttribute('position');
@@ -543,21 +553,32 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (data.pavement && roadPaint) deferredPaint.push({ mask: ribbon(points, width, () => 0), color, width });
     else addCrossingPaint(color, pavementStrip(points, width, height), width);
   }
-  function trimFallback(geometry: T.BufferGeometry) {
-    if (!fallbackExclusions) return geometry;
-    const exposed = fallbackExclusions.subtract(geometry);
+  function trimFallback(geometry: T.BufferGeometry, exclusions = fallbackExclusions) {
+    if (!exclusions) return geometry;
+    const exposed = exclusions.subtract(geometry);
     geometry.dispose();
     return exposed;
   }
-  function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface,
-    roadDeck = false, trim = false) {
-    let geometry = texture ? pavementStrip(points, width, height)
-      : ribbon(points, width, (x, z) => surface(x, z) + height, urban ? 1.25 : Infinity);
-    if (trim) geometry = trimFallback(geometry);
-    if (roadDeck) roadPaint?.addSurface(geometry);
-    add(color, geometry, texture);
-  }
   const asphalt = finish ? '#e2ecf8' : '#737878';
+  const bridgeFootprint = elevatedRoads && createSurfaceClipper();
+  for (const { roadIds, shapes } of elevatedRoads ?? []) {
+    const owners = new Set<number>(roadIds);
+    for (const rings of shapes) {
+      const deck = pavementArea(rings, deckLift, 1.45, owners);
+      bridgeFootprint?.addSurface(deck);
+      fallbackExclusions?.addSurface(deck);
+      add(asphalt, deck, 'asphalt', false, '고가 차도');
+    }
+  }
+  function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface,
+    roadDeck = false, trim = false, owners?: ReadonlySet<number>) {
+    let geometry = texture ? pavementStrip(points, width, height, owners)
+      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + height, urban ? 1.25 : Infinity);
+    if (owners && bridgeFootprint) geometry = trimFallback(geometry, bridgeFootprint);
+    else if (trim) geometry = trimFallback(geometry);
+    if (roadDeck && !owners) roadPaint?.addSurface(geometry);
+    add(color, geometry, texture, false, roadDeck && owners ? '고가 차도' : undefined);
+  }
   const priorityRoads = createSurfaceClipper();
   function addSurveyedRoad(ring: Point[]) {
     // Where a junction and a surveyed road overlap, keep the junction's top surface.
@@ -655,6 +676,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       } else crossingStrip(line, 0.44, deckLift + 0.075, tone);
     }
 
+    // A graph-derived landing can cut across a surveyed lane at a skewed junction.
+    if (municipalSurface) return;
     road.sidewalks.forEach((present, index) => {
       if (!present) return;
       const side = index === 0 ? 1 : -1;
@@ -715,8 +738,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const texture = unpaved ? 'forest' : isPath ? (urban ? 'pavers' : 'cobble') : 'asphalt';
     const tint = finish ? (urban && texture === 'asphalt' ? '#e2ecf8' : isMain ? '#dfdedd' : '#fffaf3') : color;
     const pavedMotorRoad = road.motor && !isPath && !unpaved;
+    const owners = elevatedRoads ? bridgeOwners.get(road.id) : undefined;
     function interruptedStrip(points: Point[], widthM: number, lift: number, color: string, texture?: TourSurface, shoulder = 0) {
-      for (const run of leaveCrosswalkGaps(points, roadCrossings, shoulder)) strip(run, widthM, lift, color, texture, false, true);
+      for (const run of leaveCrosswalkGaps(points, roadCrossings, shoulder)) strip(run, widthM, lift, color, texture, false, true, owners);
     }
     function urbanSidewalks(points: Point[], previous: boolean, next: boolean) {
       const gap = Math.max(3.5, Math.min(width * 0.44, 8));
@@ -762,9 +786,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       }
       for (const line of surfaces) {
         if (!finish || isPath || road.bridge) {
-          strip(line, width + (isPath ? 0.14 : 0.42), deckLift - (urban ? 0.024 : 0.09), isPath ? '#a29477' : '#a29f91');
+          strip(line, width + (isPath ? 0.14 : 0.42), deckLift - (urban ? 0.024 : 0.09), isPath ? '#a29477' : '#a29f91',
+            undefined, false, false, owners);
         }
-        strip(line, width, deckLift, tint, texture, pavedMotorRoad, !road.bridge && (pavedMotorRoad || !!municipalSurface));
+        strip(line, width, deckLift, tint, texture, pavedMotorRoad, !road.bridge && (pavedMotorRoad || !!municipalSurface), owners);
       }
       if (!isPath) for (const line of surfaces) {
         for (const point of (urban && width > 12 ? [line[0], line[line.length - 1]] : line)) {
@@ -772,14 +797,15 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
           let cap: T.BufferGeometry = new T.CircleGeometry(width / 2, 10);
           cap.rotateX(-Math.PI / 2).translate(point.x, 0, point.z);
           if (terrain) {
-            cap = withBridgeGrade(terrain.fit(cap, deckLift - 0.015));
+            cap = withBridgeGrade(terrain.fit(cap, deckLift - 0.015), owners);
           } else if (urban) {
             const positions = cap.getAttribute('position');
-            for (let i = 0; i < positions.count; i++) positions.setY(i, surface(positions.getX(i), positions.getZ(i)) + deckLift - 0.015);
+            for (let i = 0; i < positions.count; i++) positions.setY(i, surfaceAt(positions.getX(i), positions.getZ(i), owners) + deckLift - 0.015);
           } else cap.translate(0, surface(point.x, point.z) + 0.445, 0);
-          const trimmed = pavedMotorRoad && !road.bridge ? trimFallback(cap) : cap;
-          if (pavedMotorRoad) roadPaint?.addSurface(trimmed);
-          add(tint, trimmed, texture);
+          const trimmed = owners && bridgeFootprint ? trimFallback(cap, bridgeFootprint)
+            : pavedMotorRoad && !road.bridge ? trimFallback(cap) : cap;
+          if (pavedMotorRoad && !owners) roadPaint?.addSurface(trimmed);
+          add(tint, trimmed, texture, false, pavedMotorRoad && owners ? '고가 차도' : undefined);
         }
       }
       if (urban && road.motor) {
@@ -796,11 +822,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       if (!urban) road.sidewalks.forEach((sidewalk, i) => {
         if (sidewalk) interruptedStrip(offsetLine(points, (width / 2 + 0.85) * (i ? -1 : 1)), 1.7, 0.57, '#c2b8a5', 'cobble', 1.9);
       });
-      if (road.bridge) for (const side of [-1, 1]) {
-        const edge = offsetLine(points, width / 2 * side);
-        strip(edge, 0.31, 0.69, '#b9b8ad');
+      if (road.bridge) for (const bridgeLine of (owners ? surfaces : [points])) for (const side of [-1, 1]) {
+        const edge = offsetLine(bridgeLine, width / 2 * side);
+        strip(edge, 0.31, 0.69, '#b9b8ad', undefined, false, false, owners);
         if (!finish) {
-          strip(edge, 0.12, 1.12, '#72857f');
+          strip(edge, 0.12, 1.12, '#72857f', undefined, false, false, owners);
           continue;
         }
         const paint = '#515e60';
@@ -813,11 +839,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
           const bays = Math.ceil(length / 1.45);
           const sample = (fraction: number, lift: number) => {
             const x = T.MathUtils.lerp(a.x, b.x, fraction), z = T.MathUtils.lerp(a.z, b.z, fraction);
-            return new T.Vector3(x, surface(x, z) + lift, z);
+            return new T.Vector3(x, surfaceAt(x, z, owners) + lift, z);
           };
           for (let bay = 0; bay < bays; bay++) {
             const at = bay / bays, next = (bay + 1) / bays;
             const post = sample(at, 1.08);
+            if (owners && bridgeFootprint?.heightAt(post) !== undefined) continue;
             add(paint, beam.clone().scale(0.095, 0.91, 0.095).translate(post.x, post.y, post.z), undefined, true);
             for (const lift of [1.11, 1.53]) {
               const from = sample(at, lift), to = sample(next, lift);
@@ -829,7 +856,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
             }
           }
           const end = sample(1, 1.08);
-          add(paint, beam.clone().scale(0.095, 0.91, 0.095).translate(end.x, end.y, end.z), undefined, true);
+          if (!owners || bridgeFootprint?.heightAt(end) === undefined) {
+            add(paint, beam.clone().scale(0.095, 0.91, 0.095).translate(end.x, end.y, end.z), undefined, true);
+          }
         }
         beam.dispose();
       }
@@ -846,11 +875,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
     paint(run);
   }
+  bridgeFootprint?.clear();
   for (const area of data.parking) {
     const deck = urban ? pavementArea(area, 0.045, 2) : groundPolygon(area, (x, z) => surface(x, z) + 0.11);
     const exposed = municipalSurface?.subtract(deck) ?? deck;
     if (exposed !== deck) deck.dispose();
-    add(finish ? '#ddd9cf' : '#90918a', exposed, 'asphalt', false, true);
+    add(finish ? '#ddd9cf' : '#90918a', exposed, 'asphalt', false, '주차 포장');
   }
   const busStops: Point[] = [], benches: Point[] = [];
   for (const item of data.streetPoints) {
@@ -866,7 +896,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   fallbackExclusions?.clear();
   function flushLayers() {
-    for (const { color, texture, geometry: geometries, castsShadow, paint, parking } of layers.values()) {
+    for (const { color, texture, geometry: geometries, castsShadow, paint, name } of layers.values()) {
       const geometry = mergeGeometries(geometries);
       geometries.forEach(item => item.dispose());
       if (!geometry) continue;
@@ -890,7 +920,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       if (texture && finish) finish(material, texture);
       if (urban && texture === 'asphalt') material.color.multiplyScalar(1.42);
       const mesh = new T.Mesh(geometry, material);
-      if (parking) mesh.name = '주차 포장';
+      if (name) mesh.name = name;
       mesh.receiveShadow = true;
       mesh.castShadow = castsShadow;
       scene.add(mesh);
@@ -1015,7 +1045,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   };
   function drive(point: Point, current: Segment) {
     const next = network.drive(point, current);
-    if (!next || (urban && roadClearance(next.point) > 0)) return undefined;
+    if (!next || (urban && !(elevatedRoads && next.segment.road.bridge) && roadClearance(next.point) > 0)) return undefined;
     return next;
   }
   function sidewalkElevation(point: Point) {
@@ -1038,6 +1068,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
   }
   return { ...network, drive, surface, deckLift, roadClearance, streetClearance, addSurveyedPaint,
+    drivingSurface: (point: Point, segment: Segment) => surfaceAt(point.x, point.z, elevatedRoads ? bridgeOwners.get(segment.road.id) : undefined),
     sidewalkElevation, serviceElevation, municipalTreeHeights,
     municipalPaving: municipalSurface && { footprint: municipalSurface, roadElevation: municipalRoadElevation, sidewalkElevation },
     setPaintProjection: (height: number, fov: number) => {

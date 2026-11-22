@@ -945,9 +945,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
       travelSpeed = T.MathUtils.damp(travelSpeed,
         Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
-      const surfaceHeight = streets.surface(position.x, position.z);
+      const surfaceHeight = driving ? streets.drivingSurface(position, driveSegment) : streets.surface(position.x, position.z);
       const modeledFloor = driving && !isOpo ? undefined : walkFloor(position, surfaceHeight);
-      const drivingFloor = driving && !isOpo ? site.paving?.drivewayElevation(position) : undefined;
+      const drivingFloor = driving && !isOpo && !(data.pavement?.elevatedRoads && driveSegment.road.bridge)
+        ? site.paving?.drivewayElevation(position) : undefined;
       const y = drivingFloor ?? (eyeLevel ? undefined : modeledFloor) ?? surfaceHeight;
       const actor = driving ? car : player;
       const actorHeight = modeledFloor === undefined

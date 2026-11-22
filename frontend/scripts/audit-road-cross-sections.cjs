@@ -20,7 +20,7 @@ const { makeGround, groundPolygon, createTerrainProjection } = fromTour('./compo
 const { addStreets } = fromTour('./components/opo-streets.ts');
 const { addSiteDetails } = fromTour('./components/opo-site.ts');
 const { createSidewalkSeams } = fromTour('./components/opo-curb-walk.ts');
-const { createSurfaceClipper } = fromTour('./components/opo-surface-clip.ts');
+const { createSurfaceClipper } = require('../components/opo-surface-clip.ts');
 const scenes = fromTour('./components/data/seoul-scenes.generated.json');
 
 // Vegetation materials need a canvas, but the road audit uses triangle positions only.
@@ -34,54 +34,70 @@ global.fetch = async url => {
 
 function getSurface(mesh, masks) {
   if (!mesh.isMesh || mesh.isInstancedMesh) return;
-  const surface = masks[mesh.name === '주차 포장' ? 'parking' : mesh.material.userData?.auditSurface];
+  const kind = mesh.name === '고가 차도' ? 'bridge'
+    : mesh.name === '주차 포장' ? 'parking' : mesh.material.userData?.auditSurface;
+  const surface = masks[kind];
   surface?.addSurface(mesh.geometry);
 }
 
-function surveyedSurface(areas) {
+function surveyedSurface(areas, exclusions) {
   const surface = createSurfaceClipper();
   for (const rings of areas) {
     const shape = groundPolygon(rings, () => 0, 28, 0);
-    surface.addSurface(shape);
+    const exposed = exclusions?.subtract(shape) ?? shape;
+    surface.addSurface(exposed);
+    if (exposed !== shape) exposed.dispose();
     shape.dispose();
   }
   return surface;
 }
 
-function reach(occupied, origin, normal, direction) {
-  const at = distance => occupied({ x: origin.x + normal.x * direction * distance, z: origin.z + normal.z * direction * distance });
-  let last = 0;
-  for (let distance = 0.25; distance <= 45; distance += 0.25) {
-    if (at(distance)) { last = distance; continue; }
-    let low = last, high = distance;
-    for (let i = 0; i < 8; i++) {
-      const middle = (low + high) / 2;
-      if (at(middle)) low = middle;
-      else high = middle;
-    }
-    return high;
+const radius = 45;
+const seamTolerance = 0.002;
+function mergeIntervals(intervals) {
+  const joined = [];
+  for (const [start, end] of intervals.sort((a, b) => a[0] - b[0])) {
+    const last = joined.at(-1);
+    if (!last || start > last[1] + seamTolerance) joined.push([start, end]);
+    else last[1] = Math.max(last[1], end);
   }
-  return 45;
+  return joined;
+}
+
+function visibleIntervals(station, normal, surface, pavement, parking) {
+  const asphalt = mergeIntervals([...surface.section(station, normal, radius),
+    ...(parking?.section(station, normal, radius) ?? [])]);
+  const sidewalks = mergeIntervals(pavement?.section(station, normal, radius) ?? []);
+  for (const [start, end] of sidewalks) {
+    for (let i = 0; i < asphalt.length; i++) {
+      const [left, right] = asphalt[i], from = Math.max(left, start), to = Math.min(right, end);
+      if (to - from <= seamTolerance) continue;
+      const t = (from + to) / 2;
+      const point = { x: station.x + t * normal.x, z: station.z + t * normal.z };
+      const road = surface.heightAt(point) ?? parking?.heightAt(point);
+      const walk = pavement.heightAt(point);
+      if (road === undefined || walk === undefined || walk < road + 0.055) continue;
+      const exposed = [[left, from], [to, right]].filter(([a, b]) => b - a > seamTolerance);
+      asphalt.splice(i, 1, ...exposed);
+      i += exposed.length - 1;
+    }
+  }
+  return asphalt;
 }
 
 const round = value => Math.round(value * 1000) / 1000;
 
 function crossSection(station, normal, surveyed, surface, pavement, parking) {
-  const isRoad = point => surveyed.heightAt(point) !== undefined;
-  if (!isRoad(station)) return { status: 'outside_source' };
-  const isRenderedRoad = point => {
-    const y = surface.heightAt(point) ?? parking?.heightAt(point), sidewalk = pavement.heightAt(point);
-    return y !== undefined && (sidewalk === undefined || sidewalk < y + 0.055);
-  };
-  const reference = [reach(isRoad, station, normal, -1), reach(isRoad, station, normal, 1)];
-  if (reference.some(side => side >= 45)) return { status: 'open_section' };
-  const visible = isRenderedRoad(station)
-    ? [reach(isRenderedRoad, station, normal, -1), reach(isRenderedRoad, station, normal, 1)] : [0, 0];
+  const center = ([start, end]) => start <= 0 && end >= 0;
+  const reference = mergeIntervals(surveyed.section(station, normal, radius)).find(center);
+  if (!reference) return { status: 'outside_source' };
+  if (reference.some(side => Math.abs(side) >= radius)) return { status: 'open_section' };
+  const visible = visibleIntervals(station, normal, surface, pavement, parking).find(center) ?? [0, 0];
   const maxEdgeError = Math.max(...reference.map((side, index) => Math.abs(side - visible[index])));
   return {
     status: 'compared',
-    referenceM: round(reference[0] + reference[1]),
-    renderedM: round(visible[0] + visible[1]),
+    referenceM: round(reference[1] - reference[0]),
+    renderedM: round(visible[1] - visible[0]),
     maxEdgeErrorM: round(maxEdgeError),
   };
 }
@@ -109,20 +125,27 @@ async function audit(region) {
   streets.addSurveyedPaint(detail.paving?.asphaltDecks);
   projection.clear();
 
-  const survey = surveyedSurface(data.pavement.roads);
+  const islands = surveyedSurface(data.pavement.trafficIslands.map(({ shape }) => shape));
+  const survey = surveyedSurface(data.pavement.roads, islands);
+  islands.clear();
+  const elevated = surveyedSurface((data.pavement.elevatedRoads ?? []).flatMap(({ shapes }) => shapes));
   const asphalt = createSurfaceClipper();
+  const bridge = createSurfaceClipper();
   const pavers = createSurfaceClipper();
   const parking = createSurfaceClipper();
   let gates = 0;
   scene.traverse(object => {
-    if (object.isMesh) getSurface(object, { asphalt, pavers, parking });
+    if (object.isMesh) getSurface(object, { asphalt, bridge, pavers, parking });
     if (object.name === '차량 차단기') gates++;
   });
 
-  const statistics = { compared: 0, outsideSource: 0, open: 0, withinHalfMetre: 0,
-    visuallyWithinHalfMetre: 0, missing: 0, widthErrors: [] };
+  const counts = () => ({ compared: 0, outsideSource: 0, open: 0, withinHalfMetre: 0,
+    visuallyWithinHalfMetre: 0, missing: 0, widthErrors: [] });
+  const statistics = counts();
+  const overpasses = counts();
   for (const road of data.streets) {
-    if (!road.motor || road.bridge || road.unpaved) continue;
+    if (!road.motor || road.unpaved || (road.bridge && !data.pavement.elevatedRoads)) continue;
+    const row = road.bridge ? overpasses : statistics;
     for (let i = 1; i < road.points.length; i++) {
       const a = road.points[i - 1], b = road.points[i];
       const dx = b.x - a.x, dz = b.z - a.z;
@@ -133,24 +156,27 @@ async function audit(region) {
       for (let j = 0; j < subdivisions; j++) {
         const t = (j + 0.5) / subdivisions;
         const station = { x: a.x + t * dx, z: a.z + t * dz };
-        const sample = crossSection(station, normal, survey, asphalt, pavers);
-        if (sample.status === 'outside_source') { statistics.outsideSource++; continue; }
-        if (sample.status === 'open_section') { statistics.open++; continue; }
-        statistics.compared++;
-        if (sample.maxEdgeErrorM <= 0.5) statistics.withinHalfMetre++;
-        if (crossSection(station, normal, survey, asphalt, pavers, parking).maxEdgeErrorM <= 0.5) {
-          statistics.visuallyWithinHalfMetre++;
+        const sample = road.bridge ? crossSection(station, normal, elevated, bridge)
+          : crossSection(station, normal, survey, asphalt, pavers);
+        if (sample.status === 'outside_source') { row.outsideSource++; continue; }
+        if (sample.status === 'open_section') { row.open++; continue; }
+        row.compared++;
+        if (sample.maxEdgeErrorM <= 0.5) row.withinHalfMetre++;
+        if (!road.bridge && crossSection(station, normal, survey, asphalt, pavers, parking).maxEdgeErrorM <= 0.5) {
+          row.visuallyWithinHalfMetre++;
         }
-        if (sample.renderedM === 0) statistics.missing++;
+        if (sample.renderedM === 0) row.missing++;
         if (sample.maxEdgeErrorM > 0.5) {
-          statistics.widthErrors.push({
-            road: road.name ?? road.id, node: road.nodeIds[i - 1], atM: round(t * length), ...sample,
+          row.widthErrors.push({
+            road: road.name ?? road.id, roadId: road.id, node: road.nodeIds[i - 1], endNode: road.nodeIds[i],
+            atM: round(t * length), ...sample,
           });
         }
       }
     }
   }
   statistics.widthErrors.sort((x, y) => y.maxEdgeErrorM - x.maxEdgeErrorM);
+  overpasses.widthErrors.sort((x, y) => y.maxEdgeErrorM - x.maxEdgeErrorM);
 
   const gate = [];
   for (const lane of data.roadMarkings?.lanes ?? []) {
@@ -174,10 +200,10 @@ async function audit(region) {
     }
   }
 
-  [survey, asphalt, pavers, parking].forEach(surface => surface.clear());
+  [survey, elevated, asphalt, bridge, pavers, parking].forEach(surface => surface.clear());
   ground.geometry.dispose();
   scene.traverse(object => { if (object.isMesh) object.geometry.dispose(); });
-  return { region, ...statistics, ...(gate.length ? { garakGate: gate, gates } : {}) };
+  return { region, ...statistics, overpasses, ...(gate.length ? { garakGate: gate, gates } : {}) };
 }
 
 (async () => {

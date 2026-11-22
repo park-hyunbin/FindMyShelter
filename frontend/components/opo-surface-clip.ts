@@ -166,5 +166,27 @@ export function createSurfaceClipper(cellSize = 10) {
     }
     return height;
   }
-  return { addSurface, clip, subtract, heightAt, clear: () => cells.clear() };
+
+  function section(point: Point, direction: Point, radius: number) {
+    const dx = Math.abs(direction.x) * radius, dz = Math.abs(direction.z) * radius;
+    const bounds = { west: point.x - dx, east: point.x + dx, north: point.z - dz, south: point.z + dz };
+    const intervals: [number, number][] = [];
+    for (const { points: [a, b, c] } of nearbySurfaces(bounds)) {
+      let start = -radius, end = radius;
+      for (const [first, last] of [[a, b], [b, c], [c, a]]) {
+        const atOrigin = side(first, last, point);
+        const slope = (last.x - first.x) * direction.z - (last.z - first.z) * direction.x;
+        if (Math.abs(slope) < epsilon) {
+          if (atOrigin < -epsilon) { start = radius; break; }
+        } else {
+          const edge = -atOrigin / slope;
+          if (slope > 0) start = Math.max(start, edge);
+          else end = Math.min(end, edge);
+        }
+      }
+      if (end > start) intervals.push([start, end]);
+    }
+    return intervals;
+  }
+  return { addSurface, clip, subtract, heightAt, section, clear: () => cells.clear() };
 }

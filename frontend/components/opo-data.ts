@@ -87,6 +87,7 @@ type PavementFile = {
   roadDataset?: RoadDataset;
   roads: Position[][][];
   sidewalks: Position[][][];
+  elevatedRoads?: { sourceId: string; roadIds: number[]; polygons: Position[][][] }[];
   coveredSegments: [roadId: number, startNode: number, intervals: [from: number, to: number][]][];
 };
 type NeighborhoodPlantingFile = { patches: Position[][][] };
@@ -421,6 +422,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     roadMarkings, crossingWays: neighborhood?.crossingWays?.map(([a, b]) => [project(a), project(b)] as const) ?? [],
     pavement: pavement && { roads: pavement.roads.map(toShape), sidewalks: pavement.sidewalks.map(toShape), trafficIslands,
       paired: Boolean(pavement.roadDataset),
+      elevatedRoads: pavement.elevatedRoads?.map(({ roadIds, polygons }): { roadIds: number[]; shapes: Shape[] } => ({
+        roadIds, shapes: polygons.map(toShape),
+      })),
       coveredSegments: pavement.coveredSegments },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }

@@ -68,7 +68,7 @@
 같은 렌더러로 서울 10개 장면의 실제 차도·차선 메시 생성을 확인했다. 가락 정문의 실선 주변에 그려진 황색 도색 면적은 이전 약 1.41㎡에서 약 4.02㎡로 늘었다. 30.81m에 14cm 폭을 전부 칠했을 때의 면적은 약 4.31㎡다. 횡단보도와 감속 표시는 각각의 조사 자료와 날짜를 기록하고, 차도 위에 보이는 도색 면을 기준으로 겹치는 부분을 처리한다.
 
 ```powershell
-uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_road_windows.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/tgis-structure-evidence.sqlite --output ../road-source-cache/staged-regions
+uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_road_windows.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/tgis-structure-evidence.sqlite --bridges ../road-source-cache/N1A_A0070000.zip --grade-separation ../road-source-cache/N1A_A0090000.zip --output ../road-source-cache/staged-regions
 ```
 
 `reconcile_seoul_marking_links.py`로 먼저 동일 인덱스의 입체도로 근거를 만든다. 배치는 장면별 보류 사유와 길이를 출력한다. 검사한 `pavement.json`과 `road-markings.json`을 장면별로 함께 반영한다. [일괄 생성 코드](../../backend/scripts/prepare_seoul_road_windows.py)
@@ -97,6 +97,24 @@ node scripts/audit-road-cross-sections.cjs
 ```
 
 지역 ID를 넘기면 그 장면만 검사한다. `FMS_AUDIT_FRONTEND`로 이전 버전의 프런트엔드 경로를 지정해 같은 검사로 비교할 수 있다. [검사 코드](../../frontend/scripts/audit-road-cross-sections.cjs)
+
+## 지상도로와 고가도로 검사
+
+천호대로25길의 한 단면에서는 서울시 지상 차도 경계가 약 7m인데 이전 장면의 포장 메시가 고가도로 쪽으로 41.66m까지 이어졌다. 주변에 고가 중심선이 있다는 이유로 일반 차도와 보도까지 고가의 추정 높이를 적용했고, 추정 포장이 서로 다른 층과 차도의 경계를 연결했다.
+
+서울시 1:1,000 도로교와 고가차도 도형을 별도로 읽어 교량 태그가 있는 도로망과 교차 검증한다. 원본 도형의 식별자와 도로 ID, 아카이브 날짜와 해시를 함께 저장한다. 서울 10개 장면에 중복을 빼고 29개 시설이 연결됐다. 해당 평면 도형은 교량 전용 표면으로 그리며, 그 아래를 통과하는 도로망이 T-GIS 차도 면에 연결되는 경우 그 지상 면을 보존한다. 높이는 도로망으로 추정한 값이고, 두 층의 실제 높이 차나 지하차도 형상은 별도 자료가 필요하다. [서울시 도로교 도형](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0070000.zip) · [서울시 입체교차부 도형](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0090000.zip)
+
+차선과 횡단 표시를 지상 포장에 붙이는 과정에서 교량 표면을 후보로 사용하지 않는다. 서울시 차도와 보도가 함께 확보된 장면에서는 도로 중심선 폭으로 횡단보도 진입 보도를 임의로 그리지 않는다. 잠실 올림픽로의 약 3m 안전지대는 서울시 원본에 도형이 있어 유지한다.
+
+도형의 삼각면과 단면을 직접 교차해 25cm 간격 샘플이 놓치던 포장 사이 틈을 계산한다. 계산 정밀도에 따른 2mm 미만 이음새를 연결하고, 원본에 기록된 교통섬을 차도에서 뺀다. 도로 양쪽 경계의 오차가 모두 0.5m 이내인 비율은 아래와 같다. 도형을 층별로 분리하면서 비교 가능한 지상 표본 수도 달라졌다.
+
+| 비교 대상 | 일치 / 비교 가능 | 추가 검수 |
+| --- | ---: | ---: |
+| 이전 v133 지상 차도 | 26,659 / 27,305 | 646 |
+| 고가 분리 후 지상 차도 | 26,688 / 27,220 | 532 |
+| 고가 분리 후 고가·교량 | 1,383 / 1,623 | 240 |
+
+천호대로25길에서 41m 이상 이어졌던 네 단면은 분리 후 모두 지상 차도 양쪽 경계에 0.5m 이내로 맞았다. 가락 정문의 황색 중앙선 주변 다섯 단면은 위 표의 수정 후 폭을 유지했다. 원본에 좌우 경계가 없는 표본과 조사 날짜가 다른 자료는 별도로 추적한다.
 
 ## 앞으로 사용할 데이터 구조
 

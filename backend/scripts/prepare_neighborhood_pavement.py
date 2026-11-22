@@ -71,14 +71,16 @@ def export_polygons(geometry):
     ]
 
 
-def covered_segments(graph, paved):
+def covered_segments(graph, paved, bridge_ids=None):
     # Allow for sub-metre rounding in the OSM tiles used as the graph source.
     # Repair slivers at touching corners and retain only surfaces for overlay.
     matched = unary_union(list(parts(make_valid(paved.buffer(0.35)), "Polygon")))
     footprint = prep(matched)
     spans = []
     for road in graph["roads"]:
-        if not road["motor"] or road["bridge"] or road["unpaved"]:
+        if not road["motor"] or road["unpaved"]:
+            continue
+        if (bridge_ids is None and road["bridge"]) or (bridge_ids is not None and road["id"] not in bridge_ids):
             continue
         points = [TO_METRES(*point) for point in road["coordinates"]]
         for node, a, b in zip(road["nodeIds"], points, points[1:]):
