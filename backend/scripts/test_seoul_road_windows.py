@@ -22,7 +22,7 @@ class LaneStyleTest(unittest.TestCase):
     def test_subtypes_are_interpreted_with_their_marking_kind(self):
         cases = [
             ("010", "001", "yellow"), ("010", "002", "yellow-double"),
-            ("011", "001", "white-dash"), ("012", "001", "white-guide-dash"), ("012", "002", "pink"),
+            ("011", "001", "parking-outline"), ("012", "001", "white-guide-dash"), ("012", "002", "pink"),
             ("013", "001", "white"), ("013", "002", "white-dash"),
             ("018", "003", "yellow"), ("018", "004", "yellow-dash"),
             ("005", "003", "blue-double"),
@@ -33,6 +33,16 @@ class LaneStyleTest(unittest.TestCase):
             with self.subTest(kind=kind, subtype=subtype):
                 self.assertEqual(lane_style(kind, subtype), style)
         self.assertIsNone(lane_style("010", None))
+
+    def test_parking_outlines_keep_surveyed_vertices_without_a_dash_phase(self):
+        original = LineString([(200000, 550000), (200001, 550000), (200002, 550000.08), (200006, 550000)])
+        clipped = LineString(list(original.coords)[1:])
+        for style in ("white-dash", "parking-outline"):
+            with self.subTest(style=style):
+                self.assertEqual(lane_item(clipped, original, style, "011"), {
+                    "style": "parking-outline", "points": gps(clipped.coords),
+                })
+        self.assertEqual(lane_item(clipped, original, "white-dash", "002")["dashOffsetM"], 1)
 
     def test_a_mixed_marking_keeps_its_dash_phase_and_original_direction(self):
         original = LineString([(200000, 550000), (200020, 550000)])

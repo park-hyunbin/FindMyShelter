@@ -329,6 +329,31 @@ function verifyRecoveredWhitePaint(records, paintMeshes, decks, data) {
   return { records: records.length, sampled, shown };
 }
 
+function assertMajangParkingOutline(scene, data) {
+  const outline = data.roadMarkings.lanes.find(lane => lane.managementId === '11-0000129832');
+  assert.equal(outline?.style, 'parking-outline', 'Majang parking boundary must retain its separate survey type');
+  assert.equal(outline.dashOffsetM, undefined);
+  const surface = createSurfaceClipper();
+  for (const mesh of scene.children) {
+    if (mesh.isMesh && mesh.name === '주차구획 조사선') surface.addSurface(mesh.geometry);
+  }
+  const points = outline.points.map(data.project);
+  let sampled = 0;
+  let missing = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i];
+    const count = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5);
+    for (let n = 0; n < count; n++) {
+      const t = (n + 0.5) / count;
+      const point = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+      if (surface.heightAt(point) === undefined) missing++;
+      sampled++;
+    }
+  }
+  surface.clear();
+  assert.ok(sampled >= 200 && missing === 0, `Majang parking boundary renders at ${sampled - missing}/${sampled} surveyed positions`);
+}
+
 function verifyCheonggyeCarriageway(data, rendered) {
   const deck = data.pavement.elevatedRoads.find(({ sourceId }) => sourceId === '1000377051791A00910000000000000002');
   const road = data.streets.find(({ id }) => id === 203491741);
@@ -567,6 +592,7 @@ async function audit(region, crossingsOnly, elevatedOnly) {
         'Jamsil paint must run across the mapped pedestrian landings');
       assertCurrentCrosswalk(scene, data, checks, '06-0000030331');
     }
+    if (region === 'seoul-a13381608') assertMajangParkingOutline(scene, data);
     const counts = {};
     for (const { source, status } of checks) {
       const outcomes = counts[source] ??= {};
@@ -713,7 +739,7 @@ async function audit(region, crossingsOnly, elevatedOnly) {
     testShadowGrid();
     regions.push('opo');
   }
-  const selected = requested.length ? requested : verifyCrossings ? ['songpa', 'jamsil-leel'] : regions;
+  const selected = requested.length ? requested : verifyCrossings ? ['songpa', 'jamsil-leel', 'seoul-a13381608'] : regions;
   for (const region of selected) {
     const report = await audit(region, crossingsOnly, elevatedOnly);
     if (verifyCrossings) console.log(`Crosswalk verification passed for ${region}`);

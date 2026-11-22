@@ -48,7 +48,7 @@ type StreetFile = {
 type PaintColor = 'yellow' | 'blue' | 'white';
 export type StreetPaint = PaintColor
   | `${PaintColor}-${'dash' | 'double' | 'double-dash' | 'combined' | 'combined-reversed'}`
-  | 'white-guide-dash' | 'pink' | 'stop';
+  | 'white-guide-dash' | 'parking-outline' | 'pink' | 'stop';
 type RoadDataset = { url: string; retrievedAt: string; sha256: string };
 type SurveyedLane = { style: StreetPaint; points: Position[]; edge?: boolean; busLane?: boolean; dashOffsetM?: number };
 type StreetPaintFile = {

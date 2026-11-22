@@ -2007,7 +2007,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
       {region === 'songpa' && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">{songpaEntrance.roadGeometryLabel}</a>
         {' · '}<a href={seoulBiotopeSource} target="_blank" rel="noreferrer">서울시 도시생태현황도 2025</a></>}
       {catalog && <> · <a href="https://openlab.eseoul.go.kr/" target="_blank" rel="noreferrer">서울특별시 에스맵-오픈랩 데이터</a></>}
-      {world?.sources.roadMarkings?.roadDataset && <> · <a href={world.sources.roadMarkings.roadDataset.url} target="_blank" rel="noreferrer">서울특별시 T-GIS 차도·차선</a> · 조사된 도로 표시</>}
+      {world?.sources.roadMarkings?.roadDataset && <> · <a href={world.sources.roadMarkings.roadDataset.url} target="_blank" rel="noreferrer">서울특별시 T-GIS 차도·차선</a> · 주차구획 조사선</>}
     </footer>
   </main>;
 }

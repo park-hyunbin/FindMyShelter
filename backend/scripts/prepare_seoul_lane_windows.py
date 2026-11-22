@@ -14,7 +14,7 @@ from shapely.geometry import Point, box
 from audit_seoul_road_sources import layer_metadata, open_layer
 from extract_seoul_road_window import bounds_parameters
 from prepare_neighborhood_pavement import parts
-from prepare_songpa_road_markings import BOUNDS, BUS_KINDS, EDGE_KINDS, LANES, REGIONS, TO_METERS, gps
+from prepare_songpa_road_markings import BOUNDS, BUS_KINDS, EDGE_KINDS, LANES, PARKING_KIND, PARKING_OUTLINE, REGIONS, TO_METERS, gps
 
 
 BUS_LANES = "https://data.seoul.go.kr/dataList/OA-22396/F/1/datasetView.do"
@@ -44,7 +44,7 @@ def lane_kinds(directory, indexed_sources):
             raise ValueError(f"{source} archive differs from the city index source")
         with open_layer(directory, source, attributes=True, read_shapes=False) as reader:
             rows[source] = {row.oid: row["A058_KND_C"] for row in reader.iterRecords(fields=["A058_KND_C"])
-                            if row["A058_KND_C"] in EDGE_KINDS | BUS_KINDS}
+                            if row["A058_KND_C"] in EDGE_KINDS | BUS_KINDS | {PARKING_KIND}}
     return rows
 
 
@@ -71,6 +71,9 @@ def extract_lanes(db, bounds, kinds):
 
 
 def lane_item(line, original, style, kind, *, preserve_vertices=False):
+    # Indices created before parking had a rendering type store it as white-dash.
+    if kind == PARKING_KIND and style == "white-dash":
+        style = PARKING_OUTLINE
     dashed = style.endswith("-dash") or "-combined" in style
     if dashed:
         begin = original.project(Point(line.coords[0]))
@@ -79,7 +82,7 @@ def lane_item(line, original, style, kind, *, preserve_vertices=False):
             line = line.reverse()
             begin = end
     # The short intersection dashes need the surveyed curve's distance through bends.
-    points = line.coords if preserve_vertices or style == "white-guide-dash" else line.simplify(0.11).coords
+    points = line.coords if preserve_vertices or style in ("white-guide-dash", PARKING_OUTLINE) else line.simplify(0.11).coords
     item = {"style": style, "points": gps(points)}
     if dashed and begin > 0.001:
         item["dashOffsetM"] = round(begin, 3)

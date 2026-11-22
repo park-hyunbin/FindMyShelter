@@ -20,6 +20,8 @@ CURRENT = "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do"
 HUMPS = "https://data.seoul.go.kr/dataList/OA-15541/S/1/datasetView.do"
 BUS_KINDS = {"005", "017"}
 EDGE_KINDS = {"007", "009"}
+PARKING_KIND = "011"
+PARKING_OUTLINE = "parking-outline"
 TO_METERS = Transformer.from_crs(4326, 5186, always_xy=True)
 TO_GPS = Transformer.from_crs(5186, 4326, always_xy=True)
 BOUNDS = (127.1095, 37.4932, 127.1241, 37.5035)
@@ -58,7 +60,7 @@ LANE_STYLES = {
     "008": {"001": "white", "002": "white-combined", "003": "white-combined-reversed"},
     "009": {"001": "yellow-dash", "002": "yellow-double-dash"},
     "010": {"001": "yellow", "002": "yellow-double"},
-    "011": {"001": "white-dash"},
+    PARKING_KIND: {"001": PARKING_OUTLINE},
     "012": {"001": "white-guide-dash", "002": "pink"},
     "013": {"001": "white", "002": "white-dash"},
     "014": {"001": "white"},
@@ -127,7 +129,8 @@ def main():
                 continue
             for line in getattr(geom, "geoms", [geom]):
                 if line.geom_type == "LineString" and line.length > 0.25:
-                    lanes.append({"style": style, "points": gps(line.simplify(0.11).coords),
+                    points = line.coords if style == PARKING_OUTLINE else line.simplify(0.11).coords
+                    lanes.append({"style": style, "points": gps(points),
                                   **({"edge": True} if kind in EDGE_KINDS else {}),
                                   **({"busLane": True} if kind in BUS_KINDS else {})})
 

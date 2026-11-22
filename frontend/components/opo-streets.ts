@@ -925,8 +925,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createSurfaceClipper>,
     busLane = false, dashOffsetM = 0, elevated = false) {
+    const parking = style === 'parking-outline';
     const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0'
-      : style === 'pink' ? '#df779e' : '#f2eee3';
+      : style === 'pink' ? '#df779e' : parking ? '#a59e92' : '#f2eee3';
     const combined = style.includes('-combined');
     const double = style.includes('-double') || combined;
     const dashed = style.endsWith('-dash') || combined;
@@ -937,7 +938,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const painted = dashed ? surveyedDashSegments(points, style, busLane, dashOffsetM) : solid;
     const paint = (segments: Point[][], offset = 0) => {
       for (const segment of segments) {
-        const line = cleanMarking(segment, width / 2);
+        const line = parking ? segment : cleanMarking(segment, width / 2);
         if (line.length < 2) continue;
         const outline = paintRibbon(offset ? offsetMarking(line, offset) : line, width);
         const onRoad = clipper.clipOnce(outline, 0.018);
@@ -945,7 +946,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         // The lifts of paint on the same deck differ by less than 0.1m.
         const exposed = elevated ? onRoad : crossingPaint?.subtract(onRoad, 0.1) ?? onRoad;
         if (exposed !== onRoad) onRoad.dispose();
-        addPaint(color, exposed, width, elevated ? '고가 노면표시' : undefined);
+        addPaint(color, exposed, width, elevated ? '고가 노면표시' : parking ? '주차구획 조사선' : undefined);
       }
     };
     if (double) {
