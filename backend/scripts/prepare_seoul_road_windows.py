@@ -5,6 +5,7 @@ from collections import Counter
 from contextlib import closing
 import hashlib
 from io import BytesIO
+from itertools import groupby
 import json
 from pathlib import Path
 import sqlite3
@@ -84,7 +85,36 @@ def separate_decks(road_records, graph, window, structures):
     return ground, decks, covered_segments(graph, elevated, owner_ids)
 
 
-def verified_lanes(db, window, excluded):
+def supported_runs(original, rows, driveway, window, excluded, recovered):
+    # Evidence can split one painted line at administrative pavement seams.
+    # Keep the original line through an overlap only when it stays on the same
+    # joined ground deck and has supported approaches on both sides.
+    supported = [status == "single_road" and clearance <= 0.001 for start, end, status, clearance in rows]
+    for i in range(1, len(rows) - 1):
+        start, end, status, structure = rows[i]
+        if status != "overlapping_roads" or structure > 0.001 or not supported[i - 1] or not supported[i + 1]:
+            continue
+        if abs(rows[i - 1][1] - start) > GRID_M or abs(rows[i + 1][0] - end) > GRID_M:
+            continue
+        seam = substring(original, max(0, start - 0.15), min(original.length, end + 0.15)).intersection(window)
+        if not seam.is_empty and driveway.covers(seam):
+            supported[i] = True
+            recovered["same_ground_overlap"] += substring(original, start, end).intersection(window).length
+    joined = []
+    for (start, end, status, structure), keep in zip(rows, supported):
+        if not keep:
+            length = substring(original, start, end).intersection(window).length
+            excluded[status if status != "single_road" else "near_structure"] += length
+            continue
+        if joined and abs(joined[-1][1] - start) <= 1e-6:
+            joined[-1][1] = end
+        else:
+            joined.append([start, end])
+    for start, end in joined:
+        yield from parts(substring(original, start, end).intersection(window), "LineString")
+
+
+def verified_lanes(db, window, driveway, excluded, recovered):
     query = """SELECT m.id,m.style,m.management_id,m.geometry,source.kind,
         s.start_m,s.end_m,s.status,e.structure_near_m
         FROM marking_bounds b JOIN marking m ON m.id=b.id
@@ -93,19 +123,17 @@ def verified_lanes(db, window, excluded):
         LEFT JOIN checks.evidence e ON e.marking_id=m.id AND e.start_m=s.start_m
         WHERE b.min_x<=? AND b.max_x>=? AND b.min_y<=? AND b.max_y>=?
         ORDER BY m.id,s.start_m"""
-    last, original = None, None
-    for key, style, management, geometry, kind, start, end, status, structure in db.execute(query, bounds_parameters(window)):
-        if structure is None:
-            raise ValueError(f"Missing structural evidence for {key} at {start}")
-        if last != key:
-            last, original = key, from_wkb(geometry)
-        for line in parts(substring(original, start, end).intersection(window), "LineString"):
-            if line.length <= 0.25:
-                continue
-            if status != "single_road" or structure > 0.001:
-                excluded[status if status != "single_road" else "near_structure"] += line.length
-                continue
-            yield {**lane_item(line, original, style, kind), "managementId": management}
+    for key, group in groupby(db.execute(query, bounds_parameters(window)), key=lambda row: row[0]):
+        records = list(group)
+        _, style, management, geometry, kind, *_ = records[0]
+        rows = [record[5:] for record in records]
+        for start, _, _, structure in rows:
+            if structure is None:
+                raise ValueError(f"Missing structural evidence for {key} at {start}")
+        original = from_wkb(geometry)
+        for line in supported_runs(original, rows, driveway, window, excluded, recovered):
+            if line.length > 0.25:
+                yield {**lane_item(line, original, style, kind), "managementId": management}
 
 
 def scene_files(db, folder, source, structures, structure_sources):
@@ -127,7 +155,8 @@ def scene_files(db, folder, source, structures, structure_sources):
     walks = union_all([polygon for _, _, polygon in walk_records], grid_size=GRID_M)
     driveway = roads.difference(walks, grid_size=GRID_M)
     excluded = Counter()
-    lanes = list(verified_lanes(db, window, excluded))
+    recovered = Counter()
+    lanes = list(verified_lanes(db, window, driveway, excluded, recovered))
     if not lanes or driveway.is_empty:
         raise ValueError(f"No publishable lane/road pair in {region}")
     metadata = {**source, "bounds": bounds}
@@ -145,7 +174,8 @@ def scene_files(db, folder, source, structures, structure_sources):
     }
     return markings, surface_file, {"lanes": len(lanes), "roads": len(surface_file["roads"]), "structures": len(elevated),
                                    "walks": len(surface_file["sidewalks"]),
-                                   "withheld_m": {key: round(value, 1) for key, value in sorted(excluded.items())}}
+                                   "withheld_m": {key: round(value, 1) for key, value in sorted(excluded.items())},
+                                   "restored_m": {key: round(value, 1) for key, value in sorted(recovered.items())}}
 
 
 def build(index, evidence, regions, output, bridge_archive, grade_separation_archive):

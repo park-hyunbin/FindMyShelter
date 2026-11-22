@@ -22,7 +22,7 @@ const { addStreets } = fromTour('./components/opo-streets.ts');
 const { addSiteDetails } = fromTour('./components/opo-site.ts');
 const { createSidewalkSeams } = fromTour('./components/opo-curb-walk.ts');
 const { createSurfaceClipper } = require('../components/opo-surface-clip.ts');
-const { crossingSupport, fitCrosswalkToMeasuredRoad } = require('../components/opo-crosswalks.ts');
+const { crossingSupport, fitCrosswalkToMeasuredRoad, surveyedCrosswalkArea } = require('../components/opo-crosswalks.ts');
 const scenes = fromTour('./components/data/seoul-scenes.generated.json');
 
 // Vegetation materials need a canvas, but the road audit uses triangle positions only.
@@ -77,7 +77,32 @@ function testCrossingSupport() {
   assert.equal(fitted.center.x, 0);
   assert.equal(fitted.section.width, 10);
   assert.equal(crossingSupport(fitted, road, walks, clippedPaint), 'paint_ends_inside_road');
+  const fullCrossing = surveyedCrosswalkArea(area(4, 1), rectangle(-6, 8, -2, 2)[0]);
+  assert.equal(fullCrossing.section.width, 14);
+  assert.deepEqual(fullCrossing.center, { x: 1, z: 0 });
+  assert.equal(fullCrossing.depth, 4);
   for (const surface of [road, walks, oneSide, clippedPaint, medianRoad, medianWalk]) surface.clear();
+}
+
+function testPaintProjection() {
+  const ring = [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 4 }, { x: 0, z: 4 }];
+  const first = groundPolygon([ring], () => 0, 28, 0);
+  const second = groundPolygon([ring], () => 0.03, 28, 0);
+  const pavement = createSurfaceClipper();
+  pavement.addSurface(first);
+  pavement.addSurface(second);
+  const placed = pavement.clipOnce(first, 0.02);
+  const positions = placed.getAttribute('position');
+  let area = 0;
+  for (let i = 0; i < positions.count; i += 3) {
+    const p = offset => new T.Vector3().fromBufferAttribute(positions, i + offset);
+    const a = p(0), b = p(1), c = p(2);
+    assert.ok([a, b, c].every(vertex => Math.abs(vertex.y - 0.02) < 1e-6));
+    area += b.sub(a).cross(c.sub(a)).length() / 2;
+  }
+  assert.ok(Math.abs(area - 16) < 1e-5, `Overlapping decks produced ${area} square metres of paint`);
+  [first, second, placed].forEach(geometry => geometry.dispose());
+  pavement.clear();
 }
 
 function assertGarakCrosswalk(scene, project, checks) {
@@ -273,6 +298,7 @@ async function audit(region, crossingsOnly) {
   const regions = ['songpa', 'jamsil-leel', ...scenes.map(scene => scene.id)];
   if (crossingsOnly) {
     testCrossingSupport();
+    testPaintProjection();
     regions.push('opo');
   }
   const selected = requested.length ? requested : verifyCrossings ? ['songpa'] : regions;

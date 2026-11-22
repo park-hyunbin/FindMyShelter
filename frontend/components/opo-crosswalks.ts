@@ -59,24 +59,19 @@ export function fitCrosswalkToMeasuredRoad(crossing: Crosswalk, roads: SectionSu
   return { ...crossing, center: crosswalkFrame(crossing)(0, shift), section: { ...crossing.section, width } };
 }
 
-export function fitCrosswalkDeck(crossing: Crosswalk, outline: Point[]): Crosswalk {
-  const { center, direction, section } = crossing;
-  let low = -Infinity, high = Infinity;
-  for (let i = 0; i < outline.length; i++) {
-    const a = relative(outline[i], center);
-    const b = relative(outline[(i + 1) % outline.length], center);
-    const from = dot(a, direction), to = dot(b, direction);
-    if ((from < 0) === (to < 0) || from === to) continue;
-    const fraction = from / (from - to);
-    const x = a.x + (b.x - a.x) * fraction;
-    const z = a.z + (b.z - a.z) * fraction;
-    const across = x * direction.z - z * direction.x;
-    if (across < 0) low = Math.max(low, across);
-    else high = Math.min(high, across);
-  }
-  const width = high - low;
-  if (!Number.isFinite(width) || width < 2 || width > 30) return crossing;
-  return { ...crossing, center: crosswalkFrame(crossing)(0, (low + high) / 2), section: { ...section, width } };
+export function surveyedCrosswalkArea(crossing: CrosswalkArea, outline: Point[]): CrosswalkArea {
+  const { center, direction } = crossing;
+  const normal = { x: direction.z, z: -direction.x };
+  const extents = (axis: Point) => {
+    const projections = outline.map(point => dot(relative(point, center), axis));
+    return [Math.min(...projections), Math.max(...projections)];
+  };
+  const [back, front] = extents(direction);
+  const [left, right] = extents(normal);
+  return {
+    center: crosswalkFrame(crossing)((front + back) / 2, (right + left) / 2),
+    direction, depth: front - back, section: { width: right - left },
+  };
 }
 
 export function zebraOffsets(width: number, edgeGap = 0.24) {
@@ -126,7 +121,7 @@ export function fitCrosswalk(outline: Point[], hits: RoadHit[], confirmed: boole
   return fitted;
 }
 
-export function sameCrosswalk(a: Crosswalk, b: Crosswalk) {
+export function sameCrosswalk(a: CrosswalkArea, b: CrosswalkArea) {
   return Math.abs(dot(a.direction, b.direction)) > 0.92
     && Math.hypot(a.center.x - b.center.x, a.center.z - b.center.z) < Math.min(4.5, (a.depth + b.depth) / 2);
 }

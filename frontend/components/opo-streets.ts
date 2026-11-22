@@ -6,8 +6,8 @@ import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from '.
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection } from './opo-meshes';
 import {
-  crossingOutline, crossingSupport, crosswalkFrame, fitCrosswalk, fitCrosswalkDeck, fitCrosswalkToMeasuredRoad,
-  leaveCrosswalkGaps, sameCrosswalk, zebraOffsets, type CrossingSupport, type Crosswalk,
+  crossingOutline, crossingSupport, crosswalkFrame, fitCrosswalk, fitCrosswalkToMeasuredRoad,
+  leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, zebraOffsets, type CrossingSupport, type Crosswalk,
 } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
 import { projectSiteCrossing, sidewalkTreeWell } from './opo-site-surfaces';
@@ -477,11 +477,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     return result;
   }
   const tracedDrive = site?.layout.pavedDrive?.map(data.project);
-  const siteCrossings = exactCrossings.map(crossing => crossing.area);
   const crossings: Crosswalk[] = [];
   const crossingsByRoad = new Map<number, Crosswalk[]>();
   const crossingSurveys = new Set<Crosswalk>();
   const sourceOutlines = new Map<Crosswalk, Point[]>();
+  const archivedCrossings: { area: ReturnType<typeof surveyedCrosswalkArea>; ring: Point[] }[] = [];
   function addCrossing(outline: Point[], center: Point, source: CrossingSource, inventoryMatch = false) {
     if (exactCrossings.some(({ ring, boundary }) => inShape(center, [ring]) || nearestOnLine(center, [boundary]).distance < 4)) {
       auditCrossing?.({ source, center, status: 'duplicate' });
@@ -494,18 +494,30 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       return;
     }
     const archived = source === 'city_archive';
-    const paint = outline.length && !inventoryMatch ? footprint([[outline]]) : undefined;
+    if (archived && inventoryMatch) {
+      // A confirmed polygon may cover two carriageways. Generate the pattern
+      // over its entire surveyed extent with one phase; the actual deck and
+      // median boundaries decide where paint can be seen.
+      const area = surveyedCrosswalkArea(candidates[0], outline);
+      if (archivedCrossings.some(crossing => sameCrosswalk(area, crossing.area))) {
+        auditCrossing?.({ source, center: area.center, status: 'duplicate' });
+        return;
+      }
+      archivedCrossings.push({ area, ring: outline });
+      auditCrossing?.({ source, center: area.center, status: 'surveyed_outline', roadId: candidates[0].section.road.id });
+      return;
+    }
+    const paint = outline.length ? footprint([[outline]]) : undefined;
     for (const approximation of candidates) {
       const patch = surveyedPavements.find(patch => !patch.siteDriveway && patch.roadId === approximation.section.road.id
         && inShape(approximation.center, [patch.ring]));
-      const crossing = !inventoryMatch ? fitCrosswalkToMeasuredRoad(approximation, roadSurface)
-        : patch ? fitCrosswalkDeck(approximation, patch.ring) : approximation;
+      const crossing = fitCrosswalkToMeasuredRoad(approximation, roadSurface);
       const id = crossing.section.road.id;
-      const status = crossings.some(existing => sameCrosswalk(existing, crossing)) ? 'duplicate'
-        : archived && inventoryMatch ? 'surveyed_outline'
-          : crossingSupport(crossing, roadSurface, pedestrianSurface, paint);
+      const status = crossings.some(existing => sameCrosswalk(existing, crossing))
+        || archivedCrossings.some(existing => sameCrosswalk(existing.area, crossing)) ? 'duplicate'
+        : crossingSupport(crossing, roadSurface, pedestrianSurface, paint);
       auditCrossing?.({ source, center: crossing.center, status, roadId: id });
-      if (status !== 'connected' && status !== 'surveyed_outline') continue;
+      if (status !== 'connected') continue;
       if (outline.length) sourceOutlines.set(crossing, outline);
       if (patch) crossingSurveys.add(crossing);
       crossings.push(crossing);
@@ -536,6 +548,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   for (const item of data.streetPoints) if (item.kind === 'crossing') addCrossing([], item.position, 'osm_point');
   roadSurface.clear();
   pedestrianSurface.clear();
+  const measuredCrossings = [...exactCrossings, ...archivedCrossings];
+  const siteCrossings = measuredCrossings.map(crossing => crossing.area);
   const paintCrossings = [...crossings, ...siteCrossings];
   const joined = new Map<number, number>();
   if (urban) for (const road of roads) {
@@ -735,7 +749,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         stripe.dispose();
       } else if (surveyedDeck && roadPaint) {
         const outline = ribbon(line, 0.44, () => 0);
-        addCrossingPaint(tone, roadPaint.clip(outline, 0.026), 0.44);
+        addCrossingPaint(tone, roadPaint.clipOnce(outline, 0.026), 0.44);
         outline.dispose();
       } else crossingStrip(line, 0.44, deckLift + 0.075, tone);
     }
@@ -775,7 +789,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const paint = (segments: Point[][], offset = 0) => {
       for (const segment of segments) {
         const outline = ribbon(offset ? offsetMarking(segment, offset) : segment, width, () => 0);
-        const onRoad = clipper.clip(outline, 0.018);
+        const onRoad = clipper.clipOnce(outline, 0.018);
         outline.dispose();
         // The lifts of paint on the same deck differ by less than 0.1m.
         const exposed = crossingPaint?.subtract(onRoad, 0.1) ?? onRoad;
@@ -998,11 +1012,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (!roadPaint) { flushLayers(); return; }
     for (const deck of asphaltDecks) roadPaint.addSurface(deck);
     for (const { mask, color, width } of deferredPaint) {
-      addCrossingPaint(color, roadPaint.clip(mask, 0.027), width);
+      addCrossingPaint(color, roadPaint.clipOnce(mask, 0.027), width);
       mask.dispose();
     }
     deferredPaint.length = 0;
-    for (const { area, ring } of exactCrossings) {
+    for (const { area, ring } of measuredCrossings) {
       const mask = groundPolygon([ring], () => 0, Infinity, 0);
       const clipper = createSurfaceClipper();
       clipper.addSurface(mask);
@@ -1012,7 +1026,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const stripe = ribbon([at(-depth, offset), at(depth, offset)], 0.44, () => 0);
         const section = clipper.clip(stripe, 0);
         // Fit the surveyed paint to the asphalt, including the adjoining site driveway.
-        addCrossingPaint('#eeeee4', roadPaint.clip(section, 0.034), 0.44);
+        addCrossingPaint('#eeeee4', roadPaint.clipOnce(section, 0.034), 0.44);
         section.dispose();
         stripe.dispose();
       }
@@ -1021,7 +1035,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
     for (const { area, ring } of paintedHumps) {
       const mask = groundPolygon([ring], () => 0, Infinity, 0);
-      const onRoad = roadPaint.clip(mask, 0.024);
+      const onRoad = roadPaint.clipOnce(mask, 0.024);
       const clipper = createSurfaceClipper();
       clipper.addSurface(onRoad);
       crossingPaint?.addSurface(onRoad);

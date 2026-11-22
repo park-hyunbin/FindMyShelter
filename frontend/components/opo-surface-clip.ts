@@ -4,7 +4,7 @@ import type { Point } from './opo-data';
 type Vertex = Point & { y: number };
 type Triangle = [Vertex, Vertex, Vertex];
 type Bounds = { west: number; east: number; north: number; south: number };
-type SurfaceTriangle = { points: Triangle; bounds: Bounds; area: number };
+type SurfaceTriangle = { points: Triangle; bounds: Bounds; area: number; order: number };
 
 const epsilon = 1e-6;
 const side = (a: Point, b: Point, p: Point) => (b.x - a.x) * (p.z - a.z) - (b.z - a.z) * (p.x - a.x);
@@ -56,12 +56,25 @@ function polygonArea(polygon: Point[]) {
   return Math.abs(doubled);
 }
 
+function partition(polygon: Point[], [a, b, c]: Triangle) {
+  const ab = clipEdge(polygon, a, b);
+  if (ab.length < 3) return undefined;
+  const bc = clipEdge(ab, b, c);
+  if (bc.length < 3) return undefined;
+  const inside = clipEdge(bc, c, a);
+  if (polygonArea(inside) < epsilon) return undefined;
+  const outside = [clipEdge(polygon, b, a), clipEdge(ab, c, b), clipEdge(bc, a, c)]
+    .filter(piece => polygonArea(piece) >= epsilon);
+  return { inside, outside };
+}
+
 function surfaceHeight([a, b, c]: Triangle, area: number, point: Point) {
   return (a.y * side(b, c, point) + b.y * side(c, a, point) + c.y * side(a, b, point)) / area;
 }
 
 export function createSurfaceClipper(cellSize = 10) {
   const cells = new Map<string, SurfaceTriangle[]>();
+  let order = 0;
 
   function eachCell(bounds: Bounds, visit: (key: string) => void) {
     const west = Math.floor(bounds.west / cellSize), east = Math.floor(bounds.east / cellSize);
@@ -74,7 +87,9 @@ export function createSurfaceClipper(cellSize = 10) {
       const [a, b, c] = points;
       const area = side(a, b, c);
       if (Math.abs(area) < epsilon) return;
-      const surface: SurfaceTriangle = { points: area > 0 ? points : [a, c, b], bounds: boundsOf(points), area: Math.abs(area) };
+      const surface: SurfaceTriangle = {
+        points: area > 0 ? points : [a, c, b], bounds: boundsOf(points), area: Math.abs(area), order: order++,
+      };
       eachCell(surface.bounds, key => {
         const group = cells.get(key);
         if (group) group.push(surface);
@@ -126,6 +141,24 @@ export function createSurfaceClipper(cellSize = 10) {
     return toGeometry(vertices);
   }
 
+  function clipOnce(mask: T.BufferGeometry, lift: number) {
+    const vertices: number[] = [];
+    forTriangles(mask, triangle => {
+      let remaining: Point[][] = [triangle];
+      const surfaces = [...nearbySurfaces(boundsOf(triangle))].sort((a, b) => a.order - b.order);
+      for (const { points, area } of surfaces) {
+        remaining = remaining.flatMap(polygon => {
+          const cut = partition(polygon, points);
+          if (!cut) return [polygon];
+          trianglesOnSurface(vertices, cut.inside, points, area, lift);
+          return cut.outside;
+        });
+        if (!remaining.length) break;
+      }
+    });
+    return toGeometry(vertices);
+  }
+
   function subtract(mask: T.BufferGeometry, maxVerticalGap?: number) {
     const vertices: number[] = [];
     forTriangles(mask, triangle => {
@@ -133,19 +166,13 @@ export function createSurfaceClipper(cellSize = 10) {
       if (Math.abs(area) < epsilon) return;
       let outside: Point[][] = [triangle];
       for (const cutter of nearbySurfaces(boundsOf(triangle))) {
-        const [a, b, c] = cutter.points;
         outside = outside.flatMap(polygon => {
           // A convex cutter partitions its subject into an inner polygon and at most three outer pieces.
-          const ab = clipEdge(polygon, a, b);
-          if (ab.length < 3) return [polygon];
-          const bc = clipEdge(ab, b, c);
-          if (bc.length < 3) return [polygon];
-          const inside = clipEdge(bc, c, a);
-          if (polygonArea(inside) < epsilon) return [polygon];
-          if (maxVerticalGap !== undefined && inside.some(point =>
+          const cut = partition(polygon, cutter.points);
+          if (!cut) return [polygon];
+          if (maxVerticalGap !== undefined && cut.inside.some(point =>
             Math.abs(surfaceHeight(triangle, area, point) - surfaceHeight(cutter.points, cutter.area, point)) > maxVerticalGap)) return [polygon];
-          return [clipEdge(polygon, b, a), clipEdge(ab, c, b), clipEdge(bc, a, c)]
-            .filter(piece => polygonArea(piece) >= epsilon);
+          return cut.outside;
         });
         if (!outside.length) break;
       }
@@ -195,5 +222,5 @@ export function createSurfaceClipper(cellSize = 10) {
     }
     return connected;
   }
-  return { addSurface, clip, subtract, heightAt, section, clear: () => cells.clear() };
+  return { addSurface, clip, clipOnce, subtract, heightAt, section, clear: () => cells.clear() };
 }
