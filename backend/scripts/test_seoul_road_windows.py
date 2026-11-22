@@ -1,15 +1,19 @@
 from collections import Counter
+import sqlite3
 import unittest
 
 import numpy as np
 from shapely import STRtree
-from shapely.geometry import LineString, box
+from shapely.geometry import GeometryCollection, LineString, box
 from shapely.ops import unary_union
 
 from prepare_seoul_elevated_alignment import connected_vertex_runs, divider_recovery, reconcile_divided_sections
 from prepare_seoul_elevated_markings import export_window, unambiguous_deck_paint
 from prepare_seoul_lane_windows import lane_item
-from prepare_seoul_road_windows import CentrelineEvidence, align_ground_ramps, ground_link_support, supported_runs
+from prepare_seoul_road_windows import (
+    CentrelineEvidence, align_ground_ramps, find_surveyed_deck_roads, ground_link_support, separate_decks,
+    supported_runs,
+)
 from prepare_songpa_road_markings import gps, lane_style
 from reconcile_seoul_marking_links import Network
 
@@ -123,6 +127,13 @@ class SupportedRunsTest(unittest.TestCase):
         runs = self.runs(ground=ground, confirm_ground=lambda line: [(0, line.length)], is_stop=True)
         self.assertEqual(runs, [])
 
+    def test_a_segment_at_a_single_window_point_never_requires_ground_support(self):
+        line = LineString([(-5, 0), (0, 0)])
+        ground = GeometryCollection([box(0, -1, 10, 1), LineString([(10, 0), (11, 0)])])
+        rows = [(0, 5, "single_road", 5)]
+        self.assertEqual(list(supported_runs(line, rows, ground, box(0, -2, 10, 2), Counter(), Counter(),
+                                             lambda _: self.fail("Point-only overlap cannot support a stripe"))), [])
+
     def test_a_parallel_road_across_a_median_does_not_confirm_the_lane(self):
         ground = unary_union([box(-1, -1, 21, 1), box(-1, 2, 21, 4)])
         link = Network(np.array([LineString([(0, 3), (20, 3)])]), ["other-road"])
@@ -178,6 +189,51 @@ class CentrelinePairTest(unittest.TestCase):
         self.assertEqual(self.support(self.links(), footprints=[box(4.1, -1, 4.2, 1)]), [(0, 4), (8, 20)])
 
 
+class DeckPavementOwnershipTest(unittest.TestCase):
+    def setUp(self):
+        self.deck = box(200000, 549990, 200200, 550010)
+        self.upper_road = box(200000, 549987, 200200, 550013)
+        self.lower_road = box(200090, 549975, 200098, 550027)
+        self.sources = [(1, "upper-survey", self.upper_road), (2, "lower-survey", self.lower_road)]
+        self.db = sqlite3.connect(":memory:")
+        self.addCleanup(self.db.close)
+        self.db.executescript(
+            "CREATE TABLE road (id,ufid,geometry); "
+            "CREATE VIRTUAL TABLE road_bounds USING rtree(id,min_x,max_x,min_y,max_y);"
+        )
+        for source, ufid, polygon in self.sources:
+            west, south, east, north = polygon.bounds
+            self.db.execute("INSERT INTO road VALUES (?,?,?)", (source, ufid, polygon.wkb))
+            self.db.execute("INSERT INTO road_bounds VALUES (?,?,?,?,?)", (source, west, east, south, north))
+        self.upper_axis = LineString([(200000, 550000), (200200, 550000)])
+        self.lower_axis = LineString([(200094, 549975), (200094, 550027)])
+
+    def test_a_crossing_lower_axis_does_not_keep_the_whole_confirmed_deck_at_ground_level(self):
+        structures = [("bridge", self.deck)]
+        owners = find_surveyed_deck_roads(self.db, structures, [{"ROAD_TYPE": "003"}],
+                                         STRtree([self.upper_axis]))
+        self.assertEqual(owners, {1: "bridge"})
+        graph = {"roads": [{"id": id_, "coordinates": gps(axis.coords), "nodeIds": [2 * id_, 2 * id_ + 1],
+                            "bridge": id_ == 1, "motor": True, "unpaved": False}
+                           for id_, axis in [(1, self.upper_axis), (2, self.lower_axis)]]}
+        window = self.deck.buffer(30).envelope
+        original, _, _ = separate_decks(self.sources, graph, window, structures, {})
+        self.assertTrue(unary_union(original).covers(self.deck))
+        ground, decks, _ = separate_decks(self.sources, graph, window, structures, owners)
+        lower_surface = unary_union(ground).intersection(self.deck)
+        self.assertAlmostEqual(lower_surface.symmetric_difference(self.lower_road.intersection(self.deck)).area, 0)
+        self.assertEqual(decks[0]["surveyedRoadUFIDs"], ["upper-survey"])
+
+    def test_local_parcel_overlap_is_not_proof_of_deck_ownership(self):
+        structures = [("bridge", self.deck)]
+        self.assertEqual(find_surveyed_deck_roads(self.db, structures, [{"ROAD_TYPE": "000"}],
+                                                 STRtree([self.upper_axis])), {})
+        self.assertEqual(find_surveyed_deck_roads(self.db, structures, [{"ROAD_TYPE": "003"}],
+                                                 STRtree([self.lower_axis])), {})
+        self.assertEqual(find_surveyed_deck_roads(self.db, structures + [("competing", self.deck)],
+                                                 [{"ROAD_TYPE": "003"}], STRtree([self.upper_axis])), {})
+
+
 class DividedDeckAlignmentTest(unittest.TestCase):
     def setUp(self):
         positions = [(200000 + x, 550000 + y)
@@ -217,6 +273,28 @@ class DividedDeckAlignmentTest(unittest.TestCase):
 
 
 class DeckPaintTest(unittest.TestCase):
+    def test_lanes_from_a_reassigned_surface_keep_their_indexed_extent_and_dash_origin(self):
+        def coords(start, end, y):
+            return gps([(200000 + start, 550000 + y), (200000 + end, 550000 + y)])
+
+        original = LineString([(200000, 550000), (200040, 550000)])
+        grade = {
+            "sourceId": "bridge",
+            "roadIds": [10],
+            "polygons": [[gps(box(200002, 549997, 200038, 550003).exterior.coords)]],
+            "surveyedRoadUFIDs": ["surface"],
+        }
+        pavement = {"roadDataset": {"sha256": "source"}, "structureSources": [{"sha256": "structure"}],
+                    "elevatedRoads": [grade], "roads": [], "sidewalks": []}
+        road = {"id": 10, "motor": True, "bridge": True, "unpaved": False, "coordinates": coords(0, 40, 1)}
+        markings = {"roadDataset": pavement["roadDataset"]}
+        indexed = {"surface": [("white-feature", "white-id", "008", "white-dash", original, 8, 24)]}
+        export_window(markings, pavement, "source", [], STRtree([]), [], STRtree([]), [road], indexed)
+        record, = markings["elevatedMarkings"]["records"]
+        self.assertEqual((record["deckId"], record["style"], record["sourceLevel"]), ("bridge", "white-dash", "001"))
+        self.assertAlmostEqual(record["dashOffsetM"], 8)
+        self.assertEqual(record["points"], coords(8, 24, 0))
+
     def test_a_road_with_a_ground_approach_keeps_verified_sections_on_each_deck(self):
         def outline(start, end):
             return [gps(box(200000 + start, 549998, 200000 + end, 550002).exterior.coords)]

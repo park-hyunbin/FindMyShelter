@@ -1,7 +1,7 @@
 """Build paired Seoul tour pavement and paint datasets from one verified city index."""
 
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 from contextlib import closing
 from dataclasses import dataclass
 import hashlib
@@ -31,6 +31,9 @@ from reconcile_seoul_marking_links import (
 
 
 RAMP_EVIDENCE = REGIONS.parents[2] / "components" / "data" / "seoul-ramp-lanes.generated.json"
+DECK_PAVEMENT_SHARE = 0.75
+DECK_LINK_SHARE = 0.8
+MIN_DECK_LINK_M = 60
 
 
 def structure_inventory(archives):
@@ -54,11 +57,33 @@ def structure_inventory(archives):
     return records, sources
 
 
-def separate_decks(road_records, graph, window, structures):
+def find_surveyed_deck_roads(db, structures, links, index):
+    owners = defaultdict(set)
+    for uid, structure in structures:
+        axes = []
+        for i in index.query(structure, predicate="intersects"):
+            if links[i]["ROAD_TYPE"] not in ("001", "003"):
+                continue
+            within = index.geometries[i].intersection(structure)
+            if within.length >= MIN_DECK_LINK_M:
+                axes.append((within, max(MIN_DECK_LINK_M, DECK_LINK_SHARE * within.length)))
+        if not axes:
+            continue
+        for id_, _, surface in surface_shapes(db, structure.envelope, "road", clip_to_window=False):
+            if surface.geom_type != "Polygon":
+                continue
+            if structure.intersection(surface).area >= DECK_PAVEMENT_SHARE * surface.area and any(
+                axis.intersection(surface).length >= minimum for axis, minimum in axes
+            ):
+                owners[id_].add(uid)
+    return {id_: next(iter(ids)) for id_, ids in owners.items() if len(ids) == 1}
+
+
+def separate_decks(road_records, graph, window, structures, surveyed_deck_roads):
     axes = [(road, LineString([TO_METRES.transform(*point) for point in road["coordinates"]]))
             for road in graph["roads"] if road["motor"] and len(road["coordinates"]) >= 2]
     bridges = [(road["id"], axis) for road, axis in axes if road["bridge"]]
-    decks, outlines = [], []
+    decks, outlines = [], {}
     owner_ids = set()
     for uid, structure in structures:
         if not structure.intersects(window):
@@ -71,15 +96,16 @@ def separate_decks(road_records, graph, window, structures):
         polygons = export_polygons(outline)
         if polygons:
             decks.append({"sourceId": uid, "roadIds": owners, "polygons": polygons})
-            outlines.extend(parts(outline, "Polygon"))
+            outlines[uid] = union_all(list(parts(outline, "Polygon")))
             owner_ids.update(owners)
-    elevated = union_all(outlines, grid_size=GRID_M)
+    elevated = union_all(list(outlines.values()), grid_size=GRID_M)
     if elevated.is_empty:
         return [polygon for _, _, polygon in road_records], decks, []
     ground_axes = [axis for road, axis in axes if not road["bridge"]]
     axis_index = STRtree(ground_axes)
     ground = []
-    for _, _, polygon in road_records:
+    reassigned = defaultdict(set)
+    for id_, ufid, polygon in road_records:
         if polygon.intersection(elevated).area > GRID_M:
             # Retain independently mapped through roads under the structure. A
             # route that only approaches its edge may be a ramp at another grade.
@@ -92,7 +118,18 @@ def separate_decks(road_records, graph, window, structures):
                     break
             if not passes_below:
                 polygon = polygon.difference(elevated, grid_size=GRID_M)
+            elif (deck_id := surveyed_deck_roads.get(id_)) in outlines:
+                # The intersecting lower axis does not establish a ground
+                # surface across a surveyed deck. Independent ground polygons
+                # stay in the result, and uncovered lower axes use the fallback.
+                deck = outlines[deck_id]
+                if polygon.intersection(deck).area > GRID_M:
+                    reassigned[deck_id].add(ufid)
+                    polygon = polygon.difference(deck, grid_size=GRID_M)
         ground.extend(parts(polygon, "Polygon"))
+    for deck in decks:
+        if ufids := reassigned.get(deck["sourceId"]):
+            deck["surveyedRoadUFIDs"] = sorted(ufids)
     return ground, decks, covered_segments(graph, elevated, owner_ids)
 
 
@@ -212,9 +249,13 @@ def supported_runs(original, rows, driveway, window, excluded, recovered, confir
             continue
         segment = substring(original, start, end)
         in_window = segment.intersection(window)
+        if in_window.length == 0:
+            continue
         # Clipping first keeps sampled evidence from bridging an actual road gap.
         verified = []
-        for piece in parts(in_window.intersection(driveway), "LineString"):
+        clipped = (piece for path in parts(in_window, "LineString")
+                   for piece in parts(path.intersection(driveway), "LineString"))
+        for piece in clipped:
             first = segment.project(Point(piece.coords[0]))
             last = segment.project(Point(piece.coords[-1]))
             if last < first:
@@ -291,7 +332,8 @@ def verified_lanes(db, window, driveway, excluded, recovered, ground_links, cent
                 yield {**lane_item(line, original, style, kind), "managementId": management}
 
 
-def scene_files(db, folder, source, structures, structure_sources, ground_links, centreline, ramp_evidence, ramp_axes):
+def scene_files(db, folder, source, structures, structure_sources, ground_links, centreline, ramp_evidence, ramp_axes,
+                surveyed_deck_roads):
     region = folder.name
     markings = json.loads((folder / "road-markings.json").read_text(encoding="utf-8"))
     previous_pavement = json.loads((folder / "pavement.json").read_text(encoding="utf-8"))
@@ -305,10 +347,12 @@ def scene_files(db, folder, source, structures, structure_sources, ground_links,
     walk_records = list(surface_shapes(db, window, "walk"))
     if not road_records or not walk_records:
         raise ValueError(f"No paired pavement coverage in {window.bounds}")
-    ground, elevated, elevated_segments = separate_decks(road_records, graph, window, structures)
+    ground, elevated, elevated_segments = separate_decks(road_records, graph, window, structures, surveyed_deck_roads)
     roads = union_all(ground, grid_size=GRID_M)
     walks = union_all([polygon for _, _, polygon in walk_records], grid_size=GRID_M)
     driveway = roads.difference(walks, grid_size=GRID_M)
+    if driveway.geom_type == "GeometryCollection":
+        driveway = union_all(list(parts(driveway, "Polygon")), grid_size=GRID_M)
     prepare(driveway)
     aligned = align_ground_ramps(graph, driveway, ramp_evidence["ramps"], ramp_axes)
     ground_graph = {"roads": [{**road, "coordinates": aligned[road["id"]]} if road["id"] in aligned else road
@@ -399,11 +443,12 @@ def build(index, evidence, regions, output, bridge_archive, grade_separation_arc
             if ramp_evidence["sha256"] != checks["national_sha256"]:
                 raise ValueError("Ramp centerline evidence must use the same national archive")
             ramp_links, ramp_index, _ = inventory(national_archive, bounds)
+            surveyed_deck_roads = find_surveyed_deck_roads(db, decks, ramp_links, ramp_index)
             ramp_ids = {identifier for match in ramp_evidence["ramps"].values() for identifier in match["links"]}
             ramp_axes = {link["LINK_ID"]: geometry for link, geometry in zip(ramp_links, ramp_index.geometries, strict=True)
                          if link["LINK_ID"] in ramp_ids and link["ROAD_TYPE"] == "000"}
             prepared = {folder.name: scene_files(db, folder, metadata, decks, structure_sources, ground_links,
-                                                 centreline, ramp_evidence, ramp_axes)
+                                                 centreline, ramp_evidence, ramp_axes, surveyed_deck_roads)
                         for folder in folders}
     for region, (markings, pavement_file, _) in prepared.items():
         folder = output / region

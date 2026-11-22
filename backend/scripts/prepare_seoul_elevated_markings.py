@@ -9,7 +9,7 @@ from pathlib import Path
 import sqlite3
 
 import numpy as np
-from shapely import STRtree, union_all
+from shapely import STRtree, from_wkb, union_all
 from shapely.geometry import LineString
 from shapely.ops import substring
 
@@ -96,7 +96,29 @@ def supported_deck_sections(original, carriageway, deck, owner, ground, paint, m
                 yield verified
 
 
-def export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads):
+def reassigned_road_markings(road_index, snapshot_sha, road_ufids):
+    if not road_ufids:
+        return {}
+    if road_index is None:
+        raise ValueError("Reassigned deck surfaces require the matching T-GIS road index (--road-index)")
+    with closing(sqlite3.connect(road_index.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        report = json.loads(db.execute("SELECT value FROM metadata WHERE key='report'").fetchone()[0])
+        if report["sources"]["tgis-lanes"]["sha256"] != snapshot_sha:
+            raise ValueError("Reassigned deck surfaces require the road index for this T-GIS snapshot")
+        result = {}
+        for ufid in sorted(road_ufids):
+            rows = db.execute("""SELECT t.feature_id,m.management_id,t.kind,m.style,m.geometry,s.start_m,s.end_m
+                FROM road r JOIN span s ON s.road_id=r.id JOIN marking m ON m.id=s.marking_id
+                JOIN tgis_marking_source t ON t.source_row=m.source_row
+                WHERE r.ufid=? AND s.status='single_road' AND t.kind<>'001' AND m.style<>'stop'
+                ORDER BY m.id,s.start_m""", (ufid,))
+            result[ufid] = [(identifier, management, kind, style, from_wkb(line), start, end)
+                            for identifier, management, kind, style, line, start, end in rows]
+        return result
+
+
+def export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads,
+                  reassigned_paint=None):
     if markings.get("roadDataset") != pavement.get("roadDataset") or (
         pavement.get("roadDataset", {}).get("sha256") != snapshot_sha
     ):
@@ -120,7 +142,7 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                             if other_id != source_id and deck.intersects(other)])
         overlap = deck.intersection(shared)
         exclusive = deck.difference(shared)
-        central_strokes = []
+        central_strokes, explicit_strokes = [], []
         for i in sorted(index.query(deck, predicate="intersects")):
             identifier, management, kind, style, original = sources[i]
             counts["overlap_m"] += original.intersection(overlap).length
@@ -131,6 +153,7 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                 item.update(deckId=source_id, featureId=identifier, managementId=management)
                 records.append(item)
                 counts["length_m"] += line.length
+                explicit_strokes.append(line)
                 if kind == "001":
                     central_strokes.append(line)
         surveyed_deck = deck_records[source_id]
@@ -162,6 +185,19 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                 counts["inferred_deck_m"] += verified.length
                 if not whole:
                     counts["section_inferred_m"] += verified.length
+        ufids = surveyed_deck.get("surveyedRoadUFIDs", [])
+        if ufids:
+            clearance = union_all(explicit_strokes).buffer(SAME_PAINT_M)
+            for ufid in ufids:
+                for identifier, management, kind, style, original, start, end in reassigned_paint[ufid]:
+                    span = substring(original, start, end)
+                    for verified in supported_deck_sections(span, isolated_carriageway, deck, owner, ground_network,
+                                                            clearance, 0.25):
+                        item = lane_item(verified, original, style, kind)
+                        item.update(deckId=source_id, featureId=identifier, managementId=management, sourceLevel="001")
+                        records.append(item)
+                        counts["length_m"] += verified.length
+                        counts["reassigned_deck_m"] += verified.length
     # A rerun must remove a deck whose source or boundary has ceased to support it.
     markings.pop("elevatedMarkings", None)
     if records:
@@ -170,7 +206,7 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
             **{key: round(value, 2) for key, value in counts.items()}}
 
 
-def build(snapshot_path, regions, output):
+def build(snapshot_path, regions, output, road_index=None):
     snapshot_sha = digest(snapshot_path)
     with closing(sqlite3.connect(snapshot_path.resolve().as_uri() + "?mode=ro", uri=True)) as snapshot:
         raw, = snapshot.execute("SELECT value FROM metadata WHERE key='report'").fetchone()
@@ -182,10 +218,15 @@ def build(snapshot_path, regions, output):
         ground_sources = list(marking_sources(snapshot, day, "001"))
     index = STRtree([line for *_, line in sources])
     ground_index = STRtree([line for *_, line in ground_sources])
+    inputs = [(file, json.loads(file.with_name("pavement.json").read_text(encoding="utf-8")))
+              for file in sorted(regions.glob("*/road-markings.json"))]
+    reassigned_paint = reassigned_road_markings(road_index, snapshot_sha, {
+        ufid for _, pavement in inputs for deck in pavement.get("elevatedRoads", [])
+        for ufid in deck.get("surveyedRoadUFIDs", [])
+    })
     results = {}
-    for file in sorted(regions.glob("*/road-markings.json")):
+    for file, pavement in inputs:
         markings = json.loads(file.read_text(encoding="utf-8"))
-        pavement = json.loads(file.with_name("pavement.json").read_text(encoding="utf-8"))
         roads = []
         if pavement.get("elevatedRoads"):
             site = json.loads(file.with_name("site.geojson").read_text(encoding="utf-8"))
@@ -193,7 +234,7 @@ def build(snapshot_path, regions, output):
             streets = regions.parent / "neighborhoods" / neighborhood if neighborhood else file.parent
             roads = json.loads((streets / "streets.json").read_text(encoding="utf-8"))["roads"]
         results[file.parent.name] = markings, export_window(markings, pavement, snapshot_sha, sources, index,
-                                                            ground_sources, ground_index, roads)
+                                                            ground_sources, ground_index, roads, reassigned_paint)
     if not results:
         raise ValueError(f"No Seoul region markings in {regions}")
     for region, (data, _) in results.items():
@@ -208,5 +249,6 @@ if __name__ == "__main__":
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--regions", type=Path, default=REGIONS)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--road-index", type=Path, help="Matching T-GIS index for reclassified deck surfaces")
     args = parser.parse_args()
-    print(json.dumps(build(args.snapshot, args.regions, args.output), indent=2))
+    print(json.dumps(build(args.snapshot, args.regions, args.output, args.road_index), indent=2))

@@ -28,14 +28,18 @@ def feature(geometry, **properties):
             "properties": properties}
 
 
-def surface_shapes(db, window, table):
+def surface_shapes(db, window, table, *, clip_to_window=True):
     query = f"""SELECT surface.id, surface.ufid, surface.geometry
         FROM {table}_bounds bounds JOIN {table} surface ON surface.id=bounds.id
         WHERE bounds.min_x<=? AND bounds.max_x>=? AND bounds.min_y<=? AND bounds.max_y>=?
         ORDER BY surface.id"""
     for id_, ufid, geometry in db.execute(query, bounds_parameters(window)):
-        for polygon in parts(from_wkb(geometry).intersection(window), "Polygon"):
-            yield id_, ufid, polygon
+        surface = from_wkb(geometry)
+        if clip_to_window:
+            for polygon in parts(surface.intersection(window), "Polygon"):
+                yield id_, ufid, polygon
+        elif surface.intersects(window):
+            yield id_, ufid, surface
 
 
 def surfaces(db, window, table):
