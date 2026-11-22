@@ -7,7 +7,7 @@ import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials
 import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection } from './opo-meshes';
 import {
   crossingOutline, crossingSupport, crosswalkFrame, fitCrosswalk, fitCrosswalkToMeasuredRoad,
-  leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, zebraOffsets, type CrossingSupport, type Crosswalk,
+  leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, surveyedCrosswalkFrame, zebraOffsets, type CrossingSupport, type Crosswalk,
 } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
 import { projectSiteCrossing, sidewalkTreeWell } from './opo-site-surfaces';
@@ -200,7 +200,10 @@ function offsetLine(points: Point[], offset: number) {
 }
 
 function cleanMarking(points: Point[], tolerance: number) {
-  const line = points.filter((point, i) => !i || Math.hypot(point.x - points[i - 1].x, point.z - points[i - 1].z) >= 0.01);
+  const last = points[points.length - 1];
+  const separated = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z) >= 0.01;
+  const line = points.filter((point, i) => !i || i === points.length - 1
+    || (separated(point, points[i - 1]) && separated(point, last)));
   if (line.length < 3) return line;
   const keep = new Set([0, line.length - 1]);
   const spans = [[0, line.length - 1]];
@@ -483,28 +486,31 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const sourceOutlines = new Map<Crosswalk, Point[]>();
   const archivedCrossings: { area: ReturnType<typeof surveyedCrosswalkArea>; ring: Point[] }[] = [];
   function addCrossing(outline: Point[], center: Point, source: CrossingSource, inventoryMatch = false) {
-    if (exactCrossings.some(({ ring, boundary }) => inShape(center, [ring]) || nearestOnLine(center, [boundary]).distance < 4)) {
+    const confirmedOutline = source === 'city_archive' && inventoryMatch;
+    if (exactCrossings.some(({ ring, boundary }) => inShape(center, [ring])
+      || (!confirmedOutline && nearestOnLine(center, [boundary]).distance < 4))) {
       auditCrossing?.({ source, center, status: 'duplicate' });
       return;
     }
     const radius = Math.min(45, Math.max(4, ...outline.map(point => Math.hypot(point.x - center.x, point.z - center.z))));
     const candidates = fitCrosswalk(outline, network.nearby(center, radius), source !== 'city_archive' || inventoryMatch);
-    if (!candidates.length) {
+    const surveyFrame = confirmedOutline ? surveyedCrosswalkFrame(outline, roadSurface) : undefined;
+    if (!candidates.length && !surveyFrame) {
       auditCrossing?.({ source, center, status: 'no_aligned_road' });
       return;
     }
-    const archived = source === 'city_archive';
-    if (archived && inventoryMatch) {
+    if (confirmedOutline) {
       // A confirmed polygon may cover two carriageways. Generate the pattern
       // over its entire surveyed extent with one phase; the actual deck and
       // median boundaries decide where paint can be seen.
-      const area = surveyedCrosswalkArea(candidates[0], outline);
-      if (archivedCrossings.some(crossing => sameCrosswalk(area, crossing.area))) {
+      const area = surveyFrame ?? surveyedCrosswalkArea(candidates[0], outline);
+      if (archivedCrossings.some(crossing => inShape(area.center, [crossing.ring])
+        && inShape(crossing.area.center, [outline]))) {
         auditCrossing?.({ source, center: area.center, status: 'duplicate' });
         return;
       }
       archivedCrossings.push({ area, ring: outline });
-      auditCrossing?.({ source, center: area.center, status: 'surveyed_outline', roadId: candidates[0].section.road.id });
+      auditCrossing?.({ source, center: area.center, status: 'surveyed_outline', roadId: candidates[0]?.section.road.id });
       return;
     }
     const paint = outline.length ? footprint([[outline]]) : undefined;
@@ -785,10 +791,14 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const dashLength = busLane ? 3 : style === 'yellow-dash' ? 2.7 : 4;
     const gap = busLane ? 3 : 4.5;
     const solid = [points];
+    // Use the original distance for dash phase across independently clipped
+    // spans. Smoothing first would shorten a span and shift its dash ends.
     const painted = dashed ? lineChunks(points, dashLength, gap, dashOffsetM) : solid;
     const paint = (segments: Point[][], offset = 0) => {
       for (const segment of segments) {
-        const outline = ribbon(offset ? offsetMarking(segment, offset) : segment, width, () => 0);
+        const line = cleanMarking(segment, width / 2);
+        if (line.length < 2) continue;
+        const outline = ribbon(offset ? offsetMarking(line, offset) : line, width, () => 0);
         const onRoad = clipper.clipOnce(outline, 0.018);
         outline.dispose();
         // The lifts of paint on the same deck differ by less than 0.1m.
@@ -873,6 +883,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       if (!isPath) for (const line of surfaces) {
         for (const point of (urban && width > 12 ? [line[0], line[line.length - 1]] : line)) {
           if (approachEnds.has(point)) continue;
+          // A fallback span can start at a cut in a survey boundary. A round
+          // cap there can pave a real median or join adjacent carriageways.
+          if (municipalSurface && (!road.points.includes(point) || municipalSurface.heightAt(point) !== undefined)) continue;
           let cap: T.BufferGeometry = new T.CircleGeometry(width / 2, 10);
           cap.rotateX(-Math.PI / 2).translate(point.x, 0, point.z);
           if (terrain) {
@@ -971,7 +984,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const deck = pavementArea(rings, deckLift, 1.45);
     const exposed = roadPaint?.subtract(deck) ?? deck;
     if (exposed !== deck) deck.dispose();
-    add(asphalt, exposed, 'asphalt');
+    add(asphalt, exposed, 'asphalt', false, '부지 안 포장');
   }
   fallbackExclusions?.clear();
   function flushLayers() {
@@ -1053,9 +1066,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       mask.dispose();
     }
     for (const { style, points, busLane, dashOffsetM } of surveyedLines) {
-      // Smooth the rendered paint within its width, keeping the original samples for road-width estimates.
-      const line = cleanMarking(points, style === 'stop' ? 0.04 : 0.14);
-      if (line.length >= 2) surveyedPaint(line, style, roadPaint, busLane, dashOffsetM);
+      if (points.length >= 2) surveyedPaint(points, style, roadPaint, busLane, dashOffsetM);
     }
     flushLayers();
     crossingPaint?.clear();

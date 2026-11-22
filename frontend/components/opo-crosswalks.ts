@@ -74,6 +74,36 @@ export function surveyedCrosswalkArea(crossing: CrosswalkArea, outline: Point[])
   };
 }
 
+export function surveyedCrosswalkFrame(outline: Point[], roads: SectionSurface): CrosswalkArea | undefined {
+  // A mapped outline describes the crossing direction, even when the
+  // nearest road link is missing or runs along a different intersection arm.
+  let frame: CrosswalkArea | undefined;
+  let footprint = Infinity;
+  for (const [i, a] of outline.entries()) {
+    const b = outline[(i + 1) % outline.length];
+    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    if (length < 0.01) continue;
+    const direction = { x: (b.x - a.x) / length, z: (b.z - a.z) / length };
+    let candidate = surveyedCrosswalkArea({ center: a, direction, depth: 0, section: { width: 0 } }, outline);
+    if (candidate.depth > candidate.section.width) {
+      const across = { x: direction.z, z: -direction.x };
+      candidate = { ...candidate, direction: across, depth: candidate.section.width, section: { width: candidate.depth } };
+    }
+    const area = candidate.depth * candidate.section.width;
+    if (area < footprint) { frame = candidate; footprint = area; }
+  }
+  if (!frame || frame.depth < 1.25 || frame.section.width < frame.depth * 1.5) return undefined;
+  const { depth, direction, section: { width } } = frame;
+  const at = crosswalkFrame(frame);
+  const across = { x: direction.z, z: -direction.x };
+  const supported = [-depth / 4, 0, depth / 4].filter(along => {
+    const covered = roads.section(at(along, 0), across, width / 2)
+      .reduce((sum, [from, to]) => sum + to - from, 0);
+    return covered >= width * 0.65;
+  });
+  return supported.length >= 2 ? frame : undefined;
+}
+
 export function zebraOffsets(width: number, edgeGap = 0.24) {
   const span = width - 2 * edgeGap;
   if (span < 0.8) return [];
