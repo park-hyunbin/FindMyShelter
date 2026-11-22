@@ -46,7 +46,7 @@ CREATE TABLE evidence (
 
 
 class Network:
-    def __init__(self, lines, references, kinds=None):
+    def __init__(self, lines, references, kinds=None, *, roads=None):
         parts, owners = get_parts(lines, return_index=True)
         coords, part_ids = get_coordinates(parts, return_index=True)
         start, end = coords[:-1], coords[1:]
@@ -58,6 +58,7 @@ class Network:
         self.owners = owners[part_ids[:-1][keep]]
         self.references = references
         self.kinds = kinds
+        self.roads = roads
         self.tree = STRtree(linestrings(np.stack((self.start, end), axis=1)))
 
     def candidates(self, coordinates, radius):
@@ -85,7 +86,7 @@ def load_city_axes(directory):
 
 
 def load_national_links(path, city_bounds, *, ground_only=False):
-    lines, references, kinds = [], [], []
+    lines, references, kinds, roads = [], [], [], []
     stem = "MOCT_LINK"
     with ZipFile(path) as archive:
         crs = CRS.from_wkt(archive.read(stem + ".prj").decode("ascii"))
@@ -97,7 +98,8 @@ def load_national_links(path, city_bounds, *, ground_only=False):
             shp=BytesIO(archive.read(stem + ".shp")), shx=BytesIO(archive.read(stem + ".shx")),
             dbf=attributes, encoding="cp949",
         ) as reader:
-            for row in reader.iterShapeRecords(fields=["LINK_ID", "ROAD_TYPE", "ROAD_USE"], bbox=bbox):
+            fields = ["LINK_ID", "ROAD_TYPE", "ROAD_USE", "ROAD_NAME", "ROAD_NO"]
+            for row in reader.iterShapeRecords(fields=fields, bbox=bbox):
                 record = row.record
                 if record["ROAD_USE"] != "0" or not row.shape.points:
                     continue
@@ -106,10 +108,11 @@ def load_national_links(path, city_bounds, *, ground_only=False):
                 lines.append(shape(row.shape.__geo_interface__))
                 references.append(record["LINK_ID"])
                 kinds.append(record["ROAD_TYPE"])
+                roads.append((record["ROAD_NAME"].strip(), record["ROAD_NO"].strip()))
     if not lines or (not ground_only and not any(kind in STRUCTURE_CODES for kind in kinds)):
         raise ValueError("No usable national road structure codes near the city")
     return Network(transform(np.asarray(lines, dtype=object), project.transform, interleaved=False),
-                   references, np.asarray(kinds))
+                   references, np.asarray(kinds), roads=roads)
 
 
 def sample_spans(geometries, starts, lengths):
@@ -128,20 +131,22 @@ def sample_spans(geometries, starts, lengths):
     return counts, indices, weights, get_coordinates(line_interpolate_point(lines, along)), tangents
 
 
-def select_axes(network, coordinates, tangent, road_geometries, is_stop, *, require_projection=False,
-                require_connected=False):
-    selected = np.full(len(coordinates), MISSING, dtype=int)
-    if not len(coordinates):
-        return selected
+def axis_candidates(network, coordinates, tangent, road_geometries, is_stop, *, require_projection=False,
+                    require_connected=False, owner_mask=None):
     samples, edges, owners = network.candidates(coordinates, AXIS_RADIUS_M)
-    direction = np.abs(np.sum(tangent[samples] * network.units[edges], axis=1))
-    keep = np.where(is_stop[samples], direction <= np.sin(ANGLE), direction >= np.cos(ANGLE))
-    samples, edges, owners = samples[keep], edges[keep], owners[keep]
+    direction = np.sum(tangent[samples] * network.units[edges], axis=1)
+    alignment = np.abs(direction)
+    keep = np.where(is_stop[samples], alignment <= np.sin(ANGLE), alignment >= np.cos(ANGLE))
+    if owner_mask is not None:
+        keep &= owner_mask[owners]
+    samples, edges, owners, direction = samples[keep], edges[keep], owners[keep], direction[keep]
     starts, vectors = network.start[edges], network.vectors[edges]
     relative = coordinates[samples] - starts
     positions = np.sum(relative * vectors, axis=1) / network.lengths[edges] ** 2
     feet = starts + np.clip(positions, 0, 1)[:, None] * vectors
-    keep = covers(road_geometries[samples], points(feet))
+    keep = np.ones(len(samples), dtype=bool)
+    if road_geometries is not None:
+        keep &= covers(road_geometries[samples], points(feet))
     if require_projection:
         keep &= (positions >= 0) & (positions <= 1)
     if require_connected and keep.any():
@@ -149,10 +154,23 @@ def select_axes(network, coordinates, tangent, road_geometries, is_stop, *, requ
         across = linestrings(np.stack((coordinates[samples[connected]], feet[connected]), axis=1))
         keep[connected] = covers(road_geometries[samples[connected]], across)
     samples, owners = samples[keep], owners[keep]
-    distances = np.linalg.norm(coordinates[samples] - feet[keep], axis=1)
+    relative = feet[keep] - coordinates[samples]
+    distances = np.linalg.norm(relative, axis=1)
+    sides = tangent[samples, 0] * relative[:, 1] - tangent[samples, 1] * relative[:, 0]
     order = np.lexsort((owners, distances, samples))
-    nearest_samples, first = np.unique(samples[order], return_index=True)
-    nearest = order[first]
+    return samples[order], owners[order], distances[order], direction[keep][order], sides[order]
+
+
+def select_axes(network, coordinates, tangent, road_geometries, is_stop, *, require_projection=False,
+                require_connected=False):
+    selected = np.full(len(coordinates), MISSING, dtype=int)
+    if not len(coordinates):
+        return selected
+    samples, owners, distances, _, _ = axis_candidates(
+        network, coordinates, tangent, road_geometries, is_stop,
+        require_projection=require_projection, require_connected=require_connected,
+    )
+    nearest_samples, nearest = np.unique(samples, return_index=True)
     closest = np.full(len(coordinates), np.inf)
     closest[nearest_samples] = distances[nearest]
     selected[nearest_samples] = owners[nearest]

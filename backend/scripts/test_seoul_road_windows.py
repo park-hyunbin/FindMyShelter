@@ -2,12 +2,13 @@ from collections import Counter
 import unittest
 
 import numpy as np
+from shapely import STRtree
 from shapely.geometry import LineString, box
 from shapely.ops import unary_union
 
 from prepare_seoul_elevated_markings import unambiguous_deck_paint
 from prepare_seoul_lane_windows import lane_item
-from prepare_seoul_road_windows import align_ground_ramps, ground_link_support, supported_runs
+from prepare_seoul_road_windows import CentrelineEvidence, align_ground_ramps, ground_link_support, supported_runs
 from prepare_songpa_road_markings import gps, lane_style
 from reconcile_seoul_marking_links import Network
 
@@ -135,6 +136,45 @@ class SupportedRunsTest(unittest.TestCase):
         marking = LineString([(9, 0), (11, 0)])
         self.assertFalse(ground_link_support(marking, self.ground, transverse, False))
         self.assertTrue(ground_link_support(marking, self.ground, transverse, True))
+
+
+class CentrelinePairTest(unittest.TestCase):
+    road = ("Main Road", "61")
+    original = LineString([(0, 0), (20, 0)])
+    ground = box(-1, -4, 21, 4)
+
+    def links(self, other_road=None, *, other_side=-1, reverse=True, extra=False):
+        a = LineString([(0, 1), (20, 1)])
+        b = LineString([(0, other_side), (20, other_side)])
+        lines = [a, b.reverse() if reverse else b]
+        roads = [self.road, self.road if other_road is None else other_road]
+        if extra:
+            lines.append(LineString([(0, 1.5), (20, 1.5)]))
+            roads.append(self.road)
+        return Network(np.array(lines), list(range(len(lines))), roads=roads)
+
+    def support(self, links, *, graded_y=10, footprints=(), ground=None):
+        graded = Network(np.array([LineString([(0, graded_y), (20, graded_y)])]), ["graded"])
+        evidence = CentrelineEvidence(graded, np.array([True]), STRtree(footprints))
+        return ground_link_support(self.original, self.ground if ground is None else ground, links, False,
+                                   centreline=evidence)
+
+    def test_two_links_of_one_road_can_confirm_the_original_stripe(self):
+        links = self.links()
+        self.assertEqual(ground_link_support(self.original, self.ground, links, False), [])
+        self.assertEqual(self.support(links), [(0, 20)])
+
+    def test_the_pair_must_belong_to_one_identified_road_and_straddle_the_stripe(self):
+        for links in [self.links(("Side Road", "61")), self.links(("Main Road", "62")),
+                      self.links(other_side=1.5), self.links(reverse=False), self.links(extra=True)]:
+            with self.subTest(links=links.roads):
+                self.assertEqual(self.support(links), [])
+
+    def test_competing_graded_link_blocks_a_pair_even_outside_the_ground_polygon(self):
+        self.assertEqual(self.support(self.links(), graded_y=2, ground=box(-1, -1.1, 21, 1.1)), [])
+
+    def test_structure_footprint_blocks_the_interval_even_between_sample_centres(self):
+        self.assertEqual(self.support(self.links(), footprints=[box(4.1, -1, 4.2, 1)]), [(0, 4), (8, 20)])
 
 
 class DeckPaintTest(unittest.TestCase):

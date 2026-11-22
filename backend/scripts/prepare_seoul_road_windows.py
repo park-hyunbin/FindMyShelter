@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 from contextlib import closing
+from dataclasses import dataclass
 import hashlib
 from io import BytesIO
 from itertools import groupby
@@ -24,7 +25,9 @@ from prepare_seoul_current_crosswalks import local_polygon
 from prepare_seoul_lane_windows import lane_item, region_bounds
 from prepare_seoul_ramp_lanes import MIN_ALIGNMENT, RADIUS_M, inventory, tangent
 from prepare_songpa_road_markings import REGIONS, gps, lane_style
-from reconcile_seoul_marking_links import load_national_links, sample_spans, select_axes
+from reconcile_seoul_marking_links import (
+    AMBIGUOUS, STRUCTURE_CODES, TIE_M, Network, axis_candidates, load_national_links, sample_spans, select_axes,
+)
 
 
 RAMP_EVIDENCE = REGIONS.parents[2] / "components" / "data" / "seoul-ramp-lanes.generated.json"
@@ -32,7 +35,7 @@ RAMP_EVIDENCE = REGIONS.parents[2] / "components" / "data" / "seoul-ramp-lanes.g
 
 def structure_inventory(archives):
     records, sources = [], []
-    for path, layer, kind_field, kind_value in archives:
+    for path, layer, kind_field, kinds in archives:
         with ZipFile(path) as archive:
             if CRS.from_wkt(archive.read(f"{layer}.prj").decode("ascii")).to_epsg() != 5186:
                 raise ValueError(f"Expected EPSG:5186 for {layer}")
@@ -41,8 +44,9 @@ def structure_inventory(archives):
                                   shx=BytesIO(archive.read(f"{layer}.shx")),
                                   dbf=BytesIO(archive.read(f"{layer}.dbf")), encoding="cp949") as reader:
                 for row in reader.iterShapeRecords(fields=["UFID", kind_field]):
-                    if row.record[kind_field] == kind_value and row.shape.shapeType:
-                        records.append((row.record["UFID"], make_valid(shape(row.shape.__geo_interface__))))
+                    kind = row.record[kind_field]
+                    if kind in kinds and row.shape.shapeType:
+                        records.append((kind, row.record["UFID"], make_valid(shape(row.shape.__geo_interface__))))
         with path.open("rb") as original:
             digest = hashlib.file_digest(original, "sha256").hexdigest()
         sources.append({"source": f"{SOURCE}/{layer}.zip", "archiveFileDate": f"{year:04}-{month:02}-{day:02}",
@@ -92,15 +96,60 @@ def separate_decks(road_records, graph, window, structures):
     return ground, decks, covered_segments(graph, elevated, owner_ids)
 
 
-def ground_link_support(line, driveway, links, is_stop):
+@dataclass
+class CentrelineEvidence:
+    national: Network
+    structural_links: np.ndarray
+    footprints: STRtree
+
+
+def opposite_direction_pairs(coordinates, tangents, ground, links, evidence):
+    stops = np.zeros(len(coordinates), dtype=bool)
+    samples, owners, distances, directions, sides = axis_candidates(
+        links, coordinates, tangents, ground, stops, require_projection=True, require_connected=True,
+    )
+    closest_structure = np.full(len(coordinates), np.inf)
+    structure_samples, _, structure_distances, _, _ = axis_candidates(
+        evidence.national, coordinates, tangents, None, stops, owner_mask=evidence.structural_links,
+    )
+    np.minimum.at(closest_structure, structure_samples, structure_distances)
+    for sample, group in groupby(range(len(samples)), key=samples.__getitem__):
+        candidates = list(group)
+        threshold = distances[candidates[0]] + TIE_M
+        if closest_structure[sample] <= threshold:
+            continue
+        nearest_by_link = {}
+        for candidate in candidates:
+            if distances[candidate] > threshold:
+                break
+            nearest_by_link.setdefault(owners[candidate], candidate)
+        if len(nearest_by_link) != 2:
+            continue
+        a, b = nearest_by_link
+        left, right = nearest_by_link.values()
+        if (links.roads[a][0] and links.roads[a] == links.roads[b]
+                and directions[left] * directions[right] < 0 and sides[left] * sides[right] < 0
+                and min(abs(sides[left]), abs(sides[right])) > GRID_M):
+            yield sample
+
+
+def ground_link_support(line, driveway, links, is_stop, *, centreline=None):
     lengths = np.array([line.length])
     _, _, _, coordinates, tangents = sample_spans(np.array([line]), np.zeros(1), lengths)
-    linked = select_axes(links, coordinates, tangents, np.full(len(coordinates), driveway, dtype=object),
+    pavement = np.full(len(coordinates), driveway, dtype=object)
+    linked = select_axes(links, coordinates, tangents, pavement,
                          np.full(len(coordinates), is_stop), require_projection=True, require_connected=True)
     supported = linked >= 0
+    edges = np.linspace(0, line.length, len(coordinates) + 1)
+    tied = np.flatnonzero(linked == AMBIGUOUS)
+    if centreline is not None and len(tied):
+        for i in opposite_direction_pairs(coordinates[tied], tangents[tied], pavement[tied], links, centreline):
+            sample = tied[i]
+            interval = substring(line, edges[sample], edges[sample + 1])
+            if not len(centreline.footprints.query(interval, predicate="intersects")):
+                supported[sample] = True
     if is_stop and not supported.all():
         return []
-    edges = np.linspace(0, line.length, len(coordinates) + 1)
     transitions = np.flatnonzero(np.diff(np.r_[False, supported, False]))
     return [(edges[begin], edges[end]) for begin, end in transitions.reshape(-1, 2)]
 
@@ -207,7 +256,7 @@ def supported_runs(original, rows, driveway, window, excluded, recovered, confir
         yield from parts(substring(original, start, end).intersection(window), "LineString")
 
 
-def verified_lanes(db, window, driveway, excluded, recovered, ground_links):
+def verified_lanes(db, window, driveway, excluded, recovered, ground_links, centreline):
     query = """SELECT m.id,m.management_id,m.geometry,source.kind,raw.id,
         json_extract(raw.properties,'$.A058_KND_CDE'),json_extract(raw.properties,'$.A058_KND2_CDE'),
         s.start_m,s.end_m,s.status,e.structure_near_m
@@ -233,7 +282,8 @@ def verified_lanes(db, window, driveway, excluded, recovered, ground_links):
             if structure is None:
                 raise ValueError(f"Missing structural evidence for {key} at {start}")
         def confirm_ground(line):
-            return ground_link_support(line, driveway, ground_links, style == "stop")
+            return ground_link_support(line, driveway, ground_links, style == "stop",
+                                       centreline=centreline if kind == "001" else None)
 
         for line in supported_runs(original, rows, driveway, window, excluded, recovered, confirm_ground,
                                    is_stop=style == "stop"):
@@ -241,7 +291,7 @@ def verified_lanes(db, window, driveway, excluded, recovered, ground_links):
                 yield {**lane_item(line, original, style, kind), "managementId": management}
 
 
-def scene_files(db, folder, source, structures, structure_sources, ground_links, ramp_evidence, ramp_axes):
+def scene_files(db, folder, source, structures, structure_sources, ground_links, centreline, ramp_evidence, ramp_axes):
     region = folder.name
     markings = json.loads((folder / "road-markings.json").read_text(encoding="utf-8"))
     previous_pavement = json.loads((folder / "pavement.json").read_text(encoding="utf-8"))
@@ -265,7 +315,7 @@ def scene_files(db, folder, source, structures, structure_sources, ground_links,
                               for road in graph["roads"]]}
     excluded = Counter()
     recovered = Counter()
-    lanes = list(verified_lanes(db, window, driveway, excluded, recovered, ground_links))
+    lanes = list(verified_lanes(db, window, driveway, excluded, recovered, ground_links, centreline))
     if not lanes or driveway.is_empty:
         raise ValueError(f"No publishable lane/road pair in {region}")
     metadata = {**source, "bounds": bounds}
@@ -290,17 +340,19 @@ def scene_files(db, folder, source, structures, structure_sources, ground_links,
                                    "restored_m": {key: round(value, 1) for key, value in sorted(recovered.items())}}
 
 
-def refresh_lanes(db, folder, source, ground_links):
+def refresh_lanes(db, folder, source, ground_links, centreline, structure_sources):
     markings = json.loads((folder / "road-markings.json").read_text(encoding="utf-8"))
     pavement = json.loads((folder / "pavement.json").read_text(encoding="utf-8"))
     bounds = markings["laneBounds"]
     if markings.get("roadDataset") != {**source, "bounds": bounds} or pavement.get("roadDataset") != markings["roadDataset"]:
         raise ValueError(f"Lane refresh needs paired pavement and marking files for the same snapshot: {folder.name}")
+    if pavement.get("structureSources") != structure_sources:
+        raise ValueError(f"Lane refresh needs the S-Map archives used to create the pavement: {folder.name}")
     window = box(*TO_METRES.transform_bounds(*bounds))
     driveway = union_all([local_polygon(rings) for rings in pavement["roads"]], grid_size=GRID_M)
     prepare(driveway)
     excluded, recovered = Counter(), Counter()
-    lanes = list(verified_lanes(db, window, driveway, excluded, recovered, ground_links))
+    lanes = list(verified_lanes(db, window, driveway, excluded, recovered, ground_links, centreline))
     if not lanes or driveway.is_empty:
         raise ValueError(f"No publishable lane/road pair in {folder.name}")
     markings["lanes"] = lanes
@@ -327,17 +379,22 @@ def build(index, evidence, regions, output, bridge_archive, grade_separation_arc
                 raise ValueError("Ground road links must come from the same archive as the structural evidence")
         bounds = db.execute("SELECT min(min_x),min(min_y),max(max_x),max(max_y) FROM road_bounds").fetchone()
         ground_links = load_national_links(national_archive, bounds, ground_only=True)
+        national = load_national_links(national_archive, bounds)
+        structures, structure_sources = structure_inventory([
+            (bridge_archive, "N1A_A0070000", "종류", {"도로교"}),
+            (grade_separation_archive, "N1A_A0090000", "구분", {"고가차도", "지하차도"}),
+        ])
+        centreline = CentrelineEvidence(national, np.isin(national.kinds, tuple(STRUCTURE_CODES)),
+                                      STRtree([geometry for _, _, geometry in structures]))
         metadata = {"url": source["url"], "retrievedAt": source["retrieved_at"], "sha256": source["sha256"]}
         folders = [file.parent for file in sorted(regions.glob("*/road-markings.json"))]
         if not folders:
             raise ValueError(f"No Seoul scene regions in {regions}")
         if lanes_only:
-            prepared = {folder.name: refresh_lanes(db, folder, metadata, ground_links) for folder in folders}
+            prepared = {folder.name: refresh_lanes(db, folder, metadata, ground_links, centreline, structure_sources)
+                        for folder in folders}
         else:
-            structures, structure_sources = structure_inventory([
-                (bridge_archive, "N1A_A0070000", "종류", "도로교"),
-                (grade_separation_archive, "N1A_A0090000", "구분", "고가차도"),
-            ])
+            decks = [(uid, geometry) for kind, uid, geometry in structures if kind != "지하차도"]
             ramp_evidence = json.loads(RAMP_EVIDENCE.read_text(encoding="utf-8"))
             if ramp_evidence["sha256"] != checks["national_sha256"]:
                 raise ValueError("Ramp centerline evidence must use the same national archive")
@@ -345,8 +402,8 @@ def build(index, evidence, regions, output, bridge_archive, grade_separation_arc
             ramp_ids = {identifier for match in ramp_evidence["ramps"].values() for identifier in match["links"]}
             ramp_axes = {link["LINK_ID"]: geometry for link, geometry in zip(ramp_links, ramp_index.geometries, strict=True)
                          if link["LINK_ID"] in ramp_ids and link["ROAD_TYPE"] == "000"}
-            prepared = {folder.name: scene_files(db, folder, metadata, structures, structure_sources, ground_links,
-                                                 ramp_evidence, ramp_axes)
+            prepared = {folder.name: scene_files(db, folder, metadata, decks, structure_sources, ground_links,
+                                                 centreline, ramp_evidence, ramp_axes)
                         for folder in folders}
     for region, (markings, pavement_file, _) in prepared.items():
         folder = output / region
@@ -364,14 +421,12 @@ def main():
     parser.add_argument("evidence", type=Path, help="Structural reconciliation for the same index")
     parser.add_argument("--regions", type=Path, default=REGIONS)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--bridges", type=Path, help="S-Map N1A_A0070000.zip")
-    parser.add_argument("--grade-separation", type=Path, help="S-Map N1A_A0090000.zip")
+    parser.add_argument("--bridges", type=Path, required=True, help="S-Map N1A_A0070000.zip")
+    parser.add_argument("--grade-separation", type=Path, required=True, help="S-Map N1A_A0090000.zip")
     parser.add_argument("--national-links", type=Path, required=True, help="National MOCT_LINK archive used for the evidence")
     parser.add_argument("--snapshot", type=Path, required=True, help="Original T-GIS snapshot used to build the marking index")
     parser.add_argument("--lanes-only", action="store_true", help="Refresh lanes using existing paired pavement")
     args = parser.parse_args()
-    if not args.lanes_only and not (args.bridges and args.grade_separation):
-        parser.error("a paired pavement rebuild requires --bridges and --grade-separation")
     print(json.dumps(build(args.index, args.evidence, args.regions, args.output, args.bridges,
                            args.grade_separation, args.national_links, args.snapshot, lanes_only=args.lanes_only), indent=2))
 
