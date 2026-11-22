@@ -64,7 +64,7 @@ def inventory(path, bounds):
             shp=BytesIO(archive.read(stem + ".shp")), shx=BytesIO(archive.read(stem + ".shx")),
             dbf=attributes, encoding="cp949",
         ) as reader:
-            fields = ["LINK_ID", "F_NODE", "T_NODE", "LANES", "CONNECT", "ROAD_TYPE", "ROAD_USE"]
+            fields = ["LINK_ID", "F_NODE", "T_NODE", "LANES", "CONNECT", "ROAD_TYPE", "ROAD_USE", "ROAD_NAME"]
             for row in reader.iterShapeRecords(fields=fields, bbox=source_bounds):
                 link = row.record.as_dict()
                 if link["ROAD_USE"] != "0" or (link["LANES"] or 0) <= 0 or not row.shape.points:

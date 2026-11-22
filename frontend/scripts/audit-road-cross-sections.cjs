@@ -240,9 +240,30 @@ function verifyElevatedPaint(data, scene) {
       `Elevated divider ${managementId} in ${data.region}: ${visible}/${total} m² visible, ${asphaltOverlap} m² of asphalt overlaps`);
     return { managementId, surveyedM2: round(total), renderedM2: round(visible), asphaltOverlapM2: round(asphaltOverlap) };
   });
+  const cheonggye = ['seoul-a13305006', 'seoul-a13381608'].includes(data.region) && verifyCheonggyeCarriageway(data, decks);
   decks.clear();
   dividerSurface.clear();
-  return { records: expected, triangles, boundaries };
+  return { records: expected, triangles, boundaries, ...(cheonggye ? { cheonggyeCarriageway: cheonggye } : {}) };
+}
+
+function verifyCheonggyeCarriageway(data, rendered) {
+  const deck = data.pavement.elevatedRoads.find(({ sourceId }) => sourceId === '1000377051791A00910000000000000002');
+  const road = data.streets.find(({ id }) => id === 203491741);
+  assert.ok(deck && road, `Missing Cheonggye carriageway survey in ${data.region}`);
+  const index = road.nodeIds.indexOf(2135060826);
+  assert.equal(road.nodeIds[index + 1], 2135060909);
+  const [a, b] = road.points.slice(index, index + 2);
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const length = Math.hypot(dx, dz);
+  const station = data.project([127.038186991, 37.572148272]);
+  const dividers = surveyedSurface(deck.dividers.flatMap(divider => divider.shapes));
+  const carriageway = surveyedSurface(deck.shapes, dividers);
+  const section = crossSection(station, { x: -dz / length, z: dx / length }, carriageway, rendered);
+  assert.ok(section.status === 'compared' && section.maxEdgeErrorM <= 0.5,
+    `Inferred pavement is widening the surveyed Cheonggye carriageway in ${data.region}: ${JSON.stringify(section)}`);
+  dividers.clear();
+  carriageway.clear();
+  return section;
 }
 
 function assertGarakCrosswalk(scene, project, checks) {

@@ -95,6 +95,7 @@ type NeighborhoodTerrain = TerrainGrid & {
   center: [number, number]; elevation: number[]; edgeFeatherM?: number;
 };
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
+type CoveredRoadSegment = [roadId: number, startNode: number, intervals: [from: number, to: number][]];
 type PavementFile = {
   roadDataset?: RoadDataset;
   structureSources?: { sha256: string }[];
@@ -106,7 +107,11 @@ type PavementFile = {
     dividers?: { managementId: string; kind: string; polygons: Position[][][] }[];
   }[];
   rampAlignment?: { sha256: string; roads: { id: number; coordinates: Position[] }[] };
-  coveredSegments: [roadId: number, startNode: number, intervals: [from: number, to: number][]][];
+  elevatedAlignment?: { roads: {
+    id: number; oneWay: number; vertices: [number, number, number][];
+    coordinates: Position[]; coveredSegments: CoveredRoadSegment[]; adjustedWayJoins?: number[];
+  }[] };
+  coveredSegments: CoveredRoadSegment[];
 };
 type NeighborhoodPlantingFile = { patches: Position[][][] };
 type ServicePavingFile = { surfaces: Position[][][] };
@@ -365,8 +370,31 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const rampAlignment = pavement?.rampAlignment;
   const rampAxes = new Map<number, Position[]>(rampAlignment?.sha256 === rampLaneEvidence.sha256
     ? rampAlignment.roads.map(({ id, coordinates }) => [id, coordinates]) : []);
+  const alignments: NonNullable<PavementFile['elevatedAlignment']>['roads'] = pavement?.elevatedAlignment?.roads ?? [];
+  const recordedRoads: StreetFile['roads'] = neighborhood?.roads ?? [];
+  const alignedJoins = new Set(alignments.flatMap(record => record.adjustedWayJoins ?? []));
+  const joinUses = new Map<number, number>();
+  if (alignedJoins.size) for (const road of recordedRoads) {
+    for (const node of new Set(road.nodeIds)) if (alignedJoins.has(node)) {
+      joinUses.set(node, (joinUses.get(node) ?? 0) + 1);
+    }
+  }
+  const surveyedRoads = new Map(alignments.length ? recordedRoads.map(road => [road.id, road] as const) : []);
+  // Apply joined alignments together. A stale endpoint or a new branch makes
+  // the shared coordinates and their intervals incompatible with the graph.
+  const compatibleElevated = [...alignedJoins].every(node => joinUses.get(node) === 2)
+    && alignments.every(record => {
+      const road = surveyedRoads.get(record.id);
+      return road?.bridge && road.motor && !road.unpaved && road.oneWay === record.oneWay
+        && record.vertices.length === road.coordinates.length && record.coordinates.length === road.coordinates.length
+        && record.vertices.every(([node, lon, lat], i) =>
+          road.nodeIds[i] === node && road.coordinates[i][0] === lon && road.coordinates[i][1] === lat);
+    });
+  const elevatedAxes = new Map(compatibleElevated ? alignments.map(record => [record.id, record] as const) : []);
   const streets: Street[] = neighborhood
     ? neighborhood.roads.map(({ coordinates, ...tags }) => {
+      const elevated = elevatedAxes.get(tags.id);
+      if (elevated) return { ...tags, points: elevated.coordinates.map(project) };
       const surveyed = pavement?.roadDataset && nationalRampLanes.get(tags.id);
       const compatible = surveyed && tags.motor && !tags.unpaved && tags.category.endsWith('_link')
         && surveyed.oneWay === tags.oneWay && surveyed.bridge === tags.bridge
@@ -472,7 +500,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
         sourceId, roadIds, shapes: polygons.map(toShape),
         dividers: (dividers ?? []).map(({ managementId, polygons }) => ({ managementId, shapes: polygons.map(toShape) })),
       })),
-      coveredSegments: pavement.coveredSegments },
+      coveredSegments: [...pavement.coveredSegments.filter(([road]) => !elevatedAxes.has(road)),
+        ...[...elevatedAxes.values()].flatMap(record => record.coveredSegments)] },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
 
