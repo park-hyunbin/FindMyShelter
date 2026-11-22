@@ -2,6 +2,7 @@ import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
 import { buildingUseCode } from './data/building-use-code';
 import buildingUseEvidence from './data/building-use-evidence.generated.json';
+import rampLaneEvidence from './data/seoul-ramp-lanes.generated.json';
 import { catalogScene, jamsilLeel, regions, songpaComplex, type RegionId } from './data/regions';
 import { routesFor, type AccessDataset } from './data/visit-routes';
 import { songpaRouteElevation, type RouteElevationDataset } from './data/songpa-route-elevation';
@@ -115,6 +116,7 @@ export const extent = 1250;
 export const precinct = 330;
 const epsg5186 = '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs';
 const positiveDimension = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+const nationalRampLanes = new Map(Object.entries(rampLaneEvidence.ramps).map(([id, record]) => [Number(id), record]));
 
 async function json<T>(path: string, signal: AbortSignal, cache?: RequestCache): Promise<T> {
   const response = await fetch(path, { signal, cache });
@@ -331,7 +333,16 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const siteHoles = site.features.flatMap(({ geometry }) => geometry.type === 'Polygon'
     ? geometry.coordinates.slice(1).map(ring => ring.map(project)) : []);
   const streets: Street[] = neighborhood
-    ? neighborhood.roads.map(({ coordinates, ...tags }) => ({ ...tags, points: coordinates.map(project) }))
+    ? neighborhood.roads.map(({ coordinates, ...tags }) => {
+      const surveyed = pavement?.roadDataset && nationalRampLanes.get(tags.id);
+      const compatible = surveyed && tags.motor && !tags.unpaved && tags.category.endsWith('_link')
+        && surveyed.oneWay === tags.oneWay && surveyed.bridge === tags.bridge
+        && surveyed.vertices.length === tags.nodeIds.length && surveyed.vertices.length === coordinates.length
+        && surveyed.vertices.every(([node, lon, lat], i) =>
+          tags.nodeIds[i] === node && coordinates[i][0] === lon && coordinates[i][1] === lat);
+      const missing = !tags.width && !tags.lanes && !tags.forwardLanes && !tags.backwardLanes;
+      return { ...tags, lanes: missing && compatible ? surveyed.lanes : tags.lanes, points: coordinates.map(project) };
+    })
     : regionalStreets(features);
   if (region === 'songpa') {
     const [entrance, innerPath] = songiPark.views.map(view => project(view.coordinate));

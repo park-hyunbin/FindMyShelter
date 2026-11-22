@@ -170,6 +170,18 @@ node scripts/audit-road-cross-sections.cjs --crossings-only
 
 서울 10개 장면의 같은 표본에서 좌우 경계 오차가 0.5m를 넘는 지상 단면은 163건에서 150건, 고가·교량은 187건에서 64건으로 줄었다. 가락 정문 중앙선과 확인된 횡단보도 도색은 기존 배치와 면적을 유지했다. 항공영상에 시 경계를 겹쳐 확인한 마포 강변부는 진출입로와 아래 차도가 교차했고, 천호·가락의 검토 단면은 구조물과 그림자에 일부 가려졌다. 이곳의 폭은 시 도형과 렌더러 사이의 일치 여부까지 확인했다. 현장 연석 폭으로 확정하려면 층별 도형 또는 경계가 보이는 영상을 추가 대조해야 한다. [항공영상 지도와 해상도](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)
 
+## 진출입로 차로 수와 폭
+
+도로망에 폭과 차로 수가 빠지면 기존 코드는 간선도로 진출입로에도 본선의 기본 폭 13m를 적용했다. 강변북로의 OSM `474754678`과 국가교통정보센터 표준 링크 `1130030100`은 표본 전체에서 같은 진출입로를 가리키며, 국가 자료의 차로 수는 1이다. 이 진출입로의 추정 포장 띠가 옆 분리 공간을 채워 본선 차도 두 곳이 함께 보였다.
+
+현재 서울 공개 장면의 일방통행 진출입로 가운데 폭과 차로 수가 비어 있는 길을 표준노드링크와 대조했다. 최대 6m 간격으로 진행 방향, 층위와 5m 이내 거리를 비교한다. 표본의 80% 이상에서 순서대로 연결된 진출입로들이 같은 차로 수를 보고할 때만 사용한다. 가까운 본선, 다른 층의 링크 또는 다른 차로 수 후보가 더 잘 맞는 위치는 근거에서 뺀다. 배포에는 19개가 연결됐다. 14개는 1차로, 5개는 2차로다. 원본 도로망의 양 끝과 중간 노드 및 좌표까지 같을 때 이 차로 수를 적용한다. [국가교통정보센터 표준노드링크](https://www.its.go.kr/nodelink/nodelinkRef) · [국토교통부 도로 유형·차로 속성 정의](https://www.codil.or.kr/filebank/moct2014/202301/MOCT3000_0.PDF?nserialno=3000)
+
+시 차도 경계를 확보한 곳은 그대로 사용한다. 표준 링크에서 얻은 차로 수는 도형이 비는 구간의 포장 폭 계산에 쓰고 도색은 기존 도색 원본을 사용한다. 강변북로 한 단면은 렌더러에서 41.01m까지 이어졌으며, 수정 후 시 차도 경계와 화면 모두 24.49m였다. 서울 10개 장면의 기존 지상 표본에서 경계 오차가 0.5m를 넘는 곳이 150건에서 140건으로 줄었다. 잠실 주변 합류로처럼 국가 링크가 다른 분기만 따라가거나 연석이 항공영상에서 가려진 곳은 추가 대조가 필요하다. [매칭 코드](../../backend/scripts/prepare_seoul_ramp_lanes.py) · [배포 데이터](../../frontend/components/data/seoul-ramp-lanes.generated.json)
+
+```powershell
+uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_ramp_lanes.py ../road-source-cache/national-road-links-2026-11-11.zip --output frontend/components/data/seoul-ramp-lanes.generated.json
+```
+
 ## 앞으로 사용할 데이터 구조
 
 1. **서울 전역을 한 번 수집하고 생활권으로 자른다.** 서울시 T-GIS 차선·정지선·차도·보도·횡단보도를 같은 좌표계와 조회 범위로 읽는다. 감속 표시와 도로 중심선은 별도 출처를 연결한다. 차선과 차도를 같은 생활권 경계와 여유 범위로 내보내고, 서로 겹치는 장면에서 같은 구간 데이터를 공유한다. 원본의 관측·설치일과 자료 조회 시각, 좌표계와 피처 식별자를 함께 기록한다. [서울시 T-GIS 시민용 지도](https://tgis.eseoul.go.kr/map/mapMain.do) · [일괄 수집 방법](seoul-road-bulk-sources.md#자동으로-갱신하고-검사하는-명령)
