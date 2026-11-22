@@ -18,7 +18,7 @@ const frontend = path.resolve(process.env.FMS_AUDIT_FRONTEND ?? path.join(__dirn
 const fromTour = createRequire(path.join(frontend, 'package.json'));
 const { loadOpoData, buildingCollision } = fromTour('./components/opo-data.ts');
 const { makeGround, groundPolygon, createTerrainProjection, ribbon } = fromTour('./components/opo-meshes.ts');
-const { addStreets, inferredRoadSection } = fromTour('./components/opo-streets.ts');
+const { addStreets, inferredRoadSection, surveyedDashSegments } = fromTour('./components/opo-streets.ts');
 const { alignShadowTarget } = fromTour('./components/opo-contact-shadows.ts');
 const { addSiteDetails } = fromTour('./components/opo-site.ts');
 const { createSidewalkSeams } = fromTour('./components/opo-curb-walk.ts');
@@ -119,6 +119,17 @@ function testPaintProjection() {
   assert.ok(Math.abs(area - 16) < 1e-5, `Overlapping decks produced ${area} square metres of paint`);
   [first, second, placed].forEach(geometry => geometry.dispose());
   pavement.clear();
+}
+
+function testGuideDashes() {
+  const along = x => ({ x, z: 0 });
+  const pattern = (from, to, distance = 0, style = 'white-guide-dash') =>
+    surveyedDashSegments([along(from), along(to)], style, false, distance)
+      .map(stroke => [stroke[0].x, stroke.at(-1).x].map(x => Math.round(x * 1000) / 1000));
+  assert.deepEqual(pattern(0, 5), [[0, 0.75], [1.5, 2.25], [3, 3.75], [4.5, 5]]);
+  assert.deepEqual(pattern(0.4, 2.5, 0.4), [[0.4, 0.75], [1.5, 2.25]]);
+  assert.deepEqual(pattern(1.1, 3, 1.1), [[1.5, 2.25]]);
+  assert.deepEqual(pattern(0, 5, 0, 'white-dash'), [[0, 4]]);
 }
 
 function testInferredRoadBoundary() {
@@ -453,6 +464,7 @@ async function audit(region, crossingsOnly, elevatedOnly) {
   if (crossingsOnly) {
     testCrossingSupport();
     testPaintProjection();
+    testGuideDashes();
     testInferredRoadBoundary();
     testShadowGrid();
     regions.push('opo');

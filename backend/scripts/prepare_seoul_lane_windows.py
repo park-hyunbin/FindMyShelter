@@ -78,7 +78,9 @@ def lane_item(line, original, style, kind):
         if end < begin:
             line = line.reverse()
             begin = end
-    item = {"style": style, "points": gps(line.simplify(0.11).coords)}
+    # The short intersection dashes need the surveyed curve's distance through bends.
+    points = line.coords if style == "white-guide-dash" else line.simplify(0.11).coords
+    item = {"style": style, "points": gps(points)}
     if dashed and begin > 0.001:
         item["dashOffsetM"] = round(begin, 3)
     if kind in EDGE_KINDS:

@@ -15,7 +15,7 @@ class LaneStyleTest(unittest.TestCase):
     def test_subtypes_are_interpreted_with_their_marking_kind(self):
         cases = [
             ("010", "001", "yellow"), ("010", "002", "yellow-double"),
-            ("011", "001", "white-dash"), ("012", "002", "pink"),
+            ("011", "001", "white-dash"), ("012", "001", "white-guide-dash"), ("012", "002", "pink"),
             ("013", "001", "white"), ("013", "002", "white-dash"),
             ("018", "003", "yellow"), ("018", "004", "yellow-dash"),
             ("005", "003", "blue-double"),
@@ -33,6 +33,13 @@ class LaneStyleTest(unittest.TestCase):
         item = lane_item(clipped, original, "white-combined-reversed", "008")
         self.assertEqual(item["dashOffsetM"], 5)
         self.assertLess(item["points"][0][0], item["points"][-1][0])
+
+    def test_short_guides_keep_curve_vertices_and_measure_from_the_original_start(self):
+        original = LineString([(200000, 550000), (200001, 550000), (200002, 550000.1), (200003, 550000)])
+        clipped = LineString(list(original.coords)[1:])
+        item = lane_item(clipped, original, "white-guide-dash", "012")
+        self.assertEqual(item["dashOffsetM"], 1)
+        self.assertEqual(len(item["points"]), 3)
 
 
 class SupportedRunsTest(unittest.TestCase):

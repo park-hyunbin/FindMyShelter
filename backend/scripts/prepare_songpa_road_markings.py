@@ -59,7 +59,7 @@ LANE_STYLES = {
     "009": {"001": "yellow-dash", "002": "yellow-double-dash"},
     "010": {"001": "yellow", "002": "yellow-double"},
     "011": {"001": "white-dash"},
-    "012": {"001": "white-dash", "002": "pink"},
+    "012": {"001": "white-guide-dash", "002": "pink"},
     "013": {"001": "white", "002": "white-dash"},
     "014": {"001": "white"},
     "015": {"001": "white"},

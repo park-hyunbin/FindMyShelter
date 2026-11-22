@@ -254,7 +254,10 @@ function offsetMarking(points: Point[], offset: number) {
   });
 }
 
-function lineChunks(points: Point[], run: number, gap: number, startDistance = 0): Point[][] {
+export function surveyedDashSegments(points: Point[], style: StreetPaint, busLane: boolean, startDistance = 0): Point[][] {
+  // Korean road-marking diagram 525 specifies equal 0.5–1m strokes and gaps.
+  const [run, gap] = style === 'white-guide-dash' ? [0.75, 0.75]
+    : busLane ? [3, 3] : [style === 'yellow-dash' ? 2.7 : 4, 4.5];
   const chunks: Point[][] = [];
   const phase = startDistance % (run + gap);
   let paint = phase < run;
@@ -846,12 +849,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const double = style.includes('-double') || combined;
     const dashed = style.endsWith('-dash') || combined;
     const width = style === 'stop' ? 0.31 : busLane && style === 'blue' ? 0.17 : 0.14;
-    const dashLength = busLane ? 3 : style === 'yellow-dash' ? 2.7 : 4;
-    const gap = busLane ? 3 : 4.5;
     const solid = [points];
     // Use the original distance for dash phase across independently clipped
     // spans. Smoothing first would shorten a span and shift its dash ends.
-    const painted = dashed ? lineChunks(points, dashLength, gap, dashOffsetM) : solid;
+    const painted = dashed ? surveyedDashSegments(points, style, busLane, dashOffsetM) : solid;
     const paint = (segments: Point[][], offset = 0) => {
       for (const segment of segments) {
         const line = cleanMarking(segment, width / 2);
