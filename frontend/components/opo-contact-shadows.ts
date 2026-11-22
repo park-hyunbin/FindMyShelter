@@ -1,7 +1,17 @@
-import { DepthTexture, HalfFloatType, UnsignedIntType, WebGLRenderTarget,
+import { DepthTexture, HalfFloatType, UnsignedIntType, Vector3, WebGLRenderTarget,
   type PerspectiveCamera, type Scene, type WebGLRenderer } from 'three';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+export function alignShadowTarget(target: Vector3, direction: Vector3, texelSize: number) {
+  // Snap in the light camera's image plane, where the shadow texture is sampled.
+  const right = new Vector3(direction.z, 0, -direction.x).normalize();
+  const up = new Vector3().crossVectors(direction, right).normalize();
+  const x = target.dot(right), y = target.dot(up);
+  return target.clone()
+    .addScaledVector(right, Math.round(x / texelSize) * texelSize - x)
+    .addScaledVector(up, Math.round(y / texelSize) * texelSize - y);
+}
 
 export function createStreetOcclusion(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera) {
   if (!renderer.extensions.has('EXT_color_buffer_float')) return;

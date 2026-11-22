@@ -17,8 +17,9 @@ require.extensions['.ts'] = (module, filename) => {
 const frontend = path.resolve(process.env.FMS_AUDIT_FRONTEND ?? path.join(__dirname, '..'));
 const fromTour = createRequire(path.join(frontend, 'package.json'));
 const { loadOpoData, buildingCollision } = fromTour('./components/opo-data.ts');
-const { makeGround, groundPolygon, createTerrainProjection } = fromTour('./components/opo-meshes.ts');
-const { addStreets } = fromTour('./components/opo-streets.ts');
+const { makeGround, groundPolygon, createTerrainProjection, ribbon } = fromTour('./components/opo-meshes.ts');
+const { addStreets, inferredRoadSection } = fromTour('./components/opo-streets.ts');
+const { alignShadowTarget } = fromTour('./components/opo-contact-shadows.ts');
 const { addSiteDetails } = fromTour('./components/opo-site.ts');
 const { createSidewalkSeams } = fromTour('./components/opo-curb-walk.ts');
 const { createSurfaceClipper } = require('../components/opo-surface-clip.ts');
@@ -118,6 +119,48 @@ function testPaintProjection() {
   assert.ok(Math.abs(area - 16) < 1e-5, `Overlapping decks produced ${area} square metres of paint`);
   [first, second, placed].forEach(geometry => geometry.dispose());
   pavement.clear();
+}
+
+function testInferredRoadBoundary() {
+  const rectangle = (left, right) => [[
+    { x: left, z: -8 }, { x: right, z: -8 }, { x: right, z: 8 }, { x: left, z: 8 },
+  ]];
+  const surveyed = surveyedSurface([rectangle(1, 1.5), rectangle(3, 4)]);
+  const centerline = [{ x: 0, z: -6 }, { x: 0, z: 6 }];
+  const deck = ribbon(centerline, 8, () => 0, Infinity, 3, (point, normal, half) =>
+    inferredRoadSection(surveyed.section(point, normal, half), half));
+  const positions = deck.getAttribute('position');
+  const edges = Array.from({ length: positions.count }, (_, index) => positions.getX(index));
+  assert.equal(Math.max(...edges), 1);
+  assert.equal(Math.min(...edges), -4);
+  assert.deepEqual(inferredRoadSection([[-1, 1.5], [2, 3]], 4), [-1, 1.5]);
+  deck.dispose();
+  surveyed.clear();
+}
+
+function testShadowGrid() {
+  const light = new T.DirectionalLight();
+  const direction = new T.Vector3(-200, 300, 100).normalize();
+  const landmark = new T.Vector3(123, 16, -64);
+  const targets = [new T.Vector3(100.1, 20, -43.3), new T.Vector3(124.8, 19.4, -66.9)];
+  for (const [radius, resolution] of [[78, 1024], [94, 2048], [270, 2048]]) {
+    Object.assign(light.shadow.camera, { left: -radius, right: radius, bottom: -radius, top: radius });
+    light.shadow.camera.updateProjectionMatrix();
+    const result = targets.map(center => {
+      light.target.position.copy(alignShadowTarget(center, direction, 2 * radius / resolution));
+      light.position.copy(direction).multiplyScalar(660).add(light.target.position);
+      light.target.updateMatrixWorld();
+      light.updateMatrixWorld();
+      light.shadow.updateMatrices(light);
+      return landmark.clone().applyMatrix4(light.shadow.matrix).multiplyScalar(resolution);
+    });
+    const shift = result[1].sub(result[0]);
+    for (const axis of ['x', 'y']) {
+      assert.ok(Math.abs(shift[axis] - Math.round(shift[axis])) < 1e-8,
+        'Shadow filtering moved within a texel after the light followed the viewer');
+    }
+  }
+  light.dispose();
 }
 
 function verifyElevatedPaint(data, scene) {
@@ -410,6 +453,8 @@ async function audit(region, crossingsOnly, elevatedOnly) {
   if (crossingsOnly) {
     testCrossingSupport();
     testPaintProjection();
+    testInferredRoadBoundary();
+    testShadowGrid();
     regions.push('opo');
   }
   const selected = requested.length ? requested : verifyCrossings ? ['songpa', 'jamsil-leel'] : regions;

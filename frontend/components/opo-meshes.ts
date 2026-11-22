@@ -142,7 +142,10 @@ export function createTerrainProjection(terrain: T.BufferGeometry) {
   };
 }
 
-export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity, alongStep = 3) {
+export type RibbonSection = (point: Point, normal: Point, halfWidth: number) => [number, number];
+
+export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity, alongStep = 3,
+  section?: RibbonSection) {
   const vertices: number[] = [];
   const indexes: number[] = [];
   const walk: Point[] = [];
@@ -163,11 +166,12 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
     const a = walk[closed && i === 0 ? last - 1 : Math.max(0, i - 1)];
     const b = walk[closed && i === last ? 1 : Math.min(last, i + 1)];
     const length = Math.hypot(b.x - a.x, b.z - a.z) || 1;
-    const dx = (b.z - a.z) / length * width / 2;
-    const dz = (a.x - b.x) / length * width / 2;
+    const normal = { x: (b.z - a.z) / length, z: (a.x - b.x) / length };
+    const limits = section?.(point, normal, width / 2);
     for (let across = 0; across <= sections; across++) {
-      const fraction = 1 - 2 * across / sections;
-      const x = point.x + dx * fraction, z = point.z + dz * fraction;
+      const offset = limits ? T.MathUtils.lerp(limits[1], limits[0], across / sections)
+        : width / 2 * (1 - 2 * across / sections);
+      const x = point.x + normal.x * offset, z = point.z + normal.z * offset;
       vertices.push(x, elevation(x, z), z);
     }
     if (i) {

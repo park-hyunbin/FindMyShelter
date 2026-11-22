@@ -19,7 +19,7 @@ import { addStreets } from './opo-streets';
 import { createSidewalkSeams } from './opo-curb-walk';
 import { createSunMap, sunGridPoints, type SunMapCounts } from './opo-sun-map';
 import { readTreeCover } from './opo-tree-cover';
-import { createStreetOcclusion } from './opo-contact-shadows';
+import { alignShadowTarget, createStreetOcclusion } from './opo-contact-shadows';
 import { addStreetLights } from './opo-street-lights';
 import { addPedestrianSignals } from './opo-pedestrian-signals';
 import { createStudyShadows } from './opo-study-shadows';
@@ -753,8 +753,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     if (aerial !== aerialShadows || Math.hypot(x - shadowFocus.x, z - shadowFocus.z) > radius * 0.28) {
       aerialShadows = aerial;
       shadowFocus.set(x, data.ground(x, z), z);
-      sun.target.position.copy(shadowFocus);
-      sun.position.copy(sunDirection).multiplyScalar(660).add(shadowFocus);
+      sun.target.position.copy(alignShadowTarget(shadowFocus, sunDirection, 2 * radius / shadowResolution));
+      sun.position.copy(sunDirection).multiplyScalar(660).add(sun.target.position);
       Object.assign(sun.shadow.camera, { left: -radius, right: radius, top: radius, bottom: -radius });
       sun.shadow.camera.updateProjectionMatrix();
       renderer.shadowMap.needsUpdate = true;

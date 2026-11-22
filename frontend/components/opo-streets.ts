@@ -4,7 +4,7 @@ import { extent, inShape, nearestOnLine, splitLineAt, type OpoData, type Point, 
 import { sidewalkFascia, sidewalkRise, type createSidewalkSeams } from './opo-curb-walk';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
-import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection } from './opo-meshes';
+import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection, type RibbonSection } from './opo-meshes';
 import {
   crossingOutline, crossingSupport, crosswalkFrame, fitCrosswalk, fitCrosswalkToMeasuredRoad,
   leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, surveyedCrosswalkFrame, zebraOffsets, type CrossingSupport, type Crosswalk,
@@ -24,6 +24,18 @@ export function streetWidth(road: Street) {
   const base = road.category.replace('_link', '');
   const width = road.width ?? (road.lanes ? road.lanes * (major.has(base) ? 3.1 : 2.8) + 0.5 : streetWidths[base] ?? 1.7);
   return T.MathUtils.clamp(width, 1.2, (road.lanes ?? 0) > 8 ? 38 : 26);
+}
+
+export function inferredRoadSection(covered: [number, number][], halfWidth: number): [number, number] {
+  let left = -halfWidth, right = halfWidth;
+  for (const [from, to] of covered) {
+    // Where a sampled center is already on measured pavement, use that
+    // section at the seam and let the measured mesh own the overlap.
+    if (from < -0.002 && to > 0.002) return [from, to];
+    if (to <= 0.002) left = Math.max(left, Math.min(0, to));
+    if (from >= -0.002) right = Math.min(right, Math.max(0, from));
+  }
+  return [left, right];
 }
 
 type Segment = { road: Street; a: Point; b: Point; aId: number; bId: number; length: number; width: number };
@@ -615,9 +627,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     return terrain ? withBridgeGrade(terrain.area(rings, lift), owners)
       : groundPolygon(rings, (x, z) => surfaceAt(x, z, owners), maxEdge, lift);
   }
-  function pavementStrip(points: Point[], width: number, lift: number, owners?: ReadonlySet<number>) {
-    return terrain ? withBridgeGrade(terrain.fit(ribbon(points, width, () => 0), lift), owners)
-      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + lift, urban ? 1.25 : Infinity);
+  function pavementStrip(points: Point[], width: number, lift: number, owners?: ReadonlySet<number>,
+    section?: RibbonSection) {
+    return terrain ? withBridgeGrade(terrain.fit(ribbon(points, width, () => 0, Infinity, 3, section), lift), owners)
+      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + lift, urban ? 1.25 : Infinity, 3, section);
   }
   const paintProjection = { value: 1 };
   const fallbackExclusions = (data.pavement || tracedDrive) && createSurfaceClipper();
@@ -692,9 +705,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     }
   }
   function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface,
-    roadDeck = false, trim = false, owners?: ReadonlySet<number>) {
-    let geometry = texture ? pavementStrip(points, width, height, owners)
-      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + height, urban ? 1.25 : Infinity);
+    roadDeck = false, trim = false, owners?: ReadonlySet<number>, roadShoulder = false) {
+    const measured = roadDeck || roadShoulder ? owners ? bridgeFootprint : municipalSurface : undefined;
+    const section: RibbonSection | undefined = measured && ((point, normal, halfWidth) =>
+      inferredRoadSection(measured.section(point, normal, halfWidth), halfWidth));
+    let geometry = texture ? pavementStrip(points, width, height, owners, section)
+      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + height, urban ? 1.25 : Infinity, 3, section);
     if (owners && bridgeFootprint) geometry = trimFallback(geometry, bridgeFootprint);
     else if (trim) geometry = trimFallback(geometry);
     if (roadDeck && !owners) addGroundRoad(geometry, color, texture);
@@ -916,7 +932,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       for (const line of surfaces) {
         if (!finish || isPath || road.bridge) {
           strip(line, width + (isPath ? 0.14 : 0.42), deckLift - (urban ? 0.024 : 0.09), isPath ? '#a29477' : '#a29f91',
-            undefined, false, false, owners);
+            undefined, false, false, owners, pavedMotorRoad);
         }
         strip(line, width, deckLift, tint, texture, pavedMotorRoad, !road.bridge && (pavedMotorRoad || !!municipalSurface), owners);
       }
