@@ -840,8 +840,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createSurfaceClipper>,
     busLane = false, dashOffsetM = 0, elevated = false) {
-    const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0' : '#f2eee3';
-    const combined = style === 'yellow-combined';
+    const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0'
+      : style === 'pink' ? '#df779e' : '#f2eee3';
+    const combined = style.includes('-combined');
     const double = style.includes('-double') || combined;
     const dashed = style.endsWith('-dash') || combined;
     const width = style === 'stop' ? 0.31 : busLane && style === 'blue' ? 0.17 : 0.14;
@@ -865,7 +866,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       }
     };
     if (double) {
-      const offset = busLane ? 0.14 : 0.15;
+      const offset = (busLane ? 0.14 : 0.15) * (style.endsWith('-reversed') ? -1 : 1);
       paint(combined ? solid : painted, -offset);
       paint(painted, offset);
     } else paint(painted);

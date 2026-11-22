@@ -71,7 +71,7 @@ def extract_lanes(db, bounds, kinds):
 
 
 def lane_item(line, original, style, kind):
-    dashed = style.endswith("-dash") or style == "yellow-combined"
+    dashed = style.endswith("-dash") or "-combined" in style
     if dashed:
         begin = original.project(Point(line.coords[0]))
         end = original.project(Point(line.coords[-1]))

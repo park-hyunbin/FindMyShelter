@@ -19,7 +19,7 @@ CROSSWALKS = "https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do"
 CURRENT = "https://data.seoul.go.kr/dataList/OA-23081/F/1/datasetView.do"
 HUMPS = "https://data.seoul.go.kr/dataList/OA-15541/S/1/datasetView.do"
 BUS_KINDS = {"005", "017"}
-EDGE_KINDS = {"002", "007", "009"}
+EDGE_KINDS = {"007", "009"}
 TO_METERS = Transformer.from_crs(4326, 5186, always_xy=True)
 TO_GPS = Transformer.from_crs(5186, 4326, always_xy=True)
 BOUNDS = (127.1095, 37.4932, 127.1241, 37.5035)
@@ -43,24 +43,34 @@ def gps(points):
     return [[round(lon, 7), round(lat, 7)] for lon, lat in (TO_GPS.transform(x, y) for x, y in points)]
 
 
+# A058_L reuses each subtype number within a different marking kind.
+# Keep the paired meanings from the Seoul T-GIS map styling and code table.
+BLUE_LANE_STYLES = {"001": "blue", "002": "blue-dash", "003": "blue-double", "004": "blue-double-dash"}
+LANE_STYLES = {
+    "001": {"001": "yellow", "002": "yellow-dash", "003": "yellow-double",
+            "004": "yellow-combined", "005": "yellow-combined-reversed"},
+    "002": {"001": "yellow-double", "002": "yellow-double-dash"},
+    "003": {"001": "white-dash"},
+    "004": {"001": "stop"},
+    "005": BLUE_LANE_STYLES,
+    "006": {"001": "white", "002": "white-dash"},
+    "007": {"001": "white"},
+    "008": {"001": "white", "002": "white-combined", "003": "white-combined-reversed"},
+    "009": {"001": "yellow-dash", "002": "yellow-double-dash"},
+    "010": {"001": "yellow", "002": "yellow-double"},
+    "011": {"001": "white-dash"},
+    "012": {"001": "white-dash", "002": "pink"},
+    "013": {"001": "white", "002": "white-dash"},
+    "014": {"001": "white"},
+    "015": {"001": "white"},
+    "016": {"001": "yellow", "002": "white"},
+    "017": {**BLUE_LANE_STYLES, "005": "blue-combined", "006": "blue-combined-reversed"},
+    "018": {"001": "white", "002": "white-dash", "003": "yellow", "004": "yellow-dash"},
+}
+
+
 def lane_style(kind, subtype):
-    # T-GIS lane table specification A058_L, fields A058_KND_CDE and A058_KND_CDE2.
-    if kind == "001":
-        return {"001": "yellow", "002": "yellow-dash", "003": "yellow-double",
-                "004": "yellow-combined", "005": "yellow-combined"}.get(subtype)
-    if kind in {"002", "009"}:
-        return "yellow-dash" if kind == "009" or subtype == "002" else "yellow"
-    if kind == "016":
-        return "white" if subtype == "002" else "yellow"
-    if kind in BUS_KINDS or kind == "018":
-        return {"002": "blue-dash", "003": "blue-double", "004": "blue-double-dash"}.get(subtype, "blue")
-    if kind == "013":
-        return "blue-dash" if subtype in {"002", "004"} else "blue"
-    if kind in {"003", "011", "012"} or kind == "006" and subtype == "002":
-        return "white-dash"
-    if kind in {"004", "006", "007", "008", "010", "014", "015"}:
-        return "stop" if kind == "004" else "white"
-    return None
+    return LANE_STYLES.get(kind, {}).get(subtype)
 
 
 def painted_humps(path, selected, clip):

@@ -45,8 +45,10 @@ type StreetFile = {
   points: (StreetPointProperties & { coordinates: Position })[]; parking: { id: number; coordinates: Position[] }[];
   crossingWays?: [Position, Position][];
 };
-export type StreetPaint = 'yellow' | 'yellow-dash' | 'yellow-double' | 'yellow-combined'
-  | 'blue' | 'blue-dash' | 'blue-double' | 'blue-double-dash' | 'white' | 'white-dash' | 'stop';
+type PaintColor = 'yellow' | 'blue' | 'white';
+export type StreetPaint = PaintColor
+  | `${PaintColor}-${'dash' | 'double' | 'double-dash' | 'combined' | 'combined-reversed'}`
+  | 'pink' | 'stop';
 type RoadDataset = { url: string; retrievedAt: string; sha256: string };
 type SurveyedLane = { style: StreetPaint; points: Position[]; edge?: boolean; busLane?: boolean; dashOffsetM?: number };
 type StreetPaintFile = {

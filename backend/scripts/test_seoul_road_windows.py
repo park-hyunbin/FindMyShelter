@@ -5,8 +5,34 @@ import numpy as np
 from shapely.geometry import LineString, box
 from shapely.ops import unary_union
 
+from prepare_seoul_lane_windows import lane_item
 from prepare_seoul_road_windows import ground_link_support, supported_runs
+from prepare_songpa_road_markings import lane_style
 from reconcile_seoul_marking_links import Network
+
+
+class LaneStyleTest(unittest.TestCase):
+    def test_subtypes_are_interpreted_with_their_marking_kind(self):
+        cases = [
+            ("010", "001", "yellow"), ("010", "002", "yellow-double"),
+            ("011", "001", "white-dash"), ("012", "002", "pink"),
+            ("013", "001", "white"), ("013", "002", "white-dash"),
+            ("018", "003", "yellow"), ("018", "004", "yellow-dash"),
+            ("005", "003", "blue-double"),
+            ("008", "002", "white-combined"), ("008", "003", "white-combined-reversed"),
+            ("001", "004", "yellow-combined"), ("001", "005", "yellow-combined-reversed"),
+        ]
+        for kind, subtype, style in cases:
+            with self.subTest(kind=kind, subtype=subtype):
+                self.assertEqual(lane_style(kind, subtype), style)
+        self.assertIsNone(lane_style("010", None))
+
+    def test_a_mixed_marking_keeps_its_dash_phase_and_original_direction(self):
+        original = LineString([(200000, 550000), (200020, 550000)])
+        clipped = LineString([(200016, 550000), (200005, 550000)])
+        item = lane_item(clipped, original, "white-combined-reversed", "008")
+        self.assertEqual(item["dashOffsetM"], 5)
+        self.assertLess(item["points"][0][0], item["points"][-1][0])
 
 
 class SupportedRunsTest(unittest.TestCase):

@@ -21,7 +21,7 @@ from shapely.ops import substring
 from extract_seoul_road_window import TO_METRES, bounds_parameters, surface_shapes
 from prepare_neighborhood_pavement import GRID_M, SOURCE, covered_segments, export_polygons, parts
 from prepare_seoul_lane_windows import lane_item, region_bounds
-from prepare_songpa_road_markings import REGIONS
+from prepare_songpa_road_markings import REGIONS, lane_style
 from reconcile_seoul_marking_links import load_national_links, sample_spans, select_axes
 
 
@@ -135,22 +135,30 @@ def supported_runs(original, rows, driveway, window, excluded, recovered, confir
 
 
 def verified_lanes(db, window, driveway, excluded, recovered, ground_links):
-    query = """SELECT m.id,m.style,m.management_id,m.geometry,source.kind,
+    query = """SELECT m.id,m.management_id,m.geometry,source.kind,raw.id,
+        json_extract(raw.properties,'$.A058_KND_CDE'),json_extract(raw.properties,'$.A058_KND2_CDE'),
         s.start_m,s.end_m,s.status,e.structure_near_m
         FROM marking_bounds b JOIN marking m ON m.id=b.id
         JOIN tgis_marking_source source ON source.source_row=m.source_row
+        LEFT JOIN snapshot.feature raw ON raw.layer='A058_L' AND raw.id=source.feature_id
         JOIN span s ON s.marking_id=m.id
         LEFT JOIN checks.evidence e ON e.marking_id=m.id AND e.start_m=s.start_m
         WHERE b.min_x<=? AND b.max_x>=? AND b.min_y<=? AND b.max_y>=?
         ORDER BY m.id,s.start_m"""
     for key, group in groupby(db.execute(query, bounds_parameters(window)), key=lambda row: row[0]):
         records = list(group)
-        _, style, management, geometry, kind, *_ = records[0]
-        rows = [record[5:] for record in records]
+        _, management, geometry, kind, feature_id, raw_kind, subtype, *_ = records[0]
+        if feature_id is None or raw_kind != kind:
+            raise ValueError(f"T-GIS marking {key} does not match its source record")
+        style = lane_style(kind, subtype)
+        original = from_wkb(geometry)
+        if style is None:
+            excluded["unsupported_style"] += original.intersection(window).length
+            continue
+        rows = [record[7:] for record in records]
         for start, _, _, structure in rows:
             if structure is None:
                 raise ValueError(f"Missing structural evidence for {key} at {start}")
-        original = from_wkb(geometry)
         def confirm_ground(line):
             return ground_link_support(line, driveway, ground_links, style == "stop")
 
@@ -202,7 +210,7 @@ def scene_files(db, folder, source, structures, structure_sources, ground_links)
                                    "restored_m": {key: round(value, 1) for key, value in sorted(recovered.items())}}
 
 
-def build(index, evidence, regions, output, bridge_archive, grade_separation_archive, national_archive):
+def build(index, evidence, regions, output, bridge_archive, grade_separation_archive, national_archive, snapshot):
     structures, structure_sources = structure_inventory([
         (bridge_archive, "N1A_A0070000", "종류", "도로교"),
         (grade_separation_archive, "N1A_A0090000", "구분", "고가차도"),
@@ -213,12 +221,16 @@ def build(index, evidence, regions, output, bridge_archive, grade_separation_arc
         checks = json.loads(db.execute("SELECT value FROM checks.metadata WHERE key='report'").fetchone()[0])
         if checks["index_report_sha256"] != hashlib.sha256(report.encode()).hexdigest():
             raise ValueError("Structural evidence did not use this marking index")
+        source = json.loads(report)["sources"]["tgis-lanes"]
+        with snapshot.open("rb") as raw:
+            if source["sha256"] != hashlib.file_digest(raw, "sha256").hexdigest():
+                raise ValueError("Marking styles must come from the T-GIS snapshot used to index the coordinates")
+        db.execute("ATTACH DATABASE ? AS snapshot", (snapshot.resolve().as_uri() + "?mode=ro",))
         with national_archive.open("rb") as archive:
             if checks["national_sha256"] != hashlib.file_digest(archive, "sha256").hexdigest():
                 raise ValueError("Ground road links must come from the same archive as the structural evidence")
         bounds = db.execute("SELECT min(min_x),min(min_y),max(max_x),max(max_y) FROM road_bounds").fetchone()
         ground_links = load_national_links(national_archive, bounds, ground_only=True)
-        source = json.loads(report)["sources"]["tgis-lanes"]
         metadata = {"url": source["url"], "retrievedAt": source["retrieved_at"], "sha256": source["sha256"]}
         folders = [file.parent for file in sorted(regions.glob("*/road-markings.json"))]
         if not folders:
@@ -242,9 +254,10 @@ def main():
     parser.add_argument("--bridges", type=Path, required=True, help="S-Map N1A_A0070000.zip")
     parser.add_argument("--grade-separation", type=Path, required=True, help="S-Map N1A_A0090000.zip")
     parser.add_argument("--national-links", type=Path, required=True, help="National MOCT_LINK archive used for the evidence")
+    parser.add_argument("--snapshot", type=Path, required=True, help="Original T-GIS snapshot used to build the marking index")
     args = parser.parse_args()
     print(json.dumps(build(args.index, args.evidence, args.regions, args.output, args.bridges,
-                           args.grade_separation, args.national_links), indent=2))
+                           args.grade_separation, args.national_links, args.snapshot), indent=2))
 
 
 if __name__ == "__main__":

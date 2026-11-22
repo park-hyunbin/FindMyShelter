@@ -68,10 +68,18 @@
 같은 렌더러로 서울 10개 장면의 실제 차도·차선 메시 생성을 확인했다. 가락 정문의 실선 주변에 그려진 황색 도색 면적은 이전 약 1.41㎡에서 약 4.02㎡로 늘었다. 30.81m에 14cm 폭을 전부 칠했을 때의 면적은 약 4.31㎡다. 횡단보도와 감속 표시는 각각의 조사 자료와 날짜를 기록하고, 차도 위에 보이는 도색 면을 기준으로 겹치는 부분을 처리한다.
 
 ```powershell
-uv run --with numpy --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_road_windows.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/tgis-structure-evidence.sqlite --bridges ../road-source-cache/N1A_A0070000.zip --grade-separation ../road-source-cache/N1A_A0090000.zip --national-links ../road-source-cache/national-road-links-2026-11-11.zip --output ../road-source-cache/staged-regions
+uv run --with numpy --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_road_windows.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/tgis-structure-evidence.sqlite --bridges ../road-source-cache/N1A_A0070000.zip --grade-separation ../road-source-cache/N1A_A0090000.zip --national-links ../road-source-cache/national-road-links-2026-11-11.zip --snapshot ../road-source-cache/tgis-live-seoul.sqlite --output ../road-source-cache/staged-regions
 ```
 
 `reconcile_seoul_marking_links.py`로 먼저 동일 인덱스의 입체도로 근거를 만든다. 배치는 장면별 보류 사유와 길이를 출력한다. 검사한 `pavement.json`과 `road-markings.json`을 장면별로 함께 반영한다. [일괄 생성 코드](../../backend/scripts/prepare_seoul_road_windows.py)
+
+## 노면표시 종류와 색상
+
+살곶이길에서 흰색으로 표시되던 `11-0000129659`, `11-0000168795`는 서울시 원본에 노란색 주정차 금지선으로 등록되어 있다. 기존 변환은 여러 노면표시를 같은 흰색으로 묶고 자전거도로 표시를 버스전용차로와 같은 청색으로 처리했다. 흰색 주행유도선과 가변주차 구획도 이 교차로 주변에 별도로 등록되어 있다. [서울시 차선 자료](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [T-GIS 지도 표시 코드](https://tgis.eseoul.go.kr/js/map/MapFacilityMng.js)
+
+종류 `A058_KND_CDE`와 세부 유형 `A058_KND2_CDE`를 함께 해석해 색상과 실선·점선을 고른다. 예를 들어 세부 코드 `002`는 주정차 금지선이면 노란 복선이고, 주행유도선이면 분홍 실선이며, 자전거횡단도이면 흰색 점선이다. 지상과 고가 모두 이 규칙을 사용한다. 복선을 원본에서 한 기준선으로 제공하는 경우 두 줄 간격은 모델 값으로 렌더링한다. 지상 배치는 인덱스와 같은 스냅샷의 식별자와 해시를 확인하고 알 수 없는 코드 조합을 보류 길이에 기록한다. [원본 코드 변환](../../backend/scripts/prepare_songpa_road_markings.py)
+
+공개 서울 장면 10곳에서 지상 선형 5,729건과 고가 선형 4건의 색상 또는 도색 패턴을 바로잡았다. 겹치는 장면에 나온 같은 도형이 집계에 포함된다. 전후 원본 선형 좌표와 차도·보도 경계를 대조했다. 살곶이길에서 추적한 네 노란 선은 최종 3D 도색 면적을 유지했고, 정지선과 주행유도선은 원본 유형대로 흰색으로 그려졌다.
 
 ## 입체도로 주변의 지상 차선
 
