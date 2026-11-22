@@ -4,8 +4,10 @@ export function attachPaintFilter(geometry: T.BufferGeometry, material: T.MeshSt
   viewport: { value: T.Vector2 }, projection: { value: number }) {
   const position = geometry.getAttribute('position');
   const uv = geometry.getAttribute('paintCoordinates');
-  const across = new T.BufferAttribute(new Float32Array(position.count * 3), 3);
-  const along = new T.BufferAttribute(new Float32Array(position.count * 3), 3);
+  const triangleCount = position.count / 3;
+  const tableWidth = Math.min(triangleCount * 2, 2048);
+  const tableHeight = Math.ceil(triangleCount * 2 / tableWidth);
+  const gradientData = new Uint16Array(tableWidth * tableHeight * 4);
   const a = new T.Vector3(), b = new T.Vector3(), c = new T.Vector3();
   const u = new T.Vector3(), v = new T.Vector3();
   for (let i = 0; i + 2 < position.count; i += 3) {
@@ -19,34 +21,53 @@ export function attachPaintFilter(geometry: T.BufferGeometry, material: T.MeshSt
     // World-space derivatives of this projected triangle along its paint axes.
     u.copy(b).multiplyScalar(v2 / det).addScaledVector(c, -v1 / det);
     v.copy(c).multiplyScalar(u1 / det).addScaledVector(b, -u2 / det);
-    for (let j = i; j < i + 3; j++) {
-      across.setXYZ(j, u.x, u.y, u.z);
-      along.setXYZ(j, v.x, v.y, v.z);
-    }
+    if (Math.max(Math.abs(u.x), Math.abs(u.y), Math.abs(u.z), Math.abs(v.x), Math.abs(v.y), Math.abs(v.z)) > 65504) continue;
+    const offset = i / 3 * 8;
+    gradientData[offset] = T.DataUtils.toHalfFloat(u.x);
+    gradientData[offset + 1] = T.DataUtils.toHalfFloat(u.y);
+    gradientData[offset + 2] = T.DataUtils.toHalfFloat(u.z);
+    gradientData[offset + 4] = T.DataUtils.toHalfFloat(v.x);
+    gradientData[offset + 5] = T.DataUtils.toHalfFloat(v.y);
+    gradientData[offset + 6] = T.DataUtils.toHalfFloat(v.z);
   }
-  geometry.setAttribute('paintAcross', across);
-  geometry.setAttribute('paintAlong', along);
+  // A merged, non-indexed paint mesh has one pair of derivatives per triangle.
+  // Share the pair across its three vertices and pack the unit coordinates.
+  const paintGradients = new T.DataTexture(gradientData, tableWidth, tableHeight, T.RGBAFormat, T.HalfFloatType);
+  paintGradients.needsUpdate = true;
+  material.addEventListener('dispose', () => paintGradients.dispose());
+  const coordinates = new Uint16Array(position.count * 2);
+  for (let i = 0; i < position.count; i++) {
+    coordinates[i * 2] = Math.round(T.MathUtils.clamp(uv.getX(i) + 0.5, 0, 1) * 65535);
+    coordinates[i * 2 + 1] = Math.round(T.MathUtils.clamp(uv.getY(i), 0, 1) * 65535);
+  }
+  geometry.setAttribute('paintCoordinates', new T.BufferAttribute(coordinates, 2, true));
   material.onBeforeCompile = shader => {
     shader.uniforms.paintViewport = viewport;
     shader.uniforms.paintProjection = projection;
+    shader.uniforms.paintGradients = { value: paintGradients };
     shader.vertexShader = `
       attribute vec2 paintCoordinates;
-      attribute vec3 paintAcross, paintAlong;
       attribute float paintWidth;
       uniform vec2 paintViewport;
+      uniform highp sampler2D paintGradients;
       varying vec2 vPaintCoordinates;
       varying float vPaintFiltered, vPaintWidth;
     ` + shader.vertexShader.replace('#include <project_vertex>', `
       #include <project_vertex>
-      vPaintCoordinates = paintCoordinates;
+      vPaintCoordinates = paintCoordinates - vec2(0.5, 0.0);
       vPaintFiltered = 0.0;
       vPaintWidth = paintWidth;
       if (gl_Position.w > 0.25) {
+        int texel = (gl_VertexID / 3) * 2;
+        int width = textureSize(paintGradients, 0).x;
+        ivec2 base = ivec2(texel % width, texel / width);
+        vec3 paintAcross = texelFetch(paintGradients, base, 0).xyz;
+        vec3 paintAlong = texelFetch(paintGradients, base + ivec2(1, 0), 0).xyz;
         vec4 acrossClip = projectionMatrix * modelViewMatrix * vec4(paintAcross, 0.0);
         vec4 alongClip = projectionMatrix * modelViewMatrix * vec4(paintAlong, 0.0);
         // Measure the subpixel decision at the stroke centre, away from
         // changes in coverage at its tessellated edges.
-        vec4 reference = gl_Position - acrossClip * paintCoordinates.x - alongClip * (paintCoordinates.y - 0.5);
+        vec4 reference = gl_Position - acrossClip * vPaintCoordinates.x - alongClip * (vPaintCoordinates.y - 0.5);
         if (reference.w > 35.0) {
           vec2 referenceScale = paintViewport / (2.0 * reference.w);
           vec2 refU = (acrossClip.xy - reference.xy * (acrossClip.w / reference.w)) * referenceScale;
@@ -60,8 +81,8 @@ export function attachPaintFilter(geometry: T.BufferGeometry, material: T.MeshSt
           if (span < 1.5 && abs(det) > 0.0001) {
             vPaintFiltered = 1.0;
             vec2 footprint = vec2(abs(dv.x) + abs(dv.y), abs(du.x) + abs(du.y)) / abs(det);
-            vec2 sides = vec2(step(0.499, abs(paintCoordinates.x)) * sign(paintCoordinates.x),
-              step(0.499, abs(paintCoordinates.y - 0.5)) * sign(paintCoordinates.y - 0.5));
+            vec2 sides = vec2(step(0.499, abs(vPaintCoordinates.x)) * sign(vPaintCoordinates.x),
+              step(0.499, abs(vPaintCoordinates.y - 0.5)) * sign(vPaintCoordinates.y - 0.5));
             // Draw a small border at the stroke's real edges so a pixel can
             // receive coverage even with its centre outside the stripe.
             vec2 apron = 0.75 * footprint * sides;

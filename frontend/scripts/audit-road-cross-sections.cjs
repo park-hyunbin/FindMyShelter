@@ -448,11 +448,16 @@ async function audit(region, crossingsOnly, elevatedOnly) {
   projection.clear();
   scene.traverse(mesh => {
     if (!mesh.isMesh || !mesh.geometry.hasAttribute('paintWidth')) return;
-    for (const name of ['paintCoordinates', 'paintAcross', 'paintAlong']) {
-      const attribute = mesh.geometry.getAttribute(name);
-      assert.equal(attribute?.count, mesh.geometry.getAttribute('position').count, `Missing ${name} in ${region}`);
-      assert.ok(attribute.array.every(Number.isFinite), `Invalid ${name} in ${region}`);
-    }
+    const vertices = mesh.geometry.getAttribute('position').count;
+    const coordinates = mesh.geometry.getAttribute('paintCoordinates');
+    assert.equal(mesh.geometry.getIndex(), null, `Paint triangles must be unindexed in ${region}`);
+    assert.equal(coordinates?.count, vertices, `Missing paint coordinates in ${region}`);
+    assert.ok(coordinates.normalized && coordinates.array instanceof Uint16Array, `Invalid paint coordinates in ${region}`);
+    const shader = { vertexShader: '#include <project_vertex>', fragmentShader: '#include <alphatest_fragment>', uniforms: {} };
+    mesh.material.onBeforeCompile(shader);
+    const texture = shader.uniforms.paintGradients.value.image;
+    assert.ok(texture.data instanceof Uint16Array && texture.width % 2 === 0);
+    assert.ok(texture.width * texture.height >= vertices / 3 * 2, `Missing paint gradients in ${region}`);
   });
   if (elevatedOnly) {
     const elevated = verifyElevatedPaint(data, scene);
