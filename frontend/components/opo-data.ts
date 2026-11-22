@@ -96,10 +96,11 @@ type NeighborhoodTerrain = TerrainGrid & {
 };
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
 type CoveredRoadSegment = [roadId: number, startNode: number, intervals: [from: number, to: number][]];
-type SurveyedRampCurve = {
+type SurveyedGroundCurve = {
   id: number; oneWay: number; vertices: [number, number, number][];
   nodeIds: number[]; coordinates: Position[]; coveredSegments: CoveredRoadSegment[];
 };
+type SurveyedCarriagewayCurve = SurveyedGroundCurve & { otherRoadId: number };
 type PavementFile = {
   roadDataset?: RoadDataset;
   structureSources?: { sha256: string }[];
@@ -111,7 +112,8 @@ type PavementFile = {
     dividers?: { managementId: string; kind: string; polygons: Position[][][] }[];
   }[];
   rampAlignment?: { sha256: string; roads: { id: number; coordinates: Position[] }[] };
-  rampCurves?: { sha256: string; roads: SurveyedRampCurve[] };
+  rampCurves?: { sha256: string; roads: SurveyedGroundCurve[] };
+  surveyedCarriagewayCurves?: { sha256: string; roads: SurveyedCarriagewayCurve[] };
   elevatedAlignment?: { roads: {
     id: number; oneWay: number; vertices: [number, number, number][];
     coordinates: Position[]; coveredSegments: CoveredRoadSegment[]; adjustedWayJoins?: number[];
@@ -376,9 +378,12 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const rampAxes = new Map<number, Position[]>(rampAlignment?.sha256 === rampLaneEvidence.sha256
     ? rampAlignment.roads.map(({ id, coordinates }) => [id, coordinates]) : []);
   const rampCurves = pavement?.rampCurves;
-  const surveyedRampCurves = new Map<number, SurveyedRampCurve>(rampCurves?.sha256 === rampLaneEvidence.sha256
+  const surveyedRampCurves = new Map<number, SurveyedGroundCurve>(rampCurves?.sha256 === rampLaneEvidence.sha256
     ? rampCurves.roads.map(record => [record.id, record] as const) : []);
-  const curvedRampCoverage = new Map<number, CoveredRoadSegment[]>();
+  const cityCurves = pavement?.surveyedCarriagewayCurves;
+  const surveyedCarriagewayCurves = new Map<number, SurveyedCarriagewayCurve>(cityCurves && cityCurves.sha256 === pavement?.roadDataset?.sha256
+    ? cityCurves.roads.map(record => [record.id, record] as const) : []);
+  const curvedGroundCoverage = new Map<number, CoveredRoadSegment[]>();
   const alignments: NonNullable<PavementFile['elevatedAlignment']>['roads'] = pavement?.elevatedAlignment?.roads ?? [];
   const recordedRoads: StreetFile['roads'] = neighborhood?.roads ?? [];
   const alignedJoins = new Set(alignments.flatMap(record => record.adjustedWayJoins ?? []));
@@ -412,8 +417,16 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
           tags.nodeIds[i] === node && coordinates[i][0] === lon && coordinates[i][1] === lat);
       const missing = !tags.width && !tags.lanes && !tags.forwardLanes && !tags.backwardLanes;
       const lanes = missing && compatible ? surveyed.lanes : tags.lanes;
-      const curve = surveyedRampCurves.get(tags.id);
-      if (curve && tags.motor && !tags.bridge && !tags.unpaved && tags.category.endsWith('_link')
+      const pairedCurve = surveyedCarriagewayCurves.get(tags.id);
+      const opposite = pairedCurve && recordedRoads.find(road => road.id === pairedCurve.otherRoadId);
+      const start = tags.oneWay === 1 ? tags.nodeIds[0] : tags.nodeIds.at(-1);
+      const end = tags.oneWay === 1 ? tags.nodeIds.at(-1) : tags.nodeIds[0];
+      const oppositeStart = opposite?.oneWay === 1 ? opposite.nodeIds[0] : opposite?.nodeIds.at(-1);
+      const oppositeEnd = opposite?.oneWay === 1 ? opposite.nodeIds.at(-1) : opposite?.nodeIds[0];
+      const paired = opposite?.motor && !opposite.bridge && !opposite.unpaved && opposite.oneWay !== 0
+        && opposite.name === tags.name && oppositeStart === end && oppositeEnd === start;
+      const curve = tags.category.endsWith('_link') ? surveyedRampCurves.get(tags.id) : paired ? pairedCurve : undefined;
+      if (curve && tags.motor && !tags.bridge && !tags.unpaved
         && tags.oneWay !== 0 && tags.oneWay === curve.oneWay
         && curve.vertices.length === tags.nodeIds.length && curve.vertices.length === coordinates.length
         && curve.vertices.every(([node, lon, lat], i) =>
@@ -427,7 +440,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
           && curve.coordinates[0][0] === coordinates[0][0] && curve.coordinates[0][1] === coordinates[0][1]
           && curve.coordinates.at(-1)?.[0] === coordinates.at(-1)?.[0]
           && curve.coordinates.at(-1)?.[1] === coordinates.at(-1)?.[1]) {
-          curvedRampCoverage.set(tags.id, curve.coveredSegments);
+          curvedGroundCoverage.set(tags.id, curve.coveredSegments);
           return { ...tags, lanes, nodeIds: curve.nodeIds, points: curve.coordinates.map(project) };
         }
       }
@@ -529,8 +542,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
         sourceId, roadIds, shapes: polygons.map(toShape),
         dividers: (dividers ?? []).map(({ managementId, polygons }) => ({ managementId, shapes: polygons.map(toShape) })),
       })),
-      coveredSegments: [...pavement.coveredSegments.filter(([road]) => !elevatedAxes.has(road) && !curvedRampCoverage.has(road)),
-        ...[...elevatedAxes.values()].flatMap(record => record.coveredSegments), ...[...curvedRampCoverage.values()].flat()] },
+      coveredSegments: [...pavement.coveredSegments.filter(([road]) => !elevatedAxes.has(road) && !curvedGroundCoverage.has(road)),
+        ...[...elevatedAxes.values()].flatMap(record => record.coveredSegments), ...[...curvedGroundCoverage.values()].flat()] },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
 

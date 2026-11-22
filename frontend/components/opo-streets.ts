@@ -789,7 +789,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (owners && bridgeFootprint) geometry = trimFallback(geometry, bridgeFootprint);
     else if (trim) geometry = trimFallback(geometry);
     if (roadDeck && !owners) addGroundRoad(geometry, color, texture);
-    else add(color, geometry, texture, false, roadDeck && owners ? '고가 차도' : name);
+    else {
+      const layer = owners && roadDeck ? '고가 차도'
+        : owners && (texture === 'pavers' || texture === 'cobble') ? '고가 보행로' : name;
+      add(color, geometry, texture, false, layer);
+    }
   }
   const priorityRoads = createSurfaceClipper();
   function addSurveyedRoad(ring: Point[]) {

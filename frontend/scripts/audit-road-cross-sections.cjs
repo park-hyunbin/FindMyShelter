@@ -38,6 +38,7 @@ global.fetch = async url => {
 function getSurface(mesh, masks) {
   if (!mesh.isMesh || mesh.isInstancedMesh) return;
   const kind = mesh.name === '고가 차도' ? 'bridge'
+    : mesh.name === '고가 보행로' ? 'bridgeWalk'
     : ['주차 포장', '부지 안 포장', '차량 통행 제한 포장'].includes(mesh.name) ? 'adjoiningPaving'
       : mesh.material.userData?.auditSurface;
   const surface = masks[kind];
@@ -423,6 +424,33 @@ function crossSection(station, normal, surveyed, surface, pavement, adjoiningPav
   };
 }
 
+function testGradeSeparatedWidths() {
+  const ground = createSurfaceClipper();
+  const walks = createSurfaceClipper();
+  const bridgeWalk = createSurfaceClipper();
+  const strip = (left, right, height) => groundPolygon([[
+    { x: left, z: -4 }, { x: right, z: -4 }, { x: right, z: 4 }, { x: left, z: 4 },
+  ]], () => height, 28, 0);
+  const asphalt = strip(-6, 6, 0);
+  const raised = strip(3, 4, 1.05);
+  const curb = strip(5, 8, 0.15);
+  const pavers = new T.MeshStandardMaterial();
+  pavers.userData.auditSurface = 'pavers';
+  const elevated = new T.Mesh(raised, pavers);
+  elevated.name = '고가 보행로';
+  const masks = { pavers: walks, bridgeWalk };
+  ground.addSurface(asphalt);
+  getSurface(elevated, masks);
+  assert.equal(bridgeWalk.heightAt({ x: 3.5, z: 0 }), Math.fround(1.05));
+  const width = () => crossSection({ x: 0, z: 0 }, { x: 1, z: 0 }, ground, ground, walks).renderedM;
+  assert.equal(width(), 12);
+  getSurface(new T.Mesh(curb, pavers), masks);
+  assert.equal(width(), 11);
+  for (const geometry of [asphalt, raised, curb]) geometry.dispose();
+  for (const surface of [ground, walks, bridgeWalk]) surface.clear();
+  pavers.dispose();
+}
+
 function auditDividerSection(station, normal, decks, bridge, coverage) {
   for (const { boundary, carriageway } of decks) {
     if (boundary.heightAt(station) === undefined) continue;
@@ -636,6 +664,7 @@ async function audit(region, crossingsOnly, elevatedOnly) {
     testPaintProjection();
     testGuideDashes();
     testInferredRoadBoundary();
+    testGradeSeparatedWidths();
     testShadowGrid();
     regions.push('opo');
   }

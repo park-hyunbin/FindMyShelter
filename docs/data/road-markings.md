@@ -276,6 +276,16 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_ramp_curves.py ../road-source-cache/national-road-links-2026-11-11.zip --output ../road-source-cache/ramp-curves
 ```
 
+### 방향별 차도와 분리 공간
+
+같은 도로의 일방통행 두 방향이 서로 반대 순서로 같은 연결점을 공유하는 경우, 각 이동 축이 같은 층의 조사 차도에 얼마나 포함되는지 비교한다. 한 방향의 축이 두 차도 사이를 지나면 미수집 구간용 포장이 분리 공간을 메울 수 있다. 양쪽 차도 경계와 분리 공간이 여러 단면에서 이어지고 보정할 방향이 한 곳으로 결정될 때, 기존 정점 사이에 해당 차도 경계의 중점을 추가한다. 도로망의 연결점, T-GIS의 실제 노면표시 좌표와 다른 도로의 경계는 그대로 사용한다. 겹치는 장면은 동일한 곡선을 사용하며, 차도 자료가 갱신되면 곡선의 연결 근거를 다시 계산한다. [서울시 T-GIS](https://tgis.eseoul.go.kr/map/mapMain.do) · [방향별 차도 생성기](../../backend/scripts/prepare_seoul_directional_road_curves.py)
+
+신수로8길에서 조사 차도를 따르는 길이가 68.98m 늘었다. 반대편 차도에서 잰 5개 단면 모두 시 경계와 양쪽 오차가 0.5m 이내로 줄었다. 이전에는 가장 크게 어긋난 단면에서 7.12m 차도가 약 16.43m로 이어져 보였다. 폭 검사는 고가 차도와 고가 보행면을 지상 포장과 다른 층으로 집계한다. 서울 공개 10개 장면의 폭 표본 26,975건을 비교한 결과, 양쪽 경계 오차가 0.5m를 넘는 위치는 겹치는 장면을 합쳐 40곳에서 30곳으로 줄었다.
+
+```powershell
+uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_directional_road_curves.py --output ../road-source-cache/directional-roads
+```
+
 ## 최신 횡단보도 도형과 중앙 구간
 
 기존 장면은 2021년 배포 도형에서 횡단보도를 가져오고, 도로 중심선과 맞을 때 화면에 그렸다. 2026-11-22에 받은 T-GIS 시민용 지도 `A004_A`를 2026년 서울시 자치구 횡단보도 시설 목록과 관리번호·종류·좌표로 연결했다. 정상 사용 중이고 지도에 표출되는 일단 횡단보도 중 화살표 없는 도색을 골랐다. 시설 좌표가 원본 외곽에서 3m 이내이고 도형 면적의 65% 이상이 같은 스냅샷의 지상 차도와 겹쳐야 한다. 고가 외곽과 만나는 도형은 층위를 추가 확인할 대상으로 남겼다. [서울시 횡단보도 도형 출처](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do) · [자치구 시설 목록](https://data.seoul.go.kr/dataList/OA-22906/F/1/datasetView.do) · [서울시 교통시설물 공통 코드 정의서](https://data.seoul.go.kr/dataList/OA-15541/F/1/datasetView.do)
