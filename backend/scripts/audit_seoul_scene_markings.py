@@ -69,6 +69,23 @@ def compare_identical_markings(baseline, candidate):
         return report
 
 
+def ground_centerline_inventory(index):
+    with closing(sqlite3.connect(index.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        if db.execute("SELECT 1 FROM sqlite_schema WHERE name='tgis_marking_source'").fetchone() is None:
+            return None
+        rows = db.execute("""SELECT m.district, s.status, count(DISTINCT m.id), sum(s.end_m-s.start_m)
+            FROM tgis_marking_source t JOIN marking m ON m.source_row=t.source_row
+            JOIN span s ON s.marking_id=m.id WHERE t.kind='001' AND m.source='tgis-lanes'
+            GROUP BY m.district,s.status ORDER BY m.district,s.status""")
+        districts = {}
+        for district, status, records, length in rows:
+            districts.setdefault(district, {})[status] = {"records": records, "length_m": round(length, 3)}
+        unique, = db.execute("""SELECT count(DISTINCT m.management_id) FROM tgis_marking_source t
+            JOIN marking m ON m.source_row=t.source_row WHERE t.kind='001'
+            AND m.source='tgis-lanes' AND m.management_id<>''""").fetchone()
+        return {"unique_management_ids": unique, "districts": districts}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("baseline", type=Path, help="Baseline EPSG:5186 marking index")
@@ -80,6 +97,9 @@ def main():
         "candidate": inspect_windows(args.candidate, args.regions),
         "identical_markings": compare_identical_markings(args.baseline, args.candidate),
     }
+    centerlines = ground_centerline_inventory(args.candidate)
+    if centerlines is not None:
+        report["ground_centerlines"] = centerlines
     print(json.dumps(report, indent=2))
 
 

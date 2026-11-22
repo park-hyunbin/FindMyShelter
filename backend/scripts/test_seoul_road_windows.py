@@ -5,6 +5,7 @@ import numpy as np
 from shapely.geometry import LineString, box
 from shapely.ops import unary_union
 
+from prepare_seoul_elevated_markings import unambiguous_deck_paint
 from prepare_seoul_lane_windows import lane_item
 from prepare_seoul_road_windows import align_ground_ramps, ground_link_support, supported_runs
 from prepare_songpa_road_markings import gps, lane_style
@@ -72,10 +73,10 @@ class SupportedRunsTest(unittest.TestCase):
         self.rows = [(0, 8, "single_road", 0), (8, 8.04, "overlapping_roads", 0),
                      (8.04, 20, "single_road", 0)]
 
-    def runs(self, ground=None, restored=None, confirm_ground=lambda line: False):
+    def runs(self, ground=None, restored=None, confirm_ground=lambda line: [], *, is_stop=False):
         return list(supported_runs(self.line, self.rows, self.ground if ground is None else ground,
                                    self.window, Counter(), restored if restored is not None else Counter(),
-                                   confirm_ground))
+                                   confirm_ground, is_stop=is_stop))
 
     def test_one_original_line_continues_across_a_ground_polygon_seam(self):
         restored = Counter()
@@ -106,6 +107,20 @@ class SupportedRunsTest(unittest.TestCase):
         self.assertTrue(runs[0].equals(self.line))
         self.assertEqual(restored["ground_near_structure"], 4)
 
+    def test_one_unsupported_station_does_not_erase_the_entire_centerline(self):
+        self.rows = [(0, 20, "single_road", 4)]
+        ground = unary_union([box(-1, -1, 12, 1), box(13, -1, 21, 1)])
+        links = Network(np.array([LineString([(0, 0.5), (8, 0.5)]),
+                                  LineString([(13, 0.5), (20, 0.5)])]), ["west", "east"])
+        runs = self.runs(ground=ground, confirm_ground=lambda line: ground_link_support(line, ground, links, False))
+        self.assertEqual([(line.coords[0][0], line.coords[-1][0]) for line in runs], [(0, 8), (13, 20)])
+
+    def test_stop_line_is_not_partially_recovered_across_a_road_gap(self):
+        self.rows = [(0, 20, "single_road", 4)]
+        ground = unary_union([box(-1, -1, 12, 1), box(13, -1, 21, 1)])
+        runs = self.runs(ground=ground, confirm_ground=lambda line: [(0, line.length)], is_stop=True)
+        self.assertEqual(runs, [])
+
     def test_a_parallel_road_across_a_median_does_not_confirm_the_lane(self):
         ground = unary_union([box(-1, -1, 21, 1), box(-1, 2, 21, 4)])
         link = Network(np.array([LineString([(0, 3), (20, 3)])]), ["other-road"])
@@ -120,6 +135,29 @@ class SupportedRunsTest(unittest.TestCase):
         marking = LineString([(9, 0), (11, 0)])
         self.assertFalse(ground_link_support(marking, self.ground, transverse, False))
         self.assertTrue(ground_link_support(marking, self.ground, transverse, True))
+
+
+class DeckPaintTest(unittest.TestCase):
+    def test_crossing_ground_road_does_not_claim_bridge_paint(self):
+        line = LineString([(0, 0), (20, 0)])
+        outline = box(-1, -2, 21, 2)
+        upper = Network(np.array([LineString([(0, 1), (20, 1)])]), ["bridge"])
+        lower = Network(np.array([LineString([(10, -2), (10, 2)])]), ["ground"])
+        self.assertEqual(list(unambiguous_deck_paint(line, outline, outline, upper, lower)), [line])
+
+    def test_parallel_ground_axis_keeps_the_conflicting_section_unassigned(self):
+        line = LineString([(0, 0), (20, 0)])
+        outline = box(-1, -2, 21, 2)
+        upper = Network(np.array([LineString([(0, 1), (20, 1)])]), ["bridge"])
+        lower = Network(np.array([LineString([(8, -1), (12, -1)])]), ["ground"])
+        self.assertEqual([item.length for item in unambiguous_deck_paint(line, outline, outline, upper, lower)], [8, 8])
+
+    def test_deck_divider_blocks_matching_to_the_other_carriageway(self):
+        line = LineString([(0, 0), (20, 0)])
+        outline = box(-1, -2, 21, 2)
+        pavement = outline.difference(box(-1, .3, 21, .7))
+        upper = Network(np.array([LineString([(0, 1), (20, 1)])]), ["bridge"])
+        self.assertEqual(list(unambiguous_deck_paint(line, pavement, outline, upper, None)), [])
 
 
 if __name__ == "__main__":
