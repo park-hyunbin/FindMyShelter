@@ -153,6 +153,14 @@ export function zebraOffsets(width: number, edgeGap = 0.24) {
   return Array.from({ length: count }, (_, i) => ((i + 0.5) / count - 0.5) * span);
 }
 
+export const surveyedZebraStripeM = 0.45;
+
+export function surveyedZebraOffsets(width: number) {
+  const period = surveyedZebraStripeM * 2;
+  const count = Math.max(0, Math.floor((width + surveyedZebraStripeM) / period));
+  return Array.from({ length: count }, (_, index) => (index - (count - 1) / 2) * period);
+}
+
 export function fitCrosswalk(outline: Point[], hits: RoadHit[], confirmed: boolean): Crosswalk[] {
   const possible = hits.flatMap(({ segment, point, distance }) => {
     if (segment.road.unpaved || segment.road.bridge) return [];

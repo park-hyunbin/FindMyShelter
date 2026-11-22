@@ -349,8 +349,7 @@ function verifyCheonggyeCarriageway(data, rendered) {
   return section;
 }
 
-function assertGarakCrosswalk(scene, project, checks) {
-  assert.ok(checks.some(check => check.source === 'site_estimate' && check.status === 'paint_ends_inside_road'));
+function assertGarakCrosswalk(scene, project) {
   const disputed = [[127.1168360, 37.4977930], [127.1168540, 37.4977770],
     [127.1168082, 37.4977411], [127.1167878, 37.4977552]].map(project);
   const paint = createSurfaceClipper();
@@ -548,14 +547,23 @@ async function audit(region, crossingsOnly, elevatedOnly) {
   }
 
   if (crossingsOnly) {
+    if (region !== 'opo') {
+      assert.ok(checks.every(check => check.source === 'city_current' || check.source === 'city_archive'),
+        `Crosswalk paint must come from a surveyed outline in ${region}`);
+    }
     if (region === 'songpa') {
-      assertGarakCrosswalk(scene, data.project, checks);
+      assertGarakCrosswalk(scene, data.project);
       assertGarakDriveway(data, scene.children.slice(detailLayerStart));
       assertCurrentCrosswalk(scene, data, checks, '06-0000052539');
     }
     if (region === 'jamsil-leel') {
       assertCurrentCrosswalk(scene, data, checks, '06-0000051103');
-      assertCurrentCrosswalk(scene, data, checks, '06-0000009350');
+      assert.ok(checks.some(check => check.sourceId === '06-0000009350' && check.status === 'unconfirmed_direction'),
+        'Jamsil paint with a surveyed outline and unverified direction must be withheld');
+      assertCurrentCrosswalk(scene, data, checks, '06-0000055987');
+      const { direction } = checks.find(check => check.sourceId === '06-0000055987');
+      assert.ok(Math.abs(direction.x * 0.433 + direction.z * 0.901) > 0.98,
+        'Jamsil paint must run across the mapped pedestrian landings');
       assertCurrentCrosswalk(scene, data, checks, '06-0000030331');
     }
     const counts = {};

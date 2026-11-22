@@ -7,7 +7,9 @@ import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials
 import { groundPolygon, paintRibbon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection, type RibbonSection } from './opo-meshes';
 import {
   crossingOutline, crossingSupport, crosswalkFrame, fitCrosswalk, fitCrosswalkToMeasuredRoad,
-  leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, surveyedCrosswalkFrame, surveyedLandingFrame, zebraOffsets, type CrossingSupport, type Crosswalk,
+  leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, surveyedCrosswalkFrame, surveyedLandingFrame,
+  surveyedZebraOffsets, surveyedZebraStripeM, zebraOffsets,
+  type CrossingSupport, type Crosswalk, type CrosswalkArea,
 } from './opo-crosswalks';
 import { siteSurfaces } from './data/site-surfaces';
 import { projectSiteCrossing, sidewalkTreeWell } from './opo-site-surfaces';
@@ -308,7 +310,8 @@ function leaveJunctionGap(points: Point[], start: number, end: number) {
 type CrossingSource = 'site_estimate' | 'osm_way' | 'osm_point' | 'city_archive' | 'city_current';
 type CrossingCheck = {
   source: CrossingSource; center: Point;
-  status: CrossingSupport | 'surveyed_outline' | 'no_aligned_road' | 'duplicate'; roadId?: number; sourceId?: string;
+  status: CrossingSupport | 'surveyed_outline' | 'no_aligned_road' | 'unconfirmed_direction' | 'duplicate';
+  roadId?: number; sourceId?: string; direction?: Point;
 };
 
 export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials,
@@ -336,7 +339,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const elevatedLines = survey?.elevatedMarkings?.records ?? [];
   const paintedDeckIds = new Set(elevatedLines.map(line => line.deckId));
   const paintedHumps = survey?.paintedHumps?.records.map(hump => projectSiteCrossing(data.project, hump)) ?? [];
-  const hasSiteCrossings = site?.layout.surveyedCrossings?.length || site?.layout.estimatedCrossings?.length;
+  const hasSiteCrossings = site?.layout.surveyedCrossings?.length || (!urban && site?.layout.estimatedCrossings?.length);
   const roadPaint = surveyedLines.length || paintedHumps.length || hasSiteCrossings || survey?.crosswalks.length
     || survey?.currentCrosswalks?.records.length || data.servicePaving.length
     ? createSurfaceClipper() : undefined;
@@ -430,7 +433,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     polygon.dispose();
   }
   islandSurface.clear();
-  for (const trace of site?.layout.estimatedCrossings ?? []) {
+  for (const trace of urban ? [] : site?.layout.estimatedCrossings ?? []) {
     const crossing = projectSiteCrossing(data.project, trace);
     const outline = footprint([[crossing.ring]]);
     const status = crossingSupport(crossing.area, roadSurface, pedestrianSurface, outline);
@@ -441,7 +444,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const exitApproaches = new Map<string, {
     start: Point; end: Point; fraction: number; pavement: ReturnType<typeof pavementBounds>;
   }>();
-  for (const { roadId, nodes: [, node], endEdge } of pavementSources) {
+  for (const { roadId, nodes: [, node], endEdge } of urban ? [] : pavementSources) {
     if (!endEdge) continue;
     const road = roads.find(road => road.id === roadId);
     const index = road?.nodeIds.indexOf(node) ?? -1;
@@ -515,14 +518,10 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       return;
     }
     const radius = Math.min(45, Math.max(4, ...outline.map(point => Math.hypot(point.x - center.x, point.z - center.z))));
-    const candidates = fitCrosswalk(outline, network.nearby(center, radius), source !== 'city_archive' || inventoryMatch);
-    let surveyFrame = confirmedOutline ? surveyedCrosswalkFrame(outline, roadSurface, current && (area => {
-      const paint = footprint([[outline]]);
-      const supported = crossingSupport(area, roadSurface, pedestrianSurface, paint) === 'connected';
-      paint.clear();
-      return supported;
-    })) : undefined;
-    if (!surveyFrame && current?.across) {
+    const candidates = urban && confirmedOutline ? []
+      : fitCrosswalk(outline, network.nearby(center, radius), source !== 'city_archive' || inventoryMatch);
+    let surveyFrame: CrosswalkArea | undefined;
+    if (current?.across) {
       const [a, b] = current.across;
       const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
       if (length > 0.01) {
@@ -530,13 +529,15 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         surveyFrame = surveyedCrosswalkArea({ center, direction, depth: 0, section: { width: 0 } }, outline);
       }
     }
-    if (!surveyFrame && !candidates.length && current) {
-      const paint = footprint([[outline]]);
-      surveyFrame = surveyedLandingFrame(outline, roadSurface, pedestrianSurface, paint);
+    if (!surveyFrame && confirmedOutline) {
+      const paint = footprint(current?.paintAreas ?? [[outline]]);
+      surveyFrame = surveyedLandingFrame(outline, roadSurface, pedestrianSurface, paint)
+        ?? surveyedCrosswalkFrame(outline, roadSurface, area =>
+          crossingSupport(area, roadSurface, pedestrianSurface, paint) === 'connected');
       paint.clear();
     }
     if (!candidates.length && !surveyFrame) {
-      auditCrossing?.({ source, center, status: 'no_aligned_road', sourceId });
+      auditCrossing?.({ source, center, status: confirmedOutline ? 'unconfirmed_direction' : 'no_aligned_road', sourceId });
       return;
     }
     if (confirmedOutline) {
@@ -550,7 +551,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         return;
       }
       cityCrossings.push({ area, ring: outline, paintAreas: current?.paintAreas });
-      auditCrossing?.({ source, center: area.center, status: 'surveyed_outline', roadId: candidates[0]?.section.road.id, sourceId });
+      auditCrossing?.({ source, center: area.center, direction: area.direction, status: 'surveyed_outline',
+        roadId: candidates[0]?.section.road.id, sourceId });
       return true;
     }
     const paint = outline.length ? footprint([[outline]]) : undefined;
@@ -602,26 +604,28 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (accepted) for (const [archive, surface] of record.supersedes ?? []) replacedArchive.add(`${archive}:${surface}`);
   }
   surveyedCrossings(true);
-  surveyedCrossings(false);
-  for (const [a, b] of data.crossingWays) {
-    const outline = crossingOutline(a, b);
-    if (outline.length) addCrossing(outline, { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }, 'osm_way');
+  if (!urban) {
+    surveyedCrossings(false);
+    for (const [a, b] of data.crossingWays) {
+      const outline = crossingOutline(a, b);
+      if (outline.length) addCrossing(outline, { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }, 'osm_way');
+    }
+    for (const item of data.streetPoints) if (item.kind === 'crossing') addCrossing([], item.position, 'osm_point');
   }
-  for (const item of data.streetPoints) if (item.kind === 'crossing') addCrossing([], item.position, 'osm_point');
   roadSurface.clear();
   pedestrianSurface.clear();
   const measuredCrossings: typeof cityCrossings = [...exactCrossings, ...cityCrossings];
   const siteCrossings = measuredCrossings.map(crossing => crossing.area);
   const paintCrossings = [...crossings, ...siteCrossings];
   const joined = new Map<number, number>();
-  if (urban) for (const road of roads) {
+  if (!urban && municipalSurface) for (const road of roads) {
     if (road.motor) road.nodeIds.forEach((id, i) => {
       const edges = i > 0 && i < road.nodeIds.length - 1 ? 2 : 1;
       joined.set(id, (joined.get(id) ?? 0) + edges);
     });
   }
   const continuationNormals = new Map<Point, Point>();
-  if (municipalSurface) {
+  if (!urban && municipalSurface) {
     const approaches = new Map<number, { point: Point; direction: Point }[]>();
     for (const road of roads) {
       if (!road.motor || road.unpaved || paths.has(road.category) || road.points.length < 2) continue;
@@ -683,8 +687,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   const paintViewport = { value: new T.Vector2(1, 1) };
   const paintProjection = { value: 1 };
-  const fallbackExclusions = (data.pavement || tracedDrive) && createSurfaceClipper();
-  const inferredGroundDeck = municipalSurface && createSurfaceClipper();
+  const fallbackExclusions = !urban && (data.pavement || tracedDrive) ? createSurfaceClipper() : undefined;
+  const inferredGroundDeck = !urban && municipalSurface ? createSurfaceClipper() : undefined;
   const buildingFootprints = inferredGroundDeck && footprint(data.buildings.flatMap(building => building.shapes));
   const groundCaps: { geometry: T.BufferGeometry; color: string; texture: TourSurface }[] = [];
   if (fallbackExclusions && tracedDrive) {
@@ -950,7 +954,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       paint(painted, offset);
     } else paint(painted);
   }
-  for (const road of roads) {
+  for (const road of urban ? [] : roads) {
     if (finish && (road.id === opoEntranceBridgeId || road.id === opoEntranceTurnId)) continue;
     const width = streetWidth(road);
     const roadCrossings = [...(crossingsByRoad.get(road.id) ?? []), ...siteCrossings];
@@ -1180,11 +1184,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       const clipper = footprint(paintAreas ?? [[ring]], Infinity);
       const at = crosswalkFrame(area);
       const depth = area.depth / 2;
-      for (const offset of zebraOffsets(area.section.width)) {
-        const stripe = paintRibbon([at(-depth, offset), at(depth, offset)], 0.44);
+      for (const offset of surveyedZebraOffsets(area.section.width)) {
+        const stripe = paintRibbon([at(-depth, offset), at(depth, offset)], surveyedZebraStripeM);
         const section = clipper.clip(stripe, 0);
         // Fit the surveyed paint to the asphalt, including the adjoining site driveway.
-        addCrossingPaint('#eeeee4', roadPaint.clipOnce(section, 0.034), 0.44);
+        addCrossingPaint('#eeeee4', roadPaint.clipOnce(section, 0.034), surveyedZebraStripeM);
         section.dispose();
         stripe.dispose();
       }
@@ -1240,7 +1244,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       const lane = municipalRoads.find(({ rings, bounds }) => bounds.containsPoint(position) && inShape(point, rings));
       if (lane) return -nearestOnLine(point, lane.boundaries).distance;
     }
-    let minimum = network.nearby(point, 24).reduce((clearance, { segment, distance, t }) => {
+    let minimum = urban ? Infinity : network.nearby(point, 24).reduce((clearance, { segment, distance, t }) => {
       const key = `${segment.road.id}:${segment.aId}`;
       const approach = exitApproaches.get(key);
       return hasSurvey(segment.road.id, segment.aId)
@@ -1284,7 +1288,14 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   };
   function drive(point: Point, current: Segment) {
     const next = network.drive(point, current);
-    if (!next || (urban && !(elevatedRoads && next.segment.road.bridge) && roadClearance(next.point) > 0)) return undefined;
+    if (!next || !urban) return next;
+    if (next.segment.road.bridge) {
+      const supported = elevatedRoads?.some(({ roadIds, shapes, dividers }) =>
+        roadIds.includes(next.segment.road.id) && shapes.some(shape => inShape(next.point, shape))
+        && !dividers.some(divider => divider.shapes.some(shape => inShape(next.point, shape))));
+      return supported ? next : undefined;
+    }
+    if (roadClearance(next.point) > 0) return undefined;
     return next;
   }
   function sidewalkElevation(point: Point) {
