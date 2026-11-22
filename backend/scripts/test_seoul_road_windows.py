@@ -334,6 +334,44 @@ class DeckPaintTest(unittest.TestCase):
         export("archive")
         self.assertNotIn("elevatedMarkings", markings)
 
+    def test_ordinary_link_is_checked_separately_on_two_named_decks(self):
+        original = LineString([(200000, 550000), (200130, 550000)])
+        axis = LineString([(200000, 550001), (200130, 550001)])
+        road = {"id": 10, "motor": True, "bridge": True, "unpaved": False, "oneWay": 1,
+                "name": "전용도로", "coordinates": gps(axis.coords)}
+        decks = [
+            {"sourceId": key, "roadIds": [10],
+             "polygons": [[gps(box(200000 + start, 549997, 200000 + end, 550003).exterior.coords)]]}
+            for key, start, end in [("a", 1, 60), ("b", 65, 129)]
+        ]
+        pavement = {"roadDataset": {"sha256": "source"}, "structureSources": [{"sha256": "structure"}],
+                    "elevatedRoads": decks, "roads": [], "sidewalks": []}
+        ordinary = ([{"LINK_ID": "general", "ROAD_TYPE": "000", "CONNECT": "0", "ROAD_NAME": "전용로"}], STRtree([axis]))
+        national = Network(np.array([axis]), ["general"], np.array(["000"]))
+        markings = {"roadDataset": pavement["roadDataset"]}
+
+        def export(roads):
+            export_window(markings, pavement, "source", [], STRtree([]),
+                          [("source-line", "lane", "006", "white-dash", original)],
+                          STRtree([original]), roads, national=national, ordinary=ordinary)
+
+        export([road])
+        first, second = markings["elevatedMarkings"]["records"]
+        self.assertEqual([first["deckId"], second["deckId"]], ["a", "b"])
+        self.assertEqual(first["sectionNationalLinkIds"], ["general"])
+        self.assertEqual(second["sectionNationalLinkIds"], ["general"])
+        self.assertAlmostEqual(first["dashOffsetM"], 1, delta=0.01)
+        self.assertAlmostEqual(second["dashOffsetM"], 65, delta=0.01)
+        export([{**road, "oneWay": -1}])
+        self.assertNotIn("elevatedMarkings", markings)
+        export([{**road, "name": "인접도로"}])
+        self.assertNotIn("elevatedMarkings", markings)
+        conflict = LineString([(200000, 549999), (200060, 549999)])
+        national = Network(np.array([axis, conflict]), ["general", "unverified"], np.array(["000", "000"]))
+        export([road])
+        remaining, = markings["elevatedMarkings"]["records"]
+        self.assertEqual(remaining["deckId"], "b")
+
     def test_lanes_from_a_reassigned_surface_keep_their_indexed_extent_and_dash_origin(self):
         def coords(start, end, y):
             return gps([(200000 + start, 550000 + y), (200000 + end, 550000 + y)])

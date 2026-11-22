@@ -1,7 +1,7 @@
 """Attach surveyed T-GIS markings to uniquely supported S-Map decks."""
 
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 import json
@@ -17,8 +17,9 @@ from extract_seoul_road_window import TO_METRES
 from index_seoul_road_markings import future_installation, snapshot_features
 from prepare_neighborhood_pavement import GRID_M, parts
 from prepare_seoul_current_crosswalks import digest, local_polygon
+from prepare_seoul_elevated_alignment import MAX_OFFSET_M, corridor_name
 from prepare_seoul_lane_windows import lane_item
-from prepare_seoul_ramp_lanes import SOURCE as NATIONAL_LINKS_SOURCE
+from prepare_seoul_ramp_lanes import SOURCE as NATIONAL_LINKS_SOURCE, inventory
 from prepare_songpa_road_markings import REGIONS, lane_style
 from reconcile_seoul_marking_links import (
     MISSING, SPACING_M, Network, axis_candidates, load_national_links, sample_spans, select_axes,
@@ -31,6 +32,7 @@ SAME_PAINT_M = 0.15
 SURVEYED_PAINT_CLEARANCE_M = 0.5
 WHITE_LANE_KINDS = ("006", "007")
 ELEVATED_LINK_KINDS = ("001", "003")
+MIN_OWNED_LINK_SECTION_M = 8 * SPACING_M
 
 
 def marking_sources(snapshot, day, level, *, include_white_lanes=False):
@@ -102,20 +104,76 @@ def supported_deck_sections(original, carriageway, deck, owner, ground, paint, m
                 yield verified
 
 
-def national_deck_sections(line, carriageway, outline, national, *, aligned_links=()):
+def ordinary_deck_links(ordinary, carriageway, outline, upper_road_ids, road_records, ground):
+    links, index = ordinary
+    by_name = defaultdict(dict)
+    for road_id in upper_road_ids:
+        record = road_records[road_id]
+        name = corridor_name(record.get("name"))
+        if name and record.get("oneWay") and not record.get("category", "").endswith("_link"):
+            # Use the independent road graph before any national alignment.
+            axis = LineString([TO_METRES.transform(*point) for point in record["coordinates"]])
+            by_name[name][road_id] = axis.reverse() if record["oneWay"] < 0 else axis
+    named_axes = {name: axis_network(axes) for name, axes in by_name.items()}
+    verified, references = [], []
+    for i in sorted(index.query(carriageway, predicate="intersects")):
+        link = links[i]
+        owners = named_axes.get(corridor_name(link["ROAD_NAME"]))
+        if not owners or link["ROAD_TYPE"] != "000" or link["CONNECT"] != "0":
+            continue
+        for span in parts(index.geometries[i].intersection(carriageway), "LineString"):
+            if span.length < MIN_OWNED_LINK_SECTION_M:
+                continue
+            # Intersections keep the link's existing shape within this deck. Check
+            # each span against the directed road before it can corroborate paint.
+            original = index.geometries[i]
+            if original.project(span.interpolate(0)) > original.project(span.interpolate(1, normalized=True)):
+                span = span.reverse()
+            _, _, _, points, tangents = sample_spans(np.array([span]), np.zeros(1), np.array([span.length]))
+            stop = np.zeros(len(points), dtype=bool)
+            samples, _, distances, signed, _ = axis_candidates(
+                owners, points, tangents, np.full(len(points), carriageway, dtype=object), stop,
+                require_projection=True, require_connected=True,
+            )
+            same_deck = np.zeros(len(points), dtype=bool)
+            same_deck[samples[(signed > 0) & (distances <= MAX_OFFSET_M)]] = True
+            if ground is not None:
+                competitors = select_axes(ground, points, tangents, np.full(len(points), outline, dtype=object), stop,
+                                           require_projection=True, require_connected=True)
+                same_deck &= competitors == MISSING
+            stations = np.linspace(0, span.length, len(points) + 1)
+            transitions = np.flatnonzero(np.diff(np.r_[False, same_deck, False]))
+            for start, end in transitions.reshape(-1, 2):
+                if stations[end] - stations[start] >= MIN_OWNED_LINK_SECTION_M:
+                    verified.append(substring(span, stations[start], stations[end]))
+                    references.append(link["LINK_ID"])
+    return Network(np.array(verified), references) if verified else None
+
+
+def national_deck_sections(line, carriageway, outline, national, *, aligned_links=(), section_links=None):
     _, _, _, coordinates, tangents = sample_spans(np.array([line]), np.zeros(1), np.array([line.length]))
     stop = np.zeros(len(coordinates), dtype=bool)
     elevated = np.isin(national.kinds, ELEVATED_LINK_KINDS)
     aligned = (national.kinds == "000") & np.isin(national.references, list(aligned_links))
-    supported_owners = aligned if aligned_links else elevated
-    samples, owners, _, _, _ = axis_candidates(
-        national, coordinates, tangents, np.full(len(coordinates), carriageway, dtype=object), stop,
-        require_projection=True, require_connected=True, owner_mask=supported_owners,
+    owner_network = section_links if section_links is not None else national
+    owner_mask = None if section_links is not None else aligned if aligned_links else elevated
+    samples, owners, distances, _, _ = axis_candidates(
+        owner_network, coordinates, tangents, np.full(len(coordinates), carriageway, dtype=object), stop,
+        require_projection=True, require_connected=True, owner_mask=owner_mask,
     )
-    competing, _, _, _, _ = axis_candidates(
+    competing, other_owners, other_distances, _, _ = axis_candidates(
         national, coordinates, tangents, np.full(len(coordinates), outline, dtype=object), stop,
         require_projection=True, require_connected=True, owner_mask=~(elevated | aligned),
     )
+    if section_links is not None:
+        # Treat the raw projection as upward evidence only when it is on an
+        # independently verified portion of that link, even if the ID is shared.
+        matching = defaultdict(list)
+        for sample, owner, distance in zip(samples, owners, distances, strict=True):
+            matching[sample, owner_network.references[owner]].append(distance)
+        competing = [sample for sample, owner, distance in zip(competing, other_owners, other_distances, strict=True)
+                     if not any(abs(distance - local) <= GRID_M for local in
+                                matching.get((sample, national.references[owner]), ()))]
     supported = np.zeros(len(coordinates), dtype=bool)
     supported[samples] = True
     supported[competing] = False
@@ -123,7 +181,7 @@ def national_deck_sections(line, carriageway, outline, national, *, aligned_link
     transitions = np.flatnonzero(np.diff(np.r_[False, supported, False]))
     for start, end in transitions.reshape(-1, 2):
         if boundaries[end] - boundaries[start] >= 3 * SPACING_M:
-            links = sorted({national.references[owner] for owner in owners[(samples >= start) & (samples < end)]})
+            links = sorted({owner_network.references[owner] for owner in owners[(samples >= start) & (samples < end)]})
             yield substring(line, boundaries[start], boundaries[end]), links
 
 
@@ -149,7 +207,7 @@ def reassigned_road_markings(road_index, snapshot_sha, road_ufids):
 
 
 def export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads,
-                  reassigned_paint=None, national=None, national_sha=None):
+                  reassigned_paint=None, national=None, national_sha=None, ordinary=None):
     if markings.get("roadDataset") != pavement.get("roadDataset") or (
         pavement.get("roadDataset", {}).get("sha256") != snapshot_sha
     ):
@@ -163,6 +221,7 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
     counts = Counter()
     records = []
     upper, lower, alignments = road_axes(roads, pavement)
+    road_records = {road["id"]: road for road in roads}
     if not national_sha or pavement.get("elevatedAlignment", {}).get("sha256") != national_sha:
         alignments = {}
     ground_network = axis_network(lower)
@@ -190,7 +249,8 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                 if kind == "001":
                     central_strokes.append(line)
         surveyed_deck = deck_records[source_id]
-        owner = axis_network({key: upper[key] for key in surveyed_deck["roadIds"] if key in upper})
+        upper_axes = {key: upper[key] for key in surveyed_deck["roadIds"] if key in upper}
+        owner = axis_network(upper_axes)
         if owner is None:
             continue
         dividers = union_all([local_polygon(rings) for record in surveyed_deck.get("dividers", [])
@@ -245,20 +305,26 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                              if ground_sources[i][2] in WHITE_LANE_KINDS
                              and ground_sources[i][3] in ("white", "white-dash")]
             # Keep the classified links' published extents first. A general
-            # link can confirm paint only on its already aligned survey deck.
-            for link_ids in ((), aligned) if aligned else ((),):
-                support = isolated_carriageway if link_ids else carriageway
+            # link must be aligned to the survey deck or verified locally.
+            local_links = ordinary_deck_links(ordinary, isolated_carriageway, deck, upper_axes,
+                                             road_records, ground_network) if ordinary and white_sources else None
+            passes = [(carriageway, {}, None)]
+            if aligned:
+                passes.append((isolated_carriageway, {"aligned_links": aligned}, "alignedNationalLinkIds"))
+            if local_links is not None:
+                passes.append((isolated_carriageway, {"section_links": local_links}, "sectionNationalLinkIds"))
+            for support, link_options, evidence in passes:
                 for identifier, management, kind, style, original in white_sources:
                     for verified in supported_deck_sections(original, isolated_carriageway, deck, owner,
                                                             ground_network, clearance, 3 * SPACING_M):
-                        for line, links in national_deck_sections(verified, support, deck, national,
-                                                                  aligned_links=link_ids):
+                        for line, links in national_deck_sections(verified, support, deck, national, **link_options):
                             item = lane_item(line, original, style, kind, preserve_vertices=True)
                             item.update(deckId=source_id, featureId=identifier, managementId=management,
                                         sourceLevel="001", nationalLinkIds=links)
-                            if link_ids:
-                                item["alignedNationalLinkIds"] = links
-                                counts["alignment_white_m"] += line.length
+                            if evidence:
+                                item[evidence] = links
+                                counts["alignment_white_m" if evidence == "alignedNationalLinkIds"
+                                       else "section_white_m"] += line.length
                             records.append(item)
                             clearance = clearance.union(line.buffer(SURVEYED_PAINT_CLEARANCE_M))
                             counts["length_m"] += line.length
@@ -282,6 +348,7 @@ def build(snapshot_path, regions, output, road_index=None, national_links=None):
         sources = list(marking_sources(snapshot, day, "002"))
         ground_sources = list(marking_sources(snapshot, day, "001", include_white_lanes=national_links is not None))
     national = load_national_links(national_links, report["bounds"]) if national_links else None
+    ordinary = inventory(national_links, report["bounds"])[:2] if national_links else None
     national_source = {"url": NATIONAL_LINKS_SOURCE, "sha256": digest(national_links)} if national_links else None
     index = STRtree([line for *_, line in sources])
     ground_index = STRtree([line for *_, line in ground_sources])
@@ -301,7 +368,8 @@ def build(snapshot_path, regions, output, road_index=None, national_links=None):
             streets = regions.parent / "neighborhoods" / neighborhood if neighborhood else file.parent
             roads = json.loads((streets / "streets.json").read_text(encoding="utf-8"))["roads"]
         counts = export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads,
-                               reassigned_paint, national, national_source["sha256"] if national_source else None)
+                               reassigned_paint, national, national_source["sha256"] if national_source else None,
+                               ordinary)
         if counts.get("corroborated_white_m"):
             markings["elevatedMarkings"]["nationalLinks"] = national_source
         results[file.parent.name] = markings, counts
