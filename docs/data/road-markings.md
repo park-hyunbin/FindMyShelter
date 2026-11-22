@@ -182,6 +182,20 @@ node scripts/audit-road-cross-sections.cjs --crossings-only
 uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_ramp_lanes.py ../road-source-cache/national-road-links-2026-11-11.zip --output frontend/components/data/seoul-ramp-lanes.generated.json
 ```
 
+## 최신 횡단보도 도형과 중앙 구간
+
+기존 장면은 2021년 배포 도형에서 횡단보도를 가져오고, 도로 중심선과 맞을 때 화면에 그렸다. 2026-11-22에 받은 T-GIS 시민용 지도 `A004_A`를 2026년 서울시 자치구 횡단보도 시설 목록과 관리번호·종류·좌표로 연결했다. 정상 사용 중이고 지도에 표출되는 일단 횡단보도 중 화살표 없는 도색을 골랐다. 시설 좌표가 원본 외곽에서 3m 이내이고 도형 면적의 65% 이상이 같은 스냅샷의 지상 차도와 겹쳐야 한다. 이전 도형과 겹치는 것과 고가 차도에 닿는 것은 이 보강에서 제외했다. [서울시 횡단보도 도형 출처](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do) · [자치구 시설 목록](https://data.seoul.go.kr/dataList/OA-22906/F/1/datasetView.do) · [서울시 교통시설물 공통 코드 정의서](https://data.seoul.go.kr/dataList/OA-15541/F/1/datasetView.do)
+
+잠실 횡단보도 `06-0000051103`의 중앙 도형은 길이 7.81m와 폭 6.01m가 비슷해 어느 쪽으로 건너는지 단독으로 정하기 어려웠다. 항공영상에서 양옆의 도색과 중앙 도색을 확인했다. 현재 데이터에서는 가운데 도형과 4m 이내에 있는 길쭉한 옆 도형의 방향을 확인한다. 두 외곽이 가로 방향으로 나란히 이어질 때만 그 방향으로 중앙 줄을 그린다. 각 부분의 도색은 자신의 지도 외곽과 지상 차도 안에 놓여 실제 분리 공간이 유지된다. 성북의 짧은 도색은 원본 외곽 양끝을 측정된 보도와 대조해 되살렸다. [잠실 항공영상](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/19/203128/447257)
+
+같은 층의 도색은 측정된 흰 줄에 우선권을 주고 겹치는 추정 도색 조각을 잘라낸다. 보강 대상 179개를 실제 3D 삼각면으로 검사해 위치별 최대 중복 도색을 초벌 렌더의 3.08㎡에서 0.001㎡ 수준으로 줄였다. 이전에 흰 줄이 거의 없었던 위치 중 서울 10개 장면에서 166건에 도색이 생겼다. 중복 생활권을 합치면 109개 시설이다. 가락 `06-0000052539`는 기존 0㎡에서 20.90㎡로, 잠실 중앙은 0㎡에서 23.79㎡로 늘었다. 두 위치를 운영 빌드에서 검사한다. [측정 도색 렌더러](../../frontend/components/opo-streets.ts) · [회귀 검사](../../frontend/scripts/audit-road-cross-sections.cjs)
+
+```powershell
+uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_current_crosswalks.py ../road-source-cache/tgis-live-seoul.sqlite ../road-source-cache/seoul-crossing-inventory-20260810.csv --output ../road-source-cache/staged-crosswalks
+```
+
+스크립트가 기존 차선·아카이브 도형 값을 보존한 채 생활권별 `road-markings.json`에 `currentCrosswalks`를 추가한다. 파일의 해시로 같은 시점의 차도·도색이 함께 사용되는지 확인한다.
+
 ## 앞으로 사용할 데이터 구조
 
 1. **서울 전역을 한 번 수집하고 생활권으로 자른다.** 서울시 T-GIS 차선·정지선·차도·보도·횡단보도를 같은 좌표계와 조회 범위로 읽는다. 감속 표시와 도로 중심선은 별도 출처를 연결한다. 차선과 차도를 같은 생활권 경계와 여유 범위로 내보내고, 서로 겹치는 장면에서 같은 구간 데이터를 공유한다. 원본의 관측·설치일과 자료 조회 시각, 좌표계와 피처 식별자를 함께 기록한다. [서울시 T-GIS 시민용 지도](https://tgis.eseoul.go.kr/map/mapMain.do) · [일괄 수집 방법](seoul-road-bulk-sources.md#자동으로-갱신하고-검사하는-명령)

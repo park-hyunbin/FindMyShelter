@@ -74,7 +74,8 @@ export function surveyedCrosswalkArea(crossing: CrosswalkArea, outline: Point[])
   };
 }
 
-export function surveyedCrosswalkFrame(outline: Point[], roads: SectionSurface): CrosswalkArea | undefined {
+export function surveyedCrosswalkFrame(outline: Point[], roads: SectionSurface,
+  compactLandings?: (area: CrosswalkArea) => boolean): CrosswalkArea | undefined {
   // A mapped outline describes the crossing direction, even when the
   // nearest road link is missing or runs along a different intersection arm.
   let frame: CrosswalkArea | undefined;
@@ -92,7 +93,10 @@ export function surveyedCrosswalkFrame(outline: Point[], roads: SectionSurface):
     const area = candidate.depth * candidate.section.width;
     if (area < footprint) { frame = candidate; footprint = area; }
   }
-  if (!frame || frame.depth < 1.25 || frame.section.width < frame.depth * 1.5) return undefined;
+  if (!frame || frame.section.width < frame.depth * 1.5) return undefined;
+  // A short paint field is only reliable if it meets the measured walking
+  // surfaces on both sides. Its width still comes from the survey.
+  if (frame.depth < 1.25) return compactLandings?.(frame) ? frame : undefined;
   const { depth, direction, section: { width } } = frame;
   const at = crosswalkFrame(frame);
   const across = { x: direction.z, z: -direction.x };

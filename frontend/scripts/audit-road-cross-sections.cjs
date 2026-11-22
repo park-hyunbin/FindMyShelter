@@ -89,7 +89,14 @@ function testCrossingSupport() {
   assert.equal(surveyedCrosswalkFrame(rectangle(-4, 4, -4, 4)[0], road), undefined);
   assert.equal(surveyedCrosswalkFrame(rectangle(-5, 6, 20, 24)[0], road), undefined);
   assert.equal(surveyedCrosswalkFrame(measuredOutline, clippedPaint), undefined);
-  for (const surface of [road, walks, oneSide, clippedPaint, medianRoad, medianWalk]) surface.clear();
+  const narrow = rectangle(-5, 5, -0.45, 0.45);
+  const narrowPaint = surveyedSurface([narrow]);
+  assert.equal(surveyedCrosswalkFrame(narrow[0], road), undefined);
+  const onBothLandings = area => crossingSupport(area, road, walks, narrowPaint) === 'connected';
+  assert.equal(surveyedCrosswalkFrame(narrow[0], road, onBothLandings).section.width, 10);
+  const onOneLanding = area => crossingSupport(area, road, oneSide, narrowPaint) === 'connected';
+  assert.equal(surveyedCrosswalkFrame(narrow[0], road, onOneLanding), undefined);
+  for (const surface of [road, walks, oneSide, clippedPaint, medianRoad, medianWalk, narrowPaint]) surface.clear();
 }
 
 function testPaintProjection() {
@@ -149,6 +156,25 @@ function assertGarakDriveway(data, objects) {
     assert.ok(hits.length > 0, 'The Garak driveway requires a visible surface');
     assert.ok(hits.at(-1).distance - hits[0].distance < 0.001, 'The Garak driveway finish overlaps the asphalt at another height');
   }
+}
+
+function assertCurrentCrosswalk(scene, data, checks, id) {
+  const source = data.roadMarkings.currentCrosswalks?.records.find(record => record.id === id);
+  assert.ok(source, `Missing current crossing survey ${id}`);
+  assert.ok(checks.some(check => check.sourceId === id && check.status === 'surveyed_outline'),
+    `The renderer could not align surveyed crossing ${id}`);
+  const paint = createSurfaceClipper();
+  scene.traverse(mesh => {
+    if (mesh.isMesh && mesh.geometry.hasAttribute('paintWidth') && mesh.material.color.getHexString() === 'eeeee4') {
+      paint.addSurface(mesh.geometry);
+    }
+  });
+  const outline = groundPolygon([source.outline.map(data.project)], () => 0, 28, 0);
+  const drawn = paint.clip(outline, 0);
+  assert.ok(drawn.getAttribute('position').count > 0, `No stripes rendered inside crossing ${id}`);
+  outline.dispose();
+  drawn.dispose();
+  paint.clear();
 }
 
 const radius = 45;
@@ -235,7 +261,9 @@ async function audit(region, crossingsOnly) {
     if (region === 'songpa') {
       assertGarakCrosswalk(scene, data.project, checks);
       assertGarakDriveway(data, scene.children.slice(detailLayerStart));
+      assertCurrentCrosswalk(scene, data, checks, '06-0000052539');
     }
+    if (region === 'jamsil-leel') assertCurrentCrosswalk(scene, data, checks, '06-0000051103');
     const counts = {};
     for (const { source, status } of checks) {
       const outcomes = counts[source] ??= {};
@@ -350,7 +378,7 @@ async function audit(region, crossingsOnly) {
     testPaintProjection();
     regions.push('opo');
   }
-  const selected = requested.length ? requested : verifyCrossings ? ['songpa'] : regions;
+  const selected = requested.length ? requested : verifyCrossings ? ['songpa', 'jamsil-leel'] : regions;
   for (const region of selected) {
     const report = await audit(region, crossingsOnly);
     if (verifyCrossings) console.log(`Crosswalk verification passed for ${region}`);

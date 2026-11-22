@@ -55,6 +55,10 @@ type StreetPaintFile = {
   laneSources?: Record<string, { url: string; archiveDate: string }>;
   lanes: { style: StreetPaint; points: Position[]; edge?: boolean; busLane?: boolean; dashOffsetM?: number }[];
   crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][] }[];
+  currentCrosswalks?: {
+    sha256: string;
+    records: { id: string; outline: Position[]; paintAreas: Position[][][]; across?: [Position, Position] }[];
+  };
   paintedHumps?: {
     source: string; archiveDate: string;
     records: { id: string; start: [number, number]; end: [number, number]; outline: [number, number][] }[];
@@ -199,6 +203,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   if (roadMarkings && roadMarkings.roadDataset?.sha256 !== pavement?.roadDataset?.sha256) {
     // An old cached surface and fresh lane linework must not be displayed as one survey.
     roadMarkings.lanes = [];
+  }
+  if (roadMarkings?.currentCrosswalks && roadMarkings.currentCrosswalks.sha256 !== pavement?.roadDataset?.sha256) {
+    roadMarkings.currentCrosswalks = undefined;
   }
   const { center_lnglat: center, local_origin_xy: buildingOrigin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
