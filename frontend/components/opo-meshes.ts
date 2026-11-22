@@ -145,7 +145,7 @@ export function createTerrainProjection(terrain: T.BufferGeometry) {
 export type RibbonSection = (point: Point, normal: Point, halfWidth: number) => [number, number];
 
 export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity, alongStep = 3,
-  section?: RibbonSection) {
+  section?: RibbonSection, endNormal?: (point: Point) => Point | undefined) {
   const vertices: number[] = [];
   const indexes: number[] = [];
   const walk: Point[] = [];
@@ -166,7 +166,12 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
     const a = walk[closed && i === 0 ? last - 1 : Math.max(0, i - 1)];
     const b = walk[closed && i === last ? 1 : Math.min(last, i + 1)];
     const length = Math.hypot(b.x - a.x, b.z - a.z) || 1;
-    const normal = { x: (b.z - a.z) / length, z: (a.x - b.x) / length };
+    let normal = { x: (b.z - a.z) / length, z: (a.x - b.x) / length };
+    const shared = !closed && (i === 0 ? endNormal?.(points[0]) : i === last ? endNormal?.(point) : undefined);
+    if (shared) {
+      const sign = normal.x * shared.x + normal.z * shared.z < 0 ? -1 : 1;
+      normal = { x: shared.x * sign, z: shared.z * sign };
+    }
     const limits = section?.(point, normal, width / 2);
     for (let across = 0; across <= sections; across++) {
       const offset = limits ? T.MathUtils.lerp(limits[1], limits[0], across / sections)

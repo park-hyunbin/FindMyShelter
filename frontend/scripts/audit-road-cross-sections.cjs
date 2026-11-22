@@ -38,7 +38,8 @@ global.fetch = async url => {
 function getSurface(mesh, masks) {
   if (!mesh.isMesh || mesh.isInstancedMesh) return;
   const kind = mesh.name === '고가 차도' ? 'bridge'
-    : mesh.name === '주차 포장' || mesh.name === '부지 안 포장' ? 'adjoiningPaving' : mesh.material.userData?.auditSurface;
+    : ['주차 포장', '부지 안 포장', '차량 통행 제한 포장'].includes(mesh.name) ? 'adjoiningPaving'
+      : mesh.material.userData?.auditSurface;
   const surface = masks[kind];
   surface?.addSurface(mesh.geometry);
 }
@@ -158,6 +159,19 @@ function testInferredRoadBoundary() {
   assert.deepEqual(inferredRoadSection([[-1, 1.5], [2, 3]], 4), [-1, 1.5]);
   deck.dispose();
   surveyed.clear();
+
+  const join = { x: 0, z: 0 };
+  const endNormal = point => point === join ? { x: 0, z: 1 } : undefined;
+  const incoming = ribbon([{ x: -8, z: -2 }, join], 6, () => 0, Infinity, 3, undefined, endNormal);
+  const outgoing = ribbon([join, { x: 9, z: -2 }], 6, () => 0, Infinity, 3, undefined, endNormal);
+  const incomingPositions = incoming.getAttribute('position');
+  const outgoingPositions = outgoing.getAttribute('position');
+  const edge = (positions, start) => [start, start + 1]
+    .map(i => [positions.getX(i), positions.getZ(i)]).sort((a, b) => a[1] - b[1]);
+  assert.deepEqual(edge(incomingPositions, incomingPositions.count - 2), [[0, -3], [0, 3]]);
+  assert.deepEqual(edge(outgoingPositions, 0), [[0, -3], [0, 3]]);
+  incoming.dispose();
+  outgoing.dispose();
 }
 
 function testShadowGrid() {

@@ -619,6 +619,40 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       joined.set(id, (joined.get(id) ?? 0) + edges);
     });
   }
+  const continuationNormals = new Map<Point, Point>();
+  if (municipalSurface) {
+    const approaches = new Map<number, { point: Point; direction: Point }[]>();
+    for (const road of roads) {
+      if (!road.motor || road.unpaved || paths.has(road.category) || road.points.length < 2) continue;
+      const end = road.points.length - 1;
+      for (const [index, other] of [[0, 1], [end, end - 1]]) {
+        const node = road.nodeIds[index];
+        if (joined.get(node) !== 2) continue;
+        const point = road.points[index], neighbor = road.points[other];
+        const dx = neighbor.x - point.x, dz = neighbor.z - point.z;
+        const length = Math.hypot(dx, dz);
+        if (length < 0.05) continue;
+        const connected = approaches.get(node) ?? [];
+        connected.push({ point, direction: { x: dx / length, z: dz / length } });
+        approaches.set(node, connected);
+      }
+    }
+    for (const connected of approaches.values()) {
+      if (connected.length !== 2) continue;
+      const [a, b] = connected;
+      if (a.point.x !== b.point.x || a.point.z !== b.point.z) continue;
+      const dot = a.direction.x * b.direction.x + a.direction.z * b.direction.z;
+      if (dot > -Math.cos(T.MathUtils.degToRad(25))) continue;
+      // Mapped ways can split at a tag change along the same road. Use
+      // one cross-section there so the two ribbons meet without a round cap.
+      const dx = a.direction.x - b.direction.x, dz = a.direction.z - b.direction.z;
+      const length = Math.hypot(dx, dz);
+      const normal = { x: dz / length, z: -dx / length };
+      continuationNormals.set(a.point, normal);
+      continuationNormals.set(b.point, normal);
+    }
+  }
+  const continuationNormal = (point: Point) => continuationNormals.get(point);
   function surfaceAt(x: number, z: number, owners?: ReadonlySet<number>) {
     const ground = terrainSurface(data.ground, x, z);
     return elevatedRoads && !owners ? ground : ground + network.raiseBridge({ x, z }, owners);
@@ -642,9 +676,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       : groundPolygon(rings, (x, z) => surfaceAt(x, z, owners), maxEdge, lift);
   }
   function pavementStrip(points: Point[], width: number, lift: number, owners?: ReadonlySet<number>,
-    section?: RibbonSection) {
-    return terrain ? withBridgeGrade(terrain.fit(ribbon(points, width, () => 0, Infinity, 3, section), lift), owners)
-      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + lift, urban ? 1.25 : Infinity, 3, section);
+    section?: RibbonSection, endNormal?: (point: Point) => Point | undefined) {
+    return terrain ? withBridgeGrade(terrain.fit(ribbon(points, width, () => 0, Infinity, 3, section, endNormal), lift), owners)
+      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + lift, urban ? 1.25 : Infinity, 3, section, endNormal);
   }
   const paintProjection = { value: 1 };
   const fallbackExclusions = (data.pavement || tracedDrive) && createSurfaceClipper();
@@ -739,16 +773,17 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     dividerBoundary?.clear();
   }
   function strip(points: Point[], width: number, height: number, color: string, texture?: TourSurface,
-    roadDeck = false, trim = false, owners?: ReadonlySet<number>, roadShoulder = false) {
+    roadDeck = false, trim = false, owners?: ReadonlySet<number>, roadShoulder = false, name?: string) {
     const measured = roadDeck || roadShoulder ? owners ? bridgeFootprint : municipalSurface : undefined;
     const section: RibbonSection | undefined = measured && ((point, normal, halfWidth) =>
       inferredRoadSection(measured.section(point, normal, halfWidth), halfWidth));
-    let geometry = texture ? pavementStrip(points, width, height, owners, section)
-      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + height, urban ? 1.25 : Infinity, 3, section);
+    const endNormal = roadDeck || roadShoulder ? continuationNormal : undefined;
+    let geometry = texture ? pavementStrip(points, width, height, owners, section, endNormal)
+      : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + height, urban ? 1.25 : Infinity, 3, section, endNormal);
     if (owners && bridgeFootprint) geometry = trimFallback(geometry, bridgeFootprint);
     else if (trim) geometry = trimFallback(geometry);
     if (roadDeck && !owners) addGroundRoad(geometry, color, texture);
-    else add(color, geometry, texture, false, roadDeck && owners ? '고가 차도' : undefined);
+    else add(color, geometry, texture, false, roadDeck && owners ? '고가 차도' : name);
   }
   const priorityRoads = createSurfaceClipper();
   function addSurveyedRoad(ring: Point[]) {
@@ -908,13 +943,17 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const width = streetWidth(road);
     const roadCrossings = [...(crossingsByRoad.get(road.id) ?? []), ...siteCrossings];
     const isPath = paths.has(road.category);
+    const restricted = data.pavement?.paired && !road.motor && !isPath;
+    const pedestrianLink = isPath || restricted;
     const isMain = major.has(road.category.replace('_link', ''));
     const within = (p: Point) => Math.max(Math.abs(p.x), Math.abs(p.z)) <= extent + 28;
     let run: Point[] = [];
     const unpaved = road.unpaved || road.category === 'track';
     const color = unpaved ? '#aa9981'
       : isPath ? '#bba994' : isMain ? '#626970' : road.category === 'residential' ? '#737878' : '#858780';
-    const texture = unpaved ? 'forest' : isPath ? (urban ? 'pavers' : 'cobble') : 'asphalt';
+    const texture = unpaved ? 'forest'
+      : pedestrianLink && (!restricted || road.surface !== 'asphalt') ? (urban ? 'pavers' : 'cobble') : 'asphalt';
+    const restrictedAsphalt = restricted && texture === 'asphalt' ? '차량 통행 제한 포장' : undefined;
     const tint = finish ? (urban && texture === 'asphalt' ? '#e2ecf8' : isMain ? '#dfdedd' : '#fffaf3') : color;
     const pavedMotorRoad = road.motor && !isPath && !unpaved;
     const owners = elevatedRoads ? bridgeOwners.get(road.id) : undefined;
@@ -950,7 +989,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const paint = (points: Point[]) => {
       if (points.length < 2) return;
       // An OSM crossing is still part of the walking network, but its pavement is the roadway.
-      const surfaces = isPath && !road.bridge ? leaveCrosswalkGaps(points, paintCrossings, 0.04) : fallbackSpans(road, points);
+      const surfaces = pedestrianLink && !road.bridge
+        ? leaveCrosswalkGaps(points, paintCrossings, 0.04) : fallbackSpans(road, points);
       const approachEnds = new Set<Point>();
       if (pavedMotorRoad && exitApproaches.size) for (const line of surfaces) {
         const node = road.nodeIds[road.points.indexOf(line[0])];
@@ -963,17 +1003,18 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         approachEnds.add(approach.end);
       }
       for (const line of surfaces) {
-        if (!finish || isPath || road.bridge) {
-          strip(line, width + (isPath ? 0.14 : 0.42), deckLift - (urban ? 0.024 : 0.09), isPath ? '#a29477' : '#a29f91',
+        if (!finish || pedestrianLink || road.bridge) {
+          strip(line, width + (pedestrianLink ? 0.14 : 0.42), deckLift - (urban ? 0.024 : 0.09), pedestrianLink ? '#a29477' : '#a29f91',
             undefined, false, false, owners, pavedMotorRoad);
         }
-        strip(line, width, deckLift, tint, texture, pavedMotorRoad, !road.bridge && (pavedMotorRoad || !!municipalSurface), owners);
+        strip(line, width, deckLift, tint, texture, pavedMotorRoad,
+          !road.bridge && (pavedMotorRoad || !!municipalSurface), owners, false, restrictedAsphalt);
       }
-      if (!isPath) for (const line of surfaces) {
+      if (!pedestrianLink) for (const line of surfaces) {
         // The ribbon already joins its internal vertices. Round only its
         // ends in surveyed scenes, so bends cannot pave over adjacent medians.
         for (const point of (municipalSurface || (urban && width > 12) ? [line[0], line[line.length - 1]] : line)) {
-          if (approachEnds.has(point)) continue;
+          if (approachEnds.has(point) || continuationNormals.has(point)) continue;
           if (municipalSurface) {
             // A survey can end a fallback ribbon at a vertex in the middle
             // of a road. Only network ends and junctions can own a round cap.
