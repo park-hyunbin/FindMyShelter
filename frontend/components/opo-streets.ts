@@ -502,6 +502,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const crossingsByRoad = new Map<number, Crosswalk[]>();
   const crossingSurveys = new Set<Crosswalk>();
   const sourceOutlines = new Map<Crosswalk, Point[]>();
+  const replacedArchive = new Set<string>();
   const cityCrossings: { area: ReturnType<typeof surveyedCrosswalkArea>; ring: Point[]; paintAreas?: Shape[] }[] = [];
   function addCrossing(outline: Point[], center: Point, source: CrossingSource, inventoryMatch = false,
     current?: { id: string; paintAreas: Shape[]; across?: [Point, Point] }) {
@@ -544,7 +545,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       }
       cityCrossings.push({ area, ring: outline, paintAreas: current?.paintAreas });
       auditCrossing?.({ source, center: area.center, status: 'surveyed_outline', roadId: candidates[0]?.section.road.id, sourceId });
-      return;
+      return true;
     }
     const paint = outline.length ? footprint([[outline]]) : undefined;
     for (const approximation of candidates) {
@@ -570,11 +571,15 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const outlineCenter = (outline: Point[]) => outline.reduce((sum, point) =>
     ({ x: sum.x + point.x / outline.length, z: sum.z + point.z / outline.length }), { x: 0, z: 0 });
   function surveyedCrossings(confirmed: boolean) {
-    for (const record of survey?.crosswalks ?? []) {
+    for (const [recordIndex, record] of (survey?.crosswalks ?? []).entries()) {
       if (record.inventoryMatch !== confirmed) continue;
-      for (const ring of record.surfaces) {
+      for (const [surfaceIndex, ring] of record.surfaces.entries()) {
         const outline = ring.map(data.project);
         const center = outlineCenter(outline);
+        if (!confirmed && replacedArchive.has(`${recordIndex}:${surfaceIndex}`)) {
+          auditCrossing?.({ source: 'city_archive', center, status: 'duplicate' });
+          continue;
+        }
         // Inside a reviewed drive, use the site markings instead of fitting unverified paint to a nearby street.
         if (!confirmed && tracedDrive && inShape(center, [tracedDrive])) continue;
         addCrossing(outline, center, 'city_archive', confirmed);
@@ -584,10 +589,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   for (const record of survey?.currentCrosswalks?.records ?? []) {
     const outline = record.outline.map(data.project);
     const paintAreas = record.paintAreas.map(shape => shape.map(ring => ring.map(data.project)));
-    addCrossing(outline, outlineCenter(outline), 'city_current', true, {
+    const accepted = addCrossing(outline, outlineCenter(outline), 'city_current', true, {
       id: record.id, paintAreas,
       across: record.across && [data.project(record.across[0]), data.project(record.across[1])],
     });
+    if (accepted) for (const [archive, surface] of record.supersedes ?? []) replacedArchive.add(`${archive}:${surface}`);
   }
   surveyedCrossings(true);
   surveyedCrossings(false);

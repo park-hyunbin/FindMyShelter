@@ -61,7 +61,10 @@ type StreetPaintFile = {
   crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][] }[];
   currentCrosswalks?: {
     sha256: string;
-    records: { id: string; outline: Position[]; paintAreas: Position[][][]; across?: [Position, Position] }[];
+    records: {
+      id: string; outline: Position[]; paintAreas: Position[][][]; across?: [Position, Position];
+      supersedes?: [record: number, surface: number][];
+    }[];
   };
   paintedHumps?: {
     source: string; archiveDate: string;

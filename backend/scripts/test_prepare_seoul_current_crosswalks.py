@@ -6,7 +6,7 @@ from datetime import date
 from shapely import STRtree
 from shapely.geometry import Point, box, mapping
 
-from prepare_seoul_current_crosswalks import ZEBRA_TYPES, companion_axis, confirmed_outlines, export_window
+from prepare_seoul_current_crosswalks import ZEBRA_TYPES, companion_axis, confirmed_outlines, export_polygons, export_window
 
 
 class CurrentCrosswalkTest(unittest.TestCase):
@@ -48,6 +48,31 @@ class CurrentCrosswalkTest(unittest.TestCase):
         pavement = {"roadDataset": {"sha256": "old"}}
         with self.assertRaisesRegex(ValueError, "same T-GIS snapshot"):
             export_window(markings, pavement, {"sha256": "new"}, None, ())
+
+    def test_current_outline_replaces_only_a_strongly_matching_unconfirmed_archive(self):
+        current = box(200000, 550000, 200020, 550005)
+        same_crossing = box(200001, 550000, 200021, 550005)
+        partial_overlap = box(200014, 550000, 200024, 550005)
+        dataset = {"sha256": "source", "bounds": [126.99, 37.5, 127.01, 37.6]}
+        pavement = {"roadDataset": dataset, "roads": export_polygons(box(199990, 549990, 200040, 550015))}
+        cases = [
+            (same_crossing, False, "replaced_unconfirmed_archive"),
+            (same_crossing, True, "already_in_archive"),
+            (partial_overlap, False, "ambiguous_archive_overlap"),
+        ]
+        for older, confirmed, status in cases:
+            with self.subTest(status=status):
+                markings = {"roadDataset": dataset, "crosswalks": [{
+                    "inventoryMatch": confirmed, "surfaces": [export_polygons(older)[0][0]],
+                }]}
+                result, report = export_window(markings, pavement, {"sha256": "source"},
+                                               STRtree([current]), ["verified"])
+                self.assertEqual(report[status], 1)
+                records = result["currentCrosswalks"]["records"]
+                if status == "replaced_unconfirmed_archive":
+                    self.assertEqual(records[0]["supersedes"], [[0, 0]])
+                else:
+                    self.assertFalse(records)
 
 
 if __name__ == "__main__":

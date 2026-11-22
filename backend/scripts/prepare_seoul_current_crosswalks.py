@@ -125,13 +125,26 @@ def export_window(markings, pavement, source, index, identifiers, references=Non
     roads = union_all([local_polygon(rings) for rings in pavement["roads"]])
     elevated = union_all([local_polygon(rings) for deck in pavement.get("elevatedRoads", [])
                           for rings in deck["polygons"]])
-    archive = STRtree([local_polygon([ring]) for record in markings["crosswalks"] for ring in record["surfaces"]])
+    archive_surfaces = [(record_index, surface_index, record["inventoryMatch"], local_polygon([ring]))
+                        for record_index, record in enumerate(markings["crosswalks"])
+                        for surface_index, ring in enumerate(record["surfaces"])]
+    archive = STRtree([geometry for *_, geometry in archive_surfaces])
     records, counts = [], Counter()
     for i in sorted(index.query(window, predicate="contains")):
         geometry = index.geometries[i]
-        if any(geometry.intersection(archive.geometries[j]).area >= 0.3 * min(geometry.area, archive.geometries[j].area)
-               for j in archive.query(geometry, predicate="intersects")):
+        overlaps = []
+        for j in archive.query(geometry, predicate="intersects"):
+            old = archive.geometries[j]
+            shared = geometry.intersection(old).area
+            if shared >= 0.3 * min(geometry.area, old.area):
+                overlaps.append((j, shared))
+        if any(archive_surfaces[j][2] for j, _ in overlaps):
             counts["already_in_archive"] += 1
+            continue
+        matched = [list(archive_surfaces[j][:2]) for j, shared in overlaps
+                   if shared >= 0.5 * max(geometry.area, archive.geometries[j].area)]
+        if overlaps and len(matched) != len(overlaps):
+            counts["ambiguous_archive_overlap"] += 1
             continue
         if elevated.intersects(geometry):
             counts["near_another_deck"] += 1
@@ -146,6 +159,9 @@ def export_window(markings, pavement, source, index, identifiers, references=Non
                         for position in geometry.exterior.coords[:-1]],
             "paintAreas": export_polygons(footprint),
         }
+        if matched:
+            current["supersedes"] = sorted(matched)
+            counts["replaced_unconfirmed_archive"] += 1
         if references is not None and (axis := companion_axis(geometry, references)):
             current["across"] = axis
             counts["direction_from_aligned_crossings"] += 1

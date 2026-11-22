@@ -397,7 +397,10 @@ async function audit(region, crossingsOnly, elevatedOnly) {
       assertGarakDriveway(data, scene.children.slice(detailLayerStart));
       assertCurrentCrosswalk(scene, data, checks, '06-0000052539');
     }
-    if (region === 'jamsil-leel') assertCurrentCrosswalk(scene, data, checks, '06-0000051103');
+    if (region === 'jamsil-leel') {
+      assertCurrentCrosswalk(scene, data, checks, '06-0000051103');
+      assertCurrentCrosswalk(scene, data, checks, '06-0000009350');
+    }
     const counts = {};
     for (const { source, status } of checks) {
       const outcomes = counts[source] ??= {};
