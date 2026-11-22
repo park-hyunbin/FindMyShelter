@@ -592,6 +592,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   const paintProjection = { value: 1 };
   const fallbackExclusions = (data.pavement || tracedDrive) && createSurfaceClipper();
+  const inferredGroundDeck = municipalSurface && createSurfaceClipper();
+  const groundCaps: { geometry: T.BufferGeometry; color: string; texture: TourSurface }[] = [];
   if (fallbackExclusions && tracedDrive) {
     const outline = groundPolygon([tracedDrive], () => 0, Infinity, 0);
     fallbackExclusions.addSurface(outline);
@@ -637,6 +639,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     geometry.dispose();
     return exposed;
   }
+  function addGroundRoad(geometry: T.BufferGeometry, color: string, texture?: TourSurface) {
+    const deck = inferredGroundDeck ? trimFallback(geometry, inferredGroundDeck) : geometry;
+    inferredGroundDeck?.addSurface(deck);
+    roadPaint?.addSurface(deck);
+    add(color, deck, texture);
+  }
   const asphalt = finish ? '#e2ecf8' : '#737878';
   const bridgeFootprint = elevatedRoads && createSurfaceClipper();
   for (const { roadIds, shapes } of elevatedRoads ?? []) {
@@ -654,8 +662,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + height, urban ? 1.25 : Infinity);
     if (owners && bridgeFootprint) geometry = trimFallback(geometry, bridgeFootprint);
     else if (trim) geometry = trimFallback(geometry);
-    if (roadDeck && !owners) roadPaint?.addSurface(geometry);
-    add(color, geometry, texture, false, roadDeck && owners ? '고가 차도' : undefined);
+    if (roadDeck && !owners) addGroundRoad(geometry, color, texture);
+    else add(color, geometry, texture, false, roadDeck && owners ? '고가 차도' : undefined);
   }
   const priorityRoads = createSurfaceClipper();
   function addSurveyedRoad(ring: Point[]) {
@@ -868,8 +876,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         if (!approach || approach.start !== line[0]) continue;
         // Start with the exact mapped cross-section and reach the inferred width on this segment.
         const deck = trimFallback(pavementArea(approach.pavement.rings, deckLift, 1.45));
-        roadPaint?.addSurface(deck);
-        add(tint, deck, texture);
+        addGroundRoad(deck, tint, texture);
         line[0] = approach.end;
         approachEnds.add(approach.end);
       }
@@ -881,11 +888,18 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         strip(line, width, deckLift, tint, texture, pavedMotorRoad, !road.bridge && (pavedMotorRoad || !!municipalSurface), owners);
       }
       if (!isPath) for (const line of surfaces) {
-        for (const point of (urban && width > 12 ? [line[0], line[line.length - 1]] : line)) {
+        // The ribbon already joins its internal vertices. Round only its
+        // ends in surveyed scenes, so bends cannot pave over adjacent medians.
+        for (const point of (municipalSurface || (urban && width > 12) ? [line[0], line[line.length - 1]] : line)) {
           if (approachEnds.has(point)) continue;
-          // A fallback span can start at a cut in a survey boundary. A round
-          // cap there can pave a real median or join adjacent carriageways.
-          if (municipalSurface && (!road.points.includes(point) || municipalSurface.heightAt(point) !== undefined)) continue;
+          if (municipalSurface) {
+            // A survey can end a fallback ribbon at a vertex in the middle
+            // of a road. Only network ends and junctions can own a round cap.
+            const index = road.points.indexOf(point);
+            const junction = (joined.get(road.nodeIds[index]) ?? 0) >= 3;
+            if (index < 0 || (!junction && index !== 0 && index !== road.points.length - 1)
+              || municipalSurface.heightAt(point) !== undefined) continue;
+          }
           let cap: T.BufferGeometry = new T.CircleGeometry(width / 2, 10);
           cap.rotateX(-Math.PI / 2).translate(point.x, 0, point.z);
           if (terrain) {
@@ -896,8 +910,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
           } else cap.translate(0, surface(point.x, point.z) + 0.445, 0);
           const trimmed = owners && bridgeFootprint ? trimFallback(cap, bridgeFootprint)
             : pavedMotorRoad && !road.bridge ? trimFallback(cap) : cap;
-          if (pavedMotorRoad && !owners) roadPaint?.addSurface(trimmed);
-          add(tint, trimmed, texture, false, pavedMotorRoad && owners ? '고가 차도' : undefined);
+          if (pavedMotorRoad && !owners && inferredGroundDeck) groundCaps.push({ geometry: trimmed, color: tint, texture });
+          else if (pavedMotorRoad && !owners) addGroundRoad(trimmed, tint, texture);
+          else add(tint, trimmed, texture, false, pavedMotorRoad && owners ? '고가 차도' : undefined);
         }
       }
       if (urban && road.motor) {
@@ -968,6 +983,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     paint(run);
   }
   bridgeFootprint?.clear();
+  // At junctions, the continuous road ribbons own the surface before end caps.
+  for (const { geometry, color, texture } of groundCaps) addGroundRoad(geometry, color, texture);
+  inferredGroundDeck?.clear();
   for (const area of data.parking) {
     const deck = urban ? pavementArea(area, 0.045, 2) : groundPolygon(area, (x, z) => surface(x, z) + 0.11);
     const exposed = municipalSurface?.subtract(deck) ?? deck;

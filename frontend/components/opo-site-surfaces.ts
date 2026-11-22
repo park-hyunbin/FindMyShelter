@@ -233,7 +233,7 @@ export function addSiteSurfaces(
     return texture ? finish(base, texture) : base;
   }
 
-  function add(geometry: T.BufferGeometry, value: T.Material, texture?: TourSurface, walkable = true) {
+  function add(geometry: T.BufferGeometry, value: T.Material, texture?: TourSurface, walkable = true, driveway = false) {
     if (texture) surfaceUV(geometry, texture);
     const mesh = new T.Mesh(geometry, value);
     mesh.receiveShadow = true;
@@ -243,7 +243,7 @@ export function addSiteSurfaces(
       if (geometry.boundingBox && !geometry.boundingBox.isEmpty()) {
         const deck = { mesh, bounds: geometry.boundingBox };
         decks.push(deck);
-        if (texture === 'asphalt') drivewayDecks.push(deck);
+        if (driveway) drivewayDecks.push(deck);
         return deck;
       }
     }
@@ -254,6 +254,51 @@ export function addSiteSurfaces(
     const visible = municipalPaving.footprint.subtract(geometry);
     geometry.dispose();
     return visible;
+  }
+
+  function addDriveway(geometry: T.BufferGeometry) {
+    const deck = outsideMunicipalSurface(geometry);
+    if (!layout.drivewayFinishes?.length) {
+      add(deck, asphalt, 'asphalt', true, true);
+      return;
+    }
+    const support = createSurfaceClipper();
+    const finished = createSurfaceClipper();
+    support.addSurface(deck);
+    // Later finishes own overlaps, just as they did when drawn over the base.
+    for (const { outline, color, surface = 'asphalt' } of [...layout.drivewayFinishes].reverse()) {
+      const ring = outline.map(data.project);
+      const mask = groundPolygon([ring], () => 0, Infinity, 0);
+      const patch = support.clipOnce(mask, 0);
+      const visible = finished.subtract(patch);
+      mask.dispose();
+      patch.dispose();
+      const points = visible.getAttribute('position');
+      if (!points.count) { visible.dispose(); continue; }
+
+      const tint = material(color, surface);
+      if (surface === 'asphalt') {
+        const boundary = [[...ring, ring[0]]];
+        const target = tint.color.clone().multiplyScalar(1.42);
+        const shaded = new T.Color();
+        const colors = new Float32Array(points.count * 3);
+        for (let i = 0; i < points.count; i++) {
+          const point = { x: points.getX(i), z: points.getZ(i) };
+          const edge = T.MathUtils.smoothstep(nearestOnLine(point, boundary).distance, 0.03, 1.2);
+          shaded.copy(asphalt.color).lerp(target, edge).toArray(colors, i * 3);
+        }
+        visible.setAttribute('color', new T.BufferAttribute(colors, 3));
+        tint.color.setScalar(1);
+        tint.vertexColors = true;
+      }
+      finished.addSurface(visible);
+      add(visible, tint, surface, true, true);
+    }
+    const remaining = finished.subtract(deck);
+    support.clear();
+    finished.clear();
+    deck.dispose();
+    add(remaining, asphalt, 'asphalt', true, true);
   }
 
   function addWalk(geometry: T.BufferGeometry, value = paving, texture?: TourSurface) {
@@ -321,7 +366,7 @@ export function addSiteSurfaces(
     const strips = lines.map(line => ribbon(line, width, () => 0));
     const flat = mergeGeometries(strips);
     strips.forEach(strip => strip.dispose());
-    const fitted = clipper.clip(flat, lift);
+    const fitted = clipper.clipOnce(flat, lift);
     flat.dispose();
     if (fitted.getAttribute('position').count) add(fitted, paint, undefined, false);
     else fitted.dispose();
@@ -409,9 +454,9 @@ export function addSiteSurfaces(
       }
       deck.computeVertexNormals();
     }
-    add(outsideMunicipalSurface(deck), asphalt, 'asphalt');
+    addDriveway(deck);
   } else if (layout.drive && drivewayCenterline) {
-    add(outsideMunicipalSurface(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1)), asphalt, 'asphalt');
+    addDriveway(ribbon(drivewayCenterline, layout.drive.width, drivewayGrade, 0.8, 1));
   }
   const walkAreas = [...(layout.walkAreas ?? []).map(outline => [outline]), ...(layout.walkSurfaces ?? [])]
     .map(polygon => polygon.map(ring => ring.map(data.project)));
@@ -582,24 +627,9 @@ export function addSiteSurfaces(
     addShrubPlanting(scene, shrubs, '정문 주변 관목');
   }
   const asphaltDecks = drivewayDecks.map(({ mesh }) => mesh.geometry);
-  if (layout.parkingRows?.length || layout.drivewayFinishes?.length) {
+  if (layout.parkingRows?.length) {
     const clipper = createSurfaceClipper();
     asphaltDecks.forEach(clipper.addSurface);
-    for (const { outline, color, surface = 'asphalt' } of layout.drivewayFinishes ?? []) {
-      const ring = outline.map(data.project);
-      const mask = groundPolygon([ring], () => 0, Infinity, 0);
-      const patch = clipper.clip(mask, surface === 'asphalt' ? 0.006 : 0.010);
-      mask.dispose();
-      if (!patch.getAttribute('position').count) { patch.dispose(); continue; }
-      const tint = material(color, surface);
-      if (surface === 'asphalt') {
-        tint.color.multiplyScalar(1.42);
-        tint.vertexColors = tint.transparent = true;
-        tint.depthWrite = false;
-        featherEdge(patch, [ring], 1.2);
-      }
-      add(patch, tint, surface, false);
-    }
     for (const row of layout.parkingRows ?? []) parking(row, clipper);
     clipper.clear();
   }

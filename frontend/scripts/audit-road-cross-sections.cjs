@@ -138,6 +138,19 @@ function assertGarakCrosswalk(scene, project, checks) {
   paint.clear();
 }
 
+function assertGarakDriveway(data, objects) {
+  const surfaces = objects.filter(object => object.isMesh && !object.isInstancedMesh
+    && object.material.userData?.auditSurface === 'asphalt');
+  const ray = new T.Raycaster(new T.Vector3(), new T.Vector3(0, -1, 0));
+  for (const coordinate of [[127.116801, 37.49802], [127.116806, 37.49805]]) {
+    const { x, z } = data.project(coordinate);
+    ray.ray.origin.set(x, data.ground(x, z) + 2, z);
+    const hits = ray.intersectObjects(surfaces, false);
+    assert.ok(hits.length > 0, 'The Garak driveway requires a visible surface');
+    assert.ok(hits.at(-1).distance - hits[0].distance < 0.001, 'The Garak driveway finish overlaps the asphalt at another height');
+  }
+}
+
 const radius = 45;
 const seamTolerance = 0.002;
 function mergeIntervals(intervals) {
@@ -208,6 +221,7 @@ async function audit(region, crossingsOnly) {
   const checks = [];
   const streets = addStreets(data, scene, finish, projection, inside, seams,
     crossingsOnly ? check => checks.push(check) : undefined);
+  const detailLayerStart = scene.children.length;
   const detail = addSiteDetails(
     data, scene, streets.surface, finish, streets.streetClearance, inside, projection, seams,
     streets.municipalPaving,
@@ -218,7 +232,10 @@ async function audit(region, crossingsOnly) {
   projection.clear();
 
   if (crossingsOnly) {
-    if (region === 'songpa') assertGarakCrosswalk(scene, data.project, checks);
+    if (region === 'songpa') {
+      assertGarakCrosswalk(scene, data.project, checks);
+      assertGarakDriveway(data, scene.children.slice(detailLayerStart));
+    }
     const counts = {};
     for (const { source, status } of checks) {
       const outcomes = counts[source] ??= {};
