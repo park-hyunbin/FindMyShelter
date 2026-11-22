@@ -349,14 +349,14 @@ const songpaCoveredApproachFinish = {
 } satisfies NonNullable<SiteSurfaceLayout['drivewayFinishes']>[number];
 
 // The June 2026 view shows white bands alongside the block-paved apron.
-// Trim the interpreted south ends to the north edge of Seoul hump 16-003565.
+// Their inferred plan location requires verification against both walking approaches.
 const songpaGateMarking = {
   start: [127.1168450, 37.4977850], end: [127.1167980, 37.4977481],
   outline: [
     [127.1168360, 37.4977930], [127.1168540, 37.4977770],
     [127.1168082, 37.4977411], [127.1167878, 37.4977552],
   ],
-} satisfies NonNullable<SiteSurfaceLayout['surveyedCrossings']>[number];
+} satisfies NonNullable<SiteSurfaceLayout['estimatedCrossings']>[number];
 const songpaGateFinish = {
   surface: 'pavers',
   color: '#e4ddd2',
@@ -617,9 +617,9 @@ export const songpaSurfaceLayout = {
       end: [end[0], end[1]] as Coordinate,
       outline: outline.map(([lng, lat]): Coordinate => [lng, lat]),
     })),
-    songpaGateMarking,
     ...songpaGrounds.markings,
   ],
+  estimatedCrossings: [songpaGateMarking],
   surveyedWalks: [...songiParkSurvey.sidewalks, ...songpaJunction.branchSidewalks, {
     id: songpaEntrance.frontage.surveyedWalkId,
     roadId: 169916276,

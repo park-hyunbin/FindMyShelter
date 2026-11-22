@@ -306,7 +306,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const survey = data.roadMarkings;
   const surveyedLines = survey?.lanes.map(lane => ({ ...lane, points: lane.points.map(data.project) })) ?? [];
   const paintedHumps = survey?.paintedHumps?.records.map(hump => projectSiteCrossing(data.project, hump)) ?? [];
-  const roadPaint = surveyedLines.length || paintedHumps.length || site?.layout.surveyedCrossings?.length || data.servicePaving.length
+  const hasSiteCrossings = site?.layout.surveyedCrossings?.length || site?.layout.estimatedCrossings?.length;
+  const roadPaint = surveyedLines.length || paintedHumps.length || hasSiteCrossings || data.servicePaving.length
     ? createSurfaceClipper() : undefined;
   const crossingPaint = surveyedLines.length ? createSurfaceClipper() : undefined;
   const edgeOffsets = new Map<number, number[]>();
@@ -378,6 +379,30 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     `${road}:${node}`, spans,
   ] as const));
   const exactCrossings = (site?.layout.surveyedCrossings ?? []).map(crossing => projectSiteCrossing(data.project, crossing));
+  const estimatedCrossings = site?.layout.estimatedCrossings ?? [];
+  if (estimatedCrossings.length) {
+    const pedestrianSurface = createSurfaceClipper();
+    for (const { rings } of pedestrianPavements) {
+      const outline = groundPolygon(rings, () => 0, Infinity, 0);
+      pedestrianSurface.addSurface(outline);
+      outline.dispose();
+    }
+    for (const trace of estimatedCrossings) {
+      const crossing = projectSiteCrossing(data.project, trace);
+      const { area } = crossing;
+      const at = crosswalkFrame(area);
+      // Check outwards in the walking direction. A nearby curb along the side
+      // of the painted rectangle does not provide a landing at its end.
+      const connected = [-1, 1].every(side => {
+        const endpoint = at(0, side * area.section.width / 2);
+        const direction = { x: side * area.direction.z, z: -side * area.direction.x };
+        return pedestrianSurface.section(endpoint, direction, 1.25)
+          .some(([from, to]) => to - Math.max(0, from) >= 0.15);
+      });
+      if (connected) exactCrossings.push(crossing);
+    }
+    pedestrianSurface.clear();
+  }
   const exitApproaches = new Map<string, {
     start: Point; end: Point; fraction: number; pavement: ReturnType<typeof pavementBounds>;
   }>();

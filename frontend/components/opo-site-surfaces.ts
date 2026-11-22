@@ -70,6 +70,7 @@ export type SiteSurfaceLayout = {
   surveyedRoads?: SurveyedRoad[];
   surveyedJunctions?: Coordinate[][];
   surveyedCrossings?: SiteCrossing[];
+  estimatedCrossings?: SiteCrossing[];
   parkingRows?: ParkingRow[];
   vehicleGates?: VehicleGateLayout[];
   playground?: { outline: Coordinate[]; surface: 'granular' | 'rubber' };
