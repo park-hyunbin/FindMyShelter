@@ -6,6 +6,7 @@ from shapely import STRtree
 from shapely.geometry import LineString, box
 from shapely.ops import unary_union
 
+from prepare_seoul_elevated_alignment import connected_vertex_runs, divider_recovery, reconcile_divided_sections
 from prepare_seoul_elevated_markings import export_window, unambiguous_deck_paint
 from prepare_seoul_lane_windows import lane_item
 from prepare_seoul_road_windows import CentrelineEvidence, align_ground_ramps, ground_link_support, supported_runs
@@ -175,6 +176,44 @@ class CentrelinePairTest(unittest.TestCase):
 
     def test_structure_footprint_blocks_the_interval_even_between_sample_centres(self):
         self.assertEqual(self.support(self.links(), footprints=[box(4.1, -1, 4.2, 1)]), [(0, 4), (8, 20)])
+
+
+class DividedDeckAlignmentTest(unittest.TestCase):
+    def setUp(self):
+        positions = [(200000 + x, 550000 + y)
+                     for x, y in [(0, 1), (5, 1), (15, .2), (25, .2), (35, .2), (45, .2), (55, 1), (65, 1)]]
+        self.road = {"id": 10, "name": "Main Road", "oneWay": 1, "coordinates": gps(positions),
+                     "nodeIds": list(range(len(positions)))}
+        self.nodes = Counter(self.road["nodeIds"])
+        self.deck = box(199998, 549996, 200067, 550004)
+        self.divider = box(199998, 549999.6, 200067, 550000.4)
+        self.pavement = self.deck.difference(self.divider)
+        line = LineString([(199999, 550001), (200066, 550001)])
+        self.links = [{"LINK_ID": "survey", "ROAD_NAME": "Main Road", "CONNECT": "0"}]
+        self.index = STRtree([line])
+
+    def test_realigns_the_local_run_from_the_divider_into_the_surveyed_carriageway(self):
+        result = reconcile_divided_sections(self.road, self.nodes, self.deck, self.pavement,
+                                            box(0, 0, 1, 1), self.links, self.index)
+        self.assertGreater(result["dividerRecoveredM"], 30)
+        self.assertEqual(result["links"], ["survey"])
+        self.assertEqual(result["coordinates"][0], self.road["coordinates"][0])
+        self.assertEqual(result["coordinates"][-1], self.road["coordinates"][-1])
+
+    def test_link_covered_by_the_ground_surface_cannot_realign_an_elevated_run(self):
+        ground = self.index.geometries[0].buffer(.5)
+        self.assertIsNone(reconcile_divided_sections(self.road, self.nodes, self.deck, self.pavement,
+                                                    ground, self.links, self.index))
+
+    def test_new_connections_cannot_go_across_the_divider(self):
+        before = LineString([(200000, 550001), (200010, 550001)])
+        after = LineString([(200000, 550001), (200010, 549999)])
+        self.assertEqual(divider_recovery([before], [after], self.deck, self.pavement, self.divider), 0)
+
+    def test_local_runs_split_at_missing_vertices_and_disconnected_links(self):
+        links = [{"F_NODE": 1, "T_NODE": 2}, {"F_NODE": 2, "T_NODE": 3}, {"F_NODE": 4, "T_NODE": 5}]
+        hits = [(1, 1, None), (2, 0, None), (3, 2, None), (5, 2, None)]
+        self.assertEqual(list(connected_vertex_runs(hits, links, -1)), [hits[:2], [hits[2]], [hits[3]]])
 
 
 class DeckPaintTest(unittest.TestCase):

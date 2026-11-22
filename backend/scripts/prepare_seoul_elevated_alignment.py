@@ -2,6 +2,7 @@
 
 import argparse
 from collections import Counter, defaultdict
+from functools import lru_cache
 from itertools import pairwise
 import json
 import math
@@ -20,6 +21,7 @@ from prepare_songpa_road_markings import REGIONS, gps
 
 MAX_OFFSET_M = 12
 SAMPLE_SPACING_M = 5
+MIN_RECOVERED_M = 15
 
 
 def corridor_name(name):
@@ -85,7 +87,7 @@ def reconcile(road, nodes, deck, carriageway, links, index):
     original_uncovered = [LineString(pair).difference(deck).length for pair in edges]
     actual_uncovered = [edge.difference(deck).length for edge in corrected]
     saved = [before - after for before, after in zip(original_uncovered, actual_uncovered, strict=True)]
-    if min(saved) < -0.35 or sum(saved) < 15:
+    if min(saved) < -0.35 or sum(saved) < MIN_RECOVERED_M:
         return None
     coordinates = [original if old is new else gps([new.coords[0]])[0]
                    for original, old, new in zip(originals, points, replacement, strict=True)]
@@ -93,6 +95,111 @@ def reconcile(road, nodes, deck, carriageway, links, index):
             "vertices": [[node, *point] for node, point in zip(road["nodeIds"], originals, strict=True)],
             "coordinates": coordinates, "links": [link["LINK_ID"] for link in chain],
             "reconciledM": round(sum(saved), 2)}
+
+
+def connected_vertex_runs(hits, links, one_way):
+    run = []
+    for vertex, link, point in hits:
+        if run:
+            previous_vertex, previous_link, _ = run[-1]
+            start, finish = (previous_link, link) if one_way == 1 else (link, previous_link)
+            if vertex != previous_vertex + 1 or (
+                start != finish and links[start]["T_NODE"] != links[finish]["F_NODE"]
+            ):
+                yield run
+                run = []
+        run.append((vertex, link, point))
+    if run:
+        yield run
+
+
+def divider_recovery(before, after, deck, carriageway, divider):
+    # A local correction must also leave both connections to the unchanged
+    # parts of the way at least as well supported by the surveyed pavement.
+    recovered = 0
+    for old, new in zip(before, after, strict=True):
+        old_vector = np.subtract(old.coords[-1], old.coords[0])
+        new_vector = np.subtract(new.coords[-1], new.coords[0])
+        if new.length < 0.05 or np.dot(old_vector, new_vector) <= 0:
+            return 0
+        if (new.difference(deck).length > old.difference(deck).length + 0.02
+                or new.difference(carriageway).length > old.difference(carriageway).length + 0.02):
+            return 0
+        saved = old.intersection(divider).length - new.intersection(divider).length
+        if saved < -0.02:
+            return 0
+        recovered += saved
+    return recovered
+
+
+def reconcile_divided_sections(road, nodes, deck, carriageway, ground, links, index):
+    originals = road["coordinates"]
+    points = [Point(TO_METRES.transform(*position)) for position in originals]
+    axis = LineString(points)
+    divider = deck.difference(carriageway)
+    if divider.is_empty or axis.intersection(divider).length < MIN_RECOVERED_M:
+        return None
+    name = corridor_name(road["name"])
+    direction = road["oneWay"]
+
+    @lru_cache(maxsize=None)
+    def on_confirmed_deck(link):
+        line = index.geometries[link]
+        return (line.intersection(carriageway).length >= 0.98 * line.length
+                and line.intersection(ground).length <= 0.01 * line.length)
+
+    count = math.ceil(axis.length / SAMPLE_SPACING_M)
+    spacing = axis.length / count
+    stations = (np.arange(count) + 0.5) * spacing
+    supported = np.full(count, -1, dtype=int)
+    for i, station in enumerate(stations):
+        hit = survey_match(axis.interpolate(station), tangent(axis, station) * direction, name, links, index)
+        if hit and carriageway.covers(hit[1]) and on_confirmed_deck(hit[0]):
+            supported[i] = hit[0]
+    hits = []
+    station = 0
+    for i, (before, point) in enumerate(pairwise(points), 1):
+        station += before.distance(point)
+        if i == len(points) - 1 or nodes[road["nodeIds"][i]] > 1:
+            continue
+        hit = survey_match(point, tangent(axis, station) * direction, name, links, index)
+        if not hit or not carriageway.covers(hit[1]):
+            continue
+        first = stations.searchsorted(station - 4 * SAMPLE_SPACING_M)
+        last = stations.searchsorted(station + 4 * SAMPLE_SPACING_M, side="right")
+        nearby = supported[first:last] == hit[0]
+        if np.any(nearby[:-3] & nearby[1:-2] & nearby[2:-1] & nearby[3:]):
+            hits.append((i, *hit))
+
+    replacement = points.copy()
+    used_links = {}
+    recovered = 0
+    for run in connected_vertex_runs(hits, links, direction):
+        if replacement[run[0][0] - 1] is not points[run[0][0] - 1]:
+            # Keep an original vertex between independently matched link runs.
+            run = run[1:]
+        if not run:
+            continue
+        start, end = run[0][0], run[-1][0] + 1
+        before = [LineString(pair) for pair in pairwise(replacement[start - 1:end + 1])]
+        after = [LineString(pair) for pair in pairwise(
+            [replacement[start - 1], *(point for _, _, point in run), replacement[end]]
+        )]
+        saved = divider_recovery(before, after, deck, carriageway, divider)
+        if saved < MIN_RECOVERED_M:
+            continue
+        recovered += saved
+        replacement[start:end] = [point for _, _, point in run]
+        used_links.update((link, None) for _, link, _ in run)
+    if not used_links:
+        return None
+    coordinates = [original if old is new else gps([new.coords[0]])[0]
+                   for original, old, new in zip(originals, points, replacement, strict=True)]
+    covered = axis.difference(deck).length - LineString(replacement).difference(deck).length
+    return {"id": road["id"], "oneWay": direction,
+            "vertices": [[node, *point] for node, point in zip(road["nodeIds"], originals, strict=True)],
+            "coordinates": coordinates, "links": [links[i]["LINK_ID"] for i in used_links],
+            "reconciledM": round(covered, 2), "dividerRecoveredM": round(recovered, 2)}
 
 
 def owned_decks(pavement):
@@ -172,6 +279,7 @@ def build(archive, regions, output):
     for (graph_file, _, _), windows in graph_windows.items():
         roads = json.loads(graph_file.read_text(encoding="utf-8"))["roads"]
         node_uses = Counter(node for road in roads for node in set(road["nodeIds"]))
+        ground = union_all([local_polygon(rings) for _, pavement, _ in windows for rings in pavement["roads"]])
         matches = {}
         surfaces = {}
         for road in roads:
@@ -184,6 +292,8 @@ def build(archive, regions, output):
             deck = union_all([outline for outline, _ in assigned])
             carriageway = union_all([surface for _, surface in assigned])
             match = reconcile(road, node_uses, deck, carriageway, links, index)
+            if match is None:
+                match = reconcile_divided_sections(road, node_uses, deck, carriageway, ground, links, index)
             if match:
                 matches[road["id"]] = match, {**road, "coordinates": match["coordinates"]}
                 surfaces[road["id"]] = deck, carriageway
@@ -202,7 +312,11 @@ def build(archive, regions, output):
             target = output / file.parent.name / file.name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(json.dumps(pavement, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
-            results[file.parent.name] = [{"id": r["id"], "coveredM": r["reconciledM"], "links": r["links"]} for r in records]
+            results[file.parent.name] = [
+                {"id": r["id"], "coveredM": r["reconciledM"], "links": r["links"],
+                 **({"dividerRecoveredM": r["dividerRecoveredM"]} if "dividerRecoveredM" in r else {})}
+                for r in records
+            ]
     return results
 
 
