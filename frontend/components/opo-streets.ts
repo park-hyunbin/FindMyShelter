@@ -317,6 +317,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const centerlines = createStreetNetwork(centerlineRoads);
   const survey = data.roadMarkings;
   const surveyedLines = survey?.lanes.map(lane => ({ ...lane, points: lane.points.map(data.project) })) ?? [];
+  const elevatedLines = survey?.elevatedMarkings?.records ?? [];
+  const paintedDeckIds = new Set(elevatedLines.map(line => line.deckId));
   const paintedHumps = survey?.paintedHumps?.records.map(hump => projectSiteCrossing(data.project, hump)) ?? [];
   const hasSiteCrossings = site?.layout.surveyedCrossings?.length || site?.layout.estimatedCrossings?.length;
   const roadPaint = surveyedLines.length || paintedHumps.length || hasSiteCrossings || survey?.crosswalks.length
@@ -645,12 +647,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     if (layer) layer.geometry.push(geometry);
     else layers.set(key, { color, texture, geometry: [geometry], castsShadow, paint, name });
   }
-  function addPaint(color: string, geometry: T.BufferGeometry, width: number) {
+  function addPaint(color: string, geometry: T.BufferGeometry, width: number, name?: string) {
     const position = geometry.getAttribute('position');
     if (urban && position?.count) {
       geometry.setAttribute('paintWidth', new T.BufferAttribute(new Float32Array(position.count).fill(width), 1));
     }
-    add(color, geometry);
+    add(color, geometry, undefined, false, name);
   }
   function addCrossingPaint(color: string, geometry: T.BufferGeometry, width: number) {
     const visible = crossingPaint?.subtract(geometry, 0.1) ?? geometry;
@@ -676,11 +678,15 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   }
   const asphalt = finish ? '#e2ecf8' : '#737878';
   const bridgeFootprint = elevatedRoads && createSurfaceClipper();
-  for (const { roadIds, shapes } of elevatedRoads ?? []) {
+  const bridgePaint = new Map<string, ReturnType<typeof createSurfaceClipper>>();
+  for (const { sourceId, roadIds, shapes } of elevatedRoads ?? []) {
+    const paintSurface = paintedDeckIds.has(sourceId) ? createSurfaceClipper() : undefined;
+    if (paintSurface) bridgePaint.set(sourceId, paintSurface);
     const owners = new Set<number>(roadIds);
     for (const rings of shapes) {
       const deck = pavementArea(rings, deckLift, 1.45, owners);
       bridgeFootprint?.addSurface(deck);
+      paintSurface?.addSurface(deck);
       fallbackExclusions?.addSurface(deck);
       add(asphalt, deck, 'asphalt', false, '고가 차도');
     }
@@ -817,7 +823,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     });
   }
   function surveyedPaint(points: Point[], style: StreetPaint, clipper: ReturnType<typeof createSurfaceClipper>,
-    busLane = false, dashOffsetM = 0) {
+    busLane = false, dashOffsetM = 0, elevated = false) {
     const color = style.startsWith('yellow') ? '#edc24f' : style.startsWith('blue') ? '#648fc0' : '#f2eee3';
     const combined = style === 'yellow-combined';
     const double = style.includes('-double') || combined;
@@ -837,9 +843,9 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         const onRoad = clipper.clipOnce(outline, 0.018);
         outline.dispose();
         // The lifts of paint on the same deck differ by less than 0.1m.
-        const exposed = crossingPaint?.subtract(onRoad, 0.1) ?? onRoad;
+        const exposed = elevated ? onRoad : crossingPaint?.subtract(onRoad, 0.1) ?? onRoad;
         if (exposed !== onRoad) onRoad.dispose();
-        addPaint(color, exposed, width);
+        addPaint(color, exposed, width, elevated ? '고가 노면표시' : undefined);
       }
     };
     if (double) {
@@ -1067,6 +1073,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   flushLayers();
 
   function addSurveyedPaint(asphaltDecks: T.BufferGeometry[] = []) {
+    for (const { deckId, style, points, busLane, dashOffsetM } of elevatedLines) {
+      const clipper = bridgePaint.get(deckId);
+      if (clipper && points.length >= 2) surveyedPaint(points.map(data.project), style, clipper, busLane, dashOffsetM, true);
+    }
+    for (const clipper of bridgePaint.values()) clipper.clear();
+    bridgePaint.clear();
     if (!roadPaint) { flushLayers(); return; }
     for (const deck of asphaltDecks) roadPaint.addSurface(deck);
     // Let the surveyed stripes own the surface before any estimated paint.

@@ -196,6 +196,14 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 
 스크립트가 기존 차선·아카이브 도형 값을 보존한 채 생활권별 `road-markings.json`에 `currentCrosswalks`를 추가한다. 파일의 해시로 같은 시점의 차도·도색이 함께 사용되는지 확인한다.
 
+## 고가 차선의 층위 연결
+
+이전 차선 수집은 서울시 T-GIS `A058_L`의 지상 코드 `EVE_CDE=001`만 읽었다. 같은 스냅샷의 정상 사용·지도 표출 고가 차선 `EVE_CDE=002` 979건은 이 단계에서 빠졌다. 고가 차도 폴리곤이 있는 곳에서도 포장 위에 표시할 원본이 남지 않았다. [서울시 차선 도형](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [서울시 교통시설물 공통 코드 정의서](https://data.seoul.go.kr/dataList/OA-15541/F/1/datasetView.do)
+
+`prepare_seoul_elevated_markings.py`는 EPSG:5186에서 이 고가 선을 기존 S-Map 고가·도로교 경계와 겹쳐, 한 시설에만 속하는 구간을 내보낸다. 같은 도시 스냅샷과 같은 구조물 아카이브가 함께 있을 때만 표시한다. 원본 차선 도형 ID, 시설 ID, 차선 종류, 점선 시작 거리를 보존한다. 렌더러는 시설 ID로 실제 높이가 적용된 고가 차도 메시를 찾아 도색을 붙인다. 지상 횡단보도의 도색 범위와 추정 차도는 이 고가 차선에 영향을 주지 않는다. [서울시 도로교 도형](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0070000.zip) · [서울시 입체교차부 도형](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0090000.zip)
+
+공개 서울 장면 10개에 적용해 6개 장면, 7개 고가 시설에서 원본 차선 30건을 연결했다. `node frontend/scripts/audit-road-cross-sections.cjs --verify-elevated`로 전체 장면의 고가 도색 삼각형이 실제 렌더링 차도 높이에서 1.8cm 위에 놓이는지 검사한다. 고가 외곽이 서로 겹치거나 대응하는 고가 경계가 없는 구간에는 추가 자료가 필요하다. 이 검사는 고가 차도의 현장 높이와 실제 폭을 별도로 측정한 결과와 구분한다.
+
 ## 앞으로 사용할 데이터 구조
 
 1. **서울 전역을 한 번 수집하고 생활권으로 자른다.** 서울시 T-GIS 차선·정지선·차도·보도·횡단보도를 같은 좌표계와 조회 범위로 읽는다. 감속 표시와 도로 중심선은 별도 출처를 연결한다. 차선과 차도를 같은 생활권 경계와 여유 범위로 내보내고, 서로 겹치는 장면에서 같은 구간 데이터를 공유한다. 원본의 관측·설치일과 자료 조회 시각, 좌표계와 피처 식별자를 함께 기록한다. [서울시 T-GIS 시민용 지도](https://tgis.eseoul.go.kr/map/mapMain.do) · [일괄 수집 방법](seoul-road-bulk-sources.md#자동으로-갱신하고-검사하는-명령)

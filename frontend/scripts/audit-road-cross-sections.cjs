@@ -120,6 +120,33 @@ function testPaintProjection() {
   pavement.clear();
 }
 
+function verifyElevatedPaint(data, scene) {
+  const expected = data.roadMarkings?.elevatedMarkings?.records.length ?? 0;
+  const paint = scene.children.filter(mesh => mesh.isMesh && mesh.name === '고가 노면표시');
+  assert.equal(paint.length > 0, expected > 0, `Missing or unexpected elevated paint in ${data.region}`);
+  if (!expected) return;
+  const decks = createSurfaceClipper();
+  for (const mesh of scene.children) {
+    if (mesh.isMesh && mesh.name === '고가 차도') decks.addSurface(mesh.geometry);
+  }
+  let triangles = 0;
+  for (const mesh of paint) {
+    const vertices = mesh.geometry.getAttribute('position');
+    for (let i = 0; i < vertices.count; i += 3) {
+      const average = component => (vertices.getComponent(i, component) + vertices.getComponent(i + 1, component)
+        + vertices.getComponent(i + 2, component)) / 3;
+      const point = { x: average(0), z: average(2) };
+      const y = average(1);
+      const deck = decks.heightAt(point);
+      assert.ok(deck !== undefined && Math.abs(y - deck - 0.018) < 0.005,
+        `Elevated paint misses its rendered deck in ${data.region} at ${JSON.stringify(point)}`);
+      triangles++;
+    }
+  }
+  decks.clear();
+  return { records: expected, triangles };
+}
+
 function assertGarakCrosswalk(scene, project, checks) {
   assert.ok(checks.some(check => check.source === 'site_estimate' && check.status === 'paint_ends_inside_road'));
   const disputed = [[127.1168360, 37.4977930], [127.1168540, 37.4977770],
@@ -231,9 +258,9 @@ function crossSection(station, normal, surveyed, surface, pavement, adjoiningPav
   };
 }
 
-async function audit(region, crossingsOnly) {
+async function audit(region, crossingsOnly, elevatedOnly) {
   const data = await loadOpoData(new AbortController().signal, region);
-  if (!crossingsOnly && (!data.pavement || !data.roadMarkings?.roadDataset)) throw new Error(`No paired pavement in ${region}`);
+  if (!crossingsOnly && !elevatedOnly && (!data.pavement || !data.roadMarkings?.roadDataset)) throw new Error(`No paired pavement in ${region}`);
   const scene = new T.Scene();
   const ground = makeGround(data);
   const projection = createTerrainProjection(ground.geometry);
@@ -256,6 +283,12 @@ async function audit(region, crossingsOnly) {
   streets.municipalPaving?.footprint.clear();
   streets.addSurveyedPaint(detail.paving?.asphaltDecks);
   projection.clear();
+  if (elevatedOnly) {
+    const elevated = verifyElevatedPaint(data, scene);
+    ground.geometry.dispose();
+    scene.traverse(object => { if (object.isMesh) object.geometry.dispose(); });
+    return { region, elevated };
+  }
 
   if (crossingsOnly) {
     if (region === 'songpa') {
@@ -371,7 +404,8 @@ async function audit(region, crossingsOnly) {
   const args = process.argv.slice(2);
   const verifyCrossings = args.includes('--verify-crossings');
   const crossingsOnly = verifyCrossings || args.includes('--crossings-only');
-  const requested = args.filter(arg => !['--crossings-only', '--verify-crossings'].includes(arg));
+  const elevatedOnly = args.includes('--verify-elevated');
+  const requested = args.filter(arg => !['--crossings-only', '--verify-crossings', '--verify-elevated'].includes(arg));
   const regions = ['songpa', 'jamsil-leel', ...scenes.map(scene => scene.id)];
   if (crossingsOnly) {
     testCrossingSupport();
@@ -380,7 +414,7 @@ async function audit(region, crossingsOnly) {
   }
   const selected = requested.length ? requested : verifyCrossings ? ['songpa', 'jamsil-leel'] : regions;
   for (const region of selected) {
-    const report = await audit(region, crossingsOnly);
+    const report = await audit(region, crossingsOnly, elevatedOnly);
     if (verifyCrossings) console.log(`Crosswalk verification passed for ${region}`);
     else console.log(JSON.stringify(report));
   }

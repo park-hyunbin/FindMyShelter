@@ -48,12 +48,14 @@ type StreetFile = {
 export type StreetPaint = 'yellow' | 'yellow-dash' | 'yellow-double' | 'yellow-combined'
   | 'blue' | 'blue-dash' | 'blue-double' | 'blue-double-dash' | 'white' | 'white-dash' | 'stop';
 type RoadDataset = { url: string; retrievedAt: string; sha256: string };
+type SurveyedLane = { style: StreetPaint; points: Position[]; edge?: boolean; busLane?: boolean; dashOffsetM?: number };
 type StreetPaintFile = {
   lanesSource: string; crosswalksSource: string; crosswalkInventory: string;
   roadDataset?: RoadDataset;
   markingsArchiveDate?: string; crosswalkInventoryDate: string;
   laneSources?: Record<string, { url: string; archiveDate: string }>;
-  lanes: { style: StreetPaint; points: Position[]; edge?: boolean; busLane?: boolean; dashOffsetM?: number }[];
+  lanes: SurveyedLane[];
+  elevatedMarkings?: { sha256: string; structureShas: string[]; records: (SurveyedLane & { deckId: string })[] };
   crosswalks: { center: Position; inventoryMatch: boolean; surfaces: Position[][] }[];
   currentCrosswalks?: {
     sha256: string;
@@ -90,6 +92,7 @@ type NeighborhoodTerrain = TerrainGrid & {
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
 type PavementFile = {
   roadDataset?: RoadDataset;
+  structureSources?: { sha256: string }[];
   roads: Position[][][];
   sidewalks: Position[][][];
   elevatedRoads?: { sourceId: string; roadIds: number[]; polygons: Position[][][] }[];
@@ -206,6 +209,14 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   }
   if (roadMarkings?.currentCrosswalks && roadMarkings.currentCrosswalks.sha256 !== pavement?.roadDataset?.sha256) {
     roadMarkings.currentCrosswalks = undefined;
+  }
+  const elevatedMarkings = roadMarkings?.elevatedMarkings;
+  if (roadMarkings && elevatedMarkings) {
+    const structureShas = pavement?.structureSources?.map(source => source.sha256).sort().join(',');
+    if (elevatedMarkings.sha256 !== pavement?.roadDataset?.sha256 || !structureShas
+      || elevatedMarkings.structureShas.join(',') !== structureShas) {
+      roadMarkings.elevatedMarkings = undefined;
+    }
   }
   const { center_lnglat: center, local_origin_xy: buildingOrigin, radius_m: importedBuildingRadius } = source.metadata;
   // Import window includes edge buildings; it does not expand the original sample's analysis coverage.
@@ -440,8 +451,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     roadMarkings, crossingWays: neighborhood?.crossingWays?.map(([a, b]) => [project(a), project(b)] as const) ?? [],
     pavement: pavement && { roads: pavement.roads.map(toShape), sidewalks: pavement.sidewalks.map(toShape), trafficIslands,
       paired: Boolean(pavement.roadDataset),
-      elevatedRoads: pavement.elevatedRoads?.map(({ roadIds, polygons }): { roadIds: number[]; shapes: Shape[] } => ({
-        roadIds, shapes: polygons.map(toShape),
+      elevatedRoads: pavement.elevatedRoads?.map(({ sourceId, roadIds, polygons }) => ({
+        sourceId, roadIds, shapes: polygons.map(toShape),
       })),
       coveredSegments: pavement.coveredSegments },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
