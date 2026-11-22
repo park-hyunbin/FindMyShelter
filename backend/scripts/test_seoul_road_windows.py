@@ -303,6 +303,37 @@ class DeckPaintTest(unittest.TestCase):
         national = Network(np.array([upper, lower]), ["bridge", "ground"], np.array(["003", "000"]))
         self.assertEqual(list(national_deck_sections(line, deck, deck, national)), [])
 
+    def test_general_link_confirms_paint_only_on_its_deck_with_current_alignment(self):
+        original = LineString([(200000, 550000), (200060, 550000)])
+        axis = LineString([(200000, 550001), (200060, 550001)])
+        coordinates = gps(axis.coords)
+        road = {"id": 10, "motor": True, "bridge": True, "unpaved": False, "oneWay": 1,
+                "coordinates": coordinates, "nodeIds": [1, 2]}
+        deck = {"sourceId": "bridge", "roadIds": [10],
+                "polygons": [[gps(box(199999, 549997, 200061, 550003).exterior.coords)]]}
+        alignment = {"id": 10, "oneWay": 1, "coordinates": coordinates, "links": ["general"],
+                     "vertices": [[node, *point] for node, point in zip(road["nodeIds"], coordinates, strict=True)]}
+        pavement = {"roadDataset": {"sha256": "source"}, "structureSources": [{"sha256": "structure"}],
+                    "elevatedRoads": [deck], "roads": [], "sidewalks": [],
+                    "elevatedAlignment": {"sha256": "archive", "roads": [alignment]}}
+        national = Network(np.array([axis]), ["general"], np.array(["000"]))
+        markings = {"roadDataset": pavement["roadDataset"]}
+
+        def export(sha):
+            export_window(markings, pavement, "source", [], STRtree([]),
+                          [("source-line", "lane", "006", "white-dash", original)],
+                          STRtree([original]), [road], national=national, national_sha=sha)
+
+        export("stale")
+        self.assertNotIn("elevatedMarkings", markings)
+        export("archive")
+        restored, = markings["elevatedMarkings"]["records"]
+        self.assertEqual(restored["alignedNationalLinkIds"], ["general"])
+        self.assertEqual(restored["points"], gps(original.coords))
+        pavement["roads"] = [[gps(box(199999, 550000.5, 200061, 550002).exterior.coords)]]
+        export("archive")
+        self.assertNotIn("elevatedMarkings", markings)
+
     def test_lanes_from_a_reassigned_surface_keep_their_indexed_extent_and_dash_origin(self):
         def coords(start, end, y):
             return gps([(200000 + start, 550000 + y), (200000 + end, 550000 + y)])

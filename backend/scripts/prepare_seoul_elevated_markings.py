@@ -60,14 +60,14 @@ def road_axes(roads, pavement):
         and item["vertices"] == [[node, *point] for node, point in zip(road["nodeIds"], road["coordinates"], strict=True)]
         for item in alignments
     ):
-        adjusted = {item["id"]: item["coordinates"] for item in alignments}
+        matched = {item["id"]: item for item in alignments}
     else:
-        adjusted = {}
+        matched = {}
     axes = {road["id"]: LineString([TO_METRES.transform(*point)
-                                   for point in adjusted.get(road["id"], road["coordinates"])])
+                                   for point in matched.get(road["id"], road)["coordinates"]])
             for road in roads if road["motor"] and not road["unpaved"] and len(road["coordinates"]) >= 2}
     return ({key: axis for key, axis in axes.items() if records[key]["bridge"]},
-            {key: axis for key, axis in axes.items() if not records[key]["bridge"]})
+            {key: axis for key, axis in axes.items() if not records[key]["bridge"]}, matched)
 
 
 def axis_network(axes):
@@ -102,17 +102,19 @@ def supported_deck_sections(original, carriageway, deck, owner, ground, paint, m
                 yield verified
 
 
-def national_deck_sections(line, carriageway, outline, national):
+def national_deck_sections(line, carriageway, outline, national, *, aligned_links=()):
     _, _, _, coordinates, tangents = sample_spans(np.array([line]), np.zeros(1), np.array([line.length]))
     stop = np.zeros(len(coordinates), dtype=bool)
     elevated = np.isin(national.kinds, ELEVATED_LINK_KINDS)
+    aligned = (national.kinds == "000") & np.isin(national.references, list(aligned_links))
+    supported_owners = aligned if aligned_links else elevated
     samples, owners, _, _, _ = axis_candidates(
         national, coordinates, tangents, np.full(len(coordinates), carriageway, dtype=object), stop,
-        require_projection=True, require_connected=True, owner_mask=elevated,
+        require_projection=True, require_connected=True, owner_mask=supported_owners,
     )
     competing, _, _, _, _ = axis_candidates(
         national, coordinates, tangents, np.full(len(coordinates), outline, dtype=object), stop,
-        require_projection=True, require_connected=True, owner_mask=~elevated,
+        require_projection=True, require_connected=True, owner_mask=~(elevated | aligned),
     )
     supported = np.zeros(len(coordinates), dtype=bool)
     supported[samples] = True
@@ -147,7 +149,7 @@ def reassigned_road_markings(road_index, snapshot_sha, road_ufids):
 
 
 def export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads,
-                  reassigned_paint=None, national=None):
+                  reassigned_paint=None, national=None, national_sha=None):
     if markings.get("roadDataset") != pavement.get("roadDataset") or (
         pavement.get("roadDataset", {}).get("sha256") != snapshot_sha
     ):
@@ -160,7 +162,9 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
         raise ValueError("Elevated road boundaries must identify their source archives")
     counts = Counter()
     records = []
-    upper, lower = road_axes(roads, pavement)
+    upper, lower, alignments = road_axes(roads, pavement)
+    if not national_sha or pavement.get("elevatedAlignment", {}).get("sha256") != national_sha:
+        alignments = {}
     ground_network = axis_network(lower)
     ground = union_all([local_polygon(rings) for rings in pavement["roads"]]) if decks else None
     ground_and_walk = union_all([ground, *(local_polygon(rings) for rings in pavement["sidewalks"])]).buffer(
@@ -235,20 +239,30 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                         counts["reassigned_deck_m"] += verified.length
         if national is not None:
             clearance = union_all(published_strokes).buffer(SURVEYED_PAINT_CLEARANCE_M)
-            for i in ground_candidates:
-                identifier, management, kind, style, original = ground_sources[i]
-                if kind not in WHITE_LANE_KINDS or style not in ("white", "white-dash"):
-                    continue
-                for verified in supported_deck_sections(original, isolated_carriageway, deck, owner, ground_network,
-                                                        clearance, 3 * SPACING_M):
-                    for line, links in national_deck_sections(verified, carriageway, deck, national):
-                        item = lane_item(line, original, style, kind, preserve_vertices=True)
-                        item.update(deckId=source_id, featureId=identifier, managementId=management, sourceLevel="001",
-                                    nationalLinkIds=links)
-                        records.append(item)
-                        clearance = clearance.union(line.buffer(SURVEYED_PAINT_CLEARANCE_M))
-                        counts["length_m"] += line.length
-                        counts["corroborated_white_m"] += line.length
+            aligned = {link for road in surveyed_deck["roadIds"] if road in alignments
+                       for link in alignments[road]["links"]}
+            white_sources = [ground_sources[i] for i in ground_candidates
+                             if ground_sources[i][2] in WHITE_LANE_KINDS
+                             and ground_sources[i][3] in ("white", "white-dash")]
+            # Keep the classified links' published extents first. A general
+            # link can confirm paint only on its already aligned survey deck.
+            for link_ids in ((), aligned) if aligned else ((),):
+                support = isolated_carriageway if link_ids else carriageway
+                for identifier, management, kind, style, original in white_sources:
+                    for verified in supported_deck_sections(original, isolated_carriageway, deck, owner,
+                                                            ground_network, clearance, 3 * SPACING_M):
+                        for line, links in national_deck_sections(verified, support, deck, national,
+                                                                  aligned_links=link_ids):
+                            item = lane_item(line, original, style, kind, preserve_vertices=True)
+                            item.update(deckId=source_id, featureId=identifier, managementId=management,
+                                        sourceLevel="001", nationalLinkIds=links)
+                            if link_ids:
+                                item["alignedNationalLinkIds"] = links
+                                counts["alignment_white_m"] += line.length
+                            records.append(item)
+                            clearance = clearance.union(line.buffer(SURVEYED_PAINT_CLEARANCE_M))
+                            counts["length_m"] += line.length
+                            counts["corroborated_white_m"] += line.length
     # A rerun must remove a deck whose source or boundary has ceased to support it.
     markings.pop("elevatedMarkings", None)
     if records:
@@ -287,7 +301,7 @@ def build(snapshot_path, regions, output, road_index=None, national_links=None):
             streets = regions.parent / "neighborhoods" / neighborhood if neighborhood else file.parent
             roads = json.loads((streets / "streets.json").read_text(encoding="utf-8"))["roads"]
         counts = export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads,
-                               reassigned_paint, national)
+                               reassigned_paint, national, national_source["sha256"] if national_source else None)
         if counts.get("corroborated_white_m"):
             markings["elevatedMarkings"]["nationalLinks"] = national_source
         results[file.parent.name] = markings, counts

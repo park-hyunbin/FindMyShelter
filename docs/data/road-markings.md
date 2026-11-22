@@ -334,6 +334,8 @@ T-GIS에서 지상으로 표기된 흰 차선과 길 가장자리 표시 `006`·
 
 판정을 통과한 흰 선은 원본의 정점과 점선 시작 거리, 관리번호, 근거가 된 표준 링크 ID를 저장한다. 고가 차도 포장은 기존 조사 경계를 사용한다. 서울 공개 6개 장면에서 5개 고가 시설의 노면표시 원본 25건을 연결했다. 겹치는 장면을 합친 선형 길이는 **3.75km**다. 이 길이는 점선의 빈 간격을 포함한다. 운영 빌드는 복원한 각 선을 실제 3D 도색 메시에서 표본으로 찾아 고가 차도 위에 놓이는지 검사한다. [추출기](../../backend/scripts/prepare_seoul_elevated_markings.py) · [운영 빌드 검사](../../frontend/scripts/audit-road-cross-sections.cjs)
 
+국가 표준노드링크의 일반도로 코드 `000`은 고가 구간에도 쓰인다. 같은 아카이브에서 이미 고가 도로망과 정합을 완료한 링크만 해당 상판의 도색 근거로 사용한다. 기존 도로망의 정점과 아카이브 해시가 일치해야 하고, 도색에서 링크까지의 연결이 지상 차도·보도·분리대를 뺀 조사 차도에 있어야 한다. 다른 층의 진행축이 경쟁하는 곳은 보류한다. 원본 링크의 코드는 그대로 두며, 이 근거로 연결한 도색에는 `alignedNationalLinkIds`를 기록한다. 성동구의 공개 장면 두 곳에서 내부순환로 일대 두 상판에 76개 선형 구간을 추가했다. 장면 사이 중복을 빼고 합친 도색 선형은 **7.57km**이며 점선의 빈 간격을 포함한다. [고가 도로망 정합](../../backend/scripts/prepare_seoul_elevated_alignment.py) · [서울시 자동차전용도로 교량 제원](https://www.data.go.kr/data/15143788/fileData.do)
+
 ```powershell
 uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_elevated_markings.py ../road-source-cache/tgis-live-seoul.sqlite --road-index ../road-source-cache/tgis-live-seoul-filtered-index.sqlite --national-links ../road-source-cache/national-road-links-2026-11-11.zip --output ../road-source-cache/elevated-paint
 ```
