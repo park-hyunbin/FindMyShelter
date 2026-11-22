@@ -96,6 +96,10 @@ type NeighborhoodTerrain = TerrainGrid & {
 };
 type SiteFile = FeatureCollection<LineString | Polygon, { id: number; kind: 'road' | 'boundary'; bridge: boolean }>;
 type CoveredRoadSegment = [roadId: number, startNode: number, intervals: [from: number, to: number][]];
+type SurveyedRampCurve = {
+  id: number; oneWay: number; vertices: [number, number, number][];
+  nodeIds: number[]; coordinates: Position[]; coveredSegments: CoveredRoadSegment[];
+};
 type PavementFile = {
   roadDataset?: RoadDataset;
   structureSources?: { sha256: string }[];
@@ -107,6 +111,7 @@ type PavementFile = {
     dividers?: { managementId: string; kind: string; polygons: Position[][][] }[];
   }[];
   rampAlignment?: { sha256: string; roads: { id: number; coordinates: Position[] }[] };
+  rampCurves?: { sha256: string; roads: SurveyedRampCurve[] };
   elevatedAlignment?: { roads: {
     id: number; oneWay: number; vertices: [number, number, number][];
     coordinates: Position[]; coveredSegments: CoveredRoadSegment[]; adjustedWayJoins?: number[];
@@ -370,6 +375,10 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const rampAlignment = pavement?.rampAlignment;
   const rampAxes = new Map<number, Position[]>(rampAlignment?.sha256 === rampLaneEvidence.sha256
     ? rampAlignment.roads.map(({ id, coordinates }) => [id, coordinates]) : []);
+  const rampCurves = pavement?.rampCurves;
+  const surveyedRampCurves = new Map<number, SurveyedRampCurve>(rampCurves?.sha256 === rampLaneEvidence.sha256
+    ? rampCurves.roads.map(record => [record.id, record] as const) : []);
+  const curvedRampCoverage = new Map<number, CoveredRoadSegment[]>();
   const alignments: NonNullable<PavementFile['elevatedAlignment']>['roads'] = pavement?.elevatedAlignment?.roads ?? [];
   const recordedRoads: StreetFile['roads'] = neighborhood?.roads ?? [];
   const alignedJoins = new Set(alignments.flatMap(record => record.adjustedWayJoins ?? []));
@@ -402,9 +411,29 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
         && surveyed.vertices.every(([node, lon, lat], i) =>
           tags.nodeIds[i] === node && coordinates[i][0] === lon && coordinates[i][1] === lat);
       const missing = !tags.width && !tags.lanes && !tags.forwardLanes && !tags.backwardLanes;
+      const lanes = missing && compatible ? surveyed.lanes : tags.lanes;
+      const curve = surveyedRampCurves.get(tags.id);
+      if (curve && tags.motor && !tags.bridge && !tags.unpaved && tags.category.endsWith('_link')
+        && tags.oneWay !== 0 && tags.oneWay === curve.oneWay
+        && curve.vertices.length === tags.nodeIds.length && curve.vertices.length === coordinates.length
+        && curve.vertices.every(([node, lon, lat], i) =>
+          tags.nodeIds[i] === node && coordinates[i][0] === lon && coordinates[i][1] === lat)) {
+        // A curve may add shape points between existing nodes. It must keep
+        // every original connection and use coverage from the same geometry.
+        const originalNodes = curve.nodeIds.filter(id => id >= 0);
+        if (curve.nodeIds.length === curve.coordinates.length && originalNodes.length === tags.nodeIds.length
+          && curve.nodeIds[0] === tags.nodeIds[0] && curve.nodeIds.at(-1) === tags.nodeIds.at(-1)
+          && originalNodes.every((id, index) => id === tags.nodeIds[index])
+          && curve.coordinates[0][0] === coordinates[0][0] && curve.coordinates[0][1] === coordinates[0][1]
+          && curve.coordinates.at(-1)?.[0] === coordinates.at(-1)?.[0]
+          && curve.coordinates.at(-1)?.[1] === coordinates.at(-1)?.[1]) {
+          curvedRampCoverage.set(tags.id, curve.coveredSegments);
+          return { ...tags, lanes, nodeIds: curve.nodeIds, points: curve.coordinates.map(project) };
+        }
+      }
       const aligned = compatible ? rampAxes.get(tags.id) : undefined;
       const axis = aligned?.length === coordinates.length ? aligned : coordinates;
-      return { ...tags, lanes: missing && compatible ? surveyed.lanes : tags.lanes, points: axis.map(project) };
+      return { ...tags, lanes, points: axis.map(project) };
     })
     : regionalStreets(features);
   if (region === 'songpa') {
@@ -500,8 +529,8 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
         sourceId, roadIds, shapes: polygons.map(toShape),
         dividers: (dividers ?? []).map(({ managementId, polygons }) => ({ managementId, shapes: polygons.map(toShape) })),
       })),
-      coveredSegments: [...pavement.coveredSegments.filter(([road]) => !elevatedAxes.has(road)),
-        ...[...elevatedAxes.values()].flatMap(record => record.coveredSegments)] },
+      coveredSegments: [...pavement.coveredSegments.filter(([road]) => !elevatedAxes.has(road) && !curvedRampCoverage.has(road)),
+        ...[...elevatedAxes.values()].flatMap(record => record.coveredSegments), ...[...curvedRampCoverage.values()].flat()] },
     snapshot: date?.slice(1).join('-') ?? '기준일 미확인' };
 }
 

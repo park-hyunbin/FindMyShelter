@@ -1,9 +1,11 @@
 import unittest
 
 from shapely import STRtree
-from shapely.geometry import LineString
+from shapely.geometry import LineString, box
 
+from prepare_seoul_ramp_curves import bend, restore_bends
 from prepare_seoul_ramp_lanes import infer_lanes
+from prepare_songpa_road_markings import gps
 
 
 class RampLaneEvidenceTest(unittest.TestCase):
@@ -40,6 +42,31 @@ class RampLaneEvidenceTest(unittest.TestCase):
         a = self.link("first", coordinates=((0, 2), (60, 2)))
         b = self.link("second", coordinates=((60, 2), (120, 2)))
         self.assertIsNone(self.match(a, b))
+
+
+class RampCurveTest(unittest.TestCase):
+    def setUp(self):
+        self.chord = LineString([(200000, 550000), (200030, 550000)])
+        self.axis = LineString([(200000, 550000), (200008, 550001), (200022, 550001), (200030, 550000)])
+        self.driveway = self.axis.buffer(0.4)
+
+    def test_bend_inserts_surveyed_points_without_replacing_network_nodes(self):
+        coords = gps(list(self.chord.coords))
+        road = {"id": 15, "oneWay": 1, "nodeIds": [1, 2], "coordinates": coords}
+        updated, gain = restore_bends(road, coords, [self.axis], self.driveway)
+        self.assertGreater(gain, 20)
+        self.assertEqual([updated["coordinates"][0], updated["coordinates"][-1]], coords)
+        self.assertEqual(len(updated["coordinates"]), 4)
+        self.assertEqual([node for node in updated["nodeIds"] if node > 0], [1, 2])
+        self.assertEqual(len(set(updated["nodeIds"])), len(updated["nodeIds"]))
+        self.assertEqual(updated, restore_bends(road, coords, [self.axis], self.driveway)[0])
+
+    def test_does_not_follow_a_link_against_traffic_or_shift_to_a_new_gap(self):
+        self.assertIsNone(bend(self.chord, self.axis.reverse(), 1, self.driveway))
+        incomplete = box(199999, 549999.8, 200007, 550000.2).union(
+            LineString(list(self.axis.coords)[1:]).buffer(0.35)
+        )
+        self.assertIsNone(bend(self.chord, self.axis, 1, incomplete))
 
 
 if __name__ == "__main__":

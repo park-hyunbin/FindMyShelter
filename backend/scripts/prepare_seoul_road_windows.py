@@ -105,8 +105,9 @@ def ground_link_support(line, driveway, links, is_stop):
     return [(edges[begin], edges[end]) for begin, end in transitions.reshape(-1, 2)]
 
 
-def align_ground_ramps(graph, driveway, evidence, link_shapes):
-    node_uses = Counter(node for road in graph["roads"] for node in set(road["nodeIds"]))
+def align_ground_ramps(graph, driveway, evidence, link_shapes, *, node_uses=None):
+    if node_uses is None:
+        node_uses = Counter(node for road in graph["roads"] for node in set(road["nodeIds"]))
     aligned = {}
     for road in graph["roads"]:
         match = evidence.get(str(road["id"]))

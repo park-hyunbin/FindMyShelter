@@ -238,6 +238,18 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 
 도로 창을 다시 생성하기 전에 같은 국가 표준노드링크로 진출입로 근거를 갱신한다. 배치는 같은 링크 아카이브와 서울시 도로 스냅샷을 사용했는지 확인한다. [진출입로 중심선 생성](../../backend/scripts/prepare_seoul_road_windows.py)
 
+### 진출입로 굴곡과 추정 포장
+
+강변북로의 같은 진출입로에서 중심선 정점 사이 약 82m가 직선으로 표현되어 있었다. 양 끝점이 표준노드링크에 가까웠지만 직선 안쪽은 조사된 차도를 벗어났다. 렌더러는 이 부분을 미수집 도로로 판단해 녹지까지 추정 포장을 붙였다. 표준 링크는 그 사이의 굽은 선형을 포함하고 있었고, 항공영상에서도 분리 공간을 확인했다. [표준노드링크 자료실](https://www.its.go.kr/nodelink/nodelinkRef) · [항공영상 출처](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)
+
+같은 방향으로 연결된 지상 진출입로의 표준 링크를 확인하고, 기존 두 정점 사이에서 조사 차도에 포함되는 길이가 늘어나는 구간에 굴곡 정점을 넣는다. 새 구간에 차도 이탈이 생기거나 동일한 위치에 여러 링크가 후보로 남으면 보류한다. 기존 도로망의 노드와 분기 연결을 보존한다. 같은 원본을 쓰는 생활권의 조사 차도를 모아 곡선을 한 번 생성하고, 그 좌표로 각 장면의 조사 범위를 다시 계산한다. [진출입로 곡선 생성기](../../backend/scripts/prepare_seoul_ramp_curves.py)
+
+공개 서울 장면의 일방통행 지상 진출입로 262개 중 표준 링크를 연결한 도로는 24개였다. 굴곡 적용 기준을 통과한 곳은 마포 쪽 강변북로 진출입로와 잠실 쪽 진출입로 두 개다. 강변북로가 포함된 두 장면은 같은 곡선을 사용한다. 이전과 같은 단면에서 38.903m, 41.300m, 41.395m로 보이던 폭은 각각 시 경계의 28.055m, 30.485m, 30.723m와 일치했다. 공개 10개 장면에서 양쪽 경계 차이 0.5m를 넘는 단면은 44곳에서 41곳으로 줄었다.
+
+```powershell
+uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_ramp_curves.py ../road-source-cache/national-road-links-2026-11-11.zip --output ../road-source-cache/ramp-curves
+```
+
 ## 최신 횡단보도 도형과 중앙 구간
 
 기존 장면은 2021년 배포 도형에서 횡단보도를 가져오고, 도로 중심선과 맞을 때 화면에 그렸다. 2026-11-22에 받은 T-GIS 시민용 지도 `A004_A`를 2026년 서울시 자치구 횡단보도 시설 목록과 관리번호·종류·좌표로 연결했다. 정상 사용 중이고 지도에 표출되는 일단 횡단보도 중 화살표 없는 도색을 골랐다. 시설 좌표가 원본 외곽에서 3m 이내이고 도형 면적의 65% 이상이 같은 스냅샷의 지상 차도와 겹쳐야 한다. 고가 외곽과 만나는 도형은 층위를 추가 확인할 대상으로 남겼다. [서울시 횡단보도 도형 출처](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do) · [자치구 시설 목록](https://data.seoul.go.kr/dataList/OA-22906/F/1/datasetView.do) · [서울시 교통시설물 공통 코드 정의서](https://data.seoul.go.kr/dataList/OA-15541/F/1/datasetView.do)
