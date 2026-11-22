@@ -19,12 +19,13 @@ from prepare_neighborhood_pavement import GRID_M, parts
 from prepare_seoul_current_crosswalks import digest, local_polygon
 from prepare_seoul_lane_windows import lane_item
 from prepare_songpa_road_markings import REGIONS, lane_style
-from reconcile_seoul_marking_links import MISSING, Network, sample_spans, select_axes
+from reconcile_seoul_marking_links import MISSING, SPACING_M, Network, sample_spans, select_axes
 
 
 LAYER = "A058_L"
 MIN_DECK_SHARE = 0.98
 SAME_PAINT_M = 0.15
+SURVEYED_PAINT_CLEARANCE_M = 0.5
 
 
 def marking_sources(snapshot, day, level):
@@ -86,6 +87,15 @@ def unambiguous_deck_paint(line, carriageway, outline, elevated, ground):
             yield substring(line, edges[first], edges[last])
 
 
+def supported_deck_sections(original, carriageway, deck, owner, ground, paint, minimum_length):
+    for line in parts(original.intersection(carriageway).difference(paint), "LineString"):
+        if line.length <= 0.25:
+            continue
+        for verified in unambiguous_deck_paint(line, carriageway, deck, owner, ground):
+            if verified.length >= minimum_length:
+                yield verified
+
+
 def export_window(markings, pavement, snapshot_sha, sources, index, ground_sources, ground_index, roads):
     if markings.get("roadDataset") != pavement.get("roadDataset") or (
         pavement.get("roadDataset", {}).get("sha256") != snapshot_sha
@@ -102,6 +112,9 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
     upper, lower = road_axes(roads, pavement)
     ground_network = axis_network(lower)
     ground = union_all([local_polygon(rings) for rings in pavement["roads"]]) if decks else None
+    ground_and_walk = union_all([ground, *(local_polygon(rings) for rings in pavement["sidewalks"])]).buffer(
+        GRID_M
+    ) if decks else None
     for source_id, deck in sorted(decks.items()):
         shared = union_all([other for other_id, other in decks.items()
                             if other_id != source_id and deck.intersects(other)])
@@ -127,21 +140,28 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
         dividers = union_all([local_polygon(rings) for record in surveyed_deck.get("dividers", [])
                              for rings in record["polygons"]])
         carriageway = exclusive.difference(dividers)
-        existing_paint = union_all(central_strokes).buffer(SAME_PAINT_M)
+        confirmed_paint = union_all(central_strokes)
+        existing_paint = confirmed_paint.buffer(SAME_PAINT_M)
+        isolated_carriageway = carriageway.difference(ground_and_walk)
+        surveyed_clearance = confirmed_paint.buffer(SURVEYED_PAINT_CLEARANCE_M)
         for i in sorted(ground_index.query(carriageway, predicate="intersects")):
             identifier, management, kind, style, original = ground_sources[i]
-            if original.intersection(deck).length < MIN_DECK_SHARE * original.length \
-                    or original.intersection(ground).length > GRID_M:
-                continue
-            for line in parts(original.intersection(carriageway).difference(existing_paint), "LineString"):
-                if line.length <= 0.25:
-                    continue
-                for verified in unambiguous_deck_paint(line, carriageway, deck, owner, ground_network):
-                    item = lane_item(verified, original, style, kind)
-                    item.update(deckId=source_id, featureId=identifier, managementId=management, sourceLevel="001")
-                    records.append(item)
-                    counts["length_m"] += verified.length
-                    counts["inferred_deck_m"] += verified.length
+            whole = (original.intersection(deck).length >= MIN_DECK_SHARE * original.length
+                     and original.intersection(ground).length <= GRID_M)
+            # A source line may leave the deck at its approach or cross several
+            # separately surveyed decks. Verify each isolated carriageway section.
+            surface = carriageway if whole else isolated_carriageway
+            clearance = existing_paint if whole else surveyed_clearance
+            minimum_length = 0 if whole else 2 * SPACING_M
+            for verified in supported_deck_sections(original, surface, deck, owner, ground_network, clearance,
+                                                    minimum_length):
+                item = lane_item(verified, original, style, kind)
+                item.update(deckId=source_id, featureId=identifier, managementId=management, sourceLevel="001")
+                records.append(item)
+                counts["length_m"] += verified.length
+                counts["inferred_deck_m"] += verified.length
+                if not whole:
+                    counts["section_inferred_m"] += verified.length
     # A rerun must remove a deck whose source or boundary has ceased to support it.
     markings.pop("elevatedMarkings", None)
     if records:

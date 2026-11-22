@@ -6,7 +6,7 @@ from shapely import STRtree
 from shapely.geometry import LineString, box
 from shapely.ops import unary_union
 
-from prepare_seoul_elevated_markings import unambiguous_deck_paint
+from prepare_seoul_elevated_markings import export_window, unambiguous_deck_paint
 from prepare_seoul_lane_windows import lane_item
 from prepare_seoul_road_windows import CentrelineEvidence, align_ground_ramps, ground_link_support, supported_runs
 from prepare_songpa_road_markings import gps, lane_style
@@ -178,6 +178,36 @@ class CentrelinePairTest(unittest.TestCase):
 
 
 class DeckPaintTest(unittest.TestCase):
+    def test_a_road_with_a_ground_approach_keeps_verified_sections_on_each_deck(self):
+        def outline(start, end):
+            return [gps(box(200000 + start, 549998, 200000 + end, 550002).exterior.coords)]
+
+        original = LineString([(200000, 550000), (200070, 550000)])
+        observed = LineString([(200044, 550000.2), (200058, 550000.2)])
+        pavement = {
+            "roadDataset": {"sha256": "snapshot"},
+            "structureSources": [{"sha256": "structures"}],
+            "roads": [outline(0, 12)],
+            "sidewalks": [outline(58, 60)],
+            "elevatedRoads": [
+                {"sourceId": "first", "roadIds": [10], "polygons": [outline(0, 37)]},
+                {"sourceId": "second", "roadIds": [20], "polygons": [outline(37, 70)]},
+            ],
+        }
+        roads = [{"id": id_, "motor": True, "bridge": True, "unpaved": False,
+                  "coordinates": gps([(200000 + start, 550001), (200000 + end, 550001)])}
+                 for id_, start, end in [(10, 0, 37), (20, 37, 70)]]
+        markings = {"roadDataset": pavement["roadDataset"]}
+        export_window(markings, pavement, "snapshot", [("observed", "2", "001", "yellow", observed)],
+                      STRtree([observed]), [("original", "1", "001", "yellow-dash", original)],
+                      STRtree([original]), roads)
+        records = markings["elevatedMarkings"]["records"]
+        inferred = [record for record in records if record.get("sourceLevel") == "001"]
+        self.assertEqual([record["deckId"] for record in inferred], ["first", "second"])
+        self.assertAlmostEqual(inferred[0]["dashOffsetM"], 12.02, delta=0.02)
+        self.assertAlmostEqual(inferred[1]["dashOffsetM"], 60.02, delta=0.02)
+        self.assertEqual([record["featureId"] for record in records if record["managementId"] == "2"], ["observed"])
+
     def test_crossing_ground_road_does_not_claim_bridge_paint(self):
         line = LineString([(0, 0), (20, 0)])
         outline = box(-1, -2, 21, 2)
