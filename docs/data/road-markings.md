@@ -63,15 +63,23 @@
 
 ## 차도와 차선을 같은 범위로 내보내기
 
-공개 장면은 하나의 T-GIS 스냅샷에서 차도·보도 폴리곤과 차선·정지선을 함께 읽는다. 원본 선형과 단일 차도면이 겹치는 조각만 내보낸다. 표준노드링크에서 입체도로가 가까이 확인된 구간은 높이 자료 확보 전까지 보류한다. 도로 중심선은 이동과 포장 대체에 쓴다. 점선은 장면 경계에서 잘려도 원본 선형의 시작점을 기준으로 같은 간격을 유지한다. 화면에서 서로 다른 스냅샷이 동시에 들어오면 차선을 숨긴다.
+공개 장면은 하나의 T-GIS 스냅샷에서 차도·보도 폴리곤과 차선·정지선을 함께 읽는다. 원본 선형을 차도면에 연결하고, 입체도로 주변에는 층위와 단면을 추가로 검증한다. 도로 중심선은 이동과 포장 대체에 쓴다. 점선은 장면 경계에서 잘려도 원본 선형의 시작점을 기준으로 같은 간격을 유지한다. 화면에서 서로 다른 스냅샷이 동시에 들어오면 차선을 숨긴다.
 
 같은 렌더러로 서울 10개 장면의 실제 차도·차선 메시 생성을 확인했다. 가락 정문의 실선 주변에 그려진 황색 도색 면적은 이전 약 1.41㎡에서 약 4.02㎡로 늘었다. 30.81m에 14cm 폭을 전부 칠했을 때의 면적은 약 4.31㎡다. 횡단보도와 감속 표시는 각각의 조사 자료와 날짜를 기록하고, 차도 위에 보이는 도색 면을 기준으로 겹치는 부분을 처리한다.
 
 ```powershell
-uv run --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_road_windows.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/tgis-structure-evidence.sqlite --bridges ../road-source-cache/N1A_A0070000.zip --grade-separation ../road-source-cache/N1A_A0090000.zip --output ../road-source-cache/staged-regions
+uv run --with numpy --with pyshp --with shapely --with pyproj --with openpyxl python backend/scripts/prepare_seoul_road_windows.py ../road-source-cache/tgis-live-index.sqlite ../road-source-cache/tgis-structure-evidence.sqlite --bridges ../road-source-cache/N1A_A0070000.zip --grade-separation ../road-source-cache/N1A_A0090000.zip --national-links ../road-source-cache/national-road-links-2026-11-11.zip --output ../road-source-cache/staged-regions
 ```
 
 `reconcile_seoul_marking_links.py`로 먼저 동일 인덱스의 입체도로 근거를 만든다. 배치는 장면별 보류 사유와 길이를 출력한다. 검사한 `pavement.json`과 `road-markings.json`을 장면별로 함께 반영한다. [일괄 생성 코드](../../backend/scripts/prepare_seoul_road_windows.py)
+
+## 입체도로 주변의 지상 차선
+
+기존 배치는 도색에서 16m 이내에 고가·교량·지하차도·터널 링크가 하나라도 있으면 서울시 지상 차선도 잘라냈다. 차도 옆의 입체도로까지 이 조건에 걸리면서 도색 중간이 비었다.
+
+서울시 차선 `EVE_CDE=001`과 같은 조사의 지상 차도 경계를 먼저 확인한다. 그다음 국가교통정보센터 표준노드링크의 지상 도로 `ROAD_TYPE=000`를 대조한다. 최대 4m 간격의 표본에서 차선은 도로 진행축과 나란하고 정지선은 가로질러야 한다. 도색 표본과 중심선 투영점을 잇는 구간도 지상 차도 면에 완전히 포함되어야 한다. 복원할 수 있는 조각은 같은 원본 선의 인접 구간에 연결해 기존 도색 방향과 점선 간격을 유지한다. 차도와 보도 경계가 끊기는 구간, 여러 중심선 사이에서 구분이 어려운 구간은 보류한다. 검수 DB와 차선 인덱스, 표준노드링크 원본 버전은 해시로 대조한다. [서울시 차선 원본](https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do) · [표준노드링크 자료실](https://www.its.go.kr/nodelink/nodelinkRef)
+
+공개 서울 장면 10개에 적용해 8개 장면에서 원본 지상 노면표시를 복원했다. 복원된 원본 선형은 장면별 합계 29.1km다. 이 길이는 겹치는 장면과 점선의 빈 간격을 포함한다. 횡단보도 검수 6,191건과 지상·고가 차도폭 검수값은 이전 배포와 일치했다. 분리대를 사이에 둔 다른 차도의 중심선, 차도와 직각인 일반 차선, 끊긴 차도 경계는 회귀 검사에서 차단한다. [지상 차선 회귀 검사](../../backend/scripts/test_seoul_road_windows.py)
 
 ## 실제로 보이는 차도폭 검사
 

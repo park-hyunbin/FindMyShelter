@@ -84,7 +84,7 @@ def load_city_axes(directory):
     return Network(lines, references)
 
 
-def load_national_links(path, city_bounds):
+def load_national_links(path, city_bounds, *, ground_only=False):
     lines, references, kinds = [], [], []
     stem = "MOCT_LINK"
     with ZipFile(path) as archive:
@@ -101,10 +101,12 @@ def load_national_links(path, city_bounds):
                 record = row.record
                 if record["ROAD_USE"] != "0" or not row.shape.points:
                     continue
+                if ground_only and record["ROAD_TYPE"] != "000":
+                    continue
                 lines.append(shape(row.shape.__geo_interface__))
                 references.append(record["LINK_ID"])
                 kinds.append(record["ROAD_TYPE"])
-    if not lines or not any(kind in STRUCTURE_CODES for kind in kinds):
+    if not lines or (not ground_only and not any(kind in STRUCTURE_CODES for kind in kinds)):
         raise ValueError("No usable national road structure codes near the city")
     return Network(transform(np.asarray(lines, dtype=object), project.transform, interleaved=False),
                    references, np.asarray(kinds))
@@ -126,7 +128,8 @@ def sample_spans(geometries, starts, lengths):
     return counts, indices, weights, get_coordinates(line_interpolate_point(lines, along)), tangents
 
 
-def select_axes(network, coordinates, tangent, road_geometries, is_stop, *, require_projection=False):
+def select_axes(network, coordinates, tangent, road_geometries, is_stop, *, require_projection=False,
+                require_connected=False):
     selected = np.full(len(coordinates), MISSING, dtype=int)
     if not len(coordinates):
         return selected
@@ -141,6 +144,10 @@ def select_axes(network, coordinates, tangent, road_geometries, is_stop, *, requ
     keep = covers(road_geometries[samples], points(feet))
     if require_projection:
         keep &= (positions >= 0) & (positions <= 1)
+    if require_connected and keep.any():
+        connected = np.flatnonzero(keep)
+        across = linestrings(np.stack((coordinates[samples[connected]], feet[connected]), axis=1))
+        keep[connected] = covers(road_geometries[samples[connected]], across)
     samples, owners = samples[keep], owners[keep]
     distances = np.linalg.norm(coordinates[samples] - feet[keep], axis=1)
     order = np.lexsort((owners, distances, samples))
