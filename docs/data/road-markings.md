@@ -354,6 +354,10 @@ T-GIS에서 지상으로 표기된 흰 차선과 길 가장자리 표시 `006`·
 uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_elevated_markings.py ../road-source-cache/tgis-live-seoul.sqlite --road-index ../road-source-cache/tgis-live-seoul-filtered-index.sqlite --national-links ../road-source-cache/national-road-links-2026-11-11.zip --output ../road-source-cache/elevated-paint
 ```
 
+표준노드링크의 `CONNECT=1`은 연결로를 가리킨다. 강변북로와 내부순환로에서 이 코드와 일반도로 코드 `000`이 함께 붙은 링크가 같은 상판 위에 있어도 지상 경쟁 링크로 계산되던 사례가 있었다. 조사된 상판 안에서 그 링크의 이름과 방향을 기존 고가 도로망과 대조한다. 이름 없는 고가 연결로는 도로망의 연결 정점으로 본선 이름을 확인하고, 서로 다른 본선 이름이 후보면 보류한다. 4m 이하 간격으로 대조해 상판 안에서 도로망과 6m 이내로 이어지는 32m 이상의 링크 구간을 근거로 삼는다. 이 수치는 두 진행축을 비교하는 검사 기준이며 새 차도 폭이나 도색 위치에 쓰지 않는다. [국토교통부 표준 노드·링크 구축기준](https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulId=32722&efYd=0) · [고가 도색 추출기](../../backend/scripts/prepare_seoul_elevated_markings.py)
+
+확인된 연결로 링크가 실제로 도색을 뒷받침한 구간은 `connectedNationalLinkIds`를 남긴다. 도색은 서울시 원본 좌표와 점선 시작 거리를 유지한다. 마포·성동의 공개 장면 4곳에서 36개 선형 구간에 적용했다. 장면이 겹치는 부분은 한 번만 세면 19개 관리번호에 걸친 약 2.06km이며 점선 사이 간격을 포함한 길이다. [고가 도색 회귀 검사](../../frontend/scripts/audit-road-cross-sections.cjs)
+
 ### 평행 교량의 차도 경계
 
 서울의 교량 구조물 외곽, 교통시설물 차도 외곽, 항공영상은 각각 경계의 기준과 촬영 시점이 다르다. 평행한 상판에서는 가운데 빈 공간도 검수한다. 마포대교는 서울시 시설 자료에 상·하류 상판 폭이 각각 22.75m로 기록된다. 공개 항공영상의 같은 단면에서 두 상판 사이가 약 4~5m로 분리되어 보였다. 촬영본에 따라 같은 상판이 영상에서 수m씩 이동해 보이므로, 도색 위치를 볼 때 두 상판과 경계를 함께 놓고 비교한다. [서울시 마포대교 시설 제원](https://opengov.seoul.go.kr/og/com/download.php?dname=2008-PR-07_0.pdf&uri=%2Ffiles%2Fdcdata%2F100313%2F20151020%2FF0000044083766.pdf) · [항공영상 아카이브](https://livingatlas.arcgis.com/wayback/)

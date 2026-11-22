@@ -313,6 +313,40 @@ class DeckPaintTest(unittest.TestCase):
         national = Network(np.array([upper, lower]), ["bridge", "ground"], np.array(["003", "000"]))
         self.assertEqual(list(national_deck_sections(line, deck, deck, national)), [])
 
+    def test_connected_ramp_confirms_survey_paint_only_on_its_own_deck(self):
+        def road(id_, start_x, end_x, nodes, *, name=None, category="trunk"):
+            return {"id": id_, "motor": True, "bridge": True, "unpaved": False, "oneWay": 1,
+                    "name": name, "category": category, "nodeIds": nodes,
+                    "coordinates": gps([(start_x, 550001), (end_x, 550001)])}
+
+        main = road(1, 200000, 200030, [10, 11], name="순환도로")
+        ramp_start = road(2, 200030, 200060, [11, 12], category="trunk_link")
+        ramp_end = road(3, 200060, 200150, [12, 13], category="trunk_link")
+        paint = LineString([(200070, 550000), (200130, 550000)])
+        connector = LineString([(200060, 550001), (200150, 550001)])
+        outline = box(200050, 549996, 200155, 550006)
+        deck = {"sourceId": "upper", "roadIds": [2, 3],
+                "polygons": [[gps(outline.exterior.coords)]]}
+        pavement = {"roadDataset": {"sha256": "source"}, "structureSources": [{"sha256": "survey"}],
+                    "elevatedRoads": [deck], "roads": [], "sidewalks": []}
+        standard = [{"LINK_ID": "ramp", "ROAD_TYPE": "000", "CONNECT": "1", "ROAD_NAME": "순환로"}]
+
+        def export(roads, network_lines, ids):
+            markings = {"roadDataset": pavement["roadDataset"]}
+            export_window(markings, pavement, "source", [], STRtree([]),
+                          [("survey", "edge", "007", "white", paint)], STRtree([paint]), roads,
+                          national=Network(np.array(network_lines), ids, np.array(["000"] * len(ids))),
+                          ordinary=(standard, STRtree([connector])))
+            return markings.get("elevatedMarkings", {}).get("records", [])
+
+        restored, = export([main, ramp_start, ramp_end], [connector], ["ramp"])
+        self.assertEqual(restored["connectedNationalLinkIds"], ["ramp"])
+        self.assertEqual(restored["points"], gps(paint.coords))
+        self.assertFalse(export([main, {**ramp_start, "nodeIds": [20, 12]}, ramp_end], [connector], ["ramp"]))
+        self.assertFalse(export([main, ramp_start, {**ramp_end, "oneWay": -1}], [connector], ["ramp"]))
+        lower = LineString([(200060, 549999), (200150, 549999)])
+        self.assertFalse(export([main, ramp_start, ramp_end], [connector, lower], ["ramp", "lower"]))
+
     def test_general_link_confirms_paint_only_on_its_deck_with_current_alignment(self):
         original = LineString([(200000, 550000), (200060, 550000)])
         axis = LineString([(200000, 550001), (200060, 550001)])

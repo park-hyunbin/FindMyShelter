@@ -33,6 +33,7 @@ SURVEYED_PAINT_CLEARANCE_M = 0.5
 WHITE_LANE_KINDS = ("006", "007")
 ELEVATED_LINK_KINDS = ("001", "003")
 MIN_OWNED_LINK_SECTION_M = 8 * SPACING_M
+MAX_CONNECTION_OFFSET_M = 6
 
 
 def marking_sources(snapshot, day, level, *, include_white_lanes=False):
@@ -104,22 +105,63 @@ def supported_deck_sections(original, carriageway, deck, owner, ground, paint, m
                 yield verified
 
 
-def ordinary_deck_links(ordinary, carriageway, outline, upper_road_ids, road_records, ground):
+def connected_ramp_names(road_records, upper_road_ids):
+    names_at_node = defaultdict(set)
+    ramps_at_node = defaultdict(list)
+    for road_id, record in road_records.items():
+        nodes = record.get("nodeIds", [])
+        if not nodes or not record["bridge"] or not record["motor"] or not record.get("oneWay") or record["unpaved"]:
+            continue
+        if record.get("category", "").endswith("_link"):
+            if road_id in upper_road_ids:
+                for node in (nodes[0], nodes[-1]):
+                    ramps_at_node[node].append(road_id)
+        elif (name := corridor_name(record.get("name"))):
+            for node in nodes:
+                names_at_node[node].add(name)
+    pending = [(node, name) for node in ramps_at_node for name in names_at_node[node]]
+    names = defaultdict(set)
+    while pending:
+        node, name = pending.pop()
+        for road_id in ramps_at_node[node]:
+            record = road_records[road_id]
+            own_name = corridor_name(record.get("name"))
+            if name in names[road_id] or (own_name and name != own_name):
+                continue
+            names[road_id].add(name)
+            pending.extend((end, name) for end in (record["nodeIds"][0], record["nodeIds"][-1]) if end != node)
+    # An unnamed connector touching different corridors supplies no unique name.
+    return {road_id: next(iter(candidates)) for road_id, candidates in names.items() if len(candidates) == 1}
+
+
+def ordinary_deck_links(ordinary, carriageway, outline, upper_road_ids, road_records, ground, *, connections=False):
     links, index = ordinary
     by_name = defaultdict(dict)
+    ramps = defaultdict(dict)
+    ramp_names = connected_ramp_names(road_records, upper_road_ids) if connections else {}
     for road_id in upper_road_ids:
         record = road_records[road_id]
+        if not record["oneWay"]:
+            continue
         name = corridor_name(record.get("name"))
-        if name and record.get("oneWay") and not record.get("category", "").endswith("_link"):
-            # Use the independent road graph before any national alignment.
-            axis = LineString([TO_METRES.transform(*point) for point in record["coordinates"]])
-            by_name[name][road_id] = axis.reverse() if record["oneWay"] < 0 else axis
+        is_ramp = record.get("category", "").endswith("_link")
+        if is_ramp:
+            name = ramp_names.get(road_id)
+        if not name:
+            continue
+        # Use the independent road graph before any national alignment.
+        axis = LineString([TO_METRES.transform(*point) for point in record["coordinates"]])
+        (ramps if is_ramp else by_name)[name][road_id] = axis.reverse() if record["oneWay"] < 0 else axis
     named_axes = {name: axis_network(axes) for name, axes in by_name.items()}
-    verified, references = [], []
+    connection_axes = {name: axis_network({**by_name.get(name, {}), **ramps.get(name, {})})
+                       for name in by_name.keys() | ramps.keys()} if connections else {}
+    verified, references, connection_codes = [], [], []
     for i in sorted(index.query(carriageway, predicate="intersects")):
         link = links[i]
-        owners = named_axes.get(corridor_name(link["ROAD_NAME"]))
-        if not owners or link["ROAD_TYPE"] != "000" or link["CONNECT"] != "0":
+        name = corridor_name(link["ROAD_NAME"])
+        connection = link["CONNECT"] == "1"
+        owners = (connection_axes if connection else named_axes).get(name)
+        if not owners or link["ROAD_TYPE"] != "000" or link["CONNECT"] not in ("0", "1"):
             continue
         for span in parts(index.geometries[i].intersection(carriageway), "LineString"):
             if span.length < MIN_OWNED_LINK_SECTION_M:
@@ -136,7 +178,8 @@ def ordinary_deck_links(ordinary, carriageway, outline, upper_road_ids, road_rec
                 require_projection=True, require_connected=True,
             )
             same_deck = np.zeros(len(points), dtype=bool)
-            same_deck[samples[(signed > 0) & (distances <= MAX_OFFSET_M)]] = True
+            limit = MAX_CONNECTION_OFFSET_M if connection else MAX_OFFSET_M
+            same_deck[samples[(signed > 0) & (distances <= limit)]] = True
             if ground is not None:
                 competitors = select_axes(ground, points, tangents, np.full(len(points), outline, dtype=object), stop,
                                            require_projection=True, require_connected=True)
@@ -147,7 +190,8 @@ def ordinary_deck_links(ordinary, carriageway, outline, upper_road_ids, road_rec
                 if stations[end] - stations[start] >= MIN_OWNED_LINK_SECTION_M:
                     verified.append(substring(span, stations[start], stations[end]))
                     references.append(link["LINK_ID"])
-    return Network(np.array(verified), references) if verified else None
+                    connection_codes.append(link["CONNECT"])
+    return Network(np.array(verified), references, np.array(connection_codes)) if verified else None
 
 
 def national_deck_sections(line, carriageway, outline, national, *, aligned_links=(), section_links=None):
@@ -313,18 +357,28 @@ def export_window(markings, pavement, snapshot_sha, sources, index, ground_sourc
                 passes.append((isolated_carriageway, {"aligned_links": aligned}, "alignedNationalLinkIds"))
             if local_links is not None:
                 passes.append((isolated_carriageway, {"section_links": local_links}, "sectionNationalLinkIds"))
+            connected_links = ordinary_deck_links(ordinary, isolated_carriageway, deck, upper_axes,
+                                                 road_records, ground_network, connections=True) if ordinary and white_sources else None
+            connections = {link for link, code in zip(connected_links.references, connected_links.kinds, strict=True)
+                           if code == "1"} if connected_links is not None else set()
+            if connections:
+                passes.append((isolated_carriageway, {"section_links": connected_links}, "connectedNationalLinkIds"))
             for support, link_options, evidence in passes:
                 for identifier, management, kind, style, original in white_sources:
                     for verified in supported_deck_sections(original, isolated_carriageway, deck, owner,
                                                             ground_network, clearance, 3 * SPACING_M):
                         for line, links in national_deck_sections(verified, support, deck, national, **link_options):
+                            if evidence == "connectedNationalLinkIds" and connections.isdisjoint(links):
+                                continue
                             item = lane_item(line, original, style, kind, preserve_vertices=True)
                             item.update(deckId=source_id, featureId=identifier, managementId=management,
                                         sourceLevel="001", nationalLinkIds=links)
                             if evidence:
                                 item[evidence] = links
-                                counts["alignment_white_m" if evidence == "alignedNationalLinkIds"
-                                       else "section_white_m"] += line.length
+                                counter = {"alignedNationalLinkIds": "alignment_white_m",
+                                           "sectionNationalLinkIds": "section_white_m",
+                                           "connectedNationalLinkIds": "connection_white_m"}[evidence]
+                                counts[counter] += line.length
                             records.append(item)
                             clearance = clearance.union(line.buffer(SURVEYED_PAINT_CLEARANCE_M))
                             counts["length_m"] += line.length
