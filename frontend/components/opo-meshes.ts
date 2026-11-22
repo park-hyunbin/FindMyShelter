@@ -11,7 +11,8 @@ import { addStreetExterior } from './opo-street-exterior';
 import { buildingAppearance } from './data/building-appearance';
 import { buildingProfile, buildingProfiles, type BuildingUse } from './data/building-profile';
 import { buildingFacadeKind } from './data/building-use-code';
-import { facadeUV, neighborhoodFacade, withFacadeDistance, type NeighborhoodPalette } from './opo-neighborhood-facade';
+import { schoolLevel, schoolStyles, type SchoolLevel } from './data/school-campuses';
+import { facadeUV, neighborhoodFacade, type NeighborhoodPalette } from './opo-neighborhood-facade';
 import { lowRiseFacadeUV, lowRisePresets, makeDetachedRoof, makeLowRiseFacade, type LowRiseKind } from './opo-low-rise-facade';
 import { addLandscapeTrees, type LandscapePoint } from './opo-vegetation';
 import { createSurfaceClipper } from './opo-surface-clip';
@@ -206,27 +207,6 @@ export function paintRibbon(points: Point[], width: number, elevation: OpoData['
   return ribbon(points, width, elevation, crossStep, 3, undefined, undefined, true);
 }
 
-function facadeTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128; canvas.height = 96;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#e5e5dc'; ctx.fillRect(0, 0, 128, 96);
-  ctx.fillStyle = '#d6d7cf'; ctx.fillRect(0, 0, 23, 96);
-  ctx.fillStyle = '#f1f0e7'; ctx.fillRect(24, 0, 5, 96);
-  ctx.fillStyle = '#aeb6b1'; ctx.fillRect(0, 90, 128, 3);
-  ctx.fillStyle = '#76888a'; ctx.fillRect(45, 21, 60, 49);
-  ctx.fillStyle = '#a8babb'; ctx.fillRect(49, 24, 52, 40);
-  ctx.fillStyle = '#607a80'; ctx.fillRect(49, 49, 52, 16);
-  ctx.fillStyle = '#e5e6dc'; ctx.fillRect(74, 24, 3, 41);
-  ctx.fillStyle = '#f3f2e9'; ctx.fillRect(40, 69, 70, 5); ctx.fillRect(41, 19, 67, 3);
-  ctx.fillStyle = '#a0aaa5'; ctx.fillRect(43, 22, 3, 49); ctx.fillRect(104, 22, 3, 49);
-  const texture = new T.CanvasTexture(canvas);
-  texture.wrapS = texture.wrapT = T.RepeatWrapping;
-  texture.colorSpace = T.SRGBColorSpace;
-  texture.anisotropy = 4;
-  return texture;
-}
-
 function splitMaterialGroup(geometry: T.BufferGeometry, index: number) {
   const result = new T.BufferGeometry();
   const group = geometry.groups.find(item => item.materialIndex === index);
@@ -342,8 +322,6 @@ function appendOutline(edges: number[], ring: Point[], heightAt: (point: Point) 
 }
 
 export function buildMeshes(data: OpoData, scene: T.Scene) {
-  const facade = withFacadeDistance(new T.MeshStandardMaterial({ map: facadeTexture(), roughness: 0.88 }),
-    '#e5e5dc', [260, 680]);
   const appearance = buildingAppearance[data.region];
   const claddingMaterials = appearance?.towerCladding ? songpaExteriorMaterials() : null;
   const apartmentRoof = new T.MeshStandardMaterial({ color: '#665a53', roughness: 0.95 });
@@ -357,6 +335,17 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
     wall: new T.MeshStandardMaterial({ color: style.wall, roughness: 0.94 }),
   }]));
   const detailMaterials = new Map<string, { roof: T.MeshStandardMaterial; wall: T.MeshStandardMaterial }>();
+  const schoolMaterials = new Map<SchoolLevel, { roof: T.MeshStandardMaterial; wall: T.MeshStandardMaterial }>();
+  function materialsForSchool(level: SchoolLevel) {
+    let materials = schoolMaterials.get(level);
+    if (!materials) {
+      const colors = schoolStyles[level];
+      materials = { roof: new T.MeshStandardMaterial({ color: colors.roof, roughness: 0.96 }),
+        wall: neighborhoodFacade('civic', colors) };
+      schoolMaterials.set(level, materials);
+    }
+    return materials;
+  }
   function materialsForLowRise(kind: LowRiseKind, id: string) {
     const { palettes } = lowRisePresets[kind];
     // Keep each footprint's palette stable across reloads and neighboring tours.
@@ -392,22 +381,34 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
   const occluders: T.Mesh[] = [];
   const roofs: RoofOutline[] = [];
   const targetEdges: number[] = [];
+  const retailIds = new Set(data.places.flatMap(place => place.building ? [place.building.id] : []));
+  const retailOutlines = new Map<string, LineSegments2>();
+  const retailMaterial = retailIds.size ? new LineMaterial({
+    color: '#c68a56', linewidth: 3, depthWrite: false, depthTest: false, toneMapped: false,
+  }) : undefined;
   const anchors: { point: T.Vector3; building: Building; displayHeight: number }[] = [];
   const ground = (x: number, z: number) => terrainSurface(data.ground, x, z);
 
   for (const building of data.buildings) {
+    const retailEdges = retailIds.has(building.id) ? [] as number[] : undefined;
     const { use, profile, sourceHeight, displayHeight, pitchedRoof } = buildingProfile(building);
     const kind = buildingFacadeKind(building.bd_code_type, building.category);
+    const explicitSchool = schoolLevel(building.category) ?? schoolLevel(building.label);
+    const campus = !building.dong && kind === 'unknown' && !explicitSchool
+      ? data.schoolCampuses.find(({ outline }) => {
+        const exterior = building.shapes[0][0];
+        return inShape(outlineCenter(exterior), outline) && exterior.filter(point => inShape(point, outline)).length >= exterior.length * 0.7;
+      }) : undefined;
+    const grade = !building.dong && kind === 'unknown' ? explicitSchool ?? campus?.level : undefined;
     const apartment = kind === 'apartment';
     const lowRise = kind !== 'apartment' && kind !== 'unknown' ? kind : null;
     const pavilion = appearance?.roofPavilions?.get(building.id);
     const roofRise = sourceHeight && pavilion ? pavilion.roofRiseM : 0;
     const wallHeight = (displayHeight ?? 0) - roofRise;
     const floorHeight = building.levels ? wallHeight / building.levels : profile.floorM;
-    const sharedFacade = apartment && (!building.dong || !sourceHeight);
     const neighborApartment = apartment && !building.dong;
     const recordedFinish = neighborApartment && neighborMaterials.find(([name]) => building.label.startsWith(name));
-    const materials = apartment
+    const materials = grade && displayHeight !== null ? materialsForSchool(grade) : apartment
       ? (building.dong && towerVisualization) || (recordedFinish && recordedFinish[1]) || defaultApartments
       : lowRise && displayHeight !== null ? materialsForLowRise(lowRise, building.id) : plainMaterials.get(use)!;
     const roof = pitchedRoof && kind !== 'detached' ? pitchedRoofMaterial : materials.roof;
@@ -415,6 +416,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       if (displayHeight === null) {
         scene.add(new T.Mesh(groundPolygon(rings, ground), footprints));
         if (building.dong) appendOutline(targetEdges, rings[0], point => ground(point.x, point.z) + 0.25);
+        if (retailEdges) appendOutline(retailEdges, rings[0], point => ground(point.x, point.z) + 0.55);
         continue;
       }
       const position = outlineCenter(rings[0]);
@@ -422,21 +424,19 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       const skirt = Math.max(1.15, ...rings[0].map(p => verticalBase - ground(p.x, p.z) + 0.75));
       const shape = shapeFrom(rings);
       const genericFloorHeight = building.levels ? floorHeight : displayHeight / Math.max(1, Math.round(displayHeight / profile.floorM));
-      const apartmentOutline = neighborApartment && (building.levels ?? 0) >= 9 && rings.length === 1 ? rings[0] : undefined;
+      const apartmentOutline = apartment && rings.length === 1 ? rings[0] : undefined;
       const houseRoof = kind === 'detached' && !roofRise ? detachedRoofGeometry(rings, verticalBase, displayHeight) : null;
       const bodyHeight = houseRoof && !sourceHeight ? houseRoof.wallHeight : displayHeight;
       const geometry = new T.ExtrudeGeometry(shape, {
         depth: bodyHeight + skirt, bevelEnabled: false,
-        UVGenerator: lowRise ? lowRiseFacadeUV(lowRise, rings[0], genericFloorHeight * bodyHeight / displayHeight, skirt)
-          : sharedFacade ? facadeUV(profile.bayM, genericFloorHeight, skirt, apartmentOutline) : undefined,
+        UVGenerator: grade ? facadeUV(buildingProfiles.civic.bayM, genericFloorHeight, skirt)
+          : lowRise ? lowRiseFacadeUV(lowRise, rings[0], genericFloorHeight * bodyHeight / displayHeight, skirt)
+          : apartment ? facadeUV(profile.bayM, genericFloorHeight, skirt, apartmentOutline) : undefined,
       });
-      if (apartment && !sharedFacade && !roofRise) {
-        const uv = geometry.getAttribute('uv');
-        for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / profile.bayM, (uv.getY(i) - skirt) / floorHeight);
-      }
       geometry.rotateX(-Math.PI / 2);
       geometry.translate(0, verticalBase - skirt, 0);
       if (building.dong) appendOutline(targetEdges, rings[0], () => verticalBase + displayHeight + 0.18);
+      if (retailEdges) appendOutline(retailEdges, rings[0], () => verticalBase + displayHeight + 0.28);
       if (building.dong && index === 0 && (sourceHeight || building.visualHeight)) {
         anchors.push({ building, displayHeight, point: new T.Vector3(position.x, verticalBase + displayHeight + 7, position.z) });
       }
@@ -449,7 +449,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       const streetFacade = apartment && index === 0 ? appearance?.streetFacades?.get(building.id) : null;
       const streetExterior = streetFacade ? addStreetExterior(streetFacade, building, data, rings[0], verticalBase, sourceHeight, scene) : null;
       const mesh = new T.Mesh(geometry, streetExterior ?? (apartment && building.dong
-        ? [apartmentRoof, facade] : [roof, materials.wall]));
+        ? [apartmentRoof, materials.wall] : [roof, materials.wall]));
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.name = data.region === 'opo' && building.dong ? `오포 포레스트 ${building.dong}` : building.label;
       scene.add(mesh);
@@ -480,13 +480,12 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
       if (pavilion && roofRise) {
         // Site shadow/ray analyses retain the registered-height envelope.
         mesh.visible = false;
-        const exterior = new T.ExtrudeGeometry(shape, { depth: wallHeight + skirt, bevelEnabled: false });
-        const exteriorUV = exterior.getAttribute('uv');
-        const exteriorPosition = exterior.getAttribute('position');
-        for (let i = 0; i < exteriorUV.count; i++) exteriorUV.setXY(i,
-          exteriorUV.getX(i) / 4.6, (exteriorPosition.getZ(i) - skirt) / floorHeight);
+        const exterior = new T.ExtrudeGeometry(shape, {
+          depth: wallHeight + skirt, bevelEnabled: false,
+          UVGenerator: facadeUV(profile.bayM, genericFloorHeight, skirt, apartmentOutline),
+        });
         exterior.rotateX(-Math.PI / 2).translate(0, verticalBase - skirt, 0);
-        const facadeMesh = new T.Mesh(exterior, [apartmentRoof, apartment ? facade : materials.wall]);
+        const facadeMesh = new T.Mesh(exterior, [apartmentRoof, materials.wall]);
         facadeMesh.name = `${mesh.name} 외관`;
         facadeMesh.castShadow = facadeMesh.receiveShadow = true;
         scene.add(facadeMesh);
@@ -496,6 +495,13 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
           { roof: apartmentRoof, wall: pavilionWall }, scene);
       }
       roofs.push({ rings, elevation: verticalBase + sourceHeight, label: mesh.name });
+    }
+    if (retailEdges?.length && retailMaterial) {
+      const outline = new LineSegments2(new LineSegmentsGeometry().setPositions(retailEdges), retailMaterial);
+      outline.name = `상업시설 연결 · ${building.id}`;
+      outline.visible = false;
+      outline.renderOrder = 4;
+      retailOutlines.set(building.id, outline);
     }
   }
   for (const [material, batch] of estimatedGeometry) {
@@ -517,7 +523,7 @@ export function buildMeshes(data: OpoData, scene: T.Scene) {
     targetOutline.renderOrder = 6;
     scene.add(targetOutline);
   }
-  return { occluders, anchors, roofs, targetOutline };
+  return { occluders, anchors, roofs, targetOutline, retailOutlines };
 }
 
 function addReeds(group: T.Group, locations: Point[], surface: OpoData['ground'], random: () => number) {

@@ -1,0 +1,53 @@
+Find My Shelter — 3D explorer motion
+
+Author: Kay Lousberg (KayKit)
+Asset: KayKit Adventurers Character Pack (1.0), Barbarian.glb
+Source repository:
+https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0
+Exact source:
+https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/blob/672074b73ba276876a19e8816ecdc5241817ab47/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb
+Source SHA-256:
+cefc311a0e10c7858b6141f5ada7e33268727564fb8ac1347aab97d000669cc6
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Use: Idle and Walking_A clips adapted to the original Find My Shelter
+explorer. The motion data includes leg swing and chest displacement.
+The KayKit character mesh, materials and textures are not bundled.
+To reproduce, run from the frontend directory:
+node scripts/prepare-tour-avatar-motion.mjs /path/to/Barbarian.glb
+
+Original asset license notice follows.
+
+	KayKit : Adventurers Character Pack (1.0)
+
+	Created/distributed by Kay Lousberg (www.kaylousberg.com)
+	Creation date: 13/03/2023 09:00
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+
+	Support me by using a brand resource provided in this pack or by crediting Kay Lousberg, www.kaylousberg.com (this is not mandatory)
+
+			------------------------------
+
+    This asset pack is here thanks to all the wonderful people who support KayKit on Patreon and those who buy our EXTRA or SOURCE packs on itch.io.
+
+	And a big, special thank you to my Super Supporters:
+
+	- Brian McBarron
+	- Silva
+
+
+
+			------------------------------
+
+
+	Patreon:  http://patreon.com/kaylousberg
+
+	Follow on Twitter for updates:
+	http://twitter.com/KayLousberg

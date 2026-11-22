@@ -17,5 +17,77 @@
       "playground": true,
       "evCharging": true
     }
+  },
+  "guideByCode": {
+    "A10023926": {
+      "code": "A10023926",
+      "approvalDate": "2022-01-27",
+      "households": 2029,
+      "parkingSpaces": 2451,
+      "childcareListed": true
+    },
+    "A12187501": {
+      "code": "A12187501",
+      "approvalDate": "2015-02-27",
+      "households": 563,
+      "parkingSpaces": 699,
+      "childcareListed": true
+    },
+    "A12187602": {
+      "code": "A12187602",
+      "approvalDate": "2003-03-21",
+      "households": 430,
+      "parkingSpaces": 512,
+      "childcareListed": false
+    },
+    "A13305006": {
+      "code": "A13305006",
+      "approvalDate": "1996-12-14",
+      "households": 430,
+      "parkingSpaces": 454,
+      "childcareListed": false
+    },
+    "A13381608": {
+      "code": "A13381608",
+      "approvalDate": "1998-04-14",
+      "households": 1017,
+      "parkingSpaces": 1042,
+      "childcareListed": true
+    },
+    "A13611103": {
+      "code": "A13611103",
+      "approvalDate": "2003-01-29",
+      "households": 1125,
+      "parkingSpaces": 1306,
+      "childcareListed": false
+    },
+    "A13816002": {
+      "code": "A13816002",
+      "approvalDate": "2001-11-26",
+      "households": 264,
+      "parkingSpaces": 536,
+      "childcareListed": false
+    },
+    "A13822004": {
+      "code": "A13822004",
+      "approvalDate": "2008-09-30",
+      "households": 5678,
+      "parkingSpaces": 7455,
+      "childcareListed": true
+    },
+    "A13880407": {
+      "code": "A13880407",
+      "approvalDate": "1997-08-11",
+      "households": 915,
+      "parkingSpaces": 738,
+      "childcareListed": false
+    },
+    "A46492201": {
+      "code": "A46492201",
+      "approvalDate": "2009-02-19",
+      "households": 204,
+      "parkingSpaces": 340,
+      "childcareListed": false
+    }
   }
 }

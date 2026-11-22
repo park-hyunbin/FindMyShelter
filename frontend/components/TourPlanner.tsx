@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button, Checkbox, Input, NoData, Tag } from 'animal-island-ui';
 import 'animal-island-ui/style';
+import ExploreAreaMenu from './ExploreAreaMenu';
 import ShelterNav from './ShelterNav';
 import VillageMap, { tourMapAreas } from './VillageMap';
 import { catalogScene, jamsilLeel, regions, type RegionId } from './data/regions';
@@ -197,14 +198,16 @@ export default function TourPlanner({ initialQuery, onEnter }: {
     </section>
 
     <section id="explore-neighborhoods" aria-label="탐험할 동네">
-      <div className="planner-explore-areas" role="group" aria-label="탐험 권역">
-        {tourMapAreas.map(area => <button key={area.id} type="button" aria-pressed={area.id === exploreArea.id}
-          onClick={() => { if (area.id !== exploreArea.id) setSelectedVillage(area.villages[0].id as RegionId); }}>
-          {area.name}
-        </button>)}
-      </div>
       <div className="planner-map-layout">
-        <VillageMap key={exploreArea.id} area={exploreArea} selected={explored.id} onSelect={setSelectedVillage} />
+        <div className="planner-map-column">
+          <div className="planner-map-bar">
+            <ExploreAreaMenu current={exploreArea} onSelect={area => {
+              if (area.id !== exploreArea.id) setSelectedVillage(area.villages[0].id as RegionId);
+            }} />
+            <span className="planner-map-count">{number.format(exploreArea.villages.length)}개 단지</span>
+          </div>
+          <VillageMap key={exploreArea.id} area={exploreArea} selected={explored.id} onSelect={setSelectedVillage} />
+        </div>
         <aside id="village-details" className="planner-explore-selection" tabIndex={-1} aria-label="선택한 단지">
           {exploreArea.villages.length > 1 && <Field id="explore-complex" label="임장 단지">
             <select id="explore-complex" value={explored.id} onChange={event => setSelectedVillage(event.target.value as RegionId)}>

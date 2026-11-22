@@ -1318,7 +1318,21 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       return surface(point.x, point.z) + deckLift;
     }
   }
-  return { ...network, drive, surface, deckLift, roadClearance, streetClearance, addSurveyedPaint,
+  const pedestrianPaths = [
+    ...surveyedWalks.flatMap(walk => walk.ends ? [{ points: walk.ends, lift: sidewalkLift }] : []),
+    ...roads.flatMap(road => {
+      if (road.bridge) return [];
+      if (!road.motor && ['footway', 'pedestrian', 'path'].includes(road.category)) {
+        return [{ points: road.points, lift: deckLift }];
+      }
+      if (!road.motor) return [];
+      return road.sidewalks.flatMap((mapped, index) => mapped ? [{
+        points: offsetLine(road.points, (streetWidth(road) / 2 + .89) * (index === 0 ? 1 : -1)),
+        lift: urban ? sidewalkLift : .57,
+      }] : []);
+    }),
+  ];
+  return { ...network, drive, surface, deckLift, roadClearance, streetClearance, addSurveyedPaint, pedestrianPaths,
     drivingSurface: (point: Point, segment: Segment) => surfaceAt(point.x, point.z, elevatedRoads ? bridgeOwners.get(segment.road.id) : undefined),
     sidewalkElevation, serviceElevation, municipalTreeHeights,
     municipalPaving: municipalSurface && { footprint: municipalSurface, roadElevation: municipalRoadElevation, sidewalkElevation },

@@ -5,6 +5,72 @@
 .world canvas[data-selecting='true'] { cursor: crosshair; }
 .building-label { position: absolute; display: inline-block; top: 0; left: 0; padding: 4px 8px; color: var(--ink); background: var(--milk); border: 1px solid var(--control-line); border-radius: 8px; font-weight: 750; font-size: 11px; white-space: nowrap; pointer-events: none; }
 .building-label[hidden] { display: none; }
+.guide-bubble {
+  z-index: 2;
+  padding: .45rem .72rem;
+  min-height: 36px;
+  background: var(--cream);
+  border-color: var(--focus);
+  border-radius: 14px;
+  color: var(--ink);
+  font: 700 .85rem/1.2 var(--font-accent);
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 3px 12px #382b2340;
+}
+.guide-bubble::after {
+  position: absolute;
+  content: '';
+  width: 8px;
+  height: 8px;
+  left: calc(50% - 4px);
+  bottom: -5px;
+  background: inherit;
+  border: solid var(--focus);
+  border-width: 0 1px 1px 0;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.guide-chat {
+  width: min(28rem, calc(100% - 1.25rem));
+  max-height: min(37rem, calc(100dvh - 1.5rem));
+  padding: 0;
+  margin: auto auto max(.75rem, env(safe-area-inset-bottom));
+  color: var(--ink);
+  background: var(--cream);
+  border: 1px solid var(--control-line);
+  border-radius: 18px;
+  box-shadow: 0 16px 60px #27231e45;
+}
+.guide-chat[open] { display: flex; flex-direction: column; }
+.guide-chat::backdrop { background: #281e1733; }
+.guide-chat header, .guide-chat form { display: flex; align-items: center; gap: .6rem; padding: .8rem 1rem; }
+.guide-chat header { justify-content: space-between; border-bottom: 1px solid var(--control-line); }
+.guide-chat h2 { margin: 0; font: 700 1.23rem/1.2 var(--font-accent); }
+.guide-chat p { margin: 0; }
+.guide-chat header p { margin-top: .2rem; font-size: .8rem; }
+.guide-chat button, .guide-chat input {
+  border: 1px solid var(--control-line);
+  border-radius: 9px;
+  background: var(--milk);
+  color: var(--ink);
+  font: inherit;
+  padding: .45rem .65rem;
+}
+.guide-chat button { cursor: pointer; }
+.guide-chat button:disabled { cursor: default; opacity: .5; }
+.guide-chat :is(button, input, a):focus-visible, .guide-bubble:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.guide-messages { min-height: 3rem; overflow-y: auto; overscroll-behavior: contain; padding: .85rem 1rem; }
+.guide-exchange { display: flex; flex-direction: column; gap: .4rem; margin-top: .65rem; }
+.guide-answer, .guide-question { padding: .6rem .75rem; border-radius: 12px; font-size: .87rem; line-height: 1.5; overflow-wrap: anywhere; }
+.guide-answer { width: fit-content; max-width: 100%; background: var(--milk); }
+.guide-question { max-width: 90%; align-self: flex-end; background: var(--mint-wash); }
+.guide-answer small { display: flex; flex-wrap: wrap; gap: .18rem .55rem; margin-top: .38rem; font-size: .73rem; }
+.guide-answer a { color: inherit; text-decoration: underline; }
+.guide-prompts { display: flex; flex-wrap: wrap; gap: .32rem; padding: .25rem 1rem .3rem; }
+.guide-prompts button { font-size: .74rem; padding: .35rem .52rem; }
+.guide-chat form input { flex: 1; min-width: 0; }
+.guide-chat form button { background: var(--butter); flex-shrink: 0; }
 .building-label.tour-target-label { border-color: var(--focus); background: var(--butter); box-shadow: 0 2px 8px #382b2333; font: 700 .75rem/1.2 var(--font-accent); }
 .tour-target-label::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 5px; vertical-align: 1px; border-radius: 50%; background: var(--terracotta); }
 .point-label { min-width: 23px; padding: 4px 5px; text-align: center; border-radius: 50%; }
@@ -372,7 +438,11 @@
 .place-row small { color: var(--muted); font-size: 10px; white-space: nowrap; }
 .place-kind { display: grid; place-items: center; width: 25px; height: 25px; color: var(--ink); border-radius: 50%; background: var(--mint); font-size: 10px; font-weight: 850; }
 .place-kind-school { background: var(--sky); }
+.place-kind-school[data-level="elementary"], .school-campus-label[data-level="elementary"] { background: var(--peach-wash); }
+.place-kind-school[data-level="middle"], .school-campus-label[data-level="middle"] { background: var(--sage-wash); }
+.place-kind-school[data-level="high"], .school-campus-label[data-level="high"] { background: var(--sky-wash); }
 .place-kind-beauty { background: var(--butter); }
+.place-kind-retail { background: var(--peach-wash); }
 .place-note { display: grid; gap: 6px; padding: 12px; border-left: 3px solid var(--muted); background: var(--cream); font-size: 11px; }
 .place-note strong { color: var(--ink); }
 .facade-select { display: flex; flex-direction: column; gap: var(--space-2); color: var(--muted); }

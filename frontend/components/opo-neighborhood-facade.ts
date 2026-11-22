@@ -4,7 +4,14 @@ import { inShape, type Point } from './opo-data';
 
 const bay = 128;
 const variants = 4;
-const apartmentWindows = [[98, 68, 3], [88, 62, 2], [46, 42, 1], [67, 54, 2]] as const;
+// Representative Korean apartment glazing. References: Lotte Castle Clasia
+// plans and construction photos, and LX Z:IN balcony sliding/split windows.
+const apartmentWindows = [
+  { left: 9, top: 14, width: 110, height: 91, panes: [.25, .75], transom: .68 },
+  { left: 25, top: 24, width: 83, height: 71, panes: [.48] },
+  { left: 22, top: 39, width: 49, height: 43, panes: [.52], louver: true },
+  { left: 16, top: 19, width: 92, height: 82, panes: [.37, .75] },
+] as const;
 const openings = {
   house:       { upper: [70, 57, 2], ground: [35, 89, 1] },
   apartments:  { upper: [98, 70, 3], ground: [58, 83, 2] },
@@ -16,6 +23,44 @@ const openings = {
 } as const;
 
 export type NeighborhoodPalette = { wall: string; glass: string; trim: string; roof: string; accent?: string };
+
+function paintApartmentBay(ctx: CanvasRenderingContext2D, x: number, style: NeighborhoodPalette, index: number) {
+  const opening = apartmentWindows[index];
+  const { top, width, height, panes } = opening;
+  const left = x + opening.left;
+  const glassInset = 3.5;
+  const bottom = top + height;
+  ctx.fillStyle = index === 2 ? style.accent ?? style.wall : style.wall;
+  ctx.fillRect(x, 0, bay, bay);
+  ctx.fillStyle = 'rgba(46,48,43,.13)';
+  ctx.fillRect(x, 0, bay, 3);
+  ctx.fillRect(left - 3, top - 2, width + 6, height + 7);
+  ctx.fillStyle = '#deded5';
+  ctx.fillRect(left, top, width, height);
+  const reflection = ctx.createLinearGradient(left, top, left, bottom);
+  reflection.addColorStop(0, style.glass);
+  reflection.addColorStop(.58, '#52646a');
+  reflection.addColorStop(1, '#76888d');
+  ctx.fillStyle = reflection;
+  ctx.fillRect(left + glassInset, top + glassInset, width - glassInset * 2, height - glassInset * 2);
+  // Unequal fixed and moving sashes, with a visible overlapping meeting stile.
+  ctx.fillStyle = '#cfd3cf';
+  for (const pane of panes) ctx.fillRect(left + width * pane - 1, top, 2.5, height);
+  if ('transom' in opening) {
+    const rail = top + opening.transom * height;
+    ctx.fillRect(left, rail, width, 3);
+    ctx.fillStyle = 'rgba(221,228,226,.34)';
+    ctx.fillRect(left + 4, rail + 3, width - 8, bottom - rail - 8);
+  }
+  ctx.fillStyle = '#e7e5dc';
+  ctx.fillRect(left - 2, bottom, width + 4, 3);
+  if ('louver' in opening) {
+    ctx.fillStyle = '#9da39d';
+    ctx.fillRect(x + 82, 46, 26, 38);
+    ctx.fillStyle = '#c5c9c3';
+    for (let slat = 49; slat < 82; slat += 4) ctx.fillRect(x + 84, slat, 22, 1);
+  }
+}
 
 export function withFacadeDistance(material: T.MeshStandardMaterial, wall: string, range: [number, number], atlas?: {
   uv: string;
@@ -47,23 +92,20 @@ export function neighborhoodFacade(use: BuildingUse, style: NeighborhoodPalette 
   for (const [row, pattern] of [openings[use].upper, openings[use].ground].entries()) {
     const lower = row === 1;
     for (let variant = 0; variant < variants; variant++) {
-      const apartmentUpper = use === 'apartments' && !lower;
-      const [openingWidth, openingHeight, panes] = apartmentUpper ? apartmentWindows[variant] : pattern;
       const x = variant * bay, y = row * bay;
-      const wall = apartmentUpper && variant === 2 ? style.accent ?? style.wall : style.wall;
-      ctx.fillStyle = tinted(wall, (lower ? 0.78 : 1) * (1 - 0.034 * variant));
+      if (use === 'apartments' && !lower) {
+        paintApartmentBay(ctx, x, style, variant);
+        continue;
+      }
+      const [openingWidth, openingHeight, panes] = pattern;
+      ctx.fillStyle = tinted(style.wall, (lower ? 0.78 : 1) * (1 - 0.034 * variant));
       ctx.fillRect(x, y, bay, bay);
       ctx.fillStyle = 'rgba(35,40,39,.10)';
-      if (apartmentUpper) {
-        ctx.fillRect(x, y, bay, 2);
-        ctx.fillRect(x + bay - (variant === 2 ? 7 : 4), y, variant === 2 ? 7 : 4, bay);
-      } else {
-        for (const joint of [1, 42, 84]) ctx.fillRect(x, y + joint, bay, 1);
-      }
+      for (const joint of [1, 42, 84]) ctx.fillRect(x, y + joint, bay, 1);
       ctx.fillStyle = tinted(style.trim, lower ? 0.93 : 1.12);
       ctx.fillRect(x, y + bay - (lower ? 12 : 4), bay, lower ? 12 : 4);
 
-      const width = openingWidth - (!apartmentUpper && variant === 2 && !lower ? 13 : 0);
+      const width = openingWidth - (variant === 2 && !lower ? 13 : 0);
       const left = x + (bay - width) / 2 + (variant === 2 ? 3 : 0);
       const top = lower ? y + bay - openingHeight - 9 : y + (bay - openingHeight) / 2 - 4;
       ctx.fillStyle = tinted(style.trim, 0.73);
@@ -81,11 +123,6 @@ export function neighborhoodFacade(use: BuildingUse, style: NeighborhoodPalette 
         ctx.fillRect(left + width * pane / panes, top + 2, 2, openingHeight - 3);
       }
       ctx.fillRect(left - 2, top + openingHeight, width + 4, 3);
-      if (apartmentUpper && variant < 2) {
-        ctx.fillStyle = tinted(style.trim, 0.92);
-        ctx.fillRect(left - 3, top + openingHeight - 12, width + 6, 2);
-        for (let rail = 5; rail < width; rail += 8) ctx.fillRect(left + rail, top + openingHeight - 10, 1.4, 10);
-      }
     }
   }
 
@@ -152,9 +189,9 @@ export function facadeUV(bayWidth: number, floorHeight: number, skirt: number, a
       const front = lowRise?.front;
       const facesStreet = front && ((front[0].x === x && front[0].z === -y && front[1].x === bx && front[1].z === -by)
         || (front[1].x === x && front[1].z === -y && front[0].x === bx && front[0].z === -by));
-      const start = Math.abs(Math.round(x * 3 + y * 7)) % variants;
       // The wall's own length sets its bay spacing, including on diagonal footprint edges.
       const bays = Math.max(1, Math.round(length / bayWidth));
+      const start = apartmentOutline ? (bays === 1 ? 1 : 0) : Math.abs(Math.round(x * 3 + y * 7)) % variants;
       const end = length >= 1.4 ? start + bays : start;
       const endWall = apartmentOutline && deepApartmentEnd(apartmentOutline, { x, z: -y }, { x: bx, z: -by }, length);
       return [a, b, c, d].map((vertex, index) => {

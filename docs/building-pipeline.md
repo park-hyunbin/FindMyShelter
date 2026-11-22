@@ -87,6 +87,16 @@ frontend/components/data/        브라우저 데이터 로더
 
 광주시 전체 건물 원본은 현재 없습니다. 필요한 추가 자료는 **지역별 건물 SHP/GeoJSON/GPKG와 컬럼 정의서**입니다. 최소 안정적인 건물 ID·CRS·Polygon이 필요하고, 실제 높이·지상층수·건물명·동·주소·용도가 있으면 활용합니다. 송파의 A30 높이/A31 층수 등은 값 형태로 연결한 후보이므로 제공기관 컬럼 정의서와 QGIS 확인이 필요합니다. A1은 중복이 있어 현재 스냅샷 내 A0를 개별 ID로 사용합니다. 원본 교체 시 동일 ID 유지 여부를 별도 대조해야 합니다. CP949로 한글을 정상 읽었습니다.
 
-상가 입점 정보와 건물 폴리곤, 공식 학군 경계는 서로 다른 데이터입니다. 이 파이프라인은 건물 도형만 처리합니다. 상점·학교 POI를 특정 건물 ID에 연결하거나 학군 면을 함께 처리하는 기능은 아직 추가하지 않았습니다. 원본 상업 이용·재배포 조건은 설정의 provenance에 기록하고 실제 배포 전에 확보한 자료의 조건을 확인해야 합니다.
+## 상업시설과 건물 연결
+
+송파 원본 A26/A27에서 `03001`은 소매점, `07001`은 도매시장, `07101`은 시장, `07201`은 상점, `07999`는 기타판매시설입니다. 이 값은 건물 용도를 설명합니다. 시설의 상호와 업태는 행정안전부 대규모점포 인허가 자료 또는 기존 OSM 생활시설 자료에서 가져옵니다. [행정표준 건축물용도코드](https://www.data.go.kr/data/15140420/fileData.do) · [행정안전부 대규모점포](https://www.data.go.kr/data/15045013/fileData.do) · [OpenStreetMap 데이터 라이선스](https://www.openstreetmap.org/copyright)
+
+```sh
+.venv/bin/python backend/scripts/prepare_retail_places.py data/raw/retail/localdata-large-scale-retail-20261121.csv
+```
+
+인허가 전국 CSV의 정상영업 기록 중 지원 업태를 대상으로 단지 중심 1km를 검색합니다. 행정안전부 좌표는 EPSG:5174에서 변환하고 공간 대조는 EPSG:5186에서 수행합니다. 같은 좌표에 중복 등록된 동일 상호나 법인명 변형은 최근 수정 기록을 우선합니다. 인허가 상태는 실시간 영업 정보를 제공하지 않습니다.
+
+출력은 `frontend/public/datasets/retail/{지역}.geojson`입니다. QGIS에서 해당 점 레이어와 건물 레이어를 겹쳐 열고, 점의 `building_id`를 건물 ID와 대조할 수 있습니다. 점이 정확히 하나의 폴리곤 내부에 들어갈 때만 연결합니다. 경계나 겹치는 도형의 점은 위치만 남깁니다. 화면은 건물 manifest의 도형을 사용해 연결된 건물의 외곽선을 강조합니다. 건물 manifest 버전이 갱신되면 위 스크립트를 다시 실행해 주세요.
 
 검증 명령: `.venv/bin/python -m unittest discover -s backend/pipeline/tests -v`

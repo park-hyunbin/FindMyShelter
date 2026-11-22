@@ -14,10 +14,21 @@ export default function LicensesPage() {
     background: 'var(--cream)', color: 'var(--ink)', lineHeight: 1.65 }}>
     <a href="/">← Find My Shelter</a>
     <h1>오픈소스 라이선스</h1>
-    <p>아래는 서비스에 포함된 코드 및 글꼴의 라이선스입니다.</p>
+    <p>아래는 서비스에 포함된 코드, 글꼴, 3D 애니메이션의 라이선스입니다.</p>
     <p><a href="https://github.com/guokaigdg/animal-island-ui">Animal Island UI 소스 ↗</a></p>
     <ul>{notices.map(([name, path, notice]) => <li key={path}>
       <strong>{name}</strong> · {notice} · <a href={`/licenses/${path}.txt`}>전체 라이선스 원문</a>
     </li>)}</ul>
+    <p><strong>KayKit Adventurers Character Pack</strong> · Kay Lousberg · CC0 1.0 Universal<br />
+      탐험 캐릭터에 Idle과 Walking_A 모션을 적용했습니다.{' '}
+      <a href="https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0">제작자 원본</a>
+      {' · '}<a href="/licenses/kaykit-tour-avatar.txt">에셋 출처 및 라이선스</a>
+    </p>
+    <p><strong>노란 인형 임장 안내원</strong><br />
+      제공된 캐릭터 파츠 시트를 바탕으로 안내원 모델과 정지 모션을 제작했습니다.
+    </p>
+    <p><strong>동네 주민</strong><br />
+      제공된 주민 시트의 완성 모습과 교체 의상을 바탕으로 제작했습니다.
+    </p>
   </main>;
 }

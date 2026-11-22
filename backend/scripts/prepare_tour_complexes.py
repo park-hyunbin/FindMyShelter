@@ -1,14 +1,15 @@
-"""Export the public fields needed by the two existing tours from a K-apt snapshot."""
+"""Export search and guide facts for the supported tours from a K-apt snapshot."""
 import argparse
 import csv
 import json
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TOURS = {'opo': 'A46492201', 'songpa': 'A13816002'}
 OUTPUT = ROOT / 'frontend/components/data/tour-complexes.generated.json'
+SCENES = OUTPUT.with_name('seoul-scenes.generated.json')
 
 
 def count(value):
@@ -33,6 +34,16 @@ def summarize(row):
         'evCharging': True if '설치' in flags or any(chargers) else False if flags == ['미설치', '미설치'] else None,
     }
 
+def guide_facts(row):
+    approval = row['사용승인일'].strip()
+    return {
+        'code': row['단지코드'],
+        'approvalDate': datetime.strptime(approval, '%Y%m%d').date().isoformat() if approval else None,
+        'households': count(row['세대수']),
+        'parkingSpaces': count(row['총주차대수']),
+        'childcareListed': '보육시설' in {label.strip() for label in row['부대복리시설'].split(',')},
+    }
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -40,20 +51,25 @@ def main():
     parser.add_argument('--snapshot-date', type=date.fromisoformat, required=True)
     args = parser.parse_args()
     snapshots = {}
+    guide_by_code = {}
     region_by_code = {code: region for region, code in TOURS.items()}
     try:
+        guide_codes = set(region_by_code) | {scene['kaptCode'] for scene in json.loads(SCENES.read_text(encoding='utf-8'))}
         with args.source.open(encoding='utf-8-sig', newline='') as stream:
             for row in csv.DictReader(stream):
-                region = region_by_code.get(row['단지코드'])
-                if region is None:
+                code = row['단지코드']
+                if code not in guide_codes:
                     continue
-                if region in snapshots:
-                    raise ValueError(f'Duplicate K-apt code for {region}')
-                snapshots[region] = summarize(row)
+                if code in guide_by_code:
+                    raise ValueError(f'Duplicate K-apt code {code}')
+                guide_by_code[code] = guide_facts(row)
+                if code in region_by_code:
+                    snapshots[region_by_code[code]] = summarize(row)
         if snapshots.keys() != TOURS.keys():
             raise ValueError('Snapshot does not include all supported tour complexes')
         result = {'snapshotDate': args.snapshot_date.isoformat(),
-                  'complexes': {region: snapshots[region] for region in TOURS}}
+                  'complexes': {region: snapshots[region] for region in TOURS},
+                  'guideByCode': dict(sorted(guide_by_code.items()))}
         temporary = OUTPUT.with_suffix('.json.tmp')
         temporary.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         temporary.replace(OUTPUT)

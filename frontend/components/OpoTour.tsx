@@ -22,11 +22,14 @@ import { ambientArchive, ambientTime, defaultAmbientMoment, type AmbientMoment }
 import { drainageStops, floodYears, latestLocalFloodYear, type FloodView } from './data/songpa-flood';
 import { terrainComparisonM } from './opo-terrain-fall';
 import { songpaSchool, songpaSchoolApproach } from './data/songpa-school';
+import { schoolLevel, schoolStyles } from './data/school-campuses';
+import { isLargeRetail, matchesPlaceCategory, retailCategoryLabels, retailPermitSource } from './data/retail-places';
 import { songiPark, songiParkSurvey } from './data/songi-park';
 import { songpaWinterCaptures, winterPixelGridSize, winterPixelSampleCount, type SongpaWinterCapture } from './data/songpa-winter-capture';
 import { songpaArchitecture } from './data/songpa-architecture';
 import { songpaRouteElevation } from './data/songpa-route-elevation';
 import TourLive from './TourLive';
+import TourGuideChat from './TourGuideChat';
 import SongpaAmbient from './SongpaAmbient';
 import SongpaFlood from './SongpaFlood';
 import SongpaChecklist, { useChecklistRecords } from './SongpaChecklist';
@@ -34,6 +37,10 @@ import type { ChecklistView } from './data/songpa-checklist';
 import { useFieldVisits, type FieldScene } from './opo-field-visits';
 
 const slots: Slot[] = ['A', 'B'];
+const placeFilters = [
+  ['all', '전체'], ['retail', '마트·쇼핑'],
+  ['beauty', '올리브영'], ['convenience', '편의점'], ['school', '학교'],
+] as const;
 const initialDate = '2026-12-21';
 const seasonDates = [
   { label: '봄', day: '03-21' },
@@ -410,6 +417,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const [winterWalkOpen, setWinterWalkOpen] = useState(false);
   const [winterWalkSelection, setWinterWalkSelection] = useState<WinterWalkSelection>({ id: 'playground-edge', hour: 15 });
   const [world, setWorld] = useState<OpoWorld | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [targetHighlighted, setTargetHighlighted] = useState(true);
   const access = world?.access ?? routesFor(region);
   const [mode, setMode] = useState<ViewMode>('walk');
@@ -477,6 +485,9 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         setPoints(current => ({ ...current, [slot]: { ...location, id: 'custom', label } }));
         setSelectedSlot(null);
         setStatus('');
+      }, () => {
+        active?.setGuideConversation(true);
+        setGuideOpen(true);
       });
       const options = active.presets;
       const courtyardPoints = region === 'songpa' ? options.filter(point => point.id === 'west-garden' || point.id === 'playground-edge') : [];
@@ -552,8 +563,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   }, [world, open, tab]);
 
   useEffect(() => {
-    const categories = placeCategory === 'all' ? ['beauty', 'convenience', 'school'] : [placeCategory];
-    world?.showPlaces(open && tab === 'places' && mode === 'orbit' && !schoolZoneVisible ? categories : [], selectedPlaceId);
+    const active = open && tab === 'places' && mode === 'orbit' && !schoolZoneVisible;
+    world?.showPlaces(active ? placeCategory : null, selectedPlaceId);
   }, [world, open, tab, mode, placeCategory, schoolZoneVisible, selectedPlaceId]);
 
   useEffect(() => {
@@ -1136,6 +1147,8 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
   const parkingSpaces = songpaFacilities.surfaceParking + songpaFacilities.undergroundParking;
   const managementTotal = songpaManagementFees.charges.reduce((sum, charge) => sum + charge.won, 0);
   const placeOrigin = world?.placeOrigin ?? (region === 'songpa' ? songpaEntrance.main.name : '단지 원점');
+  const filteredPlaces = world?.places.filter(place => matchesPlaceCategory(place.category, placeCategory)) ?? [];
+  const selectedFacility = filteredPlaces.find(place => place.id === selectedPlaceId);
   const mapCounts = sunMapResult && date === sunMapResult.date && minute === sunMapResult.minute ? sunMapResult.counts : null;
   const homeWalk = guidedAccessId ? world?.greenAccessProfiles.find(route => route.id === guidedAccessId)?.homeWalk : null;
   const currentHomeStop = homeStep === null ? null : homeWalk?.stops[homeStep];
@@ -1144,6 +1157,11 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
     if (event.key === 'Escape') { setSelectedSlot(null); setStatus(''); }
   }}>
     <div className="world" ref={host} />
+    {guideOpen && world && <TourGuideChat data={world.guideData} complexName={area.name} onDismiss={() => {
+      world.setGuideConversation(false);
+      setGuideOpen(false);
+      requestAnimationFrame(() => world.focus());
+    }} />}
 
     <div className="tour-title">
       <header className="tour-header">
@@ -1233,12 +1251,12 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         setFacadeFloor(0);
         viewFacade(fixedFacade);
       }}>지상 눈높이</button>}
-      {mode === 'walk' && !fixedFacade && <button disabled={!world} aria-pressed={walkingAtEyeLevel} onClick={() => {
+      {mode === 'walk' && !fixedFacade && <button disabled={!world} aria-pressed={!walkingAtEyeLevel} onClick={() => {
         if (!world) return;
         setWalkingAtEyeLevel(!walkingAtEyeLevel);
         world.setWalkingCamera(!walkingAtEyeLevel);
         world.focus();
-      }}>눈높이</button>}
+      }}>캐릭터 보기</button>}
       <button className="recenter" aria-label="시작 위치로 돌아가기" title="시작 위치로 돌아가기" disabled={!world} onClick={() => {
         setAmbientStopId(null);
         setHomeStep(null);
@@ -1671,21 +1689,40 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
         <div className="place-explorer-heading" tabIndex={-1}>
           <h3>주변 생활시설</h3><p>{placeOrigin}에서의 직선거리 · 가까운 순</p>
         </div>
-        <div className="place-filters" aria-label="장소 종류">{[['all','전체'],['beauty','올리브영'],['convenience','편의점'],['school','학교']].map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => {
+        <div className="place-filters" aria-label="장소 종류">{placeFilters.map(([id,label]) => <button key={id} aria-pressed={placeCategory === id} onClick={() => {
           setPlaceCategory(id);
           setSelectedPlaceId(null);
           setSchoolZoneVisible(false);
           chooseMode('orbit');
         }}>{label}</button>)}</div>
+        {selectedFacility?.source && <div className="place-note">
+          <strong>{selectedFacility.businessType ?? (isLargeRetail(selectedFacility.category)
+            ? retailCategoryLabels[selectedFacility.category] : selectedFacility.category === 'beauty' ? '올리브영' : '편의점')}</strong>
+          {selectedFacility.building
+            ? <p>건물 폴리곤 연결 · {selectedFacility.building.use ?? '건물 용도 미확인'}{selectedFacility.building.code && ` (${selectedFacility.building.code})`}</p>
+            : <p>시설 위치는 확인했어요. 연결할 건물 폴리곤은 미확인입니다.</p>}
+          <p>{selectedFacility.sourceDate ? `${selectedFacility.sourceDate} 기준` : '기준일 미확인'}</p>
+          {selectedFacility.source === 'permit' && <a href={retailPermitSource} target="_blank" rel="noreferrer">행정안전부 대규모점포 인허가 ↗</a>}
+        </div>}
         <div className="place-list" aria-label="주변 장소 목록">
-          {world?.places.filter(place => placeCategory === 'all' || place.category === placeCategory).map(place =>
-            <button className="place-row" aria-pressed={selectedPlaceId === place.id} key={place.id} onClick={() => selectPlace(place.id)}>
-              <span className={`place-kind place-kind-${place.category}`} aria-hidden="true">{place.category === 'school' ? '학' : place.category === 'beauty' ? '영' : '편'}</span>
+          {filteredPlaces.map(place => {
+            const grade = place.category === 'school' ? schoolLevel(place.name) : undefined;
+            return <button className="place-row" aria-pressed={selectedPlaceId === place.id} key={place.id} onClick={() => selectPlace(place.id)}>
+              <span className={`place-kind place-kind-${isLargeRetail(place.category) ? 'retail' : place.category}`} data-level={grade} aria-hidden="true">
+                {grade ? schoolStyles[grade].mark : place.category === 'school' ? '학' : place.category === 'beauty' ? '영'
+                  : isLargeRetail(place.category) ? '상' : '편'}
+              </span>
               <strong>{place.name}</strong><small>직선 {place.distance_m.toLocaleString()}m</small>
-            </button>)}
+            </button>;
+          })}
         </div>
-        {region === 'opo' && <div className="place-note"><strong>공식 통학구역</strong><p>취학 주소의 통학구역은 학구도에서 확인할 수 있어요.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>}
-        <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 지도 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'}). 현재 영업 여부와 상호는 확인이 필요합니다. 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
+        {world && !filteredPlaces.length && <p className="place-note">현재 자료에서 이 유형의 시설을 확인하지 못했어요.</p>}
+        {region !== 'songpa' && (region === 'opo' || placeCategory === 'school') && <div className="place-note"><strong>공식 통학구역</strong><p>취학 주소의 통학구역은 학구도에서 확인할 수 있어요.</p><a href="https://schoolzone.emac.kr/" target="_blank" rel="noreferrer">공식 학구도 확인 ↗</a></div>}
+        <details className="basis"><summary>장소 데이터 기준</summary><p>OpenStreetMap / OpenFreeMap 지도 스냅샷 ({world?.sources.osmSnapshot ?? '불러오는 중'}). 거리는 EPSG:5186 기준 {placeOrigin}에서의 직선거리입니다.</p>
+          {world?.retailPermitSnapshot && <p>마트·쇼핑 항목의 인허가 시설은 {world.retailPermitSnapshot} 기준 정상영업으로 등록된 시설입니다. 단지 중심 {world.retailPermitRadius?.toLocaleString()}m 범위이며 실제 영업 여부는 현장 확인이 필요합니다. 시설 위치가 건물 폴리곤 하나의 내부에 들어오면 외곽선을 표시합니다.</p>}
+          {world?.hasSchoolCampus && <p>학교 부지와 운동장 위치는 지도 자료에 따릅니다. 학교 외관과 운동장 표식은 3D 연출입니다.</p>}
+          <p>보행로와 운동장의 캐릭터는 동네를 보여주기 위한 연출입니다.</p>
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL ↗</a></details>
       </div>}
 
       {catalog && tab === 'site' && <div className="site-features">
@@ -1962,7 +1999,7 @@ export default function OpoTour({region = 'opo', onChangeRegion}: {region?: Regi
           <li><a href="https://www.yugacrew.com/gyeonggi/gwangju/playground/28626" target="_blank" rel="noreferrer">놀이의 테라스 ↗</a></li>
         </ul><p>두 시설은 단지의 같은 등록 주소를 사용합니다. 사진에서 보이는 포장 공간과 개별 시설명은 추가 대조가 필요합니다.</p></div>
         <details className="basis"><summary>단지 자료 기준</summary>
-          <p>지도와 건축물 자료로 건물 윤곽·높이와 도로·보행로·정류장을 표현합니다. 높이 미확인 건물은 층수나 용도로 높이를 추정하고 둘 다 없으면 윤곽을 표시합니다. 포장 재질, 난간 형태, 수변 식생과 기록이 없는 도로 폭·교량 높이는 화면용 추정입니다.</p>
+          <p>지도와 건축물 자료로 건물 윤곽·높이와 도로·보행로·정류장을 표현합니다. 높이 미확인 건물은 층수나 용도로 높이를 추정하고 둘 다 없으면 윤곽을 표시합니다. 개별 입면 자료가 없는 아파트의 창 위치와 구획은 국내 창호 사례를 참고한 추정입니다. 포장 재질, 난간 형태, 수변 식생과 기록이 없는 도로 폭·교량 높이는 화면용 추정입니다.</p>
           <a href={world?.sources.streets ?? 'https://www.openstreetmap.org/#map=16/37.3508/127.1642'} target="_blank" rel="noreferrer">OSM 동네 원본 ↗</a>
           <a href="/tour-materials/CREDITS.txt" target="_blank" rel="noreferrer">3D 재질 및 오픈소스 출처 ↗</a>
         </details>

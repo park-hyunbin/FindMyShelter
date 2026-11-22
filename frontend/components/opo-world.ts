@@ -22,10 +22,17 @@ import { readTreeCover } from './opo-tree-cover';
 import { alignShadowTarget, createStreetOcclusion } from './opo-contact-shadows';
 import { addStreetLights } from './opo-street-lights';
 import { addPedestrianSignals } from './opo-pedestrian-signals';
+import { addSchoolGrounds } from './opo-schools';
+import { addAmbientPeople, neighborhoodWalkers } from './opo-pedestrians';
 import { createStudyShadows } from './opo-study-shadows';
+import { animateAvatarLegs, avatarFootHeight, avatarLegName, createTourAvatar } from './tour-avatar';
+import { createTourAvatarMotion } from './tour-avatar-motion';
+import { addTourGuide, placeTourGuide } from './opo-tour-guide';
 import type { TourPeer, TourPose } from './tour-live-types';
 import { jamsilLeel, songpaComplex } from './data/regions';
 import { songpaSchool } from './data/songpa-school';
+import { schoolLevel } from './data/school-campuses';
+import { isLargeRetail, matchesPlaceCategory } from './data/retail-places';
 import { songiPark } from './data/songi-park';
 import { sampleWinterPixel, winterCapturePoints } from './data/songpa-winter-capture';
 import { songpaCourtyard, songpaGrounds, type SongpaGroundView } from './data/songpa-grounds';
@@ -40,36 +47,9 @@ const roadEntry = [127.16554, 37.351224];
 const routePlaces = ['수레실.오포롯데캐슬', '능평도서관', '용상골현대아파트', '현동빌라'];
 const headingTo = (from: Point, to: Point) => Math.atan2(to.x - from.x, from.z - to.z);
 const eyeFov = 60;
-// The foot rests above the avatar group's origin.
-const playerFootHeight = 0.16;
 
-function makePlayer() {
-  const player = new T.Group();
-  const coat = new T.MeshStandardMaterial({ color: '#c07246', roughness: 0.9 });
-  const pants = new T.MeshStandardMaterial({ color: '#344248', roughness: 0.95 });
-  const skin = new T.MeshStandardMaterial({ color: '#deae87', roughness: 0.95 });
-  const torso = new T.Mesh(new T.CapsuleGeometry(0.23, 0.37, 6, 12), coat);
-  torso.position.y = 1.13;
-  const head = new T.Mesh(new T.SphereGeometry(0.18, 12, 9), skin);
-  head.position.y = 1.65;
-  const hat = new T.Mesh(new T.SphereGeometry(0.192, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.52), pants);
-  hat.position.y = 1.71;
-  const backpack = new T.Mesh(new T.BoxGeometry(0.33, 0.44, 0.19), pants);
-  backpack.position.set(0, 1.12, 0.23);
-  const legs = [-0.12, 0.12].map(x => {
-    const leg = new T.Group();
-    leg.position.set(x, 0.8, 0);
-    const ankle = new T.Mesh(new T.CapsuleGeometry(0.088, 0.48, 5, 8), pants);
-    ankle.position.y = -0.31;
-    leg.add(ankle);
-    return leg;
-  });
-  player.add(torso, head, hat, backpack, ...legs);
-  player.traverse(object => { if (object instanceof T.Mesh) object.castShadow = true; });
-  return { player, legs };
-}
-
-export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (position: Point, source?: 'sun-grid') => void) {
+export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (position: Point, source?: 'sun-grid') => void,
+  onTalkToGuide: () => void) {
   const isOpo = data.region === 'opo';
   const isGarak = data.region === 'songpa';
   const entrances = data.region === 'jamsil-leel' ? jamsilLeel.entrances : [];
@@ -115,10 +95,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const terrainProjection = isOpo ? undefined : createTerrainProjection(terrain.geometry);
   terrain.castShadow = true;
   scene.add(terrain);
-  const { occluders, anchors, roofs, targetOutline } = buildMeshes(data, scene);
+  const { occluders, anchors, roofs, targetOutline, retailOutlines } = buildMeshes(data, scene);
   const insideBuilding = buildingCollision(data.buildings);
   const sidewalkSeams = isOpo ? undefined : createSidewalkSeams();
   const streets = addStreets(data, scene, finish, terrainProjection, insideBuilding, sidewalkSeams);
+  const students = addSchoolGrounds(scene, data.schoolCampuses, streets.surface, insideBuilding);
   const entrance = isOpo ? addOpoEntrance(data, scene, streets.surface, finish) : undefined;
   const treeCover = data.treeCover ? readTreeCover(data.treeCover) : null;
   const treeCoverOverlay = treeCover?.overlay(terrain.geometry);
@@ -189,6 +170,17 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const frontageStart = site.frontage && splitLineAt(site.frontage, data.project(songpaEntrance.frontage.walkStart));
   const walkStart = defaultEntrance ? data.project(defaultEntrance.position) : frontageStart?.point;
   const spawn = walkStart && !occupied(walkStart) ? walkStart : roadSpawn.point;
+  const guideFloor = (x: number, z: number) => walkFloor({ x, z }, streets.surface(x, z)) ?? streets.surface(x, z);
+  const guideLocation = placeTourGuide([data.siteOutline, ...data.siteHoles], spawn,
+    point => !endOfTile(point) && !blockedForMovement(point) && streets.roadClearance(point) >= .5, guideFloor);
+  const guide = guideLocation && addTourGuide(scene, guideLocation, guideFloor);
+  const pedestrianPaths = site.frontage
+    ? [{ points: site.frontage, lift: streets.deckLift }, ...streets.pedestrianPaths]
+    : streets.pedestrianPaths;
+  const { walkers, firstWalk } = neighborhoodWalkers(pedestrianPaths, spawn, (point, lift) => {
+    const ground = streets.surface(point.x, point.z);
+    return walkFloor(point, ground) ?? ground + lift;
+  }, point => Boolean(blockedForMovement(point) || streets.roadClearance(point) < .38));
   const approachPoint = isOpo ? data.project(approach) : roadSpawn.point;
   const frontageAhead = frontageStart?.after.find(point => Math.hypot(point.x - spawn.x, point.z - spawn.z) >= 8);
   const roadLookAt = isOpo ? entrance?.gate ?? approachPoint : data.project(data.catalog?.lookAt ?? defaultEntrance?.lookAt ?? songpaComplex.lookAt);
@@ -218,6 +210,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       return place ? [{ id: place.id, name, position: place.position }] : [];
     }),
   ] : [{ id: 'approach', name: urbanRoadName, position: spawn, lookAt }, ...streetViews, ...entranceStops, ...pavingStops];
+  if (firstWalk) destinations.splice(1, 0, { id: 'neighborhood-walk', name: '동네 산책로', ...firstWalk });
+  if (guideLocation) destinations.splice(1, 0, guideLocation.arrival);
   const tripStops = ['approach', ...destinations.filter(place => routePlaces.slice(0, 2).includes(place.name)).map(place => place.id)]
     .map(id => destinations.find(place => place.id === id))
     .flatMap(place => {
@@ -261,7 +255,11 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   const shadowActor = new T.Vector3(Infinity, 0, Infinity);
   let lastShadow = -Infinity;
   let aerialShadows = false;
-  const { player, legs } = makePlayer();
+  const { player, legs, torso } = createTourAvatar();
+  const peerAvatar = player.clone();
+  const animateExplorer = createTourAvatarMotion(legs, torso);
+  const ambientLimit = (smallScreen ? 2 : 3) - Number(Boolean(guide));
+  const ambientPeople = addAmbientPeople(scene, [...walkers, ...students], ambientLimit);
   const car = makeCar();
   scene.add(player, car);
   player.visible = false;
@@ -420,7 +418,37 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     return { point, element, enabled: () => !browsingPlaces && !analysisMapVisible() };
   });
-  const labels: { point: T.Vector3; element: HTMLSpanElement; enabled: () => boolean; keepInFrame?: boolean; limit?: number }[] = [...targetLabels];
+  const labels: { point: T.Vector3; element: HTMLElement; enabled: () => boolean; keepInFrame?: boolean; limit?: number }[] = [...targetLabels];
+  let guideConversation = false;
+  function guideAvailable() {
+    return mode === 'walk' && !selecting && !showingSatellite && !analysisMapVisible() && fixedObservationBase === undefined;
+  }
+  function canTalkToGuide() {
+    return Boolean(guideLocation && guideAvailable() && !guideConversation
+      && Math.hypot(position.x - guideLocation.point.x, position.z - guideLocation.point.z) <= 6
+      && guideLocation.canReach(position, guideLocation.point));
+  }
+  if (guide) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'building-label guide-bubble';
+    button.textContent = '안내원과 대화하기';
+    button.hidden = true;
+    button.onclick = () => { if (canTalkToGuide()) onTalkToGuide(); };
+    host.appendChild(button);
+    labels.push({ point: guide.labelPosition, element: button, enabled: canTalkToGuide, keepInFrame: true });
+  }
+  for (const campus of data.schoolCampuses) {
+    const { x, z } = campus.field?.center ?? campus.anchor;
+    const element = document.createElement('span');
+    element.className = 'building-label school-campus-label';
+    element.dataset.level = campus.level;
+    element.textContent = campus.name;
+    element.hidden = true;
+    host.appendChild(element);
+    labels.push({ point: new T.Vector3(x, streets.surface(x, z) + 8, z), element, limit: 225,
+      enabled: () => !browsingPlaces && !analysisMapVisible() });
+  }
   let targetHighlighted = true;
   const ambientLabels = (ambientMap?.labels ?? []).map(label => {
     const element = document.createElement('span');
@@ -462,7 +490,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         || (mode === 'walk' && Math.hypot(x - position.x, z - position.z) > 9) });
   }
   const peers = new Map<string, {
-    walker: T.Group; vehicle: T.Group; pose: TourPose;
+    walker: T.Group; legs: T.Object3D[]; vehicle: T.Group; pose: TourPose;
     label: typeof labels[number];
   }>();
   function removePeer(id: string) {
@@ -479,7 +507,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     const existing = peers.get(id);
     if (existing) { existing.pose = pose; return; }
     // Clone the actors so touring visitors share the world geometry and materials.
-    const walker = player.clone(), vehicle = car.clone();
+    const walker = peerAvatar.clone(), vehicle = car.clone();
     for (const actor of [walker, vehicle]) {
       actor.position.set(pose.x, 0, pose.z);
       actor.rotation.y = -pose.heading;
@@ -493,7 +521,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     host.appendChild(element);
     const label = { point: new T.Vector3(), element, enabled: () => true, limit: 500 };
     labels.push(label);
-    peers.set(id, { walker, vehicle, pose, label });
+    peers.set(id, { walker, legs: walker.children.filter(child => child.name === avatarLegName), vehicle, pose, label });
   }
   const lightPathLabel = document.createElement('span');
   lightPathLabel.className = 'building-label light-path-label';
@@ -507,6 +535,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   labels.push({ point: lightPath.labelPoint, element: lightPathLabel, enabled: lightPathVisible, keepInFrame: true },
     { point: lightPath.originPoint, element: lightOriginLabel, enabled: lightPathVisible, keepInFrame: true });
   const placeGroup = new T.Group();
+  for (const outline of retailOutlines.values()) placeGroup.add(outline);
   scene.add(placeGroup);
   const placeOverlay = document.createElement('div');
   placeOverlay.hidden = true;
@@ -531,7 +560,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
   placeOriginMarker.pin.renderOrder = 5;
   const placeMarkers = data.places.map(place => ({
     place, ...placeMarker(place.point, place.name, place.category,
-      place.category === 'school' ? '#d8d5f0' : place.category === 'beauty' ? '#f8e9c6' : '#76c9bc'),
+      isLargeRetail(place.category) ? '#d7a371' : place.category === 'school' ? '#d8d5f0' : place.category === 'beauty' ? '#f8e9c6' : '#76c9bc'),
   }));
   let visiblePlaceMarkers: ReturnType<typeof placeMarker>[] = [];
   type LabelRect = { left: number; right: number; top: number; bottom: number };
@@ -812,6 +841,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     ['KeyA', 'left'], ['ArrowLeft', 'left'], ['KeyD', 'right'], ['ArrowRight', 'right'],
   ]);
   function onKey(event: KeyboardEvent, press: boolean) {
+    if (press && guideConversation) return;
     if (press && event.target instanceof HTMLElement && event.target.closest('dialog[open]')) return;
     if (event.key === 'Shift') sprinting = press;
     const command = commands.get(event.code);
@@ -865,6 +895,14 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const pointer = new T.Vector2((event.clientX - frame.left) / frame.width * 2 - 1, -((event.clientY - frame.top) / frame.height) * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
       const hit = raycaster.intersectObjects([terrain, ...occluders], false)[0];
+      if (guide?.player.visible && canTalkToGuide()) {
+        const avatarHit = raycaster.intersectObject(guide.player, true)[0];
+        if (avatarHit && avatarHit.distance < (hit?.distance ?? Infinity)) {
+          onTalkToGuide();
+          drag = null;
+          return;
+        }
+      }
       if (selecting) {
         const sample = sunMap?.pick(raycaster, hit?.distance ?? Infinity);
         if (sample) onPick(sample, 'sun-grid');
@@ -944,8 +982,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
           if (drive) driveSegment = drive.segment;
         } else if (walkingTo) { walkingTo = null; speed = 0; }
       }
-      travelSpeed = T.MathUtils.damp(travelSpeed,
-        Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001), 6, elapsed);
+      const actualSpeed = Math.hypot(position.x - before.x, position.z - before.z) / Math.max(elapsed, 0.001);
+      travelSpeed = T.MathUtils.damp(travelSpeed, actualSpeed, 6, elapsed);
       const surfaceHeight = driving ? streets.drivingSurface(position, driveSegment) : streets.surface(position.x, position.z);
       const modeledFloor = driving && !isOpo ? undefined : walkFloor(position, surfaceHeight);
       const drivingFloor = driving && !isOpo && !(data.pavement?.elevatedRoads && driveSegment.road.bridge)
@@ -954,10 +992,10 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const actor = driving ? car : player;
       const actorHeight = modeledFloor === undefined
         ? drivingFloor ?? surfaceHeight + (driving ? streets.deckLift : 0.18)
-        : modeledFloor - (isOpo ? 0 : playerFootHeight);
+        : modeledFloor - (isOpo ? 0 : avatarFootHeight);
       actor.position.set(position.x, actorHeight, position.z);
       actor.rotation.y = -heading;
-      if (!driving) legs.forEach((leg, index) => { leg.rotation.x = Math.sin(now / 78 + index * Math.PI) * Math.min(0.68, Math.abs(speed) * 0.25); });
+      if (!driving) animateExplorer(elapsed, actualSpeed, speed < 0);
 
       const angle = heading + viewAngle;
       if (firstPerson()) {
@@ -972,7 +1010,9 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         const x = position.x - Math.sin(angle) * distance;
         const z = position.z + Math.cos(angle) * distance;
         destination.set(x, Math.max(y, streets.surface(x, z)) + (driving ? 2.3 : 1.9) + pitch * distance, z);
-        target.set(position.x + Math.sin(angle) * 5.5, y + (driving ? 1.1 : 1.7) - (pitch - 0.17) * 3, position.z - Math.cos(angle) * 5.5);
+        const ahead = driving ? 5.5 : 3.4;
+        target.set(position.x + Math.sin(angle) * ahead, y + (driving ? 1.1 : 1.02) - (pitch - 0.17) * 3,
+          position.z - Math.cos(angle) * ahead);
         if (camera.position.distanceTo(destination) > 20) camera.position.copy(destination);
         else camera.position.lerp(destination, 1 - Math.exp(-elapsed * 8));
       }
@@ -980,7 +1020,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     }
 
     stepMarker.visible = Boolean(walkingTo);
-    for (const { walker, vehicle, pose, label } of peers.values()) {
+    for (const { walker, legs: peerLegs, vehicle, pose, label } of peers.values()) {
       const actor = pose.driving ? vehicle : walker;
       const previous = pose.driving ? walker : vehicle;
       if (previous.visible) actor.position.copy(previous.position);
@@ -993,13 +1033,18 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       const ground = streets.surface(x, z);
       const deck = !isOpo && !pose.driving ? walkDeck(point, ground) : undefined;
       const y = isOpo ? modeledElevation(point) ?? ground + (pose.driving ? streets.deckLift : 0.18)
-        : deck === undefined ? ground + (pose.driving ? streets.deckLift : 0.18) : deck - playerFootHeight;
+        : deck === undefined ? ground + (pose.driving ? streets.deckLift : 0.18) : deck - avatarFootHeight;
+      if (!pose.driving) animateAvatarLegs(peerLegs, now, Math.hypot(x - actor.position.x, z - actor.position.z) / Math.max(elapsed, .001));
       actor.position.set(x, y, z);
       const turn = -pose.heading - actor.rotation.y;
       actor.rotation.y += Math.atan2(Math.sin(turn), Math.cos(turn)) * blend;
       label.point.set(x, y + (pose.driving ? 2.1 : 2.5), z);
     }
     camera.updateMatrixWorld();
+    if (guide) {
+      guide.player.visible = !showingSatellite && !analysisMapVisible();
+      if (guide.player.visible && camera.position.distanceToSquared(guide.labelPosition) < 55 ** 2) guide.update(elapsed);
+    }
     for (const { point, element, enabled, keepInFrame, limit } of labels) {
       projected.copy(point).project(camera);
       const visible = enabled() && (!limit || camera.position.distanceToSquared(point) < limit ** 2)
@@ -1016,6 +1061,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       }
     }
     updatePlaceLabels();
+    ambientPeople?.update(now, camera.position, !showingSatellite && !analysisMapVisible() && !studyingSunlight);
     if (targetOutline) targetOutline.visible = targetHighlighted && !browsingPlaces && !analysisMapVisible();
     sky.follow(camera);
     updateShadows(now);
@@ -1029,6 +1075,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
 
   return {
     hasTourTarget: targetOutline !== null,
+    hasSchoolCampus: data.schoolCampuses.length > 0,
     setTargetHighlight(enabled: boolean) {
       targetHighlighted = enabled;
       for (const { element } of targetLabels) element.classList.toggle('tour-target-label', enabled);
@@ -1037,6 +1084,20 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     facades,
     buildingAhead: (view: FacadeView) => firstBuildingAhead(data, view, view.bearing),
     destinations,
+    guideData: {
+      region: data.region, access: data.access, places: data.places,
+      placeOrigin: data.placeOrigin, placeSnapshot: data.placeSnapshot,
+      complexCode: data.catalog?.kaptCode ?? null,
+    },
+    setGuideConversation(open: boolean) {
+      guideConversation = open;
+      if (open) {
+        blur();
+        walkingTo = null;
+        tripIndex = 0;
+        speed = travelSpeed = 0;
+      }
+    },
     tripLength,
     showLightPath,
     sunMap: sunMap && {
@@ -1175,12 +1236,15 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     },
     places: data.places,
     placeOrigin: data.placeOrigin.label,
-    showPlaces(categories: string[], selectedId: string | null) {
-      browsingPlaces = categories.length > 0;
+    retailPermitSnapshot: data.retailPermitSnapshot,
+    retailPermitRadius: data.retailPermitRadius,
+    showPlaces(category: string | null, selectedId: string | null) {
+      browsingPlaces = category !== null;
       visiblePlaceMarkers = browsingPlaces ? [placeOriginMarker] : [];
       placeOriginMarker.pin.visible = browsingPlaces;
+      for (const outline of retailOutlines.values()) outline.visible = false;
       for (const marker of placeMarkers) {
-        const shown = categories.includes(marker.place.category);
+        const shown = category !== null && matchesPlaceCategory(marker.place.category, category);
         const selected = shown && marker.place.id === selectedId;
         marker.pin.visible = shown;
         marker.pin.scale.setScalar(selected ? 1.6 : 1);
@@ -1189,12 +1253,26 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
         if (selected) visiblePlaceMarkers.unshift(marker);
         else if (shown) visiblePlaceMarkers.push(marker);
         else marker.element.style.visibility = 'hidden';
+        if (shown && marker.place.building && (!selectedId || selected)) {
+          const outline = retailOutlines.get(marker.place.building.id);
+          if (outline) outline.visible = true;
+        }
       }
       updateComparisonMarkers();
     },
     focusPlace(id: string) {
       const marker = placeMarkers.find(item => item.place.id === id);
       if (!marker) return;
+      const grade = marker.place.category === 'school' && schoolLevel(marker.place.name);
+      const campus = grade ? data.schoolCampuses.find(entry => entry.level === grade && inShape(marker.place.point, entry.outline)) : undefined;
+      if (campus?.field) {
+        const field = campus.field;
+        const center = new T.Vector3(field.center.x, streets.surface(field.center.x, field.center.z), field.center.z);
+        const points = field.outline[0].map(({ x, z }) => new T.Vector3(x, streets.surface(x, z), z));
+        frameSurface(points, center, new T.Vector3(-25, 65, 34), { clearTitle: true });
+        updatePlaceLabels();
+        return;
+      }
       framePlaceMarkers([marker]);
       camera.updateMatrixWorld();
       updatePlaceLabels();
@@ -1202,7 +1280,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       if (marker.element.style.visibility === 'hidden') framePlaceMarkers([marker], false);
     },
     frameNearbyPlaces(category: string) {
-      framePlaceMarkers(placeMarkers.filter(marker => category === 'all' || marker.place.category === category).slice(0, 5));
+      framePlaceMarkers(placeMarkers.filter(({ place }) => matchesPlaceCategory(place.category, category)).slice(0, 5));
     },
     showSchoolZone(enabled: boolean) {
       if (!schoolMap) return;
@@ -1373,6 +1451,8 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
       window.removeEventListener('blur', blur);
       sunMap?.dispose();
       lightPath.dispose();
+      guide?.dispose();
+      ambientPeople?.dispose();
       const materials = new Set<T.Material>(), geometries = new Set<T.BufferGeometry>();
       scene.traverse(object => {
         if (object instanceof T.Mesh || object instanceof T.Line) {

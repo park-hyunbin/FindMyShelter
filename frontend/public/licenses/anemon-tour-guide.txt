@@ -1,0 +1,21 @@
+Find My Shelter — Tour guide
+
+Asset: Cartoon Townsfolk v1.0, CF_Woman.glb
+Creator: Anemon Creative
+Source: https://anemoncreative.itch.io/cartoon-townsfolk-free-characters
+Original model SHA-256:
+9322aacc55e29ee37eef08b9e015dcc553e7dd96edec6b2f6f4e47a92f5e51a7
+
+Use in this game: tour guide model and the Idle clip. The guide uses a
+recolored palette, matte material, larger head proportions, and a
+smaller set of embedded resources. The creator's archive is distributed
+from the original source. The creator describes the pack as AI-assisted.
+
+The creator permits use in personal and commercial games, films, and
+renders. Their terms restrict resale or standalone redistribution of
+the model and texture files, including redistribution as another asset
+pack. Attribution is appreciated and optional. See LICENSE on the
+creator page above for the terms.
+
+To regenerate the integrated model, use the original CF_Woman.glb:
+python frontend/scripts/prepare-tour-guide.py /path/to/CF_Woman.glb

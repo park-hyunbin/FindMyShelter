@@ -1,6 +1,6 @@
 import proj4 from 'proj4';
 import { loadBuildingDataset } from './data/building-dataset';
-import { buildingUseCode } from './data/building-use-code';
+import { buildingUseCode, retailBuildingUse } from './data/building-use-code';
 import buildingUseEvidence from './data/building-use-evidence.generated.json';
 import rampLaneEvidence from './data/seoul-ramp-lanes.generated.json';
 import { catalogScene, jamsilLeel, regions, songpaComplex, type RegionId } from './data/regions';
@@ -10,6 +10,8 @@ import { garakGreenStrip, songpaCourtyard, songpaFrontage, songpaGrounds } from 
 import { songpaEntrance } from './data/songpa-entrance';
 import { songiPark } from './data/songi-park';
 import { songpaStationCrossings } from './data/visit-routes';
+import { projectSchoolCampuses } from './data/school-campuses';
+import { loadRetailPlaces } from './data/retail-places';
 import type { FeatureCollection, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import register from '../public/opo-building-register.json';
 import treeCover from '../public/opo-tree-cover.json';
@@ -18,7 +20,14 @@ import songpaStreetTrees from '../public/datasets/regions/songpa/street-trees.js
 import songpaTreeInventory from '../public/datasets/regions/songpa/street-tree-inventory.json';
 import jamsilLandscape from '../public/datasets/regions/jamsil-leel/landscape.json';
 
-export type Place = { id: string; name: string; category: string; distance_m: number; point: Point };
+export type Place = {
+  id: string; name: string; category: string; distance_m: number; point: Point;
+  source?: 'permit' | 'osm'; sourceDate?: string | null; businessType?: string | null;
+  building?: { id: string; use: string | null; code: string | null };
+};
+type PoiFile = FeatureCollection<import('geojson').Point, Omit<Place, 'point'>> & {
+  metadata?: { snapshot?: string; tile_source?: string };
+};
 export type Point = { x: number; z: number };
 export type ObservationPoint = Point & { observationBase?: number };
 export type Shape = Point[][];
@@ -204,13 +213,13 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
   const regionFile = (name: string) => `/datasets/regions/${region}/${name}`;
   const empty = {type: 'FeatureCollection' as const, features: []};
   const [source, environment, dem, site, surrounding, poi, neighborhood, localTerrain, roadMarkings, pavement,
-    planting, servicePaving, pedestrianSignals, access, routeSurvey] = await Promise.all([
+    planting, servicePaving, pedestrianSignals, access, routeSurvey, retail] = await Promise.all([
     loadBuildingDataset(region, signal),
     json<EnvironmentFile>(area.environment, signal),
     json<TerrainFile>(area.terrain, signal),
     area.site ? json<SiteFile>(area.site, signal) : Promise.resolve(empty as SiteFile),
     area.surrounding ? json<OsmBuildingFile>(area.surrounding, signal) : Promise.resolve(empty as OsmBuildingFile),
-    json<FeatureCollection<import('geojson').Point, Omit<Place, 'point'>>>(area.places, signal),
+    json<PoiFile>(area.places, signal),
     area.streets ? json<StreetFile>(area.streets, signal) : Promise.resolve(null),
     area.neighborhoodTerrain ? json<NeighborhoodTerrain>(area.neighborhoodTerrain, signal) : Promise.resolve(null),
     area.roadMarkings ? json<StreetPaintFile>(area.roadMarkings, signal, 'no-cache') : Promise.resolve(null),
@@ -224,6 +233,7 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     catalog?.layers.includes('access.json') ? json<AccessDataset>(regionFile('access.json'), signal) : routesFor(region),
     catalog?.layers.includes('route-elevation.json') ? json<RouteElevationDataset>(regionFile('route-elevation.json'), signal)
       : region === 'songpa' ? songpaRouteElevation : null,
+    loadRetailPlaces(region, signal),
   ]);
   if (roadMarkings && roadMarkings.roadDataset?.sha256 !== pavement?.roadDataset?.sha256) {
     // An old cached surface and fresh lane linework must not be displayed as one survey.
@@ -517,13 +527,32 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     ? { point: project(songpaEntrance.main.position), label: songpaEntrance.main.name }
     : region === 'jamsil-leel' ? { point: project(jamsilLeel.entrances[0].position), label: jamsilLeel.entrances[0].name }
       : { point: buildingCenter, label: '단지 원점' };
-  const places: Place[] = poi.features.map(f => {
-    const point = project(f.geometry.coordinates);
+  const footprints = new Map(buildings.map(building => [building.id, building]));
+  const placesById = new Map<string, Place>();
+  function addPlace(location: Position, properties: Omit<Place, 'point' | 'distance_m'>) {
+    const point = project(location);
+    if (Math.abs(point.x) >= extent || Math.abs(point.z) >= extent) return;
     const distance_m = Math.round(Math.hypot(point.x - placeOrigin.point.x, point.z - placeOrigin.point.z));
-    return { ...f.properties, point, distance_m };
-  }).filter(p => Math.abs(p.point.x) < extent && Math.abs(p.point.z) < extent)
+    placesById.set(properties.id, { ...properties, point, distance_m });
+  }
+  for (const place of poi.features) addPlace(place.geometry.coordinates, place.properties);
+  for (const { geometry, properties } of retail?.features ?? []) {
+    const linked = properties.building_id && retail?.metadata.building_version === source.version
+      ? footprints.get(properties.building_id) : undefined;
+    const building = linked ? { id: linked.id, use: retailBuildingUse(linked.bd_code_type, linked.category),
+      code: linked.bd_code_type } : undefined;
+    addPlace(geometry.coordinates, { id: properties.id, name: properties.name, category: properties.category,
+      source: properties.source, sourceDate: properties.source_date, businessType: properties.business_type, building });
+  }
+  const places = [...placesById.values()]
     .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id));
-  return { region, area, catalog, access, routeSurvey, places, placeOrigin, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
+  const poiTileDate = poi.metadata?.tile_source?.match(/\/(\d{4})(\d{2})(\d{2})_/);
+  const placeSnapshot = poi.metadata?.snapshot ?? poiTileDate?.slice(1).join('-') ?? null;
+  const schoolCampuses = projectSchoolCampuses(project, buildingCenter, extent);
+  return { region, area, catalog, access, routeSurvey, places, placeOrigin, placeSnapshot, center, ground, elevationAt, spreadAt, buildings, heightGaps, referenceHeight,
+    retailPermitSnapshot: retail?.metadata.permit_snapshot ?? null,
+    retailPermitRadius: retail?.metadata.permit_radius_m ?? null,
+    schoolCampuses,
     features, siteRoads, siteOutline, siteHoles, project, northOffset, buildingCenter, buildingRadius, streets, streetPoints, parking,
     neighborhoodPlanting: planting?.patches.map(toShape) ?? [],
     servicePaving: servicePaving?.surfaces.map(toShape) ?? [],
