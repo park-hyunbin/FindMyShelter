@@ -146,6 +146,23 @@ function testPaintProjection() {
   }
   [stripe, projected, clipped, outside].forEach(geometry => geometry.dispose());
   pavement.clear();
+
+  const steep = new T.BufferGeometry().setAttribute('position', new T.Float32BufferAttribute([
+    -258, 0, 815.9679, -257, 0, 815.9679, -258, 0.6, 815.9691,
+  ], 3));
+  const narrowStripe = paintRibbon([{ x: -257.77, z: 815.6 }, { x: -257.77, z: 816.4 }], 0.14);
+  pavement.addSurface(steep);
+  const steepPaint = pavement.clipOnce(narrowStripe, 0.018);
+  const surface = steep.getAttribute('position');
+  const painted = steepPaint.getAttribute('position');
+  assert.ok(painted.count > 0);
+  for (let i = 0; i < painted.count; i++) {
+    const t = (painted.getZ(i) - surface.getZ(0)) / (surface.getZ(2) - surface.getZ(0));
+    const height = surface.getY(2) * t + 0.018;
+    assert.ok(Math.abs(painted.getY(i) - height) < 0.002, 'Paint height drifted after Float32 rounding');
+  }
+  [steep, narrowStripe, steepPaint].forEach(geometry => geometry.dispose());
+  pavement.clear();
 }
 
 function testGuideDashes() {

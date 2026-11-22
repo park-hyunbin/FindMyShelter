@@ -132,9 +132,13 @@ export function createSurfaceClipper(cellSize = 10) {
 
   function trianglesOnSurface(vertices: number[], polygon: Point[], surface: Triangle, area: number, lift = 0,
     samplePaint?: (point: Point) => void) {
-    for (let i = 1; i + 1 < polygon.length; i++) {
-      const triangle = [polygon[0], polygon[i], polygon[i + 1]];
-      if (Math.abs(side(triangle[0], triangle[1], triangle[2])) < epsilon) continue;
+    // Evaluate paint height at the coordinates that will be sent to the GPU.
+    // Rounding a clipped point after sampling can shift paint off a steep, narrow triangle.
+    const points = samplePaint ? polygon.map(({ x, z }) => ({ x: Math.fround(x), z: Math.fround(z) })) : polygon;
+    for (let i = 1; i + 1 < points.length; i++) {
+      if (Math.abs(side(polygon[0], polygon[i], polygon[i + 1])) < epsilon) continue;
+      const triangle = [points[0], points[i], points[i + 1]];
+      if (samplePaint && Math.abs(side(triangle[0], triangle[1], triangle[2])) < epsilon) continue;
       for (const point of triangle) {
         const y = surfaceHeight(surface, area, point);
         vertices.push(point.x, y + lift, point.z);
