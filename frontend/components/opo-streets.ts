@@ -4,7 +4,7 @@ import { extent, inShape, nearestOnLine, splitLineAt, type OpoData, type Point, 
 import { sidewalkFascia, sidewalkRise, type createSidewalkSeams } from './opo-curb-walk';
 import { opoEntranceBridgeId, opoEntranceDrivewayId, opoEntranceTurnId } from './opo-entrance';
 import { surfaceUV, type TourMaterials, type TourSurface } from './opo-materials';
-import { groundPolygon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection, type RibbonSection } from './opo-meshes';
+import { groundPolygon, paintRibbon, ribbon, streetDeckLift, terrainSurface, type createTerrainProjection, type RibbonSection } from './opo-meshes';
 import {
   crossingOutline, crossingSupport, crosswalkFrame, fitCrosswalk, fitCrosswalkToMeasuredRoad,
   leaveCrosswalkGaps, sameCrosswalk, surveyedCrosswalkArea, surveyedCrosswalkFrame, surveyedLandingFrame, zebraOffsets, type CrossingSupport, type Crosswalk,
@@ -12,6 +12,7 @@ import {
 import { siteSurfaces } from './data/site-surfaces';
 import { projectSiteCrossing, sidewalkTreeWell } from './opo-site-surfaces';
 import { createSurfaceClipper } from './opo-surface-clip';
+import { attachPaintFilter } from './opo-paint-filter';
 
 const major = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 const paths = new Set(['footway', 'path', 'pedestrian', 'steps', 'cycleway']);
@@ -680,6 +681,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     return terrain ? withBridgeGrade(terrain.fit(ribbon(points, width, () => 0, Infinity, 3, section, endNormal), lift), owners)
       : ribbon(points, width, (x, z) => surfaceAt(x, z, owners) + lift, urban ? 1.25 : Infinity, 3, section, endNormal);
   }
+  const paintViewport = { value: new T.Vector2(1, 1) };
   const paintProjection = { value: 1 };
   const fallbackExclusions = (data.pavement || tracedDrive) && createSurfaceClipper();
   const inferredGroundDeck = municipalSurface && createSurfaceClipper();
@@ -712,7 +714,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     const position = geometry.getAttribute('position');
     if (urban && position?.count) {
       geometry.setAttribute('paintWidth', new T.BufferAttribute(new Float32Array(position.count).fill(width), 1));
-    }
+    } else geometry.deleteAttribute('paintCoordinates');
     add(color, geometry, undefined, false, name);
   }
   function addCrossingPaint(color: string, geometry: T.BufferGeometry, width: number) {
@@ -722,8 +724,12 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     addPaint(color, visible, width);
   }
   function crossingStrip(points: Point[], width: number, height: number, color: string) {
-    if (data.pavement && roadPaint) deferredPaint.push({ mask: ribbon(points, width, () => 0), color, width });
-    else addCrossingPaint(color, pavementStrip(points, width, height), width);
+    if (data.pavement && roadPaint) deferredPaint.push({ mask: paintRibbon(points, width), color, width });
+    else {
+      const deck = terrain ? withBridgeGrade(terrain.fit(paintRibbon(points, width), height))
+        : paintRibbon(points, width, (x, z) => surface(x, z) + height, urban ? 1.25 : Infinity);
+      addCrossingPaint(color, deck, width);
+    }
   }
   function trimFallback(geometry: T.BufferGeometry, exclusions = fallbackExclusions) {
     if (!exclusions) return geometry;
@@ -878,11 +884,11 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     for (const offset of zebraOffsets(width)) {
       const line = [position(-half, offset), position(half, offset)];
       if (sourcePaint && roadPaint) {
-        const stripe = ribbon(line, 0.44, () => 0);
+        const stripe = paintRibbon(line, 0.44);
         deferredPaint.push({ mask: sourcePaint.clip(stripe, 0), color: tone, width: 0.44 });
         stripe.dispose();
       } else if (surveyedDeck && roadPaint) {
-        deferredPaint.push({ mask: ribbon(line, 0.44, () => 0), color: tone, width: 0.44 });
+        deferredPaint.push({ mask: paintRibbon(line, 0.44), color: tone, width: 0.44 });
       } else crossingStrip(line, 0.44, deckLift + 0.075, tone);
     }
     sourcePaint?.clear();
@@ -923,7 +929,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       for (const segment of segments) {
         const line = cleanMarking(segment, width / 2);
         if (line.length < 2) continue;
-        const outline = ribbon(offset ? offsetMarking(line, offset) : line, width, () => 0);
+        const outline = paintRibbon(offset ? offsetMarking(line, offset) : line, width);
         const onRoad = clipper.clipOnce(outline, 0.018);
         outline.dispose();
         // The lifts of paint on the same deck differ by less than 0.1m.
@@ -1139,16 +1145,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
         material.depthWrite = false;
         material.polygonOffset = true;
         material.polygonOffsetUnits = -2;
-        material.onBeforeCompile = shader => {
-          shader.uniforms.paintProjection = paintProjection;
-          shader.vertexShader = 'attribute float paintWidth; varying float vPaintWidth;\n'
-            + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvPaintWidth = paintWidth;');
-          shader.fragmentShader = 'uniform float paintProjection; varying float vPaintWidth;\n'
-            + shader.fragmentShader.replace('#include <alphatest_fragment>', `
-              float paintPixels = paintProjection * vPaintWidth / max(0.01, vViewPosition.z);
-              diffuseColor.a *= smoothstep(0.23, 0.95, paintPixels);
-              #include <alphatest_fragment>`);
-        };
+        attachPaintFilter(geometry, material, paintViewport, paintProjection);
       }
       if (texture && finish) finish(material, texture);
       if (urban && texture === 'asphalt') material.color.multiplyScalar(1.42);
@@ -1177,7 +1174,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       const at = crosswalkFrame(area);
       const depth = area.depth / 2;
       for (const offset of zebraOffsets(area.section.width)) {
-        const stripe = ribbon([at(-depth, offset), at(depth, offset)], 0.44, () => 0);
+        const stripe = paintRibbon([at(-depth, offset), at(depth, offset)], 0.44);
         const section = clipper.clip(stripe, 0);
         // Fit the surveyed paint to the asphalt, including the adjoining site driveway.
         addCrossingPaint('#eeeee4', roadPaint.clipOnce(section, 0.034), 0.44);
@@ -1203,7 +1200,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
       const slant = depth * 0.22;
       const halfWidth = area.section.width / 2 + slant;
       for (let offset = -halfWidth + 0.35; offset < halfWidth; offset += 0.87) {
-        const stripe = ribbon([at(-depth - 0.12, offset - slant), at(depth + 0.12, offset + slant)], 0.42, () => 0);
+        const stripe = paintRibbon([at(-depth - 0.12, offset - slant), at(depth + 0.12, offset + slant)], 0.42);
         addPaint('#f1eee4', clipper.clip(stripe, 0.008), 0.42);
         stripe.dispose();
       }
@@ -1306,6 +1303,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     drivingSurface: (point: Point, segment: Segment) => surfaceAt(point.x, point.z, elevatedRoads ? bridgeOwners.get(segment.road.id) : undefined),
     sidewalkElevation, serviceElevation, municipalTreeHeights,
     municipalPaving: municipalSurface && { footprint: municipalSurface, roadElevation: municipalRoadElevation, sidewalkElevation },
+    setPaintViewport: (width: number, height: number) => paintViewport.value.set(Math.max(1, width), Math.max(1, height)),
     setPaintProjection: (height: number, fov: number) => {
       paintProjection.value = height / (2 * Math.tan(T.MathUtils.degToRad(fov / 2)));
     } };

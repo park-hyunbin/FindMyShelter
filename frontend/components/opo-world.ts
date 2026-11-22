@@ -376,6 +376,7 @@ export function openOpoWorld(host: HTMLDivElement, data: OpoData, onPick: (posit
     camera.aspect = host.clientWidth / Math.max(host.clientHeight, 1);
     camera.updateProjectionMatrix();
     renderer.setSize(host.clientWidth, host.clientHeight);
+    streets.setPaintViewport(renderer.domElement.width, renderer.domElement.height);
     streetOcclusion?.resize(host.clientWidth, host.clientHeight);
   }
   const observer = new ResizeObserver(resize);

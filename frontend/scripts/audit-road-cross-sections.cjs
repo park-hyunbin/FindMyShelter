@@ -17,7 +17,7 @@ require.extensions['.ts'] = (module, filename) => {
 const frontend = path.resolve(process.env.FMS_AUDIT_FRONTEND ?? path.join(__dirname, '..'));
 const fromTour = createRequire(path.join(frontend, 'package.json'));
 const { loadOpoData, buildingCollision } = fromTour('./components/opo-data.ts');
-const { makeGround, groundPolygon, createTerrainProjection, ribbon } = fromTour('./components/opo-meshes.ts');
+const { makeGround, groundPolygon, createTerrainProjection, paintRibbon, ribbon } = fromTour('./components/opo-meshes.ts');
 const { addStreets, inferredRoadSection, surveyedDashSegments } = fromTour('./components/opo-streets.ts');
 const { alignShadowTarget } = fromTour('./components/opo-contact-shadows.ts');
 const { addSiteDetails } = fromTour('./components/opo-site.ts');
@@ -130,6 +130,21 @@ function testPaintProjection() {
   }
   assert.ok(Math.abs(area - 16) < 1e-5, `Overlapping decks produced ${area} square metres of paint`);
   [first, second, placed].forEach(geometry => geometry.dispose());
+  const stripe = paintRibbon([{ x: 2, z: -1 }, { x: 2, z: 5 }], 2);
+  const projected = pavement.clipOnce(stripe, 0.02);
+  const clipped = pavement.clip(projected, 0.04);
+  const outside = pavement.subtract(stripe);
+  for (const mesh of [projected, clipped, outside]) {
+    const vertices = mesh.getAttribute('position');
+    const paint = mesh.getAttribute('paintCoordinates');
+    assert.ok(vertices.count > 0);
+    assert.equal(paint.count, vertices.count);
+    for (let i = 0; i < vertices.count; i++) {
+      assert.ok(Math.abs(paint.getX(i) - (vertices.getX(i) - 2) / 2) < 1e-6);
+      assert.ok(Math.abs(paint.getY(i) - (vertices.getZ(i) + 1) / 6) < 1e-6);
+    }
+  }
+  [stripe, projected, clipped, outside].forEach(geometry => geometry.dispose());
   pavement.clear();
 }
 
@@ -431,6 +446,14 @@ async function audit(region, crossingsOnly, elevatedOnly) {
   streets.municipalPaving?.footprint.clear();
   streets.addSurveyedPaint(detail.paving?.asphaltDecks);
   projection.clear();
+  scene.traverse(mesh => {
+    if (!mesh.isMesh || !mesh.geometry.hasAttribute('paintWidth')) return;
+    for (const name of ['paintCoordinates', 'paintAcross', 'paintAlong']) {
+      const attribute = mesh.geometry.getAttribute(name);
+      assert.equal(attribute?.count, mesh.geometry.getAttribute('position').count, `Missing ${name} in ${region}`);
+      assert.ok(attribute.array.every(Number.isFinite), `Invalid ${name} in ${region}`);
+    }
+  });
   if (elevatedOnly) {
     const elevated = verifyElevatedPaint(data, scene);
     ground.geometry.dispose();

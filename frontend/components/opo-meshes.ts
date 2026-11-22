@@ -145,7 +145,7 @@ export function createTerrainProjection(terrain: T.BufferGeometry) {
 export type RibbonSection = (point: Point, normal: Point, halfWidth: number) => [number, number];
 
 export function ribbon(points: Point[], width: number, elevation: OpoData['ground'], crossStep = Infinity, alongStep = 3,
-  section?: RibbonSection, endNormal?: (point: Point) => Point | undefined) {
+  section?: RibbonSection, endNormal?: (point: Point) => Point | undefined, trackPaintCoordinates = false) {
   const vertices: number[] = [];
   const indexes: number[] = [];
   const walk: Point[] = [];
@@ -162,7 +162,10 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
   const closed = last > 2 && walk[0].x === walk[last].x && walk[0].z === walk[last].z;
   const sections = Math.max(1, Math.ceil(width / crossStep));
   const rowLength = sections + 1;
+  const paintCoordinates = trackPaintCoordinates ? [] as number[] : undefined;
+  let station = 0;
   walk.forEach((point, i) => {
+    if (paintCoordinates && i > 0) station += Math.hypot(point.x - walk[i - 1].x, point.z - walk[i - 1].z);
     const a = walk[closed && i === 0 ? last - 1 : Math.max(0, i - 1)];
     const b = walk[closed && i === last ? 1 : Math.min(last, i + 1)];
     const length = Math.hypot(b.x - a.x, b.z - a.z) || 1;
@@ -178,6 +181,7 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
         : width / 2 * (1 - 2 * across / sections);
       const x = point.x + normal.x * offset, z = point.z + normal.z * offset;
       vertices.push(x, elevation(x, z), z);
+      paintCoordinates?.push(offset / width, station);
     }
     if (i) {
       const start = (i - 1) * rowLength;
@@ -189,9 +193,17 @@ export function ribbon(points: Point[], width: number, elevation: OpoData['groun
   });
   const geometry = new T.BufferGeometry();
   geometry.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
+  if (paintCoordinates) {
+    for (let index = 1; index < paintCoordinates.length; index += 2) paintCoordinates[index] /= station;
+    geometry.setAttribute('paintCoordinates', new T.Float32BufferAttribute(paintCoordinates, 2));
+  }
   geometry.setIndex(indexes);
   geometry.computeVertexNormals();
   return geometry;
+}
+
+export function paintRibbon(points: Point[], width: number, elevation: OpoData['ground'] = () => 0, crossStep = Infinity) {
+  return ribbon(points, width, elevation, crossStep, 3, undefined, undefined, true);
 }
 
 function facadeTexture() {

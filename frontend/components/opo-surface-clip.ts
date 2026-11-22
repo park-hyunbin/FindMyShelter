@@ -16,16 +16,14 @@ function boundsOf([a, b, c]: Triangle): Bounds {
   };
 }
 
-function forTriangles(geometry: T.BufferGeometry, visit: (triangle: Triangle) => void) {
+function forTriangles(geometry: T.BufferGeometry, visit: (triangle: Triangle, a: number, b: number, c: number) => void) {
   const points = geometry.getAttribute('position');
   if (!points?.count) return;
   const index = geometry.getIndex();
   for (let i = 0; i + 2 < (index?.count ?? points.count); i += 3) {
-    const at = (offset: number): Vertex => {
-      const j = index?.getX(i + offset) ?? i + offset;
-      return { x: points.getX(j), y: points.getY(j), z: points.getZ(j) };
-    };
-    visit([at(0), at(1), at(2)]);
+    const a = index?.getX(i) ?? i, b = index?.getX(i + 1) ?? i + 1, c = index?.getX(i + 2) ?? i + 2;
+    const at = (j: number): Vertex => ({ x: points.getX(j), y: points.getY(j), z: points.getZ(j) });
+    visit([at(a), at(b), at(c)], a, b, c);
   }
 }
 
@@ -72,6 +70,32 @@ function surfaceHeight([a, b, c]: Triangle, area: number, point: Point) {
   return (a.y * side(b, c, point) + b.y * side(c, a, point) + c.y * side(a, b, point)) / area;
 }
 
+function clippedGeometry(mask: T.BufferGeometry) {
+  const vertices: number[] = [];
+  const paint = mask.getAttribute('paintCoordinates');
+  const paintCoordinates: number[] = [];
+  function samplePaint([a, b, c]: Triangle, i: number, j: number, k: number) {
+    if (!paint) return undefined;
+    const area = side(a, b, c);
+    if (Math.abs(area) < epsilon) return undefined;
+    const ax = paint.getX(i), ay = paint.getY(i), bx = paint.getX(j), by = paint.getY(j);
+    const cx = paint.getX(k), cy = paint.getY(k);
+    // Take paint coordinates from the source triangle and height from the road.
+    return (point: Point) => {
+      const u = side(b, c, point) / area, v = side(c, a, point) / area, w = 1 - u - v;
+      paintCoordinates.push(ax * u + bx * v + cx * w, ay * u + by * v + cy * w);
+    };
+  }
+  function toGeometry() {
+    const geometry = new T.BufferGeometry();
+    geometry.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
+    if (paint) geometry.setAttribute('paintCoordinates', new T.Float32BufferAttribute(paintCoordinates, 2));
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+  return { vertices, samplePaint, toGeometry };
+}
+
 export function createSurfaceClipper(cellSize = 10) {
   const cells = new Map<string, SurfaceTriangle[]>();
   let order = 0;
@@ -106,27 +130,23 @@ export function createSurfaceClipper(cellSize = 10) {
     return nearby;
   }
 
-  function trianglesOnSurface(vertices: number[], polygon: Point[], surface: Triangle, area: number, lift = 0) {
+  function trianglesOnSurface(vertices: number[], polygon: Point[], surface: Triangle, area: number, lift = 0,
+    samplePaint?: (point: Point) => void) {
     for (let i = 1; i + 1 < polygon.length; i++) {
       const triangle = [polygon[0], polygon[i], polygon[i + 1]];
       if (Math.abs(side(triangle[0], triangle[1], triangle[2])) < epsilon) continue;
       for (const point of triangle) {
         const y = surfaceHeight(surface, area, point);
         vertices.push(point.x, y + lift, point.z);
+        samplePaint?.(point);
       }
     }
   }
 
-  function toGeometry(vertices: number[]) {
-    const geometry = new T.BufferGeometry();
-    geometry.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
-    geometry.computeVertexNormals();
-    return geometry;
-  }
-
   function clip(mask: T.BufferGeometry, lift: number) {
-    const vertices: number[] = [];
-    forTriangles(mask, triangle => {
+    const output = clippedGeometry(mask);
+    forTriangles(mask, (triangle, i, j, k) => {
+      const samplePaint = output.samplePaint(triangle, i, j, k);
       const bounds = boundsOf(triangle);
       for (const { points, area } of nearbySurfaces(bounds)) {
         const [a, b, c] = points;
@@ -135,35 +155,37 @@ export function createSurfaceClipper(cellSize = 10) {
           polygon = clipEdge(polygon, start, end);
           if (polygon.length < 3) break;
         }
-        trianglesOnSurface(vertices, polygon, points, area, lift);
+        trianglesOnSurface(output.vertices, polygon, points, area, lift, samplePaint);
       }
     });
-    return toGeometry(vertices);
+    return output.toGeometry();
   }
 
   function clipOnce(mask: T.BufferGeometry, lift: number) {
-    const vertices: number[] = [];
-    forTriangles(mask, triangle => {
+    const output = clippedGeometry(mask);
+    forTriangles(mask, (triangle, i, j, k) => {
+      const samplePaint = output.samplePaint(triangle, i, j, k);
       let remaining: Point[][] = [triangle];
       const surfaces = [...nearbySurfaces(boundsOf(triangle))].sort((a, b) => a.order - b.order);
       for (const { points, area } of surfaces) {
         remaining = remaining.flatMap(polygon => {
           const cut = partition(polygon, points);
           if (!cut) return [polygon];
-          trianglesOnSurface(vertices, cut.inside, points, area, lift);
+          trianglesOnSurface(output.vertices, cut.inside, points, area, lift, samplePaint);
           return cut.outside;
         });
         if (!remaining.length) break;
       }
     });
-    return toGeometry(vertices);
+    return output.toGeometry();
   }
 
   function subtract(mask: T.BufferGeometry, maxVerticalGap?: number) {
-    const vertices: number[] = [];
-    forTriangles(mask, triangle => {
+    const output = clippedGeometry(mask);
+    forTriangles(mask, (triangle, i, j, k) => {
       const area = side(triangle[0], triangle[1], triangle[2]);
       if (Math.abs(area) < epsilon) return;
+      const samplePaint = output.samplePaint(triangle, i, j, k);
       let outside: Point[][] = [triangle];
       for (const cutter of nearbySurfaces(boundsOf(triangle))) {
         outside = outside.flatMap(polygon => {
@@ -176,9 +198,9 @@ export function createSurfaceClipper(cellSize = 10) {
         });
         if (!outside.length) break;
       }
-      for (const polygon of outside) trianglesOnSurface(vertices, polygon, triangle, area);
+      for (const polygon of outside) trianglesOnSurface(output.vertices, polygon, triangle, area, 0, samplePaint);
     });
-    return toGeometry(vertices);
+    return output.toGeometry();
   }
 
   function heightAt(point: Point) {
