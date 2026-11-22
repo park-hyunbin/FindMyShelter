@@ -15,14 +15,18 @@ import numpy as np
 from pyproj import CRS
 import shapefile
 from shapely import STRtree, from_wkb, make_valid, prepare, set_precision, union_all
-from shapely.geometry import LineString, box, shape
+from shapely.geometry import LineString, Point, box, shape
 from shapely.ops import substring
 
 from extract_seoul_road_window import TO_METRES, bounds_parameters, surface_shapes
 from prepare_neighborhood_pavement import GRID_M, SOURCE, covered_segments, export_polygons, parts
 from prepare_seoul_lane_windows import lane_item, region_bounds
-from prepare_songpa_road_markings import REGIONS, lane_style
+from prepare_seoul_ramp_lanes import MIN_ALIGNMENT, RADIUS_M, inventory, tangent
+from prepare_songpa_road_markings import REGIONS, gps, lane_style
 from reconcile_seoul_marking_links import load_national_links, sample_spans, select_axes
+
+
+RAMP_EVIDENCE = REGIONS.parents[2] / "components" / "data" / "seoul-ramp-lanes.generated.json"
 
 
 def structure_inventory(archives):
@@ -93,6 +97,52 @@ def ground_link_support(line, driveway, links, is_stop):
     linked = select_axes(links, coordinates, tangents, np.full(len(coordinates), driveway, dtype=object),
                          np.full(len(coordinates), is_stop), require_projection=True, require_connected=True)
     return bool(np.all(linked >= 0))
+
+
+def align_ground_ramps(graph, driveway, evidence, link_shapes):
+    node_uses = Counter(node for road in graph["roads"] for node in set(road["nodeIds"]))
+    aligned = {}
+    for road in graph["roads"]:
+        match = evidence.get(str(road["id"]))
+        if not match or road["bridge"] or road["oneWay"] != match["oneWay"] or not road["oneWay"]:
+            continue
+        coordinates = road["coordinates"]
+        if [[node, *position] for node, position in zip(road["nodeIds"], coordinates, strict=True)] != match["vertices"]:
+            continue
+        source_axes = [link_shapes[identifier] for identifier in match["links"] if identifier in link_shapes]
+        if len(source_axes) != len(match["links"]):
+            continue
+        points = [TO_METRES.transform(*position) for position in coordinates]
+        proposal = coordinates.copy()
+        for i, (node, point) in enumerate(zip(road["nodeIds"][1:-1], points[1:-1]), 1):
+            position = Point(point)
+            if node_uses[node] > 1 or driveway.covers(position):
+                continue
+            heading = np.subtract(points[i + 1], points[i - 1]) * road["oneWay"]
+            length = np.linalg.norm(heading)
+            if length <= 0.05:
+                continue
+            candidates = []
+            for axis in source_axes:
+                station = axis.project(position)
+                foot = axis.interpolate(station)
+                if (position.distance(foot) <= RADIUS_M and driveway.covers(foot)
+                    and np.dot(heading / length, tangent(axis, station)) >= MIN_ALIGNMENT):
+                    candidates.append(foot)
+            if candidates:
+                proposal[i] = gps([min(candidates, key=position.distance).coords[0]])[0]
+        if proposal == coordinates:
+            continue
+        corrected = [TO_METRES.transform(*position) for position in proposal]
+        old_edges = [LineString(pair) for pair in zip(points, points[1:])]
+        new_edges = [LineString(pair) for pair in zip(corrected, corrected[1:])]
+        if any(edge.length < 0.05 for edge in new_edges):
+            continue
+        saved = [a.difference(driveway).length - b.difference(driveway).length
+                 for a, b in zip(old_edges, new_edges, strict=True)]
+        if min(saved) >= -0.1 and sum(saved) >= 2:
+            aligned[road["id"]] = proposal
+    return aligned
 
 
 def supported_runs(original, rows, driveway, window, excluded, recovered, confirm_ground):
@@ -167,7 +217,7 @@ def verified_lanes(db, window, driveway, excluded, recovered, ground_links):
                 yield {**lane_item(line, original, style, kind), "managementId": management}
 
 
-def scene_files(db, folder, source, structures, structure_sources, ground_links):
+def scene_files(db, folder, source, structures, structure_sources, ground_links, ramp_evidence, ramp_axes):
     region = folder.name
     markings = json.loads((folder / "road-markings.json").read_text(encoding="utf-8"))
     previous_pavement = json.loads((folder / "pavement.json").read_text(encoding="utf-8"))
@@ -186,6 +236,9 @@ def scene_files(db, folder, source, structures, structure_sources, ground_links)
     walks = union_all([polygon for _, _, polygon in walk_records], grid_size=GRID_M)
     driveway = roads.difference(walks, grid_size=GRID_M)
     prepare(driveway)
+    aligned = align_ground_ramps(graph, driveway, ramp_evidence["ramps"], ramp_axes)
+    ground_graph = {"roads": [{**road, "coordinates": aligned[road["id"]]} if road["id"] in aligned else road
+                              for road in graph["roads"]]}
     excluded = Counter()
     recovered = Counter()
     lanes = list(verified_lanes(db, window, driveway, excluded, recovered, ground_links))
@@ -202,8 +255,11 @@ def scene_files(db, folder, source, structures, structure_sources, ground_links)
         "radiusM": previous_pavement["radiusM"],  # Scope for the existing street-tree inventory.
         "roads": export_polygons(driveway), "sidewalks": export_polygons(walks),
         "elevatedRoads": elevated, "structureSources": structure_sources,
-        "coveredSegments": [*covered_segments(graph, driveway), *elevated_segments],
+        "coveredSegments": [*covered_segments(ground_graph, driveway), *elevated_segments],
     }
+    if aligned:
+        surface_file["rampAlignment"] = {"sha256": ramp_evidence["sha256"], "source": ramp_evidence["source"],
+                                         "roads": [{"id": key, "coordinates": points} for key, points in sorted(aligned.items())]}
     return markings, surface_file, {"lanes": len(lanes), "roads": len(surface_file["roads"]), "structures": len(elevated),
                                    "walks": len(surface_file["sidewalks"]),
                                    "withheld_m": {key: round(value, 1) for key, value in sorted(excluded.items())},
@@ -231,11 +287,19 @@ def build(index, evidence, regions, output, bridge_archive, grade_separation_arc
                 raise ValueError("Ground road links must come from the same archive as the structural evidence")
         bounds = db.execute("SELECT min(min_x),min(min_y),max(max_x),max(max_y) FROM road_bounds").fetchone()
         ground_links = load_national_links(national_archive, bounds, ground_only=True)
+        ramp_evidence = json.loads(RAMP_EVIDENCE.read_text(encoding="utf-8"))
+        if ramp_evidence["sha256"] != checks["national_sha256"]:
+            raise ValueError("Ramp centerline evidence must use the same national archive")
+        ramp_links, ramp_index, _ = inventory(national_archive, bounds)
+        ramp_ids = {identifier for match in ramp_evidence["ramps"].values() for identifier in match["links"]}
+        ramp_axes = {link["LINK_ID"]: geometry for link, geometry in zip(ramp_links, ramp_index.geometries, strict=True)
+                     if link["LINK_ID"] in ramp_ids and link["ROAD_TYPE"] == "000"}
         metadata = {"url": source["url"], "retrievedAt": source["retrieved_at"], "sha256": source["sha256"]}
         folders = [file.parent for file in sorted(regions.glob("*/road-markings.json"))]
         if not folders:
             raise ValueError(f"No Seoul scene regions in {regions}")
-        prepared = {folder.name: scene_files(db, folder, metadata, structures, structure_sources, ground_links)
+        prepared = {folder.name: scene_files(db, folder, metadata, structures, structure_sources, ground_links,
+                                             ramp_evidence, ramp_axes)
                     for folder in folders}
     for region, (markings, pavement_file, _) in prepared.items():
         folder = output / region

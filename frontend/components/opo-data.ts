@@ -98,6 +98,7 @@ type PavementFile = {
   roads: Position[][][];
   sidewalks: Position[][][];
   elevatedRoads?: { sourceId: string; roadIds: number[]; polygons: Position[][][] }[];
+  rampAlignment?: { sha256: string; roads: { id: number; coordinates: Position[] }[] };
   coveredSegments: [roadId: number, startNode: number, intervals: [from: number, to: number][]][];
 };
 type NeighborhoodPlantingFile = { patches: Position[][][] };
@@ -352,6 +353,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
     ? geometry.coordinates[0].map(project) : []);
   const siteHoles = site.features.flatMap(({ geometry }) => geometry.type === 'Polygon'
     ? geometry.coordinates.slice(1).map(ring => ring.map(project)) : []);
+  const rampAlignment = pavement?.rampAlignment;
+  const rampAxes = new Map<number, Position[]>(rampAlignment?.sha256 === rampLaneEvidence.sha256
+    ? rampAlignment.roads.map(({ id, coordinates }) => [id, coordinates]) : []);
   const streets: Street[] = neighborhood
     ? neighborhood.roads.map(({ coordinates, ...tags }) => {
       const surveyed = pavement?.roadDataset && nationalRampLanes.get(tags.id);
@@ -361,7 +365,9 @@ export async function loadOpoData(signal: AbortSignal, region: RegionId = 'opo')
         && surveyed.vertices.every(([node, lon, lat], i) =>
           tags.nodeIds[i] === node && coordinates[i][0] === lon && coordinates[i][1] === lat);
       const missing = !tags.width && !tags.lanes && !tags.forwardLanes && !tags.backwardLanes;
-      return { ...tags, lanes: missing && compatible ? surveyed.lanes : tags.lanes, points: coordinates.map(project) };
+      const aligned = compatible ? rampAxes.get(tags.id) : undefined;
+      const axis = aligned?.length === coordinates.length ? aligned : coordinates;
+      return { ...tags, lanes: missing && compatible ? surveyed.lanes : tags.lanes, points: axis.map(project) };
     })
     : regionalStreets(features);
   if (region === 'songpa') {

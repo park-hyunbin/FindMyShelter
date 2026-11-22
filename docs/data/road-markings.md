@@ -216,6 +216,16 @@ node scripts/audit-road-cross-sections.cjs --crossings-only
 uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_ramp_lanes.py ../road-source-cache/national-road-links-2026-11-11.zip --output frontend/components/data/seoul-ramp-lanes.generated.json
 ```
 
+### 측정 차도에서 벗어난 진출입로 중심선
+
+마포 강변북로 진출입로의 지도 중심선 한 점은 최신 서울시 차도 경계에서 벗어났다. 같은 진출입로로 대조된 국가 표준노드링크는 측정 차도 안에 있다. 기존 배치는 지도 중심선이 도형 밖에 있으면 자료가 없는 도로로 해석해 분리 공간에 추정 포장을 만들었다. 항공영상에는 차도 옆의 녹지 경계가 보인다. [표준노드링크 자료실](https://www.its.go.kr/nodelink/nodelinkRef) · [항공영상 출처](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)
+
+장면별 생성 단계에서 등록된 지상 진출입로의 원본 정점과 진행 방향을 대조한다. 같은 표준 링크로 5m 이내에서 옮길 수 있고 옮긴 점이 측정 차도 안에 있는 내부 정점만 조정한다. 도로의 끝점과 다른 도로가 함께 쓰는 정점을 보존한다. 조정으로 기존 차도 연결이 끊기거나 측정 범위가 줄어드는 경우는 제외한다. 생성한 중심선은 추정 포장을 판단하는 구간과 3D 이동 경로에 함께 사용한다. 차도 도형, 보도 도형과 원본 도색은 기존 좌표를 유지한다.
+
+강변북로 표본 한 곳은 추정 포장이 옆 차도와 이어지면서 화면 폭이 30.88m까지 늘어났다. 중심선 조정 후 렌더링 폭은 서울시 차도 도형과 같은 19.46m다. 같은 진출입로가 포함된 마포 장면 두 곳에 적용했고, 양쪽 경계 중 0.5m를 넘는 지상 오차 표본은 합계 11건 줄었다.
+
+도로 창을 다시 생성하기 전에 같은 국가 표준노드링크로 진출입로 근거를 갱신한다. 배치는 같은 링크 아카이브와 서울시 도로 스냅샷을 사용했는지 확인한다. [진출입로 중심선 생성](../../backend/scripts/prepare_seoul_road_windows.py)
+
 ## 최신 횡단보도 도형과 중앙 구간
 
 기존 장면은 2021년 배포 도형에서 횡단보도를 가져오고, 도로 중심선과 맞을 때 화면에 그렸다. 2026-11-22에 받은 T-GIS 시민용 지도 `A004_A`를 2026년 서울시 자치구 횡단보도 시설 목록과 관리번호·종류·좌표로 연결했다. 정상 사용 중이고 지도에 표출되는 일단 횡단보도 중 화살표 없는 도색을 골랐다. 시설 좌표가 원본 외곽에서 3m 이내이고 도형 면적의 65% 이상이 같은 스냅샷의 지상 차도와 겹쳐야 한다. 이전 도형과 겹치는 것과 고가 차도에 닿는 것은 이 보강에서 제외했다. [서울시 횡단보도 도형 출처](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do) · [자치구 시설 목록](https://data.seoul.go.kr/dataList/OA-22906/F/1/datasetView.do) · [서울시 교통시설물 공통 코드 정의서](https://data.seoul.go.kr/dataList/OA-15541/F/1/datasetView.do)

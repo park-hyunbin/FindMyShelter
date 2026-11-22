@@ -6,8 +6,8 @@ from shapely.geometry import LineString, box
 from shapely.ops import unary_union
 
 from prepare_seoul_lane_windows import lane_item
-from prepare_seoul_road_windows import ground_link_support, supported_runs
-from prepare_songpa_road_markings import lane_style
+from prepare_seoul_road_windows import align_ground_ramps, ground_link_support, supported_runs
+from prepare_songpa_road_markings import gps, lane_style
 from reconcile_seoul_marking_links import Network
 
 
@@ -40,6 +40,28 @@ class LaneStyleTest(unittest.TestCase):
         item = lane_item(clipped, original, "white-guide-dash", "012")
         self.assertEqual(item["dashOffsetM"], 1)
         self.assertEqual(len(item["points"]), 3)
+
+
+class RampAlignmentTest(unittest.TestCase):
+    def setUp(self):
+        self.axis = LineString([(200000, 550000), (200020, 550000)])
+        self.road = {"id": 20, "nodeIds": [1, 2, 3], "oneWay": 1, "bridge": False,
+                     "coordinates": gps([(200000, 550000), (200010, 550002), (200020, 550000)])}
+        self.evidence = {"20": {"vertices": [[node, *position] for node, position in
+                                              zip(self.road["nodeIds"], self.road["coordinates"], strict=True)],
+                                 "oneWay": 1, "links": ["ramp"]}}
+        self.pavement = box(199999, 549999.1, 200021, 550000.9)
+
+    def test_aligned_road_returns_to_the_measured_surface_between_junctions(self):
+        result = align_ground_ramps({"roads": [self.road]}, self.pavement, self.evidence, {"ramp": self.axis})
+        self.assertEqual(result[20], gps([(200000, 550000), (200010, 550000), (200020, 550000)]))
+
+    def test_shared_nodes_and_reversed_links_keep_their_original_geometry(self):
+        intersecting = {"id": 40, "nodeIds": [2, 4], "oneWay": 0, "bridge": False}
+        self.assertFalse(align_ground_ramps({"roads": [self.road, intersecting]}, self.pavement,
+                                            self.evidence, {"ramp": self.axis}))
+        self.assertFalse(align_ground_ramps({"roads": [self.road]}, self.pavement, self.evidence,
+                                            {"ramp": self.axis.reverse()}))
 
 
 class SupportedRunsTest(unittest.TestCase):
