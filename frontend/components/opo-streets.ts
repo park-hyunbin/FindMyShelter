@@ -685,6 +685,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
   const paintProjection = { value: 1 };
   const fallbackExclusions = (data.pavement || tracedDrive) && createSurfaceClipper();
   const inferredGroundDeck = municipalSurface && createSurfaceClipper();
+  const buildingFootprints = inferredGroundDeck && footprint(data.buildings.flatMap(building => building.shapes));
   const groundCaps: { geometry: T.BufferGeometry; color: string; texture: TourSurface }[] = [];
   if (fallbackExclusions && tracedDrive) {
     const outline = groundPolygon([tracedDrive], () => 0, Infinity, 0);
@@ -738,7 +739,8 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     return exposed;
   }
   function addGroundRoad(geometry: T.BufferGeometry, color: string, texture?: TourSurface) {
-    const deck = inferredGroundDeck ? trimFallback(geometry, inferredGroundDeck) : geometry;
+    const open = buildingFootprints ? trimFallback(geometry, buildingFootprints) : geometry;
+    const deck = inferredGroundDeck ? trimFallback(open, inferredGroundDeck) : open;
     inferredGroundDeck?.addSurface(deck);
     roadPaint?.addSurface(deck);
     add(color, deck, texture);
@@ -1138,6 +1140,7 @@ export function addStreets(data: OpoData, scene: T.Scene, finish?: TourMaterials
     add(asphalt, exposed, 'asphalt', false, '부지 안 포장');
   }
   fallbackExclusions?.clear();
+  buildingFootprints?.clear();
   function flushLayers() {
     for (const { color, texture, geometry: geometries, castsShadow, paint, name } of layers.values()) {
       const geometry = mergeGeometries(geometries);

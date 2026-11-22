@@ -286,6 +286,12 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl python backend/scripts/prepare_seoul_directional_road_curves.py --output ../road-source-cache/directional-roads
 ```
 
+### 추정 포장과 건물의 접점
+
+조사 차도 외부에서 도로망의 차로 수와 기본 폭으로 만든 지상 포장이 건물까지 침범하는 경우가 있다. 차도와 건물이 서로 다른 원본에서 들어오므로 같은 좌표계의 건물 외곽도 포장 경계에 적용한다. 추정 포장 띠와 끝부분을 모두 자른 뒤 겹침을 정리하고, 최종 포장 면을 도색에 사용한다. 건물 외곽에 들어 있는 안마당 구멍을 보존한다. 조사된 차도 외곽은 원본을 유지하고 고가 차도는 별도 층의 경계를 사용한다. [공통 3D 도로 렌더러](../../frontend/components/opo-streets.ts)
+
+종암로40길의 한 단면에서 추정 포장이 주택 외곽 안으로 4.82m 들어갔다. 서울시 차도 경계에서 잰 폭은 17.81m이며, 연속해서 보이는 포장 폭은 24.30m에서 19.49m로 줄었다. 남은 1.68m는 건물과 조사 차도 사이의 미조사 포장이다. 공개 10개 장면에서 폭 차이가 0.5m보다 큰 곳은 30곳으로 이전과 같고, 주변 분기·보도와의 관계가 남은 오차를 확인하는 기준이다. 횡단보도 검사는 이전 배포와 같은 결과를 냈다.
+
 ## 최신 횡단보도 도형과 중앙 구간
 
 기존 장면은 2021년 배포 도형에서 횡단보도를 가져오고, 도로 중심선과 맞을 때 화면에 그렸다. 2026-11-22에 받은 T-GIS 시민용 지도 `A004_A`를 2026년 서울시 자치구 횡단보도 시설 목록과 관리번호·종류·좌표로 연결했다. 정상 사용 중이고 지도에 표출되는 일단 횡단보도 중 화살표 없는 도색을 골랐다. 시설 좌표가 원본 외곽에서 3m 이내이고 도형 면적의 65% 이상이 같은 스냅샷의 지상 차도와 겹쳐야 한다. 고가 외곽과 만나는 도형은 층위를 추가 확인할 대상으로 남겼다. [서울시 횡단보도 도형 출처](https://data.seoul.go.kr/dataList/OA-15554/S/1/datasetView.do) · [자치구 시설 목록](https://data.seoul.go.kr/dataList/OA-22906/F/1/datasetView.do) · [서울시 교통시설물 공통 코드 정의서](https://data.seoul.go.kr/dataList/OA-15541/F/1/datasetView.do)
@@ -321,6 +327,12 @@ uv run --with numpy --with shapely --with pyproj --with pyshp --with openpyxl py
 `prepare_seoul_elevated_markings.py`는 EPSG:5186에서 이 고가 선을 기존 S-Map 고가·도로교 경계와 겹쳐, 한 시설에만 속하는 구간을 내보낸다. 같은 도시 스냅샷과 같은 구조물 아카이브가 함께 있을 때만 표시한다. 원본 차선 도형 ID, 시설 ID, 차선 종류, 점선 시작 거리를 보존한다. 렌더러는 시설 ID로 실제 높이가 적용된 고가 차도 메시를 찾아 도색을 붙인다. 지상 횡단보도의 도색 범위와 추정 차도는 이 고가 차선에 영향을 주지 않는다. [서울시 도로교 도형](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0070000.zip) · [서울시 입체교차부 도형](https://openlab.eseoul.go.kr/qgisplugin/SHP/N1A_A0090000.zip)
 
 공개 서울 장면 10개에 적용해 6개 장면, 7개 고가 시설에서 원본 차선 30건을 연결했다. `node frontend/scripts/audit-road-cross-sections.cjs --verify-elevated`로 전체 장면의 고가 도색 삼각형이 실제 렌더링 차도 높이에서 1.8cm 위에 놓이는지 검사한다. 고가 외곽이 서로 겹치거나 대응하는 고가 경계가 없는 구간에는 추가 자료가 필요하다. 이 검사는 고가 차도의 현장 높이와 실제 폭을 별도로 측정한 결과와 구분한다.
+
+### 평행 교량의 차도 경계
+
+서울의 교량 구조물 외곽, 교통시설물 차도 외곽, 항공영상은 각각 경계의 기준과 촬영 시점이 다르다. 평행한 상판에서는 가운데 빈 공간도 검수한다. 마포대교는 서울시 시설 자료에 상·하류 상판 폭이 각각 22.75m로 기록된다. 공개 항공영상의 같은 단면에서 두 상판 사이가 약 4~5m로 분리되어 보였다. 촬영본에 따라 같은 상판이 영상에서 수m씩 이동해 보이므로, 도색 위치를 볼 때 두 상판과 경계를 함께 놓고 비교한다. [서울시 마포대교 시설 제원](https://opengov.seoul.go.kr/og/com/download.php?dname=2008-PR-07_0.pdf&uri=%2Ffiles%2Fdcdata%2F100313%2F20151020%2FF0000044083766.pdf) · [항공영상 아카이브](https://livingatlas.arcgis.com/wayback/)
+
+마포대교의 중앙선 `11-0000245724` 일부는 현재 상판 경계를 벗어난다. 대응하는 T-GIS 차도 외곽을 통째로 적용하면 한쪽 도로 폭이 넓어지면서 두 상판 사이의 실제 간격까지 메워진다. 중앙선을 붙일 정확한 차도 경계를 확인할 때까지 이 부분의 도색은 보류한다. [서울시 T-GIS 시민용 지도](https://tgis.eseoul.go.kr/map/mapMain.do)
 
 ## 고가 차도의 교통섬과 분리 경계
 
