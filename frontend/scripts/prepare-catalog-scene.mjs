@@ -43,14 +43,16 @@ delete manifest.version;
 manifest.version = createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
 await writeFile(new URL('manifest.json', assets), `${JSON.stringify(manifest)}\n`);
 
-function run(name, ...args) {
+function runExecutable(executable, args) {
   return new Promise((resolveRun, reject) => {
-    const script = fileURLToPath(new URL(name, import.meta.url));
-    const child = spawn(process.execPath, [script, ...args], { stdio: 'inherit' });
+    const child = spawn(executable, args, { stdio: 'inherit' });
     child.on('error', reject);
-    child.on('exit', code => code === 0 ? resolveRun() : reject(new Error(`${name} exited with ${code}`)));
+    child.on('exit', code => code === 0 ? resolveRun() : reject(new Error(`${args[0]} exited with ${code}`)));
   });
 }
+
+const run = (name, ...args) =>
+  runExecutable(process.execPath, [fileURLToPath(new URL(name, import.meta.url)), ...args]);
 
 await run('prepare-opo-streets.mjs', '--region', region, resolve(snapshot));
 await run('prepare-region.mjs', '--region', region);
@@ -101,3 +103,8 @@ const temporary = new URL(`${registry.href}.tmp`);
 await writeFile(temporary, `${JSON.stringify(catalog, null, 2)}\n`);
 await rename(temporary, registry);
 console.log(`${entry.name}: ${registered.size} towers, ${entry.count} buildings, ${Math.round(start.distance)}m from centre to initial street`);
+
+const projectPython = new URL('../../.venv/bin/python', import.meta.url);
+const python = await access(projectPython).then(() => fileURLToPath(projectPython), () => 'python3');
+await runExecutable(python, [fileURLToPath(new URL('../../backend/scripts/prepare_tour_transactions.py', import.meta.url)),
+  '--if-available']);

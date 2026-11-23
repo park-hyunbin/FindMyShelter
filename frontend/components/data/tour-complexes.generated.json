@@ -1,11 +1,123 @@
 {
   "snapshotDate": "2026-11-13",
   "complexes": {
+    "gwangju-a10021270": {
+      "code": "A10021270",
+      "households": 135,
+      "parkingSpaces": 286,
+      "corridorType": "계단식",
+      "playground": null,
+      "evCharging": true
+    },
+    "gwangju-a10025136": {
+      "code": "A10025136",
+      "households": 798,
+      "parkingSpaces": 1023,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "gwangju-a46471911": {
+      "code": "A46471911",
+      "households": 436,
+      "parkingSpaces": 561,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "gwangju-a46474718": {
+      "code": "A46474718",
+      "households": 248,
+      "parkingSpaces": 522,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "gwangju-a46475208": {
+      "code": "A46475208",
+      "households": 348,
+      "parkingSpaces": 353,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
     "opo": {
       "code": "A46492201",
       "households": 204,
       "parkingSpaces": 340,
       "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a10023926": {
+      "code": "A10023926",
+      "households": 2029,
+      "parkingSpaces": 2451,
+      "corridorType": "혼합식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a12187501": {
+      "code": "A12187501",
+      "households": 563,
+      "parkingSpaces": 699,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a12187602": {
+      "code": "A12187602",
+      "households": 430,
+      "parkingSpaces": 512,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a13305006": {
+      "code": "A13305006",
+      "households": 430,
+      "parkingSpaces": 454,
+      "corridorType": "혼합식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a13381608": {
+      "code": "A13381608",
+      "households": 1017,
+      "parkingSpaces": 1042,
+      "corridorType": "혼합식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a13611103": {
+      "code": "A13611103",
+      "households": 1125,
+      "parkingSpaces": 1306,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a13820007": {
+      "code": "A13820007",
+      "households": 1316,
+      "parkingSpaces": 537,
+      "corridorType": "복도식",
+      "playground": true,
+      "evCharging": false
+    },
+    "seoul-a13822004": {
+      "code": "A13822004",
+      "households": 5678,
+      "parkingSpaces": 7455,
+      "corridorType": "계단식",
+      "playground": true,
+      "evCharging": true
+    },
+    "seoul-a13880407": {
+      "code": "A13880407",
+      "households": 915,
+      "parkingSpaces": 738,
+      "corridorType": "혼합식",
       "playground": true,
       "evCharging": true
     },
@@ -19,11 +131,25 @@
     }
   },
   "guideByCode": {
+    "A10021270": {
+      "code": "A10021270",
+      "approvalDate": "2008-11-03",
+      "households": 135,
+      "parkingSpaces": 286,
+      "childcareListed": false
+    },
     "A10023926": {
       "code": "A10023926",
       "approvalDate": "2022-01-27",
       "households": 2029,
       "parkingSpaces": 2451,
+      "childcareListed": true
+    },
+    "A10025136": {
+      "code": "A10025136",
+      "approvalDate": "2018-09-14",
+      "households": 798,
+      "parkingSpaces": 1023,
       "childcareListed": true
     },
     "A12187501": {
@@ -68,6 +194,13 @@
       "parkingSpaces": 536,
       "childcareListed": false
     },
+    "A13820007": {
+      "code": "A13820007",
+      "approvalDate": "1989-03-30",
+      "households": 1316,
+      "parkingSpaces": 537,
+      "childcareListed": false
+    },
     "A13822004": {
       "code": "A13822004",
       "approvalDate": "2008-09-30",
@@ -80,6 +213,27 @@
       "approvalDate": "1997-08-11",
       "households": 915,
       "parkingSpaces": 738,
+      "childcareListed": false
+    },
+    "A46471911": {
+      "code": "A46471911",
+      "approvalDate": "2001-12-12",
+      "households": 436,
+      "parkingSpaces": 561,
+      "childcareListed": false
+    },
+    "A46474718": {
+      "code": "A46474718",
+      "approvalDate": "2010-03-31",
+      "households": 248,
+      "parkingSpaces": 522,
+      "childcareListed": false
+    },
+    "A46475208": {
+      "code": "A46475208",
+      "approvalDate": "2001-12-11",
+      "households": 348,
+      "parkingSpaces": 353,
       "childcareListed": false
     },
     "A46492201": {

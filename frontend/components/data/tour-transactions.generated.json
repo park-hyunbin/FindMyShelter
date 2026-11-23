@@ -977,6 +977,477 @@
         "monthly": null
       }
     ],
+    "seoul-a13820007": [
+      {
+        "kind": "monthly",
+        "date": "2026-11-12",
+        "area": 35.46,
+        "amount": 5000,
+        "monthly": 80
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-07",
+        "area": 35.46,
+        "amount": 17000,
+        "monthly": 9
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-07",
+        "area": 46.26,
+        "amount": 29000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-11-03",
+        "area": 46.26,
+        "amount": 10000,
+        "monthly": 100
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-31",
+        "area": 39.69,
+        "amount": 120000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-26",
+        "area": 39.69,
+        "amount": 10000,
+        "monthly": 65
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-24",
+        "area": 25.65,
+        "amount": 78000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-24",
+        "area": 25.65,
+        "amount": 78700,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 35.46,
+        "amount": 1000,
+        "monthly": 74
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-24",
+        "area": 39.69,
+        "amount": 30000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 35.46,
+        "amount": 1000,
+        "monthly": 74
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-23",
+        "area": 25.65,
+        "amount": 1000,
+        "monthly": 56
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-22",
+        "area": 39.69,
+        "amount": 122700,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-22",
+        "area": 46.26,
+        "amount": 23100,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-21",
+        "area": 46.26,
+        "amount": 32000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-21",
+        "area": 35.46,
+        "amount": 1000,
+        "monthly": 74
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-21",
+        "area": 39.69,
+        "amount": 30000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-20",
+        "area": 25.65,
+        "amount": 77000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-19",
+        "area": 39.69,
+        "amount": 3000,
+        "monthly": 95
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-18",
+        "area": 39.69,
+        "amount": 121000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-17",
+        "area": 39.69,
+        "amount": 115000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-15",
+        "area": 46.26,
+        "amount": 92500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-13",
+        "area": 35.46,
+        "amount": 92500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-10",
+        "area": 35.46,
+        "amount": 2000,
+        "monthly": 100
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-09",
+        "area": 39.69,
+        "amount": 19000,
+        "monthly": 40
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-09",
+        "area": 35.46,
+        "amount": 14000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-09",
+        "area": 46.26,
+        "amount": 30500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-06",
+        "area": 39.69,
+        "amount": 3000,
+        "monthly": 100
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-06",
+        "area": 39.69,
+        "amount": 26200,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-03",
+        "area": 39.69,
+        "amount": 123000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-03",
+        "area": 39.69,
+        "amount": 28000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-02",
+        "area": 39.69,
+        "amount": 20000,
+        "monthly": 5
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-01",
+        "area": 46.26,
+        "amount": 1000,
+        "monthly": 109
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-30",
+        "area": 39.69,
+        "amount": 5000,
+        "monthly": 150
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-29",
+        "area": 35.46,
+        "amount": 90000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-27",
+        "area": 39.69,
+        "amount": 119000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-27",
+        "area": 46.26,
+        "amount": 13200,
+        "monthly": 43
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-22",
+        "area": 35.46,
+        "amount": 2000,
+        "monthly": 90
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-21",
+        "area": 39.69,
+        "amount": 125000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-20",
+        "area": 39.69,
+        "amount": 124500,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-18",
+        "area": 39.69,
+        "amount": 28000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-17",
+        "area": 35.46,
+        "amount": 90000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-15",
+        "area": 46.26,
+        "amount": 31000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-13",
+        "area": 25.65,
+        "amount": 1000,
+        "monthly": 80
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-10",
+        "area": 39.69,
+        "amount": 5000,
+        "monthly": 110
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-09",
+        "area": 35.46,
+        "amount": 1000,
+        "monthly": 69
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-05",
+        "area": 39.69,
+        "amount": 24000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-03",
+        "area": 25.65,
+        "amount": 2000,
+        "monthly": 70
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-02",
+        "area": 46.26,
+        "amount": 26000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-01",
+        "area": 25.65,
+        "amount": 75500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-01",
+        "area": 46.26,
+        "amount": 10000,
+        "monthly": 90
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-31",
+        "area": 39.69,
+        "amount": 113000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-29",
+        "area": 39.69,
+        "amount": 113000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 39.69,
+        "amount": 1000,
+        "monthly": 98
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-29",
+        "area": 39.69,
+        "amount": 5000,
+        "monthly": 100
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-26",
+        "area": 39.69,
+        "amount": 3100,
+        "monthly": 90
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-26",
+        "area": 39.69,
+        "amount": 3100,
+        "monthly": 90
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-25",
+        "area": 46.26,
+        "amount": 3000,
+        "monthly": 140
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-24",
+        "area": 39.69,
+        "amount": 20000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-22",
+        "area": 35.46,
+        "amount": 1000,
+        "monthly": 69
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-22",
+        "area": 46.26,
+        "amount": 33000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-21",
+        "area": 46.26,
+        "amount": 23150,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-21",
+        "area": 35.46,
+        "amount": 16800,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-19",
+        "area": 25.65,
+        "amount": 77800,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-19",
+        "area": 46.26,
+        "amount": 3000,
+        "monthly": 72
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-18",
+        "area": 46.26,
+        "amount": 5000,
+        "monthly": 120
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-18",
+        "area": 46.26,
+        "amount": 30000,
+        "monthly": null
+      }
+    ],
     "seoul-a13822004": [
       {
         "kind": "monthly",
@@ -2826,6 +3297,550 @@
         "date": "2026-08-18",
         "area": 59.91,
         "amount": 74000,
+        "monthly": null
+      }
+    ],
+    "gwangju-a10025136": [
+      {
+        "kind": "jeonse",
+        "date": "2026-11-15",
+        "area": 84.6101,
+        "amount": 40000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-11-08",
+        "area": 77.8977,
+        "amount": 62000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-05",
+        "area": 77.8977,
+        "amount": 33000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-11-02",
+        "area": 59.7747,
+        "amount": 35000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-31",
+        "area": 84.6101,
+        "amount": 34100,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-30",
+        "area": 84.6101,
+        "amount": 51000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-24",
+        "area": 84.6101,
+        "amount": 26000,
+        "monthly": 35,
+        "phase": "1단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-22",
+        "area": 77.8977,
+        "amount": 64500,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-19",
+        "area": 84.6101,
+        "amount": 43000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-10",
+        "area": 77.8977,
+        "amount": 37000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-09",
+        "area": 77.8977,
+        "amount": 59500,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-07",
+        "area": 84.6101,
+        "amount": 7000,
+        "monthly": 150,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-06",
+        "area": 77.8977,
+        "amount": 34600,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-02",
+        "area": 77.8977,
+        "amount": 54800,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-01",
+        "area": 84.6101,
+        "amount": 37000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-01",
+        "area": 59.7747,
+        "amount": 3000,
+        "monthly": 131,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-28",
+        "area": 77.8977,
+        "amount": 33000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-22",
+        "area": 84.6514,
+        "amount": 61500,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-18",
+        "area": 84.6101,
+        "amount": 65500,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-17",
+        "area": 84.6101,
+        "amount": 62000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-15",
+        "area": 84.6101,
+        "amount": 40000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-15",
+        "area": 84.6101,
+        "amount": 39000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-09",
+        "area": 77.8977,
+        "amount": 5000,
+        "monthly": 150,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-09",
+        "area": 84.6101,
+        "amount": 40000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-02",
+        "area": 84.6514,
+        "amount": 37000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-29",
+        "area": 77.8977,
+        "amount": 37000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-28",
+        "area": 84.6101,
+        "amount": 39000,
+        "monthly": null,
+        "phase": "2단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-26",
+        "area": 84.6101,
+        "amount": 38000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-25",
+        "area": 77.8977,
+        "amount": 36000,
+        "monthly": null,
+        "phase": "1단지"
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-24",
+        "area": 84.6101,
+        "amount": 2000,
+        "monthly": 150,
+        "phase": "2단지"
+      }
+    ],
+    "gwangju-a10021270": [
+      {
+        "kind": "jeonse",
+        "date": "2026-11-02",
+        "area": 146.48,
+        "amount": 55000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-24",
+        "area": 147.22,
+        "amount": 52500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-12",
+        "area": 147.22,
+        "amount": 70000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-14",
+        "area": 174.72,
+        "amount": 30000,
+        "monthly": 150
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-14",
+        "area": 174.72,
+        "amount": 30000,
+        "monthly": 150
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-13",
+        "area": 147.22,
+        "amount": 25000,
+        "monthly": 140
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-19",
+        "area": 146.48,
+        "amount": 74000,
+        "monthly": null
+      }
+    ],
+    "gwangju-a46471911": [
+      {
+        "kind": "jeonse",
+        "date": "2026-10-30",
+        "area": 84.9959,
+        "amount": 30000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-30",
+        "area": 148.2626,
+        "amount": 40500,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-20",
+        "area": 84.9959,
+        "amount": 27300,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-13",
+        "area": 84.9959,
+        "amount": 45000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-10",
+        "area": 84.9959,
+        "amount": 44500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-21",
+        "area": 84.9959,
+        "amount": 45900,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-09-19",
+        "area": 84.9959,
+        "amount": 5000,
+        "monthly": 75
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-18",
+        "area": 84.9959,
+        "amount": 27300,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-16",
+        "area": 84.9959,
+        "amount": 38000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-14",
+        "area": 84.9959,
+        "amount": 44500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-08",
+        "area": 84.9959,
+        "amount": 44500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-31",
+        "area": 84.9959,
+        "amount": 45000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-26",
+        "area": 148.2626,
+        "amount": 30000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-26",
+        "area": 148.2626,
+        "amount": 31500,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-08-22",
+        "area": 117.9085,
+        "amount": 20000,
+        "monthly": 80
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-20",
+        "area": 117.9085,
+        "amount": 50000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-18",
+        "area": 84.9959,
+        "amount": 23500,
+        "monthly": null
+      }
+    ],
+    "gwangju-a46474718": [
+      {
+        "kind": "sale",
+        "date": "2026-11-15",
+        "area": 129.6834,
+        "amount": 92500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-11-09",
+        "area": 129.1457,
+        "amount": 94000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-27",
+        "area": 129.6834,
+        "amount": 63000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-07",
+        "area": 129.1457,
+        "amount": 63000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-10-06",
+        "area": 129.1457,
+        "amount": 63000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-02",
+        "area": 160.8298,
+        "amount": 87000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-19",
+        "area": 160.8298,
+        "amount": 70000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-02",
+        "area": 129.1457,
+        "amount": 66000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-08-29",
+        "area": 160.8298,
+        "amount": 55000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-08-19",
+        "area": 160.8298,
+        "amount": 93000,
+        "monthly": null
+      }
+    ],
+    "gwangju-a46475208": [
+      {
+        "kind": "jeonse",
+        "date": "2026-11-08",
+        "area": 84.0,
+        "amount": 31500,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-31",
+        "area": 84.778,
+        "amount": 43000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-10-17",
+        "area": 84.778,
+        "amount": 45000,
+        "monthly": null
+      },
+      {
+        "kind": "monthly",
+        "date": "2026-10-12",
+        "area": 84.778,
+        "amount": 7000,
+        "monthly": 100
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-14",
+        "area": 84.778,
+        "amount": 44500,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-14",
+        "area": 84.778,
+        "amount": 35000,
+        "monthly": null
+      },
+      {
+        "kind": "jeonse",
+        "date": "2026-09-14",
+        "area": 84.778,
+        "amount": 35000,
+        "monthly": null
+      },
+      {
+        "kind": "sale",
+        "date": "2026-09-05",
+        "area": 84.778,
+        "amount": 42000,
         "monthly": null
       }
     ],

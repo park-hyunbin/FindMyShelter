@@ -1,0 +1,43 @@
+[
+  {
+    "id": "gwangju-a10025136",
+    "kaptCode": "A10025136",
+    "name": "광주역 우방아이유쉘",
+    "address": "경기도 광주시 청석로 70·74",
+    "locality": "양벌동",
+    "keywords": "경기 광주 오포 양벌 우방아이쉘 오포우방아이쉘 오포우방아이유쉘 광주역우방아이유쉘아파트",
+    "label": "우방아이유쉘",
+    "phases": [
+      {"label": "1단지", "name": "광주역우방아이유쉘1단지", "road": "청석로 70", "lot": "1112", "osmBoundary": 757265072},
+      {"label": "2단지", "name": "광주역우방아이유쉘2단지", "road": "청석로 74", "lot": "1111", "osmBoundary": 757265073}
+    ]
+  },
+  {
+    "id": "gwangju-a10021270", "kaptCode": "A10021270",
+    "name": "오포 우림필유 골드 135", "address": "경기도 광주시 능평로 21",
+    "locality": "능평동", "keywords": "경기 광주 오포 능평",
+    "label": "우림필유 골드", "pnu": "4161011600109160000",
+    "registerName": "오포 우림필유 골드 135", "tradeName": "오포우림필유골드135"
+  },
+  {
+    "id": "gwangju-a46471911", "kaptCode": "A46471911",
+    "name": "오포베르빌", "address": "경기도 광주시 능평로 193",
+    "locality": "능평동", "keywords": "경기 광주 오포 능평",
+    "label": "오포베르빌", "pnu": "4161011600101410002",
+    "registerName": "오포베르빌아파트", "tradeName": "오포베르빌"
+  },
+  {
+    "id": "gwangju-a46474718", "kaptCode": "A46474718",
+    "name": "오포 e편한세상 1차", "address": "경기도 광주시 신현로 12-37",
+    "locality": "신현동", "keywords": "경기 광주 오포 신현",
+    "label": "오포 e편한세상", "pnu": "4161011500112290000",
+    "registerName": "오포 e-편한세상", "tradeName": "오포e편한세상"
+  },
+  {
+    "id": "gwangju-a46475208", "kaptCode": "A46475208",
+    "name": "오포 현대모닝사이드 2차", "address": "경기도 광주시 새말길 93",
+    "locality": "신현동", "keywords": "경기 광주 오포 신현",
+    "label": "현대모닝사이드 2차", "pnu": "4161011500105880001",
+    "registerName": "현대 모닝사이드 2차", "tradeName": "현대모닝사이드2"
+  }
+]

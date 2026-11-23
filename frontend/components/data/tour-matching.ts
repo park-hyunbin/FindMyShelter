@@ -8,7 +8,7 @@ export type PreferenceId = typeof preferences[number]['id'];
 export const tenures = { sale: '매매', jeonse: '전세', monthly: '월세' } as const;
 export type Tenure = keyof typeof tenures;
 export type Criteria = { maxPrice: number | null; maxMonthly: number | null; tenure: Tenure; features: PreferenceId[] };
-export type Transaction = { kind: string; date: string; area: number; amount: number; monthly: number | null };
+export type Transaction = { kind: string; date: string; area: number; amount: number; monthly: number | null; phase?: string };
 export type ComplexFacts = {
   code: string;
   households: number | null;
@@ -25,6 +25,16 @@ export function readManwon(value: string) {
   if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(cleaned)) return null;
   const number = Number(cleaned.replaceAll(',', ''));
   return Number.isSafeInteger(number) && number > 0 ? number : null;
+}
+
+export function readSaleBudget(eok: string, tenMillions: string) {
+  const first = eok.trim();
+  const second = tenMillions.trim();
+  if (!/^\d*$/.test(first) || !/^(?:\d(?:\.\d{1,3})?)?$/.test(second)) return null;
+
+  const [whole = '', decimal = ''] = second.split('.');
+  const amount = Number(first) * 10000 + Number(whole) * 1000 + Number(decimal.padEnd(3, '0'));
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
 }
 
 export function parkingRatio(facts: ComplexFacts) {

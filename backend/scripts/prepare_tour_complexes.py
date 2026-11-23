@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TOURS = {'opo': 'A46492201', 'songpa': 'A13816002'}
 OUTPUT = ROOT / 'frontend/components/data/tour-complexes.generated.json'
 SCENES = OUTPUT.with_name('seoul-scenes.generated.json')
+MAP_COMPLEXES = ROOT / 'data/config/tour-maps/gwangju.json'
 
 
 def count(value):
@@ -52,23 +53,24 @@ def main():
     args = parser.parse_args()
     snapshots = {}
     guide_by_code = {}
-    region_by_code = {code: region for region, code in TOURS.items()}
+    scene_regions = {scene['id']: scene['kaptCode'] for scene in json.loads(SCENES.read_text(encoding='utf-8'))}
+    map_regions = {item['id']: item['kaptCode'] for item in json.loads(MAP_COMPLEXES.read_text(encoding='utf-8'))}
+    region_by_code = {code: region for region, code in (TOURS | scene_regions | map_regions).items()}
     try:
-        guide_codes = set(region_by_code) | {scene['kaptCode'] for scene in json.loads(SCENES.read_text(encoding='utf-8'))}
         with args.source.open(encoding='utf-8-sig', newline='') as stream:
             for row in csv.DictReader(stream):
                 code = row['단지코드']
-                if code not in guide_codes:
+                if code not in region_by_code:
                     continue
                 if code in guide_by_code:
                     raise ValueError(f'Duplicate K-apt code {code}')
                 guide_by_code[code] = guide_facts(row)
                 if code in region_by_code:
                     snapshots[region_by_code[code]] = summarize(row)
-        if snapshots.keys() != TOURS.keys():
-            raise ValueError('Snapshot does not include all supported tour complexes')
+        if missing := (TOURS | map_regions).keys() - snapshots.keys():
+            raise ValueError(f'Snapshot does not include supported complexes: {sorted(missing)}')
         result = {'snapshotDate': args.snapshot_date.isoformat(),
-                  'complexes': {region: snapshots[region] for region in TOURS},
+                  'complexes': dict(sorted(snapshots.items())),
                   'guideByCode': dict(sorted(guide_by_code.items()))}
         temporary = OUTPUT.with_suffix('.json.tmp')
         temporary.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

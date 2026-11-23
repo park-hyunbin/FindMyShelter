@@ -5,8 +5,16 @@ import { PbfReader } from 'pbf';
 const region = process.argv.includes('--region') ? process.argv[process.argv.indexOf('--region') + 1] : 'opo';
 if (!/^[a-z0-9_-]+$/.test(region)) throw new Error('Invalid region');
 const regional = process.argv.includes('--region');
-const buildings = JSON.parse(await readFile(new URL(regional ? `../public/datasets/buildings/${region}/manifest.json` : '../public/sample-buildings.geojson', import.meta.url), 'utf8'));
-const [lng, lat] = buildings.metadata.center_lnglat;
+const mapWindow = process.argv.indexOf('--map-window');
+const mapOnly = mapWindow !== -1;
+const mapBounds = mapOnly ? process.argv[mapWindow + 1]?.split(',').map(Number) : null;
+const mapOutput = mapOnly ? process.argv[mapWindow + 2] : null;
+if (mapOnly && (!mapOutput || mapBounds?.length !== 4 || !mapBounds.every(Number.isFinite)
+  || mapBounds[0] >= mapBounds[2] || mapBounds[1] >= mapBounds[3])) {
+  throw new Error('Usage: --map-window west,south,east,north output.geojson');
+}
+const buildings = mapOnly ? null : JSON.parse(await readFile(new URL(regional ? `../public/datasets/buildings/${region}/manifest.json` : '../public/sample-buildings.geojson', import.meta.url), 'utf8'));
+const [lng, lat] = buildings?.metadata.center_lnglat ?? [];
 const profile = regional && await readFile(new URL(`../../data/config/buildings/${region}.json`, import.meta.url), 'utf8')
   .then(JSON.parse).catch(error => {
     if (error.code === 'ENOENT') return null;
@@ -14,7 +22,7 @@ const profile = regional && await readFile(new URL(`../../data/config/buildings/
   });
 const neighborhood = profile?.osm?.neighborhood;
 if (neighborhood && !/^[a-z0-9-]+$/.test(neighborhood)) throw new Error('Invalid neighborhood ID');
-const bounds = neighborhood ? profile.osm.bounds : [lng - 0.018, lat - 0.015, lng + 0.018, lat + 0.015];
+const bounds = mapBounds ?? (neighborhood ? profile.osm.bounds : [lng - 0.018, lat - 0.015, lng + 0.018, lat + 0.015]);
 const headers = { 'User-Agent': 'FindMyShelter-OpoResearch/0.1 (neighborhood data preparation)' };
 
 async function download(url) {
@@ -60,7 +68,7 @@ for (const [x, y] of coordinates) {
   const buffer = await (await download(url)).arrayBuffer();
   const tile = new VectorTile(new PbfReader(new Uint8Array(buffer)));
   const poi = tile.layers.poi;
-  if (poi) for (let i = 0; i < poi.length; i++) {
+  if (!mapOnly && poi) for (let i = 0; i < poi.length; i++) {
     const item = poi.feature(i), p = item.properties;
     const category = /올리브영|olive\s*young/i.test(p.name || '') ? 'beauty' : p.subclass === 'convenience' ? 'convenience' : p.subclass === 'school' ? 'school' : null;
     const { geometry } = item.toGeoJSON(x, y, zoom);
@@ -98,7 +106,11 @@ const snapshot = {
 };
 const output = new URL(neighborhood ? `../public/datasets/neighborhoods/${neighborhood}/`
   : regional ? `../public/datasets/regions/${region}/` : '../public/', import.meta.url);
-await mkdir(output, {recursive:true});
-await writeFile(new URL(regional ? 'environment.geojson' : 'opo-environment.geojson', output), JSON.stringify(snapshot) + '\n');
-if (regional) await writeFile(new URL('places.geojson', output), JSON.stringify({type:'FeatureCollection',features:places,metadata:snapshot.metadata}));
+if (mapOnly) {
+  await writeFile(mapOutput, JSON.stringify(snapshot) + '\n');
+} else {
+  await mkdir(output, {recursive:true});
+  await writeFile(new URL(regional ? 'environment.geojson' : 'opo-environment.geojson', output), JSON.stringify(snapshot) + '\n');
+  if (regional) await writeFile(new URL('places.geojson', output), JSON.stringify({type:'FeatureCollection',features:places,metadata:snapshot.metadata}));
+}
 console.log(`${features.length} features from ${coordinates.length} tiles`);

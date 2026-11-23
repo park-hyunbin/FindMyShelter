@@ -248,6 +248,41 @@
     "registerSource": "https://www.hub.go.kr/portal/opn/lps/idx-lgcpt-pvsn-srvc-list.do?opnLgcptTaskSeCd=03"
   },
   {
+    "id": "seoul-a13820007",
+    "name": "문정시영아파트",
+    "area": "서울 송파구 송이로31길 56",
+    "roadName": "송이로31길",
+    "households": 1316,
+    "towerCount": 10,
+    "estimatedHeights": true,
+    "kaptCode": "A13820007",
+    "count": 1051,
+    "radius": 600,
+    "roadside": [
+      127.13522644420172,
+      37.49133860000874
+    ],
+    "lookAt": [
+      127.13582624999998,
+      37.49091171
+    ],
+    "towers": {
+      "B0010000000RRZLV9": "9동",
+      "B0010000000RRZLP3": "8동",
+      "B0010000000RRZL2G": "5동",
+      "B0010000000RRZN4K": "10동",
+      "B0010000000RRZLZD": "7동",
+      "B0010000000RRZLO2": "6동",
+      "B0010000000RRZLYC": "4동",
+      "B0010000000RRVIDK": "2동",
+      "B0010000000RRVICJ": "1동",
+      "B0010000000RRVGHM": "3동"
+    },
+    "layers": [],
+    "outlineSource": "https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=MK&dsId=30162",
+    "registerSource": "https://openapt.seoul.go.kr/commonPortal/programLink.do?aptCode=A13820007&jspNm=%2FopenApt%2FdMenu%2FdangiInfo%2FdangiInfo.open"
+  },
+  {
     "id": "seoul-a13822004",
     "name": "잠실엘스",
     "area": "서울 송파구 올림픽로 99",

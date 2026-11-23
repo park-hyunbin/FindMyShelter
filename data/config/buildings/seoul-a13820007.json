@@ -1,0 +1,16 @@
+{
+  "region": "seoul-a13820007",
+  "kapt_code": "A13820007",
+  "catalog": {
+    "name": "문정시영아파트",
+    "area": "서울 송파구 송이로31길 56",
+    "roadName": "송이로31길",
+    "households": 1316,
+    "towerCount": 10,
+    "estimatedHeights": true
+  },
+  "osm": {
+    "bounds": [127.1208, 37.4784, 127.1508, 37.5034],
+    "boundaryWay": 1079414818
+  }
+}
